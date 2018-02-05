@@ -19,7 +19,7 @@ inputs:
       prefix: -db
   outfmt:
     type: string?
-    default: "6 qseqid sseqid length nident qstart qend qlen sstart send len qseq"
+    default: "6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq"
     inputBinding:
       prefix: -outfmt
   show_gis:
