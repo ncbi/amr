@@ -2,6 +2,7 @@ import argparse
 import os
 import subprocess
 import sys
+import tempfile
 import yaml
 
 def print_versions():
@@ -52,8 +53,11 @@ def run(updater_parser):
         },
         'parse_deflines': parse_deflines
     }
-    param_file = 'amrfinder_params.yaml'
-    stream = open(param_file, 'w')
+    #param_file = 'amrfinder_params.yaml'
+    #stream = open(param_file, 'w')
+    (fdstream, param_file) = tempfile.mkstemp(suffix=".cwl", prefix="amr_params_")
+    stream = os.fdopen(fdstream, 'w')
+    print(param_file)
     yaml.dump(params, stream)
     #print(yaml.dump(params))
 
