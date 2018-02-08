@@ -1,17 +1,27 @@
 #!/usr/bin/env python3
-
-#import importlib
 import argparse
+import importlib
 import os
-import sys
 import subprocess
+import sys
+
+import impl_amrfinder
+
+# N.B. This code represents the minimum functionallity required to
+#      download and update the latest version of the code. As such
+#      resist updating this code as much as possible. All changes
+#      should be made in impl_armfinder.py
 
 def main():
-    parser = argparse.ArgumentParser(description='Utility for mangling SciDB parallel saves to fit a new world order.')
-    parser.add_argument('-noup', '--no-update', dest='no_update', help='Do not try to update this code from the source control system (default: %(default)s)', action='store_true')
+    upparse = argparse.ArgumentParser(add_help=False)
+    upparse.add_argument('-noup', '--no-update', help='Do not try to update this code from the source control system (default: %(default)s)', action='store_true')
 
-    args = parser.parse_args()
-    do_update = not args.no_update
+    args, remaining_argv = upparse.parse_known_args()
+
+    do_update = True
+    if args.no_update:
+        do_update= False
+
     if do_update:
         script_path = os.path.dirname(os.path.realpath(__file__))
         print("Checking for update...", file=sys.stderr, end='')
@@ -20,9 +30,11 @@ def main():
                              stderr=subprocess.PIPE)
         if svn.returncode == 0:
             print("success!", file=sys.stderr)
+            importlib.reload(impl_amrfinder)
         else:
             print("failure.", file=sys.stderr)
 
+    impl_amrfinder.run(upparse)
 
     sys.exit(0) #success
 
