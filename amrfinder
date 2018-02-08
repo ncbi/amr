@@ -7,7 +7,6 @@ import sys
 import subprocess
 
 def main():
-    print(sys.argv)
     parser = argparse.ArgumentParser(description='Utility for mangling SciDB parallel saves to fit a new world order.')
     parser.add_argument('-noup', '--no-update', dest='no_update', help='Do not try to update this code from the source control system (default: %(default)s)', action='store_true')
 
@@ -15,10 +14,15 @@ def main():
     do_update = not args.no_update
     if do_update:
         script_path = os.path.dirname(os.path.realpath(__file__))
-        print(sys.argv[0], script_path)
-        subprocess.call(["svn", "update", script_path])
+        print("Checking for update...", file=sys.stderr, end='')
+        svn = subprocess.run(["svn", "update", script_path],
+                             stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE)
+        if svn.returncode == 0:
+            print("success!", file=sys.stderr)
+        else:
+            print("failure.", file=sys.stderr)
 
-    print(sys.argv)
 
     sys.exit(0) #success
 
