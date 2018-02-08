@@ -67,6 +67,19 @@ def run(updater_parser):
                          stdout=subprocess.PIPE,
                          stderr=subprocess.PIPE)
 
+    cleanup(param_file)
+    
     for line in open('results.sseqid','r'):
         print(line, end='')
+    
+def cleanup(param_file):
+    def safe_remove(f):
+        if os.path.exists(f):
+            os.remove(f)
+    safe_remove(param_file)
+
+    # Cleanup after cwltool's use of py2py3
+    safe_remove('/tmp/futurized_code.py')
+    safe_remove('/tmp/original_code.py')
+    safe_remove('/tmp/py2_detection_code.py')
     
