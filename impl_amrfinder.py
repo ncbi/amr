@@ -6,8 +6,11 @@ import yaml
 
 def print_versions():
     os.chdir(os.path.dirname(os.path.realpath(__file__)))
+    revision = "Unknown\n"
     r = subprocess.run(["svn", "info", "--show-item", "revision"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    print("SVN Revision ", r.stdout.decode())
+    if r.returncode == 0:
+        revision = r.stdout.decode()
+    print("SVN Revision", revision, end='')
     print("Docker Versions:")
     subprocess.run("grep -hPo '(?<=dockerPull: )(.*)(?=$)' *.cwl | sort -u | awk '{printf(\"    %s\\n\", $1)}'", shell=True)
 
