@@ -13,11 +13,16 @@ import impl_amrfinder
 #      should be made in impl_armfinder.py
 
 def main():
-    upparse = argparse.ArgumentParser(add_help=False)
-    upparse.add_argument('-noup', '--no-update', help='Do not try to update this code from the source control system (default: %(default)s)', action='store_true')
+    parse = argparse.ArgumentParser(add_help=False)
+    parse.add_argument('-noup', '--no-update', help='Do not try to update this code from the source control system (default: %(default)s)', action='store_true')
+    parse.add_argument('-v', '--version', action='store_true', help='Print version information')
 
-    args, remaining_argv = upparse.parse_known_args()
+    args, remaining_argv = parse.parse_known_args()
 
+    if args.version:
+        impl_amrfinder.print_versions()
+        sys.exit(0)
+    
     do_update = True
     if args.no_update:
         do_update= False
@@ -34,7 +39,7 @@ def main():
         else:
             print("failure.", file=sys.stderr)
 
-    impl_amrfinder.run(upparse)
+    impl_amrfinder.run(parse)
 
     sys.exit(0) #success
 

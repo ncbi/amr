@@ -1,17 +1,20 @@
 import argparse
 import os
 import subprocess
+import sys
 import yaml
+
+def print_versions():
+    os.chdir(os.path.dirname(os.path.realpath(__file__)))
+    r = subprocess.run(["svn", "info", "--show-item", "revision"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    print("SVN Version: ", r.stdout)
+    print("Docker Versions:")
+    subprocess.run("grep -hPo '(?<=dockerPull: )(.*)(?=$)' *.cwl | sort -u | awk '{printf(\"    %s\\n\", $1)}'", shell=True)
 
 def run(updater_parser):
     parser = argparse.ArgumentParser(
         parents=[updater_parser],
-        description='Run (and update) the amr_finder pipeline.')
-    parser.add_argument('-v', '--version', action='store_true', help='print version information')
-
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('-p', '--protein',    action='store_true',   help='Amino-acid sequences to search using BLASTP and HMMER')
-    group.add_argument('-n', '--nucleotide', action='store_false',  help='genomic sequence to search using BLASTX')
+        description='Run (and optionally update) the amr_finder pipeline.')
 
     parser.add_argument('-npd', '--no_parse_deflines', action='store_true',
                         help='Do not use -parse_deflines option for blast (sometimes fixes issues with format of the input FASTA file being automatically parsed by BLAST)')
@@ -25,9 +28,16 @@ def run(updater_parser):
     #parser.add_argument('-c <0.5> Minimum coverage of reference protein sequence
     #parser.add_argument('-t <11> Translation table for blastx
 
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('-p', '--protein',    action='store_true',   help='Amino-acid sequences to search using BLASTP and HMMER')
+    group.add_argument('-n', '--nucleotide', action='store_false',  help='genomic sequence to search using BLASTX')
     parser.add_argument('fasta', help='FASTA file containing the query sequence(s).')
     args = parser.parse_args()
 
+    if args.version:
+        print_versions()
+        sys.exit()
+    
     parse_deflines = True
     if args.no_parse_deflines:
         parse_deflines = False
@@ -39,7 +49,7 @@ def run(updater_parser):
         },
         'parse_deflines': parse_deflines
     }
-    param_file = 'armfinder_params.yaml'
+    param_file = 'amrfinder_params.yaml'
     stream = open(param_file, 'w')
     yaml.dump(params, stream)
     #print(yaml.dump(params))
