@@ -10,8 +10,8 @@ def print_versions():
     r = subprocess.run(["svn", "info", "--show-item", "revision"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if r.returncode == 0:
         revision = r.stdout.decode()
-    print("SVN Revision", revision, end='')
-    print("Docker Versions:")
+    print("CWL Subversion Revision", revision, end='')
+    print("Docker Container Versions:")
     subprocess.run("grep -hPo '(?<=dockerPull: )(.*)(?=$)' *.cwl | sort -u | awk '{printf(\"    %s\\n\", $1)}'", shell=True)
 
 def run(updater_parser):
