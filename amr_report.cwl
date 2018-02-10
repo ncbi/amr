@@ -2,7 +2,7 @@ cwlVersion: v1.0
 class: CommandLineTool
 hints:
   DockerRequirement:
-    dockerPull: ncbi/amr:18.02
+    dockerPull: ncbi/amr_utils:18.02
 
 baseCommand: amr_report
 

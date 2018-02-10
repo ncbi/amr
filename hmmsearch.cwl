@@ -2,7 +2,7 @@ cwlVersion: v1.0
 class: CommandLineTool
 hints:
   DockerRequirement:
-    dockerPull: ncbi/amr_hmmer:18.02
+    dockerPull: ncbi/hmmer_amr:18.02
 
 baseCommand: hmmsearch
 #stdout: $(inputs.db.basename).output
