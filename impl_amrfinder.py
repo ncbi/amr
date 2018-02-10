@@ -32,6 +32,8 @@ def run(updater_parser):
     #parser.add_argument('-c <0.5> Minimum coverage of reference protein sequence
     #parser.add_argument('-t <11> Translation table for blastx
 
+    parser.add_argument('-s', '--show_output', action='store_true',  help='Show the stdout and stderr output from the pipeline execution.')
+    
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('-p', '--protein',    action='store_true',   help='Amino-acid sequences to search using BLASTP and HMMER')
     group.add_argument('-n', '--nucleotide', action='store_false',  help='genomic sequence to search using BLASTX')
@@ -48,8 +50,8 @@ def run(updater_parser):
     
     params =  {
         'query': {                                                      
-            'class': 'File',                                               
-            'location': args.fasta
+            'class': 'File',
+            'location': os.path.realpath(args.fasta)
         },
         'parse_deflines': parse_deflines
     }
@@ -63,9 +65,13 @@ def run(updater_parser):
 
     script_path = os.path.dirname(os.path.realpath(__file__))
     cwlscript = script_path + "/wf_amr.cwl"
-    cwl = subprocess.run(['cwltool', cwlscript, param_file],
-                         stdout=subprocess.PIPE,
-                         stderr=subprocess.PIPE)
+
+    if args.show_output:
+        cwl = subprocess.run(['cwltool', cwlscript, param_file])
+    else:
+        cwl = subprocess.run(['cwltool', cwlscript, param_file],
+                             stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE)
 
     cleanup(param_file)
     
