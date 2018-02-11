@@ -6,6 +6,8 @@ hints:
 
 baseCommand: amr_report
 
+stdout: output.txt
+
 inputs:
   fam:
     type: string?
@@ -25,8 +27,8 @@ inputs:
     inputBinding:
       prefix: -hmmsearch
   outfile:
-    type: string
-    default: "results.sseqid"
+    type: string?
+    #default: "results.sseqid"
     inputBinding:
       prefix: -out
   verbose:
@@ -36,8 +38,6 @@ inputs:
       prefix: -verbose
 
 outputs:
-  - id: output
-    type: File
-    outputBinding:
-      glob: "*.sseqid"
+  output:
+    type: stdout
 

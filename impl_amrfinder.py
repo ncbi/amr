@@ -73,11 +73,13 @@ def run(updater_parser):
                              stdout=subprocess.PIPE,
                              stderr=subprocess.PIPE)
 
+    for line in open('output.txt','r'):
+        print(line, end='')
+
     cleanup(param_file)
     
-    for line in open('results.sseqid','r'):
-        print(line, end='')
-    
+        
+        
 def cleanup(param_file):
     def safe_remove(f):
         if os.path.exists(f):
