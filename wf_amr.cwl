@@ -7,6 +7,7 @@ class: Workflow
     
 inputs:
   query: File
+  parse_deflines: boolean
   
 outputs:
   result:
@@ -18,6 +19,7 @@ steps:
     run: blastp.cwl
     in:
       query: query
+      parse_deflines: parse_deflines
     out:
       [output]
 
