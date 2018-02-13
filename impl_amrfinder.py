@@ -38,8 +38,9 @@ class cwlgen:
                 'location': os.path.realpath(self.args.fasta)
             },
             'parse_deflines': self.parse_deflines,
-            'ident_min': 0.9,                              
-            'cover_min': 0.9
+            'ident_min': self.args.ident_min,
+            'cover_min': self.args.coverage_min,
+            'query_gencode': self.args.translation_table
         }
     
     def params(self):
@@ -93,10 +94,13 @@ def run(updater_parser):
     #parser.add_argument('-f <out.fa> FASTA file containing proteins identified as candidate AMR genes
     #parser.add_argument('-g <gff> GFF file indicating genomic location for proteins in -p <protein>
     # Options relating to nucleotide sequence input (-n)
-    #parser.add_argument('-i <0.9> Minimum proportion identical translated AA residues
-    #parser.add_argument('-c <0.5> Minimum coverage of reference protein sequence
-    #parser.add_argument('-t <11> Translation table for blastx
-
+    parser.add_argument('-i', '--ident_min', type=float, help='Minimum proportion identical translated AA residues (default: %(default)s).')
+    parser.add_argument('-c', '--coverage_min', type=float, help='Minimum coverage of reference protein sequence (default: %(default)s).')
+    parser.add_argument('-t', '--translation_table', type=int, help='Translation table for blastx (default: %(default)s).')
+    parser.set_defaults(ident_min=0.9,
+                        coverage_min=0.5,
+                        translation_table=11)
+    
     parser.add_argument('-s', '--show_output', action='store_true',  help='Show the stdout and stderr output from the pipeline execution.')
     
     group = parser.add_mutually_exclusive_group(required=True)

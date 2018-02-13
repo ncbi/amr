@@ -10,6 +10,7 @@ inputs:
   parse_deflines: boolean
   ident_min: float
   cover_min: float
+  query_gencode: int
   
 outputs:
   result:
@@ -22,6 +23,7 @@ steps:
     in:
       query: query
       parse_deflines: parse_deflines
+      query_gencode: query_gencode
     out:
       [output]
 
