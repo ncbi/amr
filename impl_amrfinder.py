@@ -86,7 +86,7 @@ def run(updater_parser):
         parents=[updater_parser],
         description='Run (and optionally update) the amr_finder pipeline.')
 
-    parser.add_argument('-npd', '--no_parse_deflines', action='store_true',
+    parser.add_argument('-d', '--no_parse_deflines', action='store_true',
                         help='Do not use -parse_deflines option for blast (sometimes fixes issues with format of the input FASTA file being automatically parsed by BLAST)')
     parser.add_argument('-o',   '--output',            dest='outfile',    help='tabfile output to this file instead of STDOUT')
 
