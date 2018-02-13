@@ -18,29 +18,43 @@ def print_versions():
 class cwlgen:
     def __init__(self, args):
         self.args = args
-        self.parse_deflines = True
-        if self.args.no_parse_deflines:
-            self.parse_deflines = False
+        self.parse_deflines = True if self.args.no_parse_deflines else False
+        self.do_protein = True if self.args.protein else False
 
-    def params(self):
-        params =  {
+            
+    def prot_params(self):
+        return {
             'query': {                                                      
                 'class': 'File',
                 'location': os.path.realpath(self.args.fasta)
             },
             'parse_deflines': self.parse_deflines
         }
-        #param_file = 'amrfinder_params.yaml'
-        #stream = open(param_file, 'w')
+    
+    def dna_params(self):
+        return {
+            'query': {                                                      
+                'class': 'File',
+                'location': os.path.realpath(self.args.fasta)
+            },
+            'parse_deflines': self.parse_deflines,
+            'ident_min': 0.9,                              
+            'cover_min': 0.9
+        }
+    
+    def params(self):
+        params = self.prot_params() if self.do_protein else self.dna_params()
+        
         (fdstream, self.param_file) = tempfile.mkstemp(suffix=".cwl", prefix="amr_params_")
         stream = os.fdopen(fdstream, 'w')
-        print(self.param_file)
         yaml.dump(params, stream)
+        #print(self.param_file)
         #print(yaml.dump(params))
 
     def run(self):
         script_path = os.path.dirname(os.path.realpath(__file__))
-        cwlscript = script_path + "/wf_amr_prot.cwl"
+        script_name = "/wf_amr_prot.cwl" if self.do_protein else "/wf_amr_dna.cwl"
+        cwlscript = script_path + script_name
 
         if self.args.show_output:
             cwl = subprocess.run(['cwltool', cwlscript, self.param_file])
@@ -59,7 +73,8 @@ class cwlgen:
             if os.path.exists(f):
                 os.remove(f)
         safe_remove(self.param_file)
-
+        safe_remove("output.txt")
+        
         # Cleanup after cwltool's use of py2py3
         safe_remove('/tmp/futurized_code.py')
         safe_remove('/tmp/original_code.py')

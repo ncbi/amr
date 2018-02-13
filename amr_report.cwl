@@ -36,11 +36,11 @@ inputs:
     inputBinding:
       prefix: -out
   ident_min:
-    type: string?
+    type: float?
     inputBinding:
       prefix: -ident_min
   cover_min:
-    type: string?
+    type: float?
     inputBinding:
       prefix: -cover_min
   pseudo:

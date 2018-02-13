@@ -8,6 +8,8 @@ class: Workflow
 inputs:
   query: File
   parse_deflines: boolean
+  ident_min: float
+  cover_min: float
   
 outputs:
   result:
@@ -15,27 +17,20 @@ outputs:
     outputSource: amr_report/output
 
 steps:
-  blastp:
-    run: blastp.cwl
+  blastx:
+    run: blastx.cwl
     in:
       query: query
       parse_deflines: parse_deflines
     out:
       [output]
 
-  hmmsearch:
-    run: hmmsearch.cwl
-    in:
-      query: query
-    out:
-      [hmmsearch_out,hmmdom_out]
-
   amr_report:
     run: amr_report.cwl
     in:
-      blastp: blastp/output
-      hmmdom: hmmsearch/hmmdom_out
-      hmmsearch: hmmsearch/hmmsearch_out
+      blastx: blastx/output
+      ident_min: ident_min
+      cover_min: cover_min
     out:
       [output]
       
