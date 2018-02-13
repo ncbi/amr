@@ -15,15 +15,19 @@ inputs:
     inputBinding:
       prefix: -fam
   blastp:
-    type: File
+    type: File?
     inputBinding:
       prefix: -blastp
+  blastx:
+    type: File?
+    inputBinding:
+      prefix: -blastx
   hmmdom:
-    type: File
+    type: File?
     inputBinding:
       prefix: -hmmdom
   hmmsearch:
-    type: File
+    type: File?
     inputBinding:
       prefix: -hmmsearch
   outfile:
@@ -31,6 +35,24 @@ inputs:
     #default: "results.sseqid"
     inputBinding:
       prefix: -out
+  ident_min:
+    type: string?
+    inputBinding:
+      prefix: -ident_min
+  cover_min:
+    type: string?
+    inputBinding:
+      prefix: -cover_min
+  pseudo:
+    type: boolean?
+    default: false
+    inputBinding:
+      prefix: -pseudo
+  qc:
+    type: boolean?
+    default: false
+    inputBinding:
+      prefix: -qc
   verbose:
     type: int?
     default: 0

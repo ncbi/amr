@@ -15,6 +15,56 @@ def print_versions():
     print("Docker Container Versions:")
     subprocess.run("grep -hPo '(?<=dockerPull: )(.*)(?=$)' *.cwl | sort -u | awk '{printf(\"    %s\\n\", $1)}'", shell=True)
 
+class cwlgen:
+    def __init__(self, args):
+        self.args = args
+        self.parse_deflines = True
+        if self.args.no_parse_deflines:
+            self.parse_deflines = False
+
+    def params(self):
+        params =  {
+            'query': {                                                      
+                'class': 'File',
+                'location': os.path.realpath(self.args.fasta)
+            },
+            'parse_deflines': self.parse_deflines
+        }
+        #param_file = 'amrfinder_params.yaml'
+        #stream = open(param_file, 'w')
+        (fdstream, self.param_file) = tempfile.mkstemp(suffix=".cwl", prefix="amr_params_")
+        stream = os.fdopen(fdstream, 'w')
+        print(self.param_file)
+        yaml.dump(params, stream)
+        #print(yaml.dump(params))
+
+    def run(self):
+        script_path = os.path.dirname(os.path.realpath(__file__))
+        cwlscript = script_path + "/wf_amr_prot.cwl"
+
+        if self.args.show_output:
+            cwl = subprocess.run(['cwltool', cwlscript, self.param_file])
+        else:
+            cwl = subprocess.run(['cwltool', cwlscript, self.param_file],
+                                 stdout=subprocess.PIPE,
+                                 stderr=subprocess.PIPE)
+
+        for line in open('output.txt','r'):
+            print(line, end='')
+
+        self.cleanup()    
+
+    def cleanup(self):
+        def safe_remove(f):
+            if os.path.exists(f):
+                os.remove(f)
+        safe_remove(self.param_file)
+
+        # Cleanup after cwltool's use of py2py3
+        safe_remove('/tmp/futurized_code.py')
+        safe_remove('/tmp/original_code.py')
+        safe_remove('/tmp/py2_detection_code.py')
+            
 def run(updater_parser):
     parser = argparse.ArgumentParser(
         parents=[updater_parser],
@@ -44,50 +94,9 @@ def run(updater_parser):
         print_versions()
         sys.exit()
     
-    parse_deflines = True
-    if args.no_parse_deflines:
-        parse_deflines = False
-    
-    params =  {
-        'query': {                                                      
-            'class': 'File',
-            'location': os.path.realpath(args.fasta)
-        },
-        'parse_deflines': parse_deflines
-    }
-    #param_file = 'amrfinder_params.yaml'
-    #stream = open(param_file, 'w')
-    (fdstream, param_file) = tempfile.mkstemp(suffix=".cwl", prefix="amr_params_")
-    stream = os.fdopen(fdstream, 'w')
-    print(param_file)
-    yaml.dump(params, stream)
-    #print(yaml.dump(params))
-
-    script_path = os.path.dirname(os.path.realpath(__file__))
-    cwlscript = script_path + "/wf_amr.cwl"
-
-    if args.show_output:
-        cwl = subprocess.run(['cwltool', cwlscript, param_file])
-    else:
-        cwl = subprocess.run(['cwltool', cwlscript, param_file],
-                             stdout=subprocess.PIPE,
-                             stderr=subprocess.PIPE)
-
-    for line in open('output.txt','r'):
-        print(line, end='')
-
-    cleanup(param_file)
+    g = cwlgen(args)
+    g.params()
+    g.run()
     
         
-        
-def cleanup(param_file):
-    def safe_remove(f):
-        if os.path.exists(f):
-            os.remove(f)
-    safe_remove(param_file)
-
-    # Cleanup after cwltool's use of py2py3
-    safe_remove('/tmp/futurized_code.py')
-    safe_remove('/tmp/original_code.py')
-    safe_remove('/tmp/py2_detection_code.py')
     
