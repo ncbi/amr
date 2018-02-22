@@ -57,17 +57,18 @@ class cwlgen:
         script_name = "/wf_amr_prot.cwl" if self.do_protein else "/wf_amr_dna.cwl"
         cwlscript = script_path + script_name
 
-        if self.args.show_output:
-            cwl = subprocess.run(['cwltool', cwlscript, self.param_file])
-        else:
-            cwl = subprocess.run(['cwltool', cwlscript, self.param_file],
-                                 stdout=subprocess.PIPE,
-                                 stderr=subprocess.PIPE)
+        try:
+            if self.args.show_output:
+                cwl = subprocess.run(['cwltool', cwlscript, self.param_file])
+            else:
+                cwl = subprocess.run(['cwltool', cwlscript, self.param_file],
+                                     stdout=subprocess.PIPE,
+                                     stderr=subprocess.PIPE)
 
-        for line in open('output.txt','r'):
-            print(line, end='')
-
-        self.cleanup()    
+            for line in open('output.txt','r'):
+                print(line, end='')
+        finally:
+            self.cleanup()    
 
     def cleanup(self):
         def safe_remove(f):
