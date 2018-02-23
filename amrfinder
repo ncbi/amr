@@ -20,12 +20,11 @@ def main():
 
     args, remaining_argv = parse.parse_known_args()
 
+    script_path = os.path.dirname(os.path.realpath(__file__))
     if args.version:
         impl_amrfinder.print_versions()
         sys.exit(0)
-    
-    if args.update:
-        script_path = os.path.dirname(os.path.realpath(__file__))
+    elif args.update:
         print("Checking for update...", file=sys.stderr, end='')
         svn = subprocess.run(["svn", "update", script_path],
                              stdout=subprocess.PIPE,
@@ -35,8 +34,10 @@ def main():
             importlib.reload(impl_amrfinder)
         else:
             print("failure.", file=sys.stderr)
-
-    impl_amrfinder.run(parse)
+    elif args.check_update:
+        subprocess.run(["svn", "status", "-u", script_path])
+    else:
+        impl_amrfinder.run(parse)
 
     sys.exit(0) #success
 
