@@ -63,10 +63,14 @@ class cwlgen:
             else:
                 cwl = subprocess.run(['cwltool', cwlscript, self.param_file],
                                      stdout=subprocess.PIPE,
-                                     stderr=subprocess.PIPE)
+                                     stderr=subprocess.STDOUT)
 
             for line in open('output.txt','r'):
                 print(line, end='')
+        except CalledProcessError:
+            print(cwl.stdout)
+        except OSError:
+            print(cwl.stdout)
         finally:
             self.cleanup()    
 
