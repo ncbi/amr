@@ -61,14 +61,11 @@ positional arguments:
   fasta                 FASTA file containing the query sequence(s).
 
 optional arguments:
-  -h, --help            show this help message and exit
-  -v, --version         Print version information
   -u, --update          Update this code from the source control system
                         (default: False)
-  -d, --no_parse_deflines
-                        Do not use -parse_deflines option for blast (sometimes
+  -d, --parse_deflines  Use -parse_deflines option for blast. This sometimes
                         fixes issues with format of the input FASTA file being
-                        automatically parsed by BLAST)
+                        automatically parsed by BLAST. (default: False)
   -o OUTFILE, --output OUTFILE
                         tabfile output to this file instead of STDOUT
   -i IDENT_MIN, --ident_min IDENT_MIN
@@ -78,7 +75,9 @@ optional arguments:
                         Minimum coverage of reference protein sequence
                         (default: 0.5).
   -t TRANSLATION_TABLE, --translation_table TRANSLATION_TABLE
-                        Translation table for blastx (default: 11).
+                        Translation table for blastx (default: 11). More info
+                        may be found at https://www.ncbi.nlm.nih.gov/Taxonomy/
+                        Utils/wprintgc.cgi?mode=c
   -s, --show_output     Show the stdout and stderr output from the pipeline
                         execution.
   -p, --protein         Amino-acid sequences to search using BLASTP and HMMER

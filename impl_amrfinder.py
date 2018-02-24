@@ -105,7 +105,7 @@ def run(updater_parser):
         description='Run (and optionally update) the amr_finder pipeline.')
 
     parser.add_argument('-d', '--parse_deflines', action='store_true',
-                        help='Use -parse_deflines option for blast (sometimes fixes issues with format of the input FASTA file being automatically parsed by BLAST)')
+                        help='Use -parse_deflines option for blast. This sometimes fixes issues with format of the input FASTA file being automatically parsed by BLAST. (default: %(default)s)')
     parser.add_argument('-o',   '--output', dest='outfile', help='tabfile output to this file instead of STDOUT')
 
     # Options relating to protein input (-p):
