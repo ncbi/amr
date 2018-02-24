@@ -114,7 +114,7 @@ def run(updater_parser):
     # Options relating to nucleotide sequence input (-n)
     parser.add_argument('-i', '--ident_min', type=float, help='Minimum proportion identical translated AA residues (default: %(default)s).')
     parser.add_argument('-c', '--coverage_min', type=float, help='Minimum coverage of reference protein sequence (default: %(default)s).')
-    parser.add_argument('-t', '--translation_table', type=int, help='Translation table for blastx (default: %(default)s).')
+    parser.add_argument('-t', '--translation_table', type=int, help='Translation table for blastx (default: %(default)s). More info may be found at https://www.ncbi.nlm.nih.gov/Taxonomy/Utils/wprintgc.cgi?mode=c')
     parser.set_defaults(ident_min=0.9,
                         coverage_min=0.5,
                         translation_table=11)
