@@ -22,8 +22,8 @@ def main():
 
     script_path = os.path.dirname(os.path.realpath(__file__))
     if args.version:
-        impl_amrfinder.print_versions()
-        subprocess.run(["svn", "status", "-u", script_path])
+        impl_amrfinder.print_versions(script_path)
+        #subprocess.run(["svn", "status", "-u", script_path])
         sys.exit(0)
     elif args.update:
         print("Checking for update...", file=sys.stderr, end='')

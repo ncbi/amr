@@ -5,7 +5,7 @@ import sys
 import tempfile
 import yaml
 
-def print_versions():
+def print_versions(spath):
     os.chdir(os.path.dirname(os.path.realpath(__file__)))
     revision = "Unknown\n"
     r = subprocess.run(["svn", "info", "--show-item", "revision"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -13,9 +13,9 @@ def print_versions():
         revision = r.stdout.decode()
 
     url = ""
-    r = subprocess.run(["svn", "info", "--show-item", "url"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    r = subprocess.run(["svn", "info", "--show-item", "url", spath], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if r.returncode == 0:
-        url = r.stdout.decode()
+        url = r.stdout.decode().strip()
         
     latest = "Unknown\n"
     r = subprocess.run(["svn", "info", "--show-item", "revision", url], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
