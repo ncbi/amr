@@ -61,6 +61,8 @@ positional arguments:
   fasta                 FASTA file containing the query sequence(s).
 
 optional arguments:
+  -h, --help            show this help message and exit
+  -v, --version         Print version information
   -u, --update          Update this code from the source control system
                         (default: False)
   -d, --parse_deflines  Use -parse_deflines option for blast. This sometimes
