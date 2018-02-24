@@ -11,8 +11,21 @@ def print_versions():
     r = subprocess.run(["svn", "info", "--show-item", "revision"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if r.returncode == 0:
         revision = r.stdout.decode()
-    print("CWL Subversion Revision", revision, end='')
-    print("Docker Container Versions:")
+
+    url = ""
+    r = subprocess.run(["svn", "info", "--show-item", "url"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if r.returncode == 0:
+        url = r.stdout.decode()
+        
+    latest = "Unknown\n"
+    r = subprocess.run(["svn", "info", "--show-item", "revision", url], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if r.returncode == 0:
+        latest = r.stdout.decode()
+
+        
+    print("  Current CWL Subversion revision:", revision, end='')
+    print("   Latest CWL Subversion revision:", latest, end='')
+    print("Current Docker container versions:")
     subprocess.run("grep -hPo '(?<=dockerPull: )(.*)(?=$)' *.cwl | sort -u | awk '{printf(\"    %s\\n\", $1)}'", shell=True)
 
 class cwlgen:

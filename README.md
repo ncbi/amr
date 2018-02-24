@@ -51,7 +51,7 @@ You may also have the code update itself as well by using `-u`. This will not on
 
 ```shell
 $ ./amr_finder/amrfinder -h
-usage: amrfinder [-h] [-x] [-u] [-v] [-d] [-o OUTFILE] [-i IDENT_MIN]
+usage: amrfinder [-h] [-v] [-u] [-d] [-o OUTFILE] [-i IDENT_MIN]
                  [-c COVERAGE_MIN] [-t TRANSLATION_TABLE] [-s] (-p | -n)
                  fasta
 
@@ -62,11 +62,9 @@ positional arguments:
 
 optional arguments:
   -h, --help            show this help message and exit
-  -x, --check-update    Check for any updates to this pipeline (default:
-                        False)
+  -v, --version         Print version information
   -u, --update          Update this code from the source control system
                         (default: False)
-  -v, --version         Print version information
   -d, --no_parse_deflines
                         Do not use -parse_deflines option for blast (sometimes
                         fixes issues with format of the input FASTA file being
