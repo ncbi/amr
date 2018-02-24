@@ -31,7 +31,7 @@ def print_versions(spath):
 class cwlgen:
     def __init__(self, args):
         self.args = args
-        self.parse_deflines = True if self.args.no_parse_deflines else False
+        self.parse_deflines = True if self.args.parse_deflines else False
         self.do_protein = True if self.args.protein else False
 
             
@@ -104,9 +104,9 @@ def run(updater_parser):
         parents=[updater_parser],
         description='Run (and optionally update) the amr_finder pipeline.')
 
-    parser.add_argument('-d', '--no_parse_deflines', action='store_true',
-                        help='Do not use -parse_deflines option for blast (sometimes fixes issues with format of the input FASTA file being automatically parsed by BLAST)')
-    parser.add_argument('-o',   '--output',            dest='outfile',    help='tabfile output to this file instead of STDOUT')
+    parser.add_argument('-d', '--parse_deflines', action='store_true',
+                        help='Use -parse_deflines option for blast (sometimes fixes issues with format of the input FASTA file being automatically parsed by BLAST)')
+    parser.add_argument('-o',   '--output', dest='outfile', help='tabfile output to this file instead of STDOUT')
 
     # Options relating to protein input (-p):
     #parser.add_argument('-f <out.fa> FASTA file containing proteins identified as candidate AMR genes
