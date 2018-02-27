@@ -15,7 +15,7 @@ import impl_amrfinder
 def main():
     parse = argparse.ArgumentParser(add_help=False)
     #parse.add_argument('-x', '--check-update', help='Check for any updates to this pipeline (default: %(default)s)', action='store_true')
-    parse.add_argument('-v', '--version', action='store_true', help='Print version information')
+    parse.add_argument('-v', '--version', action='store_true', help='Print current version information, and checks for latest version.')
     parse.add_argument('-u', '--update', action='store_true', help='Update this code from the source control system (default: %(default)s)')
 
     args, remaining_argv = parse.parse_known_args()

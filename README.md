@@ -62,7 +62,8 @@ positional arguments:
 
 optional arguments:
   -h, --help            show this help message and exit
-  -v, --version         Print version information
+  -v, --version         Print current version information, and checks for
+                        latest version.
   -u, --update          Update this code from the source control system
                         (default: False)
   -d, --parse_deflines  Use -parse_deflines option for blast. This sometimes
@@ -81,7 +82,7 @@ optional arguments:
                         may be found at https://www.ncbi.nlm.nih.gov/Taxonomy/
                         Utils/wprintgc.cgi?mode=c
   -s, --show_output     Show the stdout and stderr output from the pipeline
-                        execution.
+                        execution (verbose mode, useful for debugging).
   -p, --protein         Amino-acid sequences to search using BLASTP and HMMER
   -n, --nucleotide      genomic sequence to search using BLASTX
 ```
