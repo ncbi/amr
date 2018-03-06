@@ -1,0 +1,4 @@
+query:
+  class: File
+  location: test_prot.fa
+parse_deflines: false
