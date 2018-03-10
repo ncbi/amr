@@ -1,9 +1,11 @@
+from __future__ import print_function
 import argparse
 import os
 import subprocess
 import sys
 import tempfile
 import yaml
+from distutils import spawn
 
 def print_versions(spath):
     os.chdir(os.path.dirname(os.path.realpath(__file__)))
@@ -66,21 +68,27 @@ class cwlgen:
         #print(yaml.dump(params))
 
     def run(self):
+        cwlcmd = ['cwltool']
+        docker_avail = spawn.find_executable("docker")
+        if docker_avail == None:
+            cwlcmd.extend(['--user-space-docker-cmd', 'udocker'])
         script_path = os.path.dirname(os.path.realpath(__file__))
         script_name = "/wf_amr_prot.cwl" if self.do_protein else "/wf_amr_dna.cwl"
         cwlscript = script_path + script_name
-
+        cwlcmd.extend([cwlscript, self.param_file])
+        
         try:
             if self.args.show_output:
-                cwl = subprocess.run(['cwltool', cwlscript, self.param_file])
+                #cwl = subprocess.run(cwlcmd)
+                subprocess.check_call(cwlcmd)
             else:
-                cwl = subprocess.run(['cwltool', cwlscript, self.param_file],
-                                     stdout=subprocess.PIPE,
-                                     stderr=subprocess.STDOUT)
+                subprocess.check_output(cwlcmd)
+                #subprocess.check_output(cwlcmd, stderr=subprocess.STDOUT)
+                #cwl = subprocess.run(cwlcmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
             for line in open('output.txt','r'):
                 print(line, end='')
-        except CalledProcessError:
+        except subprocess.CalledProcessError:
             print(cwl.stdout)
         except OSError:
             print(cwl.stdout)
