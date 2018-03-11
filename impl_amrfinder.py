@@ -68,7 +68,14 @@ class cwlgen:
         #print(yaml.dump(params))
 
     def run(self):
-        cwlcmd = ['cwltool']
+        cwlcmd = []
+        if spawn.find_executable("cwl-runner") != None:
+            cwlcmd = ['cwl-runner']
+        elif spawn.find_executable("cwltool") != None:
+            cwlcmd = ['cwltool']
+        else:
+            print("No CWL platform found.", file=sys.stderr)
+            sys.exit(1)
         docker_avail = spawn.find_executable("docker")
         if docker_avail == None:
             cwlcmd.extend(['--user-space-docker-cmd', 'udocker'])
@@ -78,13 +85,10 @@ class cwlgen:
         cwlcmd.extend([cwlscript, self.param_file])
         
         try:
-            if self.args.show_output:
-                #cwl = subprocess.run(cwlcmd)
-                subprocess.check_call(cwlcmd)
-            else:
-                subprocess.check_output(cwlcmd)
-                #subprocess.check_output(cwlcmd, stderr=subprocess.STDOUT)
-                #cwl = subprocess.run(cwlcmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            out = None
+            if not self.args.show_output:
+                out = open(os.devnull, "wb")
+            subprocess.check_call(cwlcmd, stdout=out, stderr=out)
 
             for line in open('output.txt','r'):
                 print(line, end='')
