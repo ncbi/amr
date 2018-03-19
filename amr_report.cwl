@@ -30,6 +30,10 @@ inputs:
     type: File?
     inputBinding:
       prefix: -hmmsearch
+  gff:
+    type: File?
+    inputBinding:
+      prefix: -gff
   outfile:
     type: string?
     #default: "results.sseqid"

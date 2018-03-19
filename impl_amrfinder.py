@@ -33,16 +33,21 @@ class cwlgen:
         self.args = args
         self.parse_deflines = True if self.args.parse_deflines else False
         self.do_protein = True if self.args.protein else False
-
             
     def prot_params(self):
-        return {
+        p = {
             'query': {                                                      
                 'class': 'File',
                 'location': os.path.realpath(self.args.fasta)
             },
             'parse_deflines': self.parse_deflines
         }
+        if self.args.gff:
+            p['gff'] = {
+                'class': 'File',
+                'location': os.path.realpath(self.args.gff)
+                }
+        return p
     
     def dna_params(self):
         return {
@@ -101,7 +106,7 @@ class cwlgen:
         def safe_remove(f):
             if os.path.exists(f):
                 os.remove(f)
-        safe_remove(self.param_file)
+        #safe_remove(self.param_file)
         safe_remove("output.txt")
         
         # Cleanup after cwltool's use of py2py3
@@ -121,7 +126,7 @@ def run(updater_parser):
 
     # Options relating to protein input (-p):
     #parser.add_argument('-f <out.fa> FASTA file containing proteins identified as candidate AMR genes
-    #parser.add_argument('-g <gff> GFF file indicating genomic location for proteins in -p <protein>
+    parser.add_argument('-g', '--gff', help='GFF file indicating genomic location for proteins')
     # Options relating to nucleotide sequence input (-n)
     parser.add_argument('-i', '--ident_min', type=float,
                         help='Minimum proportion identical translated AA residues (default: %(default)s).')

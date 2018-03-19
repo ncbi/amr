@@ -7,6 +7,7 @@ class: Workflow
     
 inputs:
   query: File
+  gff: File?
   parse_deflines: boolean
   
 outputs:
@@ -36,6 +37,7 @@ steps:
       blastp: blastp/output
       hmmdom: hmmsearch/hmmdom_out
       hmmsearch: hmmsearch/hmmsearch_out
+      gff: gff
     out:
       [output]
       
