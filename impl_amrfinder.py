@@ -9,26 +9,24 @@ from distutils import spawn
 
 def print_versions(spath):
     os.chdir(os.path.dirname(os.path.realpath(__file__)))
-    revision = "Unknown\n"
-    r = subprocess.run(["svn", "info", "--show-item", "revision"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    if r.returncode == 0:
-        revision = r.stdout.decode()
-
-    url = ""
-    r = subprocess.run(["svn", "info", "--show-item", "url", spath], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    if r.returncode == 0:
-        url = r.stdout.decode().strip()
-        
-    latest = "Unknown\n"
-    r = subprocess.run(["svn", "info", "--show-item", "revision", url], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    if r.returncode == 0:
-        latest = r.stdout.decode()
-
-        
-    print("  Current CWL Subversion revision:", revision, end='')
-    print("   Latest CWL Subversion revision:", latest, end='')
+    revision = "Unknown"
+    latest = "Unknown"
+    try:
+        err = open(os.devnull, "wb")
+        r = subprocess.check_output("set -o pipefail; svn info | grep ^Revision | cut -d' ' -f2", shell=True, stderr=err)
+        revision = r.strip()
+        r = subprocess.check_output("set -o pipefail; svn info | grep ^URL | cut -d' ' -f2", shell=True, stderr=err)
+        url = r.strip()
+        r = subprocess.check_output("set -o pipefail; svn info {} | grep ^Revision | cut -d' ' -f2".format(url), shell=True, stderr=err)
+        latest = r.strip()
+    except subprocess.CalledProcessError:
+        revision = "Unknown"
+        latest = "Unknown"
+    
+    print("  Current CWL Subversion revision:", revision)
+    print("   Latest CWL Subversion revision:", latest)
     print("Current Docker container versions:")
-    subprocess.run("grep -hPo '(?<=dockerPull: )(.*)(?=$)' *.cwl | sort -u | awk '{printf(\"    %s\\n\", $1)}'", shell=True)
+    subprocess.check_call("grep -hPo '(?<=dockerPull: )(.*)(?=$)' *.cwl | sort -u | awk '{printf(\"    %s\\n\", $1)}'", shell=True)
 
 class cwlgen:
     def __init__(self, args):
