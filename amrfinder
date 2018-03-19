@@ -24,22 +24,17 @@ def main():
     script_path = os.path.dirname(os.path.realpath(__file__))
     if args.version:
         impl_amrfinder.print_versions(script_path)
-        #subprocess.run(["svn", "status", "-u", script_path])
         sys.exit(0)
     elif args.update:
         print("Checking for update...", file=sys.stderr, end='')
-        svn = subprocess.run(["svn", "update", script_path],
-                             stdout=subprocess.PIPE,
-                             stderr=subprocess.PIPE)
-        if svn.returncode == 0:
-            print("success!", file=sys.stderr)
-            importlib.reload(impl_amrfinder)
-        else:
+        try:
+            out = open(os.devnull, "wb")
+            svn = subprocess.check_call(["svn", "update", script_path], stdout=out, stderr=out)
+        except subprocess.CalledProcessError:
             print("failure.", file=sys.stderr)
-        sys.exit(0)
-    # elif args.check_update:
-    #     subprocess.run(["svn", "status", "-u", script_path])
-    #     sys.exit(0)
+            sys.exit(0)     
+        print("success!", file=sys.stderr)
+        #importlib.reload(impl_amrfinder)
     else:
         impl_amrfinder.run(parse)
 
