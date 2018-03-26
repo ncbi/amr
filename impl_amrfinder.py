@@ -33,6 +33,8 @@ class cwlgen:
         self.args = args
         self.parse_deflines = True if self.args.parse_deflines else False
         self.do_protein = True if self.args.protein else False
+        print(self.do_protein)
+        sys.exit(1)
             
     def prot_params(self):
         p = {
@@ -113,7 +115,16 @@ class cwlgen:
         safe_remove('/tmp/futurized_code.py')
         safe_remove('/tmp/original_code.py')
         safe_remove('/tmp/py2_detection_code.py')
-            
+
+class FastaAction(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        if option_string == '-p' or option_string == '--protein':
+            setattr(namespace, 'protein', True)
+        if option_string == '-n' or option_string == '--nucleotide':            
+            setattr(namespace, 'protein', False)
+        print('%r %r %r' % (namespace, values, option_string))
+        setattr(namespace, self.dest, values)
+        
 def run(updater_parser):
     parser = argparse.ArgumentParser(
         parents=[updater_parser],
@@ -142,11 +153,11 @@ def run(updater_parser):
                         help='Show the stdout and stderr output from the pipeline execution (verbose mode, useful for debugging).')
     
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('-p', '--protein',    action='store_true',
+    group.add_argument('-p', '--protein', dest='fasta', action=FastaAction,
                        help='Amino-acid sequences to search using BLASTP and HMMER')
-    group.add_argument('-n', '--nucleotide', action='store_false',
+    group.add_argument('-n', '--nucleotide', dest='fasta', action=FastaAction,
                        help='genomic sequence to search using BLASTX')
-    parser.add_argument('fasta', help='FASTA file containing the query sequence(s).')
+    #parser.add_argument('fasta', help='FASTA file containing the query sequence(s).')
     args = parser.parse_args()
 
     if args.version:
