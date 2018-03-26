@@ -2,7 +2,7 @@
 
 ## Overview
 
-This software and the accompanying database are designed to find aquired
+This software and the accompanying database are designed to find acquired
 antimicrobial resistance genes in protein or nucleotide sequences.
 
 ## Mechanism
@@ -48,10 +48,11 @@ also made AMRFinder compatable with udocker
 (https://github.com/indigo-dc/udocker).
 
 Note that udocker requires python2. AMRFinder itself is compatible with 
-either python2 or 3. 
+either Python 2 or 3. 
 
 There are two parts to installing AMRFinder. Installing the code itself and 
 installing the prerequisites. 
+
 
 Prerequisites:
    - python2 or python3 (udocker requires python2)
@@ -79,7 +80,7 @@ your system.
 
 e.g.,
 
-The instructions that follow use pip and virtualenv, which are usually 
+The instructions that follow use pip and virtualenv, which are usually
 included with most python installs, so try:
 
 ```shell
@@ -161,9 +162,9 @@ $HOME/amr_finder/amrfinder $@
 
 ### Typical options
 
-Generally speaking, the only required arguments are either 
-`-p <protein_fasta>` for proteins or `-n <nucleotide_fasta>` for nucleotides. 
-You may also have the code update itself as well by using `-u`. This will 
+Generally speaking, the only required arguments are either
+`-p <protein_fasta>` for proteins or `-n <nucleotide_fasta>` for nucleotides.
+You may also have the code update itself as well by using `-u`. This will
 update to the latest AMR database, as well as any code changes in AMRFinder.
 
 ### Complete set of options
@@ -172,6 +173,7 @@ update to the latest AMR database, as well as any code changes in AMRFinder.
 $ ./amr_finder/amrfinder -h
 usage: amrfinder [-h] [-v] [-u] [-d] [-o OUTFILE] [-i IDENT_MIN]
                  [-c COVERAGE_MIN] [-t TRANSLATION_TABLE] [-s] 
+                 [-c COVERAGE_MIN] [-t TRANSLATION_TABLE] [-s]
 				 (-p <fasta> | -n <fasta>)
 
 Run (and optionally update) the amr_finder pipeline.
@@ -209,26 +211,26 @@ optional arguments:
 
 This distribution includes HMMER (c) Sean Eddy and the Howard Hughes Medical
 Institue and licensed under the GNU General Public License version 3 (GPLv3)
-(https://www.gnu.org/licenses/) 
+(https://www.gnu.org/licenses/)
 
 See http://hmmer.org for details.
 
-### PUBLIC DOMAIN NOTICE                                       
-                                                           
+### PUBLIC DOMAIN NOTICE
+
 This software/database is "United States Government Work" under the terms of
 the United States Copyright Act. It was written as part of the authors'
 official duties for the United States Government and thus cannot be
 copyrighted. This software/database is freely available to the public for use
 without a copyright notice. Restrictions cannot be placed on its present or
-future use.                                                       
-                                                           
+future use.
+
 Although all reasonable efforts have been taken to ensure  the accuracy and
 reliability of the software and data, the National Center for Biotechnology
 Information (NCBI) and the U.S. Government do not and cannot warrant the
 performance or results that may be obtained by using this  software or data.
 NCBI and the U.S. Government disclaim all warranties as to performance,
-merchantability or fitness for any particular purpose.                        
-                                                           
+merchantability or fitness for any particular purpose.
+
 In any work or product derived from this material, proper attribution of the
 authors as the source of the software or data should be made, using:
 <<CITATION>> as the citation.
