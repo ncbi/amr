@@ -9,6 +9,7 @@ inputs:
   query: File
   gff: File?
   parse_deflines: boolean
+  num_threads: int?
   
 outputs:
   result:
@@ -21,6 +22,7 @@ steps:
     in:
       query: query
       parse_deflines: parse_deflines
+      num_threads: num_threads
     out:
       [output]
 

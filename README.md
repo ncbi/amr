@@ -186,11 +186,16 @@ optional arguments:
   -v, --version         Print version information
   -u, --update          Update this code from the source control system
                         (default: False)
+  -p FASTA, --protein FASTA
+                        Amino-acid sequences to search using BLASTP and HMMER
+  -n FASTA, --nucleotide FASTA
+                        Genomic sequence to search using BLASTX
   -d, --parse_deflines  Use -parse_deflines option for blast. This sometimes
                         fixes issues with format of the input FASTA file being
                         automatically parsed by BLAST. (default: False)
   -o OUTFILE, --output OUTFILE
                         tabfile output to this file instead of STDOUT
+  -g GFF, --gff GFF     GFF file indicating genomic location for proteins
   -i IDENT_MIN, --ident_min IDENT_MIN
                         Minimum proportion identical translated AA residues
                         (default: 0.9).
@@ -202,7 +207,12 @@ optional arguments:
                         may be found at https://www.ncbi.nlm.nih.gov/Taxonomy/
                         Utils/wprintgc.cgi?mode=c
   -s, --show_output     Show the stdout and stderr output from the pipeline
-                        execution.
+                        execution (verbose mode, useful for debugging).
+  -P, --parallel        [experimental] Run jobs in parallel. Does not
+                        currently keep track of ResourceRequirements like the
+                        number of coresor memory and can overload this system.
+  -N NUM_THREADS, --num_threads NUM_THREADS
+                        Number of threads to use for blastp or blastn.
 ```
 
 ## License

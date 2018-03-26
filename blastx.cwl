@@ -52,6 +52,10 @@ inputs:
     default: 10000
     inputBinding:
       prefix: -max_target_seqs
+  num_threads:
+    type: int?
+    inputBinding:
+      prefix: -num_threads
   parse_deflines:
     type: boolean?
     default: true

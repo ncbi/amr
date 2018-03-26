@@ -11,6 +11,7 @@ inputs:
   ident_min: float
   cover_min: float
   query_gencode: int
+  num_threads: int?
   
 outputs:
   result:
@@ -24,6 +25,7 @@ steps:
       query: query
       parse_deflines: parse_deflines
       query_gencode: query_gencode
+      num_threads: num_threads
     out:
       [output]
 

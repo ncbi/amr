@@ -33,26 +33,26 @@ class cwlgen:
         self.args = args
         self.parse_deflines = True if self.args.parse_deflines else False
         self.do_protein = True if self.args.protein else False
-        print(self.do_protein)
-        sys.exit(1)
             
     def prot_params(self):
         p = {
             'query': {                                                      
                 'class': 'File',
                 'location': os.path.realpath(self.args.fasta)
-            },
+                },
             'parse_deflines': self.parse_deflines
         }
         if self.args.gff:
             p['gff'] = {
                 'class': 'File',
                 'location': os.path.realpath(self.args.gff)
-                }
+            }
+        if self.args.num_threads:
+            p['num_threads'] = self.args.num_threads
         return p
     
     def dna_params(self):
-        return {
+        p = {
             'query': {                                                      
                 'class': 'File',
                 'location': os.path.realpath(self.args.fasta)
@@ -61,7 +61,10 @@ class cwlgen:
             'ident_min': self.args.ident_min,
             'cover_min': self.args.coverage_min,
             'query_gencode': self.args.translation_table
-        }
+            }
+        if self.args.num_threads:
+            p['num_threads'] = self.args.num_threads
+        return p
     
     def params(self):
         params = self.prot_params() if self.do_protein else self.dna_params()
@@ -84,6 +87,8 @@ class cwlgen:
         docker_avail = spawn.find_executable("docker")
         if docker_avail == None:
             cwlcmd.extend(['--user-space-docker-cmd', 'udocker'])
+        if self.args.parallel:
+            cwlcmd.extend(['--parallel'])
         script_path = os.path.dirname(os.path.realpath(__file__))
         script_name = "/wf_amr_prot.cwl" if self.do_protein else "/wf_amr_dna.cwl"
         cwlscript = script_path + script_name
@@ -97,8 +102,10 @@ class cwlgen:
 
             for line in open('output.txt','r'):
                 print(line, end='')
-        except subprocess.CalledProcessError:
-            print(cwl.stdout)
+        except subprocess.CalledProcessError as eCPE:
+            print(eCPE.cmd)
+            print("Return code:", eCPE.returncode)
+            print(eCPE.output)
         except OSError:
             print(cwl.stdout)
         finally:
@@ -122,14 +129,21 @@ class FastaAction(argparse.Action):
             setattr(namespace, 'protein', True)
         if option_string == '-n' or option_string == '--nucleotide':            
             setattr(namespace, 'protein', False)
-        print('%r %r %r' % (namespace, values, option_string))
+        #print('%r %r %r' % (namespace, values, option_string))
         setattr(namespace, self.dest, values)
         
 def run(updater_parser):
     parser = argparse.ArgumentParser(
         parents=[updater_parser],
         description='Run (and optionally update) the amr_finder pipeline.')
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('-p', '--protein', dest='fasta', action=FastaAction,
+                       help='Amino-acid sequences to search using BLASTP and HMMER')
+    group.add_argument('-n', '--nucleotide', dest='fasta', action=FastaAction,
+                       help='Genomic sequence to search using BLASTX')
+    #parser.add_argument('fasta', help='FASTA file containing the query sequence(s).')
 
+    
     parser.add_argument('-d', '--parse_deflines', action='store_true',
                         help='Use -parse_deflines option for blast. This sometimes fixes issues with format of the input FASTA file being automatically parsed by BLAST. (default: %(default)s)')
     parser.add_argument('-o',   '--output', dest='outfile',
@@ -151,13 +165,13 @@ def run(updater_parser):
     
     parser.add_argument('-s', '--show_output', action='store_true',
                         help='Show the stdout and stderr output from the pipeline execution (verbose mode, useful for debugging).')
+
+    parser.add_argument('-P', '--parallel', action='store_true',
+                        help='[experimental] Run jobs in parallel. Does not currently keep track of ResourceRequirements like the number of coresor memory and can overload this system.')
+    parser.add_argument('-N', '--num_threads', type=int,
+                        help='Number of threads to use for blastp or blastn.')
+    # Options relating to nucleotide sequence input (-n)
     
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('-p', '--protein', dest='fasta', action=FastaAction,
-                       help='Amino-acid sequences to search using BLASTP and HMMER')
-    group.add_argument('-n', '--nucleotide', dest='fasta', action=FastaAction,
-                       help='genomic sequence to search using BLASTX')
-    #parser.add_argument('fasta', help='FASTA file containing the query sequence(s).')
     args = parser.parse_args()
 
     if args.version:

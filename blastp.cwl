@@ -47,6 +47,10 @@ inputs:
     default: 0
     inputBinding:
       prefix: -comp_based_stats
+  num_threads:
+    type: int?
+    inputBinding:
+      prefix: -num_threads
   parse_deflines:
     type: boolean?
     default: true
