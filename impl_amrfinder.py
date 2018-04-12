@@ -1,11 +1,13 @@
 from __future__ import print_function
 import argparse
+import errno
 import os
 import subprocess
 import sys
 import tempfile
 import yaml
 from distutils import spawn
+from ftplib import FTP
 
 def print_versions(spath):
     os.chdir(os.path.dirname(os.path.realpath(__file__)))
@@ -28,6 +30,75 @@ def print_versions(spath):
     print("Current Docker container versions:")
     subprocess.check_call("grep -hPo '(?<=dockerPull: )(.*)(?=$)' *.cwl | sort -u | awk '{printf(\"    %s\\n\", $1)}'", shell=True)
 
+def mkdir_p(path):
+    try:
+        os.makedirs(path)
+    except OSError as exc:  # Python >2.5
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else:
+            raise
+
+def check_data(files = [ 'AMR.LIB', 'AMRProt', 'fam.tab' ]):
+    pre = os.path.dirname(os.path.realpath(__file__)) + "/data/latest/"
+    if not os.path.isdir(pre):
+        return False
+    for base in files:
+        f = pre + base
+        if not os.path.isfile(f):
+            return False
+    return True
+
+def get_latest(ls):
+    # Example results to be parsed
+    #'modify=20180330183106;perm=fle;size=4096;type=dir;unique=28UFC8F9;UNIX.group=562;UNIX.mode=0444;UNIX.owner=14; 2018-03-30.1'
+    #'modify=20180410155844;perm=adfr;size=12;type=OS.unix=symlink;unique=28UFC8FE;UNIX.group=562;UNIX.mode=0444;UNIX.owner=14; latest'
+    #'modify=20180409170726;perm=fle;size=4096;type=dir;unique=28UFC8FE;UNIX.group=562;UNIX.mode=0444;UNIX.owner=14; 2018-04-09.1'
+    dirs = {}
+    latest = ''
+    for f in ls:
+        fields = f.split(';')
+        typ = fields[3].split('=', 1)[1]
+        if typ == 'dir':
+            u = fields[4].split('=', 1)[1]
+            n = fields[8].strip()
+            dirs[u] = n
+        elif typ == 'OS.unix=symlink':
+            n = fields[8].strip()
+            if n == 'latest':
+                latest_uniq = fields[4].split('=', 1)[1]
+
+    return dirs[latest_uniq]
+    
+def update_data():
+    prevdir = os.getcwd()
+    pre = os.path.dirname(os.path.realpath(__file__)) + "/data/"
+    mkdir_p(pre)
+    os.chdir(pre)
+    ftp = FTP('ftp.ncbi.nlm.nih.gov')     # connect to host, default port
+    ftp.login()                     # user anonymous, passwd anonymous@
+    ftp.cwd('/pathogen/Antimicrobial_resistance/AMRFinder/data')               # change into "debian" directory
+    ls = []
+    ftp.retrlines('MLSD', ls.append)
+    latest = get_latest(ls)
+    #print("Latest = {}".format(latest))
+    mkdir_p(latest)
+    os.chdir(latest)
+    ftp.cwd(latest)
+    files = []
+    ftp.retrlines('NLST', files.append)
+    for f in files:
+        print("  Fetching {}...".format(f), end='') 
+        ftp.retrbinary('RETR {}'.format(f), open(f, 'wb').write)
+        print("success!")
+        
+    os.chdir("..")
+    if os.path.islink("latest"):
+        os.unlink("latest")
+    os.symlink(latest, "latest")
+        
+    os.chdir(prevdir)
+    
 class cwlgen:
     def __init__(self, args):
         self.args = args
@@ -136,6 +207,7 @@ def run(updater_parser):
     parser = argparse.ArgumentParser(
         parents=[updater_parser],
         description='Run (and optionally update) the amr_finder pipeline.')
+    parser.add_argument('-U', '--update-data', action='store_true', help='Update auxillary data from the ftp site (default: %(default)s)')
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('-p', '--protein', dest='fasta', action=FastaAction,
                        help='Amino-acid sequences to search using BLASTP and HMMER')
@@ -177,7 +249,12 @@ def run(updater_parser):
     if args.version:
         print_versions()
         sys.exit()
-    
+
+    has_data = check_data()
+    if not has_data:
+        print("Required supplementary data not present, downloading via ftp.")
+        update_data()
+        
     g = cwlgen(args)
     g.params()
     g.run()
