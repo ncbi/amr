@@ -1,0 +1,13 @@
+query:
+  class: File
+  location: test_dna.fa
+fasta:
+  class: File
+  location: data/latest/AMRProt
+fam:
+  class: File
+  location: data/latest/fam.tab
+parse_deflines: false
+ident_min: 0.9
+complete_cover_min: 0.5
+query_gencode: 11

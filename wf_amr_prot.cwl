@@ -9,6 +9,8 @@ requirements:
 inputs:
   query: File
   fasta: File
+  hmmdb: File
+  fam: File
   gff: File?
   parse_deflines: boolean
   num_threads: int?
@@ -40,12 +42,14 @@ steps:
     run: hmmsearch.cwl
     in:
       query: query
+      db: hmmdb
     out:
       [hmmsearch_out,hmmdom_out]
 
   amr_report:
     run: amr_report.cwl
     in:
+      fam: fam
       blastp: blastp/output
       hmmdom: hmmsearch/hmmdom_out
       hmmsearch: hmmsearch/hmmsearch_out

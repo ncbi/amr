@@ -9,9 +9,10 @@ requirements:
 inputs:
   query: File
   fasta: File
+  fam: File
   parse_deflines: boolean
   ident_min: float
-  cover_min: float
+  complete_cover_min: float
   query_gencode: int
   num_threads: int?
   
@@ -42,9 +43,10 @@ steps:
   amr_report:
     run: amr_report.cwl
     in:
+      fam: fam
       blastx: blastx/output
       ident_min: ident_min
-      cover_min: cover_min
+      complete_cover_min: complete_cover_min
     out:
       [output]
       

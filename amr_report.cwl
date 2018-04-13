@@ -1,17 +1,15 @@
+#!/usr/bin/env cwl-runner
 cwlVersion: v1.0
 class: CommandLineTool
 hints:
   DockerRequirement:
-    dockerPull: ncbi/amr_utils:18.02
+    dockerPull: ncbi/amr:18.04
 
 baseCommand: amr_report
-
 stdout: output.txt
-
 inputs:
   fam:
-    type: string?
-    default: "/fam.tab"
+    type: File
     inputBinding:
       prefix: -fam
   blastp:
@@ -43,10 +41,14 @@ inputs:
     type: float?
     inputBinding:
       prefix: -ident_min
-  cover_min:
+  complete_cover_min:
     type: float?
     inputBinding:
-      prefix: -cover_min
+      prefix: -complete_cover_min
+  partial_cover_min:
+    type: float?
+    inputBinding:
+      prefix: -partial_cover_min
   pseudo:
     type: boolean?
     default: false
@@ -66,4 +68,3 @@ inputs:
 outputs:
   output:
     type: stdout
-

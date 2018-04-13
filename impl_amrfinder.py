@@ -130,7 +130,7 @@ class cwlgen:
             },
             'parse_deflines': self.parse_deflines,
             'ident_min': self.args.ident_min,
-            'cover_min': self.args.coverage_min,
+            'complete_cover_min': self.args.coverage_min,
             'query_gencode': self.args.translation_table
             }
         if self.args.num_threads:
@@ -232,7 +232,7 @@ def run(updater_parser):
     parser.add_argument('-t', '--translation_table', type=int,
                         help='Translation table for blastx (default: %(default)s). More info may be found at https://www.ncbi.nlm.nih.gov/Taxonomy/Utils/wprintgc.cgi?mode=c')
     parser.set_defaults(ident_min=0.9,
-                        coverage_min=0.5,
+                        coverage_min=0.9,
                         translation_table=11)
     
     parser.add_argument('-s', '--show_output', action='store_true',

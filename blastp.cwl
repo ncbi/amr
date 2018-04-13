@@ -6,7 +6,6 @@ hints:
     dockerPull: ncbi/amr:18.04
 
 baseCommand: blastp
-#stdout: $(inputs.db).out
 stdout: blastp.out
 inputs:
   query:

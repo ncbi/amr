@@ -4,4 +4,10 @@ query:
 fasta:
   class: File
   location: data/latest/AMRProt
+hmmdb:
+  class: File
+  location: data/latest/AMR.LIB
+fam:
+  class: File
+  location: data/latest/fam.tab
 parse_deflines: false

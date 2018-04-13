@@ -2,11 +2,9 @@ cwlVersion: v1.0
 class: CommandLineTool
 hints:
   DockerRequirement:
-    dockerPull: ncbi/hmmer_amr:18.02
+    dockerPull: ncbi/amr:18.04
 
 baseCommand: hmmsearch
-#stdout: $(inputs.db.basename).output
-#stdout: $(inputs.db).output
 inputs:
   tblout:
     type: string?
@@ -39,12 +37,9 @@ inputs:
       position: 5
       prefix: -Z
   db:
-    type: string?
-    default: /hmmer/hmmerdb/AMR.LIB
+    type: File
     inputBinding:
       position: 6
-#      prefix: 
-#      separate: false
   query:
     type: File
     inputBinding:
