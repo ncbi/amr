@@ -3,10 +3,12 @@
 cwlVersion: v1.0
 class: Workflow
 
-#requirements:
-    
+requirements:
+  - class: SubworkflowFeatureRequirement
+  
 inputs:
   query: File
+  fasta: File
   gff: File?
   parse_deflines: boolean
   num_threads: int?
@@ -17,10 +19,18 @@ outputs:
     outputSource: amr_report/output
 
 steps:
+  makeblastdb:
+    run: wf_makeblastdb.cwl
+    in:
+      fasta: fasta
+    out:
+      [blastdb]
+  
   blastp:
     run: blastp.cwl
     in:
       query: query
+      db: makeblastdb/blastdb
       parse_deflines: parse_deflines
       num_threads: num_threads
     out:

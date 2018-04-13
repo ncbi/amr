@@ -1,4 +1,7 @@
 query:
   class: File
   location: test_prot.fa
+fasta:
+  class: File
+  location: data/latest/AMRProt
 parse_deflines: false

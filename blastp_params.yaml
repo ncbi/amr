@@ -1,4 +1,7 @@
 query:
   class: File
-  location: test.fa
+  location: test_prot.fa
+db:
+  class: Directory
+  location: AMRProt
 parse_deflines: true

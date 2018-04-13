@@ -1,8 +1,9 @@
+#!/usr/bin/env cwl-runner
 cwlVersion: v1.0
 class: CommandLineTool
 hints:
   DockerRequirement:
-    dockerPull: ncbi/blast_amr:18.02
+    dockerPull: ncbi/amr:18.04
 
 baseCommand: blastp
 #stdout: $(inputs.db).out
@@ -13,10 +14,10 @@ inputs:
     inputBinding:
       prefix: -query
   db:
-    type: string
-    default: AMRProt
+    type: Directory
     inputBinding:
       prefix: -db
+      valueFrom: $(self.path)/$(self.basename)
   outfmt:
     type: string?
     default: "6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq"

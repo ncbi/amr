@@ -2,7 +2,7 @@ cwlVersion: v1.0
 class: CommandLineTool
 hints:
   DockerRequirement:
-    dockerPull: ncbi/blast_amr:18.02
+    dockerPull: ncbi/amr:18.04
 
 baseCommand: blastx
 #stdout: $(inputs.db).out
@@ -13,10 +13,10 @@ inputs:
     inputBinding:
       prefix: -query
   db:
-    type: string
-    default: AMRProt
+    type: Directory
     inputBinding:
       prefix: -db
+      valueFrom: $(self.path)/$(self.basename)
   query_gencode:
     type: int?
     default: 11

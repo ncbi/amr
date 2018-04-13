@@ -3,10 +3,12 @@
 cwlVersion: v1.0
 class: Workflow
 
-#requirements:
+requirements:
+  - class: SubworkflowFeatureRequirement
     
 inputs:
   query: File
+  fasta: File
   parse_deflines: boolean
   ident_min: float
   cover_min: float
@@ -19,10 +21,18 @@ outputs:
     outputSource: amr_report/output
 
 steps:
+  makeblastdb:
+    run: wf_makeblastdb.cwl
+    in:
+      fasta: fasta
+    out:
+      [blastdb]
+
   blastx:
     run: blastx.cwl
     in:
       query: query
+      db: makeblastdb/blastdb
       parse_deflines: parse_deflines
       query_gencode: query_gencode
       num_threads: num_threads
