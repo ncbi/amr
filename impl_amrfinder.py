@@ -107,11 +107,23 @@ class cwlgen:
             
     def prot_params(self):
         p = {
-            'query': {                                                      
-                'class': 'File',
-                'location': os.path.realpath(self.args.fasta)
-                },
-            'parse_deflines': self.parse_deflines
+        'query': {                                                      
+            'class': 'File',
+            'location': os.path.realpath(self.args.fasta)
+            },
+        'fasta': {
+            'class': 'File',
+            'location': os.path.realpath(self.args.fastadb)
+            },
+        'hmmdb': {
+            'class': 'File',
+            'location': os.path.realpath(self.args.hmmdb)
+            },
+        'fam': {
+            'class': 'File',
+            'location': os.path.realpath(self.args.fam)
+            },
+        'parse_deflines': self.parse_deflines
         }
         if self.args.gff:
             p['gff'] = {
@@ -127,7 +139,15 @@ class cwlgen:
             'query': {                                                      
                 'class': 'File',
                 'location': os.path.realpath(self.args.fasta)
-            },
+                },
+            'fasta': {
+                'class': 'File',
+                'location': os.path.realpath(self.args.fastadb)
+                },
+            'fam': {
+                'class': 'File',
+                'location': os.path.realpath(self.args.fam)
+                },
             'parse_deflines': self.parse_deflines,
             'ident_min': self.args.ident_min,
             'complete_cover_min': self.args.coverage_min,
@@ -231,9 +251,21 @@ def run(updater_parser):
                         help='Minimum coverage of reference protein sequence (default: %(default)s).')
     parser.add_argument('-t', '--translation_table', type=int,
                         help='Translation table for blastx (default: %(default)s). More info may be found at https://www.ncbi.nlm.nih.gov/Taxonomy/Utils/wprintgc.cgi?mode=c')
+
+    parser.add_argument('--fastadb', type=str,
+                        help='FASTA database to be searched (default: %(default)s).')
+    parser.add_argument('--hmmdb', type=str,
+                        help='HMMR database to be searched (default: %(default)s).')
+    parser.add_argument('--fam', type=str,
+                        help='FAM file for HMMR (default: %(default)s).')
+
+    pre = os.path.dirname(os.path.realpath(__file__)) + "/data/latest/"
     parser.set_defaults(ident_min=0.9,
                         coverage_min=0.9,
-                        translation_table=11)
+                        translation_table=11,
+                        fastadb = pre + 'AMRProt',
+                        hmmdb = pre + 'AMR.LIB',
+                        fam = pre + 'fam.tab')
     
     parser.add_argument('-s', '--show_output', action='store_true',
                         help='Show the stdout and stderr output from the pipeline execution (verbose mode, useful for debugging).')

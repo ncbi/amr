@@ -107,7 +107,7 @@ To create a virtualenv for your installation of CWL and AMRFinder:
 ```shell
 ~$ source cwl/bin/activate
 (cwl) ~$ pip install -U wheel setuptools
-(cwl) ~$ pip install -U cwltool PyYAML cwlref-runner
+(cwl) ~$ pip install -U "cwltool[deps] PyYAML cwlref-runner"
 ```
 
 ### Installing Docker
@@ -166,54 +166,7 @@ Generally speaking, the only required arguments are either
 `-p <protein_fasta>` for proteins or `-n <nucleotide_fasta>` for nucleotides.
 You may also have the code update itself as well by using `-u`. This will
 update to the latest AMR database, as well as any code changes in AMRFinder.
-
-### Complete set of options
-
-```shell
-$ ./amr_finder/amrfinder -h
-usage: amrfinder [-h] [-v] [-u] [-d] [-o OUTFILE] [-i IDENT_MIN]
-                 [-c COVERAGE_MIN] [-t TRANSLATION_TABLE] [-s] 
-                 [-c COVERAGE_MIN] [-t TRANSLATION_TABLE] [-s]
-				 (-p <fasta> | -n <fasta>)
-
-Run (and optionally update) the amr_finder pipeline.
-
-  -p FASTA, --protein    Amino-acid sequences to search using BLASTP and HMMER
-  -n FASTA, --nucleotide genomic sequence to search using BLASTX
-
-optional arguments:
-  -h, --help            show this help message and exit
-  -v, --version         Print version information
-  -u, --update          Update this code from the source control system
-                        (default: False)
-  -p FASTA, --protein FASTA
-                        Amino-acid sequences to search using BLASTP and HMMER
-  -n FASTA, --nucleotide FASTA
-                        Genomic sequence to search using BLASTX
-  -d, --parse_deflines  Use -parse_deflines option for blast. This sometimes
-                        fixes issues with format of the input FASTA file being
-                        automatically parsed by BLAST. (default: False)
-  -o OUTFILE, --output OUTFILE
-                        tabfile output to this file instead of STDOUT
-  -g GFF, --gff GFF     GFF file indicating genomic location for proteins
-  -i IDENT_MIN, --ident_min IDENT_MIN
-                        Minimum proportion identical translated AA residues
-                        (default: 0.9).
-  -c COVERAGE_MIN, --coverage_min COVERAGE_MIN
-                        Minimum coverage of reference protein sequence
-                        (default: 0.5).
-  -t TRANSLATION_TABLE, --translation_table TRANSLATION_TABLE
-                        Translation table for blastx (default: 11). More info
-                        may be found at https://www.ncbi.nlm.nih.gov/Taxonomy/
-                        Utils/wprintgc.cgi?mode=c
-  -s, --show_output     Show the stdout and stderr output from the pipeline
-                        execution (verbose mode, useful for debugging).
-  -P, --parallel        [experimental] Run jobs in parallel. Does not
-                        currently keep track of ResourceRequirements like the
-                        number of coresor memory and can overload this system.
-  -N NUM_THREADS, --num_threads NUM_THREADS
-                        Number of threads to use for blastp or blastn.
-```
+Use '--help' to see the complete set of options and flags.
 
 ## License
 
