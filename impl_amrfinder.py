@@ -2,6 +2,7 @@ from __future__ import print_function
 import argparse
 import errno
 import os
+#import re
 import subprocess
 import sys
 import tempfile
@@ -39,6 +40,15 @@ def mkdir_p(path):
         else:
             raise
 
+def available_cpu_count():
+    try:
+        import multiprocessing
+        return multiprocessing.cpu_count()
+    except (ImportError, NotImplementedError):
+        pass
+
+    return 1
+        
 def check_data(files = [ 'AMR.LIB', 'AMRProt', 'fam.tab' ]):
     pre = os.path.dirname(os.path.realpath(__file__)) + "/data/latest/"
     if not os.path.isdir(pre):
@@ -269,13 +279,14 @@ def run(updater_parser):
                         help='[experimental] Run jobs in parallel. Does not currently keep track of ResourceRequirements like the number of cores or memory and can overload this system.')
     parser.add_argument('-N', '--num_threads', type=int,
                         help='Number of threads to use for blast/hmmr (default: %(default)s).')
+    max_cpus = min(8, available_cpu_count())
     parser.set_defaults(ident_min=0.9,
                         coverage_min=0.9,
                         translation_table=11,
                         fastadb = pre + 'AMRProt',
                         hmmdb = pre + 'AMR.LIB',
                         fam = pre + 'fam.tab',
-                        num_threads=8)
+                        num_threads=max_cpus)
     
     args = parser.parse_args()
 
