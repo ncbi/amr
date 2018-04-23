@@ -5,7 +5,12 @@ class: Workflow
 
 requirements:
   - class: SubworkflowFeatureRequirement
-    
+  - class: DockerRequirement
+    dockerPull: ncbi/amr:18.04
+# hints:
+#   DockerRequirement:
+#     dockerPull: ncbi/amr:18.04
+
 inputs:
   query: File
   fasta: File

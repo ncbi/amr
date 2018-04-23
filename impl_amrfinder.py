@@ -132,6 +132,7 @@ class cwlgen:
             }
         if self.args.num_threads:
             p['num_threads'] = self.args.num_threads
+            p['cpu'] = self.args.num_threads
         return p
     
     def dna_params(self):
@@ -260,21 +261,21 @@ def run(updater_parser):
                         help='FAM file for HMMR (default: %(default)s).')
 
     pre = os.path.dirname(os.path.realpath(__file__)) + "/data/latest/"
-    parser.set_defaults(ident_min=0.9,
-                        coverage_min=0.9,
-                        translation_table=11,
-                        fastadb = pre + 'AMRProt',
-                        hmmdb = pre + 'AMR.LIB',
-                        fam = pre + 'fam.tab')
     
     parser.add_argument('-s', '--show_output', action='store_true',
                         help='Show the stdout and stderr output from the pipeline execution (verbose mode, useful for debugging).')
 
     parser.add_argument('-P', '--parallel', action='store_true',
-                        help='[experimental] Run jobs in parallel. Does not currently keep track of ResourceRequirements like the number of coresor memory and can overload this system.')
+                        help='[experimental] Run jobs in parallel. Does not currently keep track of ResourceRequirements like the number of cores or memory and can overload this system.')
     parser.add_argument('-N', '--num_threads', type=int,
-                        help='Number of threads to use for blastp or blastn.')
-    # Options relating to nucleotide sequence input (-n)
+                        help='Number of threads to use for blast/hmmr (default: %(default)s).')
+    parser.set_defaults(ident_min=0.9,
+                        coverage_min=0.9,
+                        translation_table=11,
+                        fastadb = pre + 'AMRProt',
+                        hmmdb = pre + 'AMR.LIB',
+                        fam = pre + 'fam.tab',
+                        num_threads=8)
     
     args = parser.parse_args()
 

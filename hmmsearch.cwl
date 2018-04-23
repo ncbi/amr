@@ -30,21 +30,27 @@ inputs:
     inputBinding:
       position: 4
       prefix: --cut_tc
+  cpu:
+    type: int?
+    inputBinding:
+      position: 5
+      prefix: --cpu
   Z:
     type: int?
     default: 10000
     inputBinding:
-      position: 5
+      position: 6
       prefix: -Z
   db:
     type: File
     inputBinding:
-      position: 6
+      position: 7
   query:
     type: File
     inputBinding:
-      position: 7
-
+      position: 8
+      
+      
 outputs:
   - id: hmmsearch_out
     type: File

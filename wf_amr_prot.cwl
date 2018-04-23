@@ -14,6 +14,7 @@ inputs:
   gff: File?
   parse_deflines: boolean
   num_threads: int?
+  cpu: int?
   
 outputs:
   result:
@@ -43,6 +44,7 @@ steps:
     in:
       query: query
       db: hmmdb
+      cpu: cpu
     out:
       [hmmsearch_out,hmmdom_out]
 
