@@ -1,0 +1,7 @@
+##gff-version 3
+##sequence-region contig1 1-50000
+contig1	.	gene	1	858	.	+	.	ID=gene1;Name=blaTEM-156
+contig1	.	gene	1001	1495	.	+	.	ID=gene2;Name=nimIJ_hmm
+contig1	.	gene	2001	3191	.	+	.	ID=gene3;Name=blaPDC-114_blast
+contig1	.	gene	4001	4699	.	+	.	ID=gene4;Name=blaOXA-436_partial
+contig1	.	gene	5001	6047	.	+	.	ID=gene5;Name=vanG
