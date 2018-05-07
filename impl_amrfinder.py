@@ -114,7 +114,15 @@ class cwlgen:
         self.args = args
         self.parse_deflines = True
         self.do_protein = True if self.args.protein else False
-            
+        pre = os.path.dirname(os.path.realpath(__file__)) + "/data/latest/"
+        if args.custom_database is not None:
+            pre = args.custom_database
+            if pre[-1] != '/':
+                pre += '/'
+        self.fastadb = pre + 'AMRProt'
+        self.hmmdb = pre + 'AMR.LIB'
+        self.fam = pre + 'fam.tab'
+        
     def prot_params(self):
         p = {
         'query': {                                                      
@@ -123,15 +131,15 @@ class cwlgen:
             },
         'fasta': {
             'class': 'File',
-            'location': os.path.realpath(self.args.fastadb)
+            'location': os.path.realpath(self.fastadb)
             },
         'hmmdb': {
             'class': 'File',
-            'location': os.path.realpath(self.args.hmmdb)
+            'location': os.path.realpath(self.hmmdb)
             },
         'fam': {
             'class': 'File',
-            'location': os.path.realpath(self.args.fam)
+            'location': os.path.realpath(self.fam)
             },
         'parse_deflines': self.parse_deflines
         }
@@ -153,11 +161,11 @@ class cwlgen:
                 },
             'fasta': {
                 'class': 'File',
-                'location': os.path.realpath(self.args.fastadb)
+                'location': os.path.realpath(self.fastadb)
                 },
             'fam': {
                 'class': 'File',
-                'location': os.path.realpath(self.args.fam)
+                'location': os.path.realpath(self.fam)
                 },
             'parse_deflines': self.parse_deflines,
             'ident_min': self.args.ident_min,
@@ -259,15 +267,16 @@ def run(updater_parser):
     parser.add_argument('-t', '--translation_table', type=int,
                         help='Translation table for blastx (default: %(default)s). More info may be found at https://www.ncbi.nlm.nih.gov/Taxonomy/Utils/wprintgc.cgi?mode=c')
 
-    parser.add_argument('--fastadb', type=str,
-                        help='FASTA database to be searched (default: %(default)s).')
-    parser.add_argument('--hmmdb', type=str,
-                        help='HMMR database to be searched (default: %(default)s).')
-    parser.add_argument('--fam', type=str,
-                        help='FAM file for HMMR (default: %(default)s).')
+    # parser.add_argument('--fastadb', type=str,
+    #                     help='FASTA database to be searched (default: %(default)s).')
+    # parser.add_argument('--hmmdb', type=str,
+    #                     help='HMMR database to be searched (default: %(default)s).')
+    # parser.add_argument('--fam', type=str,
+    #                     help='FAM file for HMMR (default: %(default)s).')
 
-    pre = os.path.dirname(os.path.realpath(__file__)) + "/data/latest/"
-    
+    parser.add_argument('--custom_database', type=str,
+                        help='Directory containing custom databases to be searched.')
+
     parser.add_argument('-s', '--show_output', action='store_true',
                         help='Show the stdout and stderr output from the pipeline execution (verbose mode, useful for debugging).')
 
@@ -275,15 +284,13 @@ def run(updater_parser):
                         help='[experimental] Run jobs in parallel. Does not currently keep track of ResourceRequirements like the number of cores or memory and can overload this system.')
     parser.add_argument('-N', '--num_threads', type=int,
                         help='Number of threads to use for blast/hmmr (default: %(default)s).')
+    #pre = os.path.dirname(os.path.realpath(__file__)) + "/data/latest"
     max_cpus = min(8, available_cpu_count())
     parser.set_defaults(ident_min=0.9,
                         coverage_min=0.9,
                         translation_table=11,
-                        fastadb = pre + 'AMRProt',
-                        hmmdb = pre + 'AMR.LIB',
-                        fam = pre + 'fam.tab',
                         num_threads=max_cpus)
-    
+        
     args = parser.parse_args()
 
     if args.version:
@@ -291,7 +298,7 @@ def run(updater_parser):
         sys.exit()
 
     has_data = check_data()
-    if not has_data:
+    if not has_data and args.custom_database is None:
         print("Required supplementary data not present, downloading via ftp.")
         update_data()
         
