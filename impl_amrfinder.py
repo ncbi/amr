@@ -112,7 +112,8 @@ def update_data():
 class cwlgen:
     def __init__(self, args):
         self.args = args
-        self.parse_deflines = True if self.args.parse_deflines else False
+        #self.parse_deflines = True if self.args.parse_deflines else False
+        self.parse_deflines = True
         self.do_protein = True if self.args.protein else False
             
     def prot_params(self):
@@ -247,8 +248,8 @@ def run(updater_parser):
     #parser.add_argument('fasta', help='FASTA file containing the query sequence(s).')
 
     
-    parser.add_argument('-d', '--parse_deflines', action='store_true',
-                        help='Use -parse_deflines option for blast. This sometimes fixes issues with format of the input FASTA file being automatically parsed by BLAST. (default: %(default)s)')
+    # parser.add_argument('-d', '--parse_deflines', action='store_true',
+    #                     help='Use -parse_deflines option for blast. This sometimes fixes issues with format of the input FASTA file being automatically parsed by BLAST. (default: %(default)s)')
     parser.add_argument('-o',   '--output', dest='outfile',
                         help='tabfile output to this file instead of STDOUT')
 
