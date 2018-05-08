@@ -42,7 +42,7 @@ def print_versions(spath):
     print("Current CWL revision:", revision)
     print(" Latest CWL revision:", latest)
     print("    Docker container:", container)
-    print("  Supplementary data:", supp_data)
+    print("  AMRFinder Database:", supp_data)
 
 
 def mkdir_p(path):
