@@ -12,8 +12,10 @@ from ftplib import FTP
 
 def print_versions(spath):
     os.chdir(os.path.dirname(os.path.realpath(__file__)))
-    revision = "Unknown"
-    latest = "Unknown"
+    revision = "Not available"
+    latest = "Not available"
+    container = "Not available"
+    supp_data = "Not available"
     try:
         err = open(os.devnull, "wb")
         r = subprocess.check_output("set -o pipefail; svn info | grep ^Revision | cut -d' ' -f2", shell=True, stderr=err)
@@ -23,13 +25,25 @@ def print_versions(spath):
         r = subprocess.check_output("set -o pipefail; svn info {} | grep ^Revision | cut -d' ' -f2".format(url), shell=True, stderr=err)
         latest = r.strip()
     except subprocess.CalledProcessError:
-        revision = "Unknown"
-        latest = "Unknown"
+        revision = "Not available"
+        latest = "Not available"
 
-    print("  Current CWL Subversion revision:", revision)
-    print("   Latest CWL Subversion revision:", latest)
-    print("Current Docker container versions:")
-    subprocess.check_call("grep -hPo '(?<=dockerPull: )(.*)(?=$)' *.cwl | sort -u | awk '{printf(\"    %s\\n\", $1)}'", shell=True)
+    try:
+        r = subprocess.check_output("grep -hPo '(?<=dockerPull: )(.*)(?=$)' *.cwl | sort -u | awk '{printf(\"    %s\\n\", $1)}'", shell=True)
+        container = r.strip()
+    except subprocess.CalledProcessError:
+        container = "Not available"
+    if check_data():
+        pre = os.path.dirname(os.path.realpath(__file__)) + "/data/latest/"
+        target = os.path.realpath(pre)
+        base = os.path.basename(os.path.normpath(target))
+        supp_data = base
+
+    print("Current CWL revision:", revision)
+    print(" Latest CWL revision:", latest)
+    print("    Docker container:", container)
+    print("  Supplementary data:", supp_data)
+
 
 def mkdir_p(path):
     try:
