@@ -16,11 +16,13 @@ For details see <<CITATION>>
 
 ## Installation
 
-AMRFinder uses common workflow language (CWL) and Docker to install and run dependencies. We are only
-supporting Linux installation for this software at this time. We provide instructions here for two
-installation modes. One using Docker and the other using the docker emulator uDocker. We recommend the
-Docker installation, but installing Docker requires root, so we have made AMRFinder also compatible with
-uDocker and included instructions for uDocker installation as well.
+AMRFinder uses common workflow language (CWL) and Docker to install and run
+dependencies. We are only supporting Linux installation for this software at
+this time. We provide instructions here for two installation modes. One using
+Docker and the other using the docker emulator uDocker. We recommend the Docker
+installation, but installing Docker requires root, so we have made AMRFinder
+also compatible with uDocker and included instructions for uDocker installation
+as well.
 
 ### Quick start
 
@@ -28,6 +30,8 @@ These instructions assume that you have python installed and want to use the
 userspace docker clone "udocker" in a python virtualenv. We suggest you read
 the more detailed explanation of the install process that follows, but this is
 included for the impatient.
+
+#### Udocker (not recommended)
 
 ```shell
 ~$ svn co https://github.com/ncbi/pipelines/trunk/amr_finder
@@ -118,18 +122,20 @@ To create a virtualenv for your installation of CWL and AMRFinder:
 
 ### Installing Docker
 
-If it is not restricted by your local security policy, it is
-recommended that you install Docker instead of the more limited
-udocker. Detailed instructions may be found on the docker
-website. [Docker Install](https://docs.docker.com/install/). Please
-install the latest version of docker, and not the one that comes with
-your distribution.  Note that it requires root access to install, and
-the user who will be running the software will need to be in the
-docker group. The required docker containers images will download
-automatically the first time the pipeline runs. Afterwards, they will
-be cached and subsequent runs will execute much faster.
+It is recommended that you install Docker instead of the more limited udocker.
+Detailed instructions may be found on the docker website. [Docker
+Install](https://docs.docker.com/install/). Please install the latest version
+of docker, it is usually newer than the one that comes with your distribution.
+Note that it requires root access to install, and the user who will be running
+the software will need to be in the docker group. The required docker
+containers images will download automatically the first time the pipeline runs.
+Afterwards, they will be cached and subsequent runs will execute much faster.
 
 ### Installing udocker
+
+Udocker compatibility is provided only because some servers may have security
+policies that make it difficult to install Docker. We recommend the docker
+installation if possible.
 
 A simple example of how you might install udocker given the virtualenv we
 created above:
@@ -166,7 +172,34 @@ $HOME/amr_finder/amrfinder $@
 
 ### Testing AMRFinder
 
-<<TODO>>
+A small set of test data are included with AMRFinder just to make sure things
+are working
+
+```shell
+~$ source cwl/bin/activate   # to enter the virtualenv
+(cwl) ~$ cd amr_finder
+(cwl) ~$ ./amrfinder -p test_prot.fa -g test_prot.gff
+```
+You should see something like:
+
+    Target identifier  Contig id Start Stop Strand Gene symbol Protein name                         Method  Target lengthReference protein length % Coverage of reference protein % Identity to reference protein Alignment length Accession of closest protein Name of closest protein HMM id                                                              HMM description
+    blaOXA-436_partial contig1    4001 4699      + blaOXA      OXA-48 family class D beta-lactamase PARTIAL                                   233                             265                           87.92           100.00                          233 WP_058842180.1          OXA-48 family carbapenem-hydrolyzing class D beta-lactamase OXA-436 NF000387.2      OXA-48 family class D beta-lactamase
+    blaPDC-114_blast   contig1    2001 3191      + blaPDC      PDC family class C beta-lactamase    BLAST                                     397                             397                          100.00            99.75                          397 WP_061189306.1          class C beta-lactamase PDC-114                                      NF000422.2      PDC family class C beta-lactamase
+    blaTEM-156         contig1       1  858      + blaTEM-156  class A beta-lactamase TEM-156       ALLELE                                    286                             286                          100.00           100.00                          286 WP_061158039.1          class A beta-lactamase TEM-156                                      NF000531.2      TEM family class A beta-lactamase
+    vanG               contig1    5001 6047      + vanG        D-alanine--D-serine ligase VanG      EXACT                                     349                             349                          100.00           100.00                          349 WP_063856695.1          D-alanine--D-serine ligase VanG                                     NF000091.3      D-alanine--D-serine ligase VanG
+
+
+```shell
+~$ ./amrfinder -n test_dna.fa
+```
+
+You should see something like:
+
+    Target identifier      Contig id              Start Stop Strand Gene symbol Protein name                                Method Target lengthReference protein length % Coverage of reference protein % Identity to reference protein Alignment length Accession of closest protein Name of closest protein                                             HMM id                          HMM description
+    blaOXA-436_partial_cds blaOXA-436_partial_cds   101  802      + blaOXA      OXA-48 family class D beta-lactamasePARTIAL    234                                   265                           88.30                          100.00              234 WP_058842180.1               OXA-48 family carbapenem-hydrolyzing class D beta-lactamase OXA-436 NF000387.2                      OXA-48 family class D beta-lactamase
+    blaPDC-114_blast       blaPDC-114_blast           1 1191      + blaPDC      PDC family class C beta-lactamase            BLAST                                   397                             397                          100.00            99.75 397                          WP_061189306.1                                                      class C beta-lactamase PDC-114  NF000422.2                           PDC family class C beta-lactamase
+    blaTEM-156             blaTEM-156               101  958      + blaTEM-156  class A beta-lactamase TEM-156              ALLELE                                   286                             286                          100.00           100.00 286                          WP_061158039.1                                                      class A beta-lactamase TEM-156  NF000531.2                           TEM family class A beta-lactamase
+    vanG                   vanG                     101 1147      + vanG        D-alanine--D-serine ligase VanG              EXACT                                   349                             349                          100.00           100.00 349                          WP_063856695.1                                                      D-alanine--D-serine ligase VanG NF000091.3                           D-alanine--D-serine ligase VanG
 
 ## Running AMRFinder
 
@@ -174,21 +207,30 @@ $HOME/amr_finder/amrfinder $@
 
 The only required arguments are either
 `-p <protein_fasta>` for proteins or `-n <nucleotide_fasta>` for nucleotides.
-We also provide an automatic update mechanism to update the code and database by using `-u`. This will
-update to the latest AMR database, as well as any code changes in AMRFinder.
-Use '--help' to see the complete set of options and flags.
+We also provide an automatic update mechanism to update the code and database
+by using `-u`. This will update to the latest AMR database, as well as any code
+changes in AMRFinder. Use '--help' to see the complete set of options and
+flags.
 
 ### Input file formats
 
 `-p <protein_fata>` and `-n <nucleotide_fasta>`:
-FASTA files are in standard format. The identifiers reported in the output are the first non-whitespace characters on the defline.
+FASTA files are in standard format. The identifiers reported in the output are
+the first non-whitespace characters on the defline.
 
 `-g <gff_file>`
-GFF files are used do get sequence coordinates for AMRFinder hits from protein sequence. The identifier from the identifier from the FASTA file is matched up with the 'Name=' attribute from field 9 in the GFF file. See test_prot.gff for a simple example. (e.g., `amrfinder -p test_prot.fa -g test_prot.gff` should result in the sample output shown below)
+GFF files are used do get sequence coordinates for AMRFinder hits from protein
+sequence. The identifier from the identifier from the FASTA file is matched up
+with the 'Name=' attribute from field 9 in the GFF file. See test_prot.gff for
+a simple example. (e.g., `amrfinder -p test_prot.fa -g test_prot.gff` should
+        result in the sample output shown below)
 
 ### Output format
 
-The output format depends on the options `-p`, `-n`, and `-g`. Protein searches with gff files and translated dna searches will also include contig, start, and stop columns. 
+AMRFinder output is in tab-delimited format (.tsv). The output format depends
+on the options `-p`, `-n`, and `-g`. Protein searches with gff files (`-p
+<file.fa> -g <file.gff>` and translated dna searches (`-n <file.fa>`) will also 
+include contig, start, and stop columns. 
 
 A sample AMRFinder report:
 
