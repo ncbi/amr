@@ -25,7 +25,7 @@ def print_versions(spath):
     except subprocess.CalledProcessError:
         revision = "Unknown"
         latest = "Unknown"
-    
+
     print("  Current CWL Subversion revision:", revision)
     print("   Latest CWL Subversion revision:", latest)
     print("Current Docker container versions:")
@@ -48,7 +48,7 @@ def available_cpu_count():
         pass
 
     return 1
-        
+
 def check_data(files = [ 'AMR.LIB', 'AMRProt', 'fam.tab' ]):
     pre = os.path.dirname(os.path.realpath(__file__)) + "/data/latest/"
     if not os.path.isdir(pre):
@@ -79,7 +79,7 @@ def get_latest(ls):
                 latest_uniq = fields[4].split('=', 1)[1]
 
     return dirs[latest_uniq]
-    
+
 def update_data():
     prevdir = os.getcwd()
     pre = os.path.dirname(os.path.realpath(__file__)) + "/data/"
@@ -98,17 +98,17 @@ def update_data():
     files = []
     ftp.retrlines('NLST', files.append)
     for f in files:
-        print("  Fetching {}...".format(f), end='') 
+        print("  Fetching {}...".format(f), end='')
         ftp.retrbinary('RETR {}'.format(f), open(f, 'wb').write)
         print("success!")
-        
+
     os.chdir("..")
     if os.path.islink("latest"):
         os.unlink("latest")
     os.symlink(latest, "latest")
-        
+
     os.chdir(prevdir)
-    
+
 class cwlgen:
     def __init__(self, args):
         self.args = args
@@ -122,10 +122,10 @@ class cwlgen:
         self.fastadb = pre + 'AMRProt'
         self.hmmdb = pre + 'AMR.LIB'
         self.fam = pre + 'fam.tab'
-        
+
     def prot_params(self):
         p = {
-        'query': {                                                      
+        'query': {
             'class': 'File',
             'location': os.path.realpath(self.args.fasta)
             },
@@ -152,10 +152,10 @@ class cwlgen:
             p['num_threads'] = self.args.num_threads
             p['cpu'] = self.args.num_threads
         return p
-    
+
     def dna_params(self):
         p = {
-            'query': {                                                      
+            'query': {
                 'class': 'File',
                 'location': os.path.realpath(self.args.fasta)
                 },
@@ -175,10 +175,10 @@ class cwlgen:
         if self.args.num_threads:
             p['num_threads'] = self.args.num_threads
         return p
-    
+
     def params(self):
         params = self.prot_params() if self.do_protein else self.dna_params()
-        
+
         (fdstream, self.param_file) = tempfile.mkstemp(suffix=".cwl", prefix="amr_params_")
         stream = os.fdopen(fdstream, 'w')
         yaml.dump(params, stream)
@@ -203,7 +203,7 @@ class cwlgen:
         script_name = "/wf_amr_prot.cwl" if self.do_protein else "/wf_amr_dna.cwl"
         cwlscript = script_path + script_name
         cwlcmd.extend([cwlscript, self.param_file])
-        
+
         try:
             out = None
             if not self.args.show_output:
@@ -219,7 +219,7 @@ class cwlgen:
         except OSError:
             print(cwl.stdout)
         finally:
-            self.cleanup()    
+            self.cleanup()
 
     def cleanup(self):
         def safe_remove(f):
@@ -227,7 +227,7 @@ class cwlgen:
                 os.remove(f)
         #safe_remove(self.param_file)
         safe_remove("output.txt")
-        
+
         # Cleanup after cwltool's use of py2py3
         safe_remove('/tmp/futurized_code.py')
         safe_remove('/tmp/original_code.py')
@@ -237,22 +237,21 @@ class FastaAction(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
         if option_string == '-p' or option_string == '--protein':
             setattr(namespace, 'protein', True)
-        if option_string == '-n' or option_string == '--nucleotide':            
+        if option_string == '-n' or option_string == '--nucleotide':
             setattr(namespace, 'protein', False)
         #print('%r %r %r' % (namespace, values, option_string))
         setattr(namespace, self.dest, values)
-        
+
 def run(updater_parser):
     parser = argparse.ArgumentParser(
         parents=[updater_parser],
-        description='Run (and optionally update) the amr_finder pipeline.')
-    parser.add_argument('-U', '--update-data', action='store_true', help='Update auxillary data from the ftp site (default: %(default)s)')
+        description='Run (or optionally update) the amr_finder pipeline.')
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('-p', '--protein', dest='fasta', action=FastaAction,
                        help='Amino-acid sequences to search using BLASTP and HMMER')
     group.add_argument('-n', '--nucleotide', dest='fasta', action=FastaAction,
                        help='Genomic sequence to search using BLASTX')
-    
+
     parser.add_argument('-o',   '--output', dest='outfile',
                         help='tabfile output to this file instead of STDOUT')
 
@@ -266,14 +265,6 @@ def run(updater_parser):
                         help='Minimum coverage of reference protein sequence (default: %(default)s).')
     parser.add_argument('-t', '--translation_table', type=int,
                         help='Translation table for blastx (default: %(default)s). More info may be found at https://www.ncbi.nlm.nih.gov/Taxonomy/Utils/wprintgc.cgi?mode=c')
-
-    # parser.add_argument('--fastadb', type=str,
-    #                     help='FASTA database to be searched (default: %(default)s).')
-    # parser.add_argument('--hmmdb', type=str,
-    #                     help='HMMR database to be searched (default: %(default)s).')
-    # parser.add_argument('--fam', type=str,
-    #                     help='FAM file for HMMR (default: %(default)s).')
-
     parser.add_argument('--custom_database', type=str,
                         help='Directory containing custom databases to be searched.')
 
@@ -284,27 +275,22 @@ def run(updater_parser):
                         help='[experimental] Run jobs in parallel. Does not currently keep track of ResourceRequirements like the number of cores or memory and can overload this system.')
     parser.add_argument('-N', '--num_threads', type=int,
                         help='Number of threads to use for blast/hmmr (default: %(default)s).')
-    #pre = os.path.dirname(os.path.realpath(__file__)) + "/data/latest"
     max_cpus = min(8, available_cpu_count())
     parser.set_defaults(ident_min=0.9,
                         coverage_min=0.9,
                         translation_table=11,
                         num_threads=max_cpus)
-        
-    args = parser.parse_args()
 
-    if args.version:
-        print_versions()
-        sys.exit()
+    args = parser.parse_args()
 
     has_data = check_data()
     if not has_data and args.custom_database is None:
         print("Required supplementary data not present, downloading via ftp.")
         update_data()
-        
+
     g = cwlgen(args)
     g.params()
     g.run()
-    
-        
-    
+
+
+

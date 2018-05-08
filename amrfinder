@@ -18,6 +18,7 @@ def main():
     #parse.add_argument('-x', '--check-update', help='Check for any updates to this pipeline (default: %(default)s)', action='store_true')
     parse.add_argument('-v', '--version', action='store_true', help='Print current version information, and checks for latest version.')
     parse.add_argument('-u', '--update', action='store_true', help='Update this code and supplemental data. (default: %(default)s)')
+    parse.add_argument('-U', '--update-data', action='store_true', help='Update auxillary data from the ftp site (default: %(default)s)')
 
     args, remaining_argv = parse.parse_known_args()
 
@@ -30,13 +31,15 @@ def main():
         try:
             out = open(os.devnull, "wb")
             svn = subprocess.check_call(["svn", "update", script_path], stdout=out, stderr=out)
+            print("success!", file=sys.stderr)
         except subprocess.CalledProcessError:
             print("failure.", file=sys.stderr)
-            sys.exit(0)     
-        print("success!", file=sys.stderr)
         print("Updating supplementary data")
         impl_amrfinder.update_data()
         #importlib.reload(impl_amrfinder)
+    if args.update_data:
+        print("Updating supplementary data")
+        impl_amrfinder.update_data()
     else:
         impl_amrfinder.run(parse)
 
