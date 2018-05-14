@@ -9,40 +9,28 @@ antimicrobial resistance genes in protein or nucleotide sequences.
 
 AMRFinder can be run in two modes with protein sequence as input or with DNA
 sequence as input. When run with protein sequence it uses both BLASTP and HMMER
-to search protein sequences for AMR genes along with a heirarchical tree of
+to search protein sequences for AMR genes along with a hierarchical tree of
 gene families to classify and name novel sequences. With nucleotide sequences
-it uses BLASTX translated searches and the heirarchical tree of gene families.
-For details see <<CITATION>>
+it uses BLASTX translated searches and the hierarchical tree of gene families.
 
 ## Installation
 
-AMRFinder uses common workflow language (CWL) and Docker to install and run
-dependencies. We are only supporting Linux installation for this software at
-this time. We provide instructions here for two installation modes. One using
-Docker and the other using the docker emulator uDocker. We recommend the Docker
-installation, but installing Docker requires root, so we have made AMRFinder
-also compatible with uDocker and included instructions for uDocker installation
-as well.
+To run AMRFinder you will need Linux, Docker and CWL (Common Workflow
+Language). We provide instructions here for two installation modes. One
+using Docker and the other using the docker emulator uDocker. We recommend the
+Docker installation, but installing Docker requires root, so we have made
+AMRFinder also compatible with uDocker and included instructions for uDocker
+installation as well. AMRFinder runs considerably slower under uDocker than 
+Docker.
 
 ### Quick start
 
-These instructions assume that you have python installed and want to use the
-userspace docker clone "udocker" in a python virtualenv. We suggest you read
-the more detailed explanation of the install process that follows, but this is
-included for the impatient.
-
-#### Udocker (not recommended)
+These instructions assume that you have python, pip, and docker installed. We provide more details about how to install these prerequisites below. 
 
 ```shell
-~$ svn co https://github.com/ncbi/pipelines/trunk/amr_finder
-~$ pip install virtualenv
-~$ virtualenv --python=python2 cwl
-~$ source cwl/bin/activate
 (cwl) ~$ pip install -U wheel setuptools
-(cwl) ~$ pip install -U cwltool PyYAML cwlref-runner
-(cwl) ~$ curl https://raw.githubusercontent.com/indigo-dc/udocker/master/udocker.py > cwl/bin/udocker
-(cwl) ~$ chmod u+rx cwl/bin/udocker
-(cwl) ~$ udocker install
+(cwl) ~$ pip install -U cwltool[deps] PyYAML cwlref-runner
+(cwl) ~$ svn co https://github.com/ncbi/pipelines/trunk/amr_finder
 (cwl) ~$ cd amr_finder
 (cwl) ~/amr_finder$ ./amrfinder -p test_prot.fa
 ```
@@ -53,11 +41,11 @@ The AMR Finder only runs on Linux and depends upon two main pieces of
 software, Docker and CWL (Common Workflow Language). 
 
 We briefly show two possible routes to installation, one using docker and one
-using udocker. Docker (http://docker.com) requires root to install, so we have
-also made AMRFinder compatable with udocker
+using uDocker. Docker (http://docker.com) requires root to install, so we have
+also made AMRFinder compatible with uDocker
 (https://github.com/indigo-dc/udocker).
 
-Note that udocker requires python2. AMRFinder itself is compatible with 
+Note that uDocker requires python2. AMRFinder itself is compatible with 
 either Python 2 or 3. 
 
 There are two parts to installing AMRFinder. Installing the code itself and 
@@ -65,8 +53,8 @@ installing the prerequisites.
 
 
 Prerequisites:
-   - python2 or python3 (udocker requires python2)
-   - docker or udocker
+   - python2 or python3 (uDocker requires python2)
+   - docker or uDocker
    - python packages
         - wheel
         - setuptools
@@ -76,7 +64,7 @@ Prerequisites:
 
 ### Retrieving the AMR software
 
-The AMRFinder software is available at github at https://github.com/ncbi/pipelines/tree/master/amr_finder,
+The AMRFinder software is available at GitHub at https://github.com/ncbi/pipelines/tree/master/amr_finder,
 and can be retrieved with svn like:
 
 ```shell
@@ -117,12 +105,12 @@ To create a virtualenv for your installation of CWL and AMRFinder:
 ```shell
 ~$ source cwl/bin/activate
 (cwl) ~$ pip install -U wheel setuptools
-(cwl) ~$ pip install -U "cwltool[deps] PyYAML cwlref-runner"
+(cwl) ~$ pip install -U cwltool[deps] PyYAML cwlref-runner
 ```
 
 ### Installing Docker
 
-It is recommended that you install Docker instead of the more limited udocker.
+It is recommended that you install Docker instead of the more limited uDocker.
 Detailed instructions may be found on the docker website. [Docker
 Install](https://docs.docker.com/install/). Please install the latest version
 of docker, it is usually newer than the one that comes with your distribution.
@@ -131,13 +119,13 @@ the software will need to be in the docker group. The required docker
 containers images will download automatically the first time the pipeline runs.
 Afterwards, they will be cached and subsequent runs will execute much faster.
 
-### Installing udocker
+### Installing uDocker
 
-Udocker compatibility is provided only because some servers may have security
+UDocker compatibility is provided only because some servers may have security
 policies that make it difficult to install Docker. We recommend the docker
 installation if possible.
 
-A simple example of how you might install udocker given the virtualenv we
+A simple example of how you might install uDocker given the virtualenv we
 created above:
 
 ```shell
@@ -146,9 +134,9 @@ created above:
 (cwl) ~$ chmod u+rx cwl/bin/udocker
 (cwl) ~$ udocker install
 ```
-Your milage may vary, as the required set of package dependencies will
+Your mileage may vary, as the required set of package dependencies will
 be different from system to system, depending upon what is already
-installed. Note that we support both Python 2 & 3, however, udocker
+installed. Note that we support both Python 2 & 3, however, uDocker
 only works with Python 2.
 
 ### Initial test run
@@ -214,16 +202,16 @@ flags.
 
 ### Input file formats
 
-`-p <protein_fata>` and `-n <nucleotide_fasta>`:
+`-p <protein_fasta>` and `-n <nucleotide_fasta>`:
 FASTA files are in standard format. The identifiers reported in the output are
 the first non-whitespace characters on the defline.
 
 `-g <gff_file>`
-GFF files are used do get sequence coordinates for AMRFinder hits from protein
+GFF files are used to get sequence coordinates for AMRFinder hits from protein
 sequence. The identifier from the identifier from the FASTA file is matched up
 with the 'Name=' attribute from field 9 in the GFF file. See test_prot.gff for
 a simple example. (e.g., `amrfinder -p test_prot.fa -g test_prot.gff` should
-        result in the sample output shown below)
+result in the sample output shown below)
 
 ### Output format
 
@@ -266,6 +254,20 @@ Fields:
 - HMM id - Accession for the HMM
 - HMM description - The family name associated with the HMM
 
+## Known Issues
+
+Handling of fusion genes is still under active development. Currently they are
+reported as two lines, one for each portion of the fusion. Gene symbol, Protein
+name, Name of closest protein, HMM id, and HMM description are with respect to
+the individual elements of the fusion. This behavior is subject to change.
+
+File format checking of input files is almost nonexistant. Software behavior
+with incorrect input files is not defined.
+
+## Methods
+
+
+
 ## License
 
 ### HMMER
@@ -289,9 +291,13 @@ Although all reasonable efforts have been taken to ensure  the accuracy and
 reliability of the software and data, the National Center for Biotechnology
 Information (NCBI) and the U.S. Government do not and cannot warrant the
 performance or results that may be obtained by using this  software or data.
-NCBI and the U.S. Government disclaim all warranties as to performance,
+NCBI, NLM, and the U.S. Government disclaim all warranties as to performance,
 merchantability or fitness for any particular purpose.
 
 In any work or product derived from this material, proper attribution of the
 authors as the source of the software or data should be made, using:
-<<CITATION>> as the citation.
+http://ncbi.nlm.nih.gov/pathogen/amrfinder the citation.
+ 
+ 
+ 
+ 
