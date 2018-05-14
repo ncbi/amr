@@ -296,7 +296,8 @@ merchantability or fitness for any particular purpose.
 
 In any work or product derived from this material, proper attribution of the
 authors as the source of the software or data should be made, using:
-http://ncbi.nlm.nih.gov/pathogen/amrfinder the citation.
+https://ncbi.nlm.nih.gov/pathogens/antimicrobial-resistance/AMRFinder/ as the 
+citation.
  
  
  
