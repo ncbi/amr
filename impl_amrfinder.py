@@ -19,18 +19,18 @@ def print_versions(spath):
     try:
         err = open(os.devnull, "wb")
         r = subprocess.check_output("set -o pipefail; svn info | grep ^Revision | cut -d' ' -f2", shell=True, stderr=err)
-        revision = r.strip()
+        revision = r.decode('UTF-8').strip()
         r = subprocess.check_output("set -o pipefail; svn info | grep ^URL | cut -d' ' -f2", shell=True, stderr=err)
-        url = r.strip()
+        url = r.decode('UTF-8').strip()
         r = subprocess.check_output("set -o pipefail; svn info {} | grep ^Revision | cut -d' ' -f2".format(url), shell=True, stderr=err)
-        latest = r.strip()
+        latest = r.decode('UTF-8').strip()
     except subprocess.CalledProcessError:
         revision = "Not available"
         latest = "Not available"
 
     try:
         r = subprocess.check_output("grep -hPo '(?<=dockerPull: )(.*)(?=$)' *.cwl | sort -u | awk '{printf(\"    %s\\n\", $1)}'", shell=True)
-        container = r.strip()
+        container = r.decode('UTF-8').strip()
     except subprocess.CalledProcessError:
         container = "Not available"
     if check_data():

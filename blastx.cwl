@@ -2,7 +2,7 @@ cwlVersion: v1.0
 class: CommandLineTool
 hints:
   DockerRequirement:
-    dockerPull: ncbi/amr:latest
+    dockerPull: ncbi/amr:18.05
 
 baseCommand: blastx
 #stdout: $(inputs.db).out

@@ -3,7 +3,7 @@ cwlVersion: v1.0
 class: CommandLineTool
 hints:
   DockerRequirement:
-    dockerPull: ncbi/amr:latest
+    dockerPull: ncbi/amr:18.05
 
 # Check the correctness of a FASTA file. Exit with an error if it is incorrect.
 # Usage: fasta_check <in> [-qc] [-verbose 0] [-noprogress] [-profile] [-json ""] [-log ""] [-aa] [-hyphen]
