@@ -6,10 +6,7 @@ class: Workflow
 requirements:
   - class: SubworkflowFeatureRequirement
   - class: DockerRequirement
-    dockerPull: ncbi/amr:18.04
-# hints:
-#   DockerRequirement:
-#     dockerPull: ncbi/amr:18.04
+    dockerPull: ncbi/amr:18.05
 
 inputs:
   query: File
@@ -25,8 +22,18 @@ outputs:
   result:
     type: File
     outputSource: amr_report/output
-
+  # fasta_check_out:
+  #   type: File
+  #   outputSource: fasta_check/output
+    
 steps:
+  # fasta_check:
+  #   run: fasta_check.cwl
+  #   in:
+  #     fasta: query
+  #   out:
+  #     [output]
+  
   makeblastdb:
     run: wf_makeblastdb.cwl
     in:

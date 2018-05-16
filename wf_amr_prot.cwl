@@ -5,6 +5,9 @@ class: Workflow
 
 requirements:
   - class: SubworkflowFeatureRequirement
+  - class: DockerRequirement
+    dockerPull: ncbi/amr:18.05
+
   
 inputs:
   query: File

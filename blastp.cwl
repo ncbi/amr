@@ -3,7 +3,7 @@ cwlVersion: v1.0
 class: CommandLineTool
 hints:
   DockerRequirement:
-    dockerPull: ncbi/amr:18.04
+    dockerPull: ncbi/amr:latest
 
 baseCommand: blastp
 stdout: blastp.out
@@ -17,6 +17,11 @@ inputs:
     inputBinding:
       prefix: -db
       valueFrom: $(self.path)/$(self.basename)
+  task:
+    type: string?
+    default: blastp-fast
+    inputBinding:
+      prefix: -task
   outfmt:
     type: string?
     default: "6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq"

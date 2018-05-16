@@ -3,7 +3,7 @@ cwlVersion: v1.0
 class: CommandLineTool
 hints:
   DockerRequirement:
-    dockerPull: ncbi/amr:18.04
+    dockerPull: ncbi/amr:latest
 
 baseCommand: amr_report
 stdout: output.txt

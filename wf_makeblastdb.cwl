@@ -19,7 +19,7 @@ steps:
       class: CommandLineTool
       hints:
         DockerRequirement:
-          dockerPull: ncbi/amr:18.04
+          dockerPull: ncbi/amr:latest
       requirements:
         - class: InitialWorkDirRequirement
           listing:

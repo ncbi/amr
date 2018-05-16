@@ -73,6 +73,18 @@ def check_data(files = [ 'AMR.LIB', 'AMRProt', 'fam.tab' ]):
             return False
     return True
 
+def check_fasta(f, aa=False):
+    try:
+        err = open(os.devnull, "wb")
+        r = subprocess.check_output("set -o pipefail; svn info | grep ^Revision | cut -d' ' -f2", shell=True, stderr=err)
+        revision = r.strip()
+        r = subprocess.check_output("set -o pipefail; svn info | grep ^URL | cut -d' ' -f2", shell=True, stderr=err)
+        url = r.strip()
+        r = subprocess.check_output("set -o pipefail; svn info {} | grep ^Revision | cut -d' ' -f2".format(url), shell=True, stderr=err)
+        latest = r.strip()
+    except subprocess.CalledProcessError:
+        pass
+
 def get_latest(ls):
     # Example results to be parsed
     #'modify=20180330183106;perm=fle;size=4096;type=dir;unique=28UFC8F9;UNIX.group=562;UNIX.mode=0444;UNIX.owner=14; 2018-03-30.1'
@@ -227,14 +239,18 @@ class cwlgen:
             for line in open('output.txt','r'):
                 print(line, end='')
         except subprocess.CalledProcessError as eCPE:
-            print(eCPE.cmd)
-            print("Return code:", eCPE.returncode)
-            print(eCPE.output)
+            if not self.isFormatError():
+                print(eCPE.cmd)
+                print("Return code:", eCPE.returncode)
+                print(eCPE.output)
         except OSError:
             print(cwl.stdout)
         finally:
             self.cleanup()
 
+    def isFormatError(self):
+        pass
+            
     def cleanup(self):
         def safe_remove(f):
             if os.path.exists(f):
