@@ -61,6 +61,11 @@ inputs:
     default: true
     inputBinding:
       prefix: -parse_deflines
+  seg:
+    type: string?
+    default: no
+    inputBinding:
+      prefix: -seg
 
 outputs:
   - id: output
