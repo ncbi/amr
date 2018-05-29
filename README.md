@@ -52,7 +52,7 @@ There are two parts to installing AMRFinder. Installing the code itself and
 installing the prerequisites. 
 
 
-Prerequisites:
+Prerequisites include:
    - python2 or python3 (uDocker requires python2)
    - docker or uDocker
    - python packages
@@ -119,6 +119,21 @@ the software will need to be in the docker group. The required docker
 containers images will download automatically the first time the pipeline runs.
 Afterwards, they will be cached and subsequent runs will execute much faster.
 
+Make sure that you're running Docker and that you are part of the group that has
+docker permissions by running
+
+```shell
+(cwl) ~$ docker run hello-world
+```
+
+You should see a message that starts with:
+```
+
+Hello from Docker!
+This message shows that your installation appears to be working correctly.
+
+```
+
 ### Installing uDocker
 
 UDocker compatibility is provided only because some servers may have security
@@ -138,6 +153,20 @@ Your mileage may vary, as the required set of package dependencies will
 be different from system to system, depending upon what is already
 installed. Note that we support both Python 2 & 3, however, uDocker
 only works with Python 2.
+
+Note that like with docker above you should be able to run
+
+```shell
+(cwl) ~$ udocker run hello-world
+```
+
+and get output that starts with
+
+```
+
+Hello from Docker!
+This message shows that your installation appears to be working correctly.
+```
 
 ### Initial test run
 
