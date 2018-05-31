@@ -6,6 +6,7 @@ requirements:
   - class: StepInputExpressionRequirement
     
 inputs:
+  fasta_check_dummy: File
   fasta: File
   
 outputs:

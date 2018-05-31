@@ -23,11 +23,24 @@ outputs:
   result:
     type: File
     outputSource: amr_report/output
+  fasta_check_out:
+    type: File
+    outputSource: fasta_check/output
 
 steps:
+  fasta_check:
+    run: fasta_check.cwl
+    in:
+      fasta: query
+      aa:
+        default: True
+    out:
+      [output]
+
   makeblastdb:
     run: wf_makeblastdb.cwl
     in:
+      fasta_check_dummy: fasta_check/output
       fasta: fasta
     out:
       [blastdb]
@@ -48,6 +61,7 @@ steps:
       query: query
       db: hmmdb
       cpu: cpu
+      fasta_check_dummy: fasta_check/output
     out:
       [hmmsearch_out,hmmdom_out]
 

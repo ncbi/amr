@@ -49,6 +49,8 @@ inputs:
     type: File
     inputBinding:
       position: 8
+  fasta_check_dummy:
+    type: File
       
       
 outputs:
