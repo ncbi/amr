@@ -205,7 +205,7 @@ class cwlgen:
     def params(self):
         params = self.prot_params() if self.do_protein else self.dna_params()
 
-        (fdstream, self.param_file) = tempfile.mkstemp(suffix=".cwl", prefix="amr_params_")
+        (fdstream, self.param_file) = tempfile.mkstemp(suffix=".yaml", prefix="amr_params_")
         stream = os.fdopen(fdstream, 'w')
         yaml.dump(params, stream)
         #print(self.param_file)
@@ -257,14 +257,19 @@ class cwlgen:
                         print(line, end='')
                     return True
         return False
-            
+
     def cleanup(self):
         def safe_remove(f):
             if os.path.exists(f):
                 os.remove(f)
-        #safe_remove(self.param_file)
-        safe_remove("output.txt")
-        safe_remove("fasta_check.out")
+
+        files = ["output.txt", "fasta_check.out", self.param_file]
+        if self.args.retain_files:
+            print("\nFiles retained:", files)
+        else:
+            for f in files:
+                safe_remove(f)
+
 
         # Cleanup after cwltool's use of py2py3
         safe_remove('/tmp/futurized_code.py')
@@ -308,6 +313,8 @@ def run(updater_parser):
 
     parser.add_argument('-s', '--show_output', action='store_true',
                         help='Show the stdout and stderr output from the pipeline execution (verbose mode, useful for debugging).')
+    parser.add_argument('-r', '--retain-files', action='store_true',
+                        help='Keep the YAML parameter and final output files.')
 
     parser.add_argument('-P', '--parallel', action='store_true',
                         help='[experimental] Run jobs in parallel. Does not currently keep track of ResourceRequirements like the number of cores or memory and can overload this system.')
