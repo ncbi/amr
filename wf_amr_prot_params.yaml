@@ -1,6 +1,9 @@
 query:
   class: File
   location: test_prot.fa
+gff:
+  class: File
+  location: test_prot.gff
 fasta:
   class: File
   location: data/latest/AMRProt

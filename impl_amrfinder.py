@@ -249,7 +249,7 @@ class cwlgen:
             self.cleanup()
 
     def isFormatError(self):
-        files = [ "fasta_check.out" ]
+        files = [ "fasta_check.out", "gff_check.out" ]
         for f in files:
             if os.path.exists(f):
                 if os.path.getsize(f) > 0:
@@ -263,13 +263,12 @@ class cwlgen:
             if os.path.exists(f):
                 os.remove(f)
 
-        files = ["output.txt", "fasta_check.out", self.param_file]
+        files = ["output.txt", "fasta_check.out", "gff_check.out", self.param_file]
         if self.args.retain_files:
             print("\nFiles retained:", files)
         else:
             for f in files:
                 safe_remove(f)
-
 
         # Cleanup after cwltool's use of py2py3
         safe_remove('/tmp/futurized_code.py')
