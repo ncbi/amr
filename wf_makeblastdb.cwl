@@ -6,7 +6,8 @@ requirements:
   - class: StepInputExpressionRequirement
     
 inputs:
-  fasta_check_dummy: File
+  fasta_check_dummy: File?
+  gff_check_dummy: File?
   fasta: File
   
 outputs:
@@ -20,7 +21,7 @@ steps:
       class: CommandLineTool
       hints:
         DockerRequirement:
-          dockerPull: ncbi/amr:18.05
+          dockerPull: ncbi/amr:18.06
       requirements:
         - class: InitialWorkDirRequirement
           listing:

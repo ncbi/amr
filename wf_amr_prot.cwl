@@ -6,7 +6,7 @@ class: Workflow
 requirements:
   - class: SubworkflowFeatureRequirement
   - class: DockerRequirement
-    dockerPull: ncbi/amr:18.05
+    dockerPull: ncbi/amr:18.06
 
   
 inputs:
@@ -26,6 +26,9 @@ outputs:
   fasta_check_out:
     type: File
     outputSource: fasta_check/output
+  gff_check_out:
+    type: File
+    outputSource: gff_check/output
 
 steps:
   fasta_check:
@@ -37,10 +40,21 @@ steps:
     out:
       [output]
 
+  gff_check:
+    run: gff_check.cwl
+    in:
+      gff: gff
+      fasta: query
+      #locus_tag:
+      #  default: locus.tags
+    out:
+      [output]
+      
   makeblastdb:
     run: wf_makeblastdb.cwl
     in:
       fasta_check_dummy: fasta_check/output
+      gff_check_dummy: gff_check/output
       fasta: fasta
     out:
       [blastdb]
@@ -62,6 +76,7 @@ steps:
       db: hmmdb
       cpu: cpu
       fasta_check_dummy: fasta_check/output
+      gff_check_dummy: gff_check/output
     out:
       [hmmsearch_out,hmmdom_out]
 

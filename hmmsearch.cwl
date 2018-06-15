@@ -2,7 +2,7 @@ cwlVersion: v1.0
 class: CommandLineTool
 hints:
   DockerRequirement:
-    dockerPull: ncbi/amr:18.05
+    dockerPull: ncbi/amr:18.06
 
 baseCommand: hmmsearch
 inputs:
@@ -50,7 +50,9 @@ inputs:
     inputBinding:
       position: 8
   fasta_check_dummy:
-    type: File
+    type: File?
+  gff_check_dummy:
+    type: File?
       
       
 outputs:
