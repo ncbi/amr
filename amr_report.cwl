@@ -51,7 +51,7 @@ inputs:
       prefix: -partial_cover_min
   pseudo:
     type: boolean?
-    default: false
+    default: true
     inputBinding:
       prefix: -pseudo
   qc:
