@@ -28,6 +28,8 @@ Docker.
 These instructions assume that you have python, pip, and docker installed. We provide more details about how to install these prerequisites below. 
 
 ```shell
+~$ virtualenv --python=python2 ~/cwl
+~$ source ~/cwl/bin/activate
 (cwl) ~$ pip install -U wheel setuptools
 (cwl) ~$ pip install -U cwltool[deps] PyYAML cwlref-runner
 (cwl) ~$ svn co https://github.com/ncbi/pipelines/trunk/amr_finder
@@ -52,24 +54,16 @@ There are two parts to installing AMRFinder. Installing the code itself and
 installing the prerequisites. 
 
 
-Prerequisites include:
+Prerequisites:
    - python2 or python3 (uDocker requires python2)
    - docker or uDocker
+   - subversion
    - python packages
         - wheel
         - setuptools
         - PyYAML 
         - cwlref-runner
         - cwltool
-
-### Retrieving the AMR software
-
-The AMRFinder software is available at GitHub at https://github.com/ncbi/pipelines/tree/master/amr_finder,
-and can be retrieved with svn like:
-
-```shell
-~$ svn co https://github.com/ncbi/pipelines/trunk/amr_finder
-```
 
 ### Prerequisites
 
@@ -78,12 +72,13 @@ your system.
 
 e.g.,
 
-The instructions that follow use pip and virtualenv, which are usually
-included with most python installs, so try:
+The instructions that follow use subversion (svn), pip, docker, and virtualenv. Check you have these installed with:
 
 ```shell
+~$ svn --version
 ~$ pip --version
 ~$ virtualenv --version
+~$ docker run hello-world
 ```
 If pip is not installed see https://pip.pypa.io/en/stable/installing/ for installation instructions.
 
@@ -99,6 +94,14 @@ To create a virtualenv for your installation of CWL and AMRFinder:
 ~$ virtualenv --python=python2 cwl
 ```
 (Note that if you're running python2 by default you will skip the '--python=python2')
+
+### Installing subversion
+
+Your sysadmin can help you install subversion using whatever method is preferred on your system. For example with an Ubuntu distribution you could use:
+
+```shell
+~$ sudo apt install subversion
+```
 
 ### Installing CWL
 
@@ -119,20 +122,30 @@ the software will need to be in the docker group. The required docker
 containers images will download automatically the first time the pipeline runs.
 Afterwards, they will be cached and subsequent runs will execute much faster.
 
-Make sure that you're running Docker and that you are part of the group that has
-docker permissions by running
+As an example of how to install Docker under Ubuntu. This needs to be executed by a user with root access (e.g., your sysadmin).
 
 ```shell
-(cwl) ~$ docker run hello-world
+~$  curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+~$  sudo apt-key fingerprint 0EBFCD88
+~$  sudo add-apt-repository    "deb [arch=amd64] https://download.docker.com/linux/ubuntu \
+>   $(lsb_release -cs) \
+>   stable"
+~$  sudo apt-get install docker-ce
+~$  sudo groupadd docker
+~$  sudo usermod -aG docker $USER
+~$  exit
+  # need to exit and log in again to pick up new group
 ```
 
+To test your Docker installation try:
+
+```{shell}
+~$ docker run hello-world
+```
 You should see a message that starts with:
-```
 
-Hello from Docker!
-This message shows that your installation appears to be working correctly.
-
-```
+> Hello from Docker!
+> This message shows that your installation appears to be working correctly.
 
 ### Installing uDocker
 
@@ -154,23 +167,30 @@ be different from system to system, depending upon what is already
 installed. Note that we support both Python 2 & 3, however, uDocker
 only works with Python 2.
 
-Note that like with docker above you should be able to run
+To test your uDocker installation:
+
+```{shell}
+~$ docker run hello-world
+```
+You should see a message that starts with:
+
+> Hello from Docker!
+> This message shows that your installation appears to be working correctly.
+
+### Retrieving the AMR software
+
+The AMRFinder software is available at GitHub at https://github.com/ncbi/pipelines/tree/master/amr_finder,
+and can be retrieved with svn like:
 
 ```shell
-(cwl) ~$ udocker run hello-world
+~$ svn co https://github.com/ncbi/pipelines/trunk/amr_finder
 ```
 
-and get output that starts with
-
-```
-
-Hello from Docker!
-This message shows that your installation appears to be working correctly.
-```
 
 ### Initial test run
 
 ```shell
+~$ source ~/cwl/activate  # activate the virtualenv
 (cwl) ~$ cd amr_finder
 (cwl) ~/amr_finder$ ./amrfinder -p test_prot.fa
 ```
@@ -183,7 +203,7 @@ invoke amrfinder:
 ```shell
 #!/bin/sh
 
-source $HOME/cwl/bin/activate   # activate virtualenv (not necessary if you are running outside of a venv)
+source $HOME/cwl/bin/activate   # activate virtualenv
 $HOME/amr_finder/amrfinder $@
 ```
 
