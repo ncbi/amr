@@ -15,7 +15,7 @@ it uses BLASTX translated searches and the hierarchical tree of gene families.
 
 ## Installation
 
-To run AMRFinder you will need Linux, Docker and CWL (Common Workflow
+To run AMRFinder you will need Linux, Docker, and CWL (Common Workflow
 Language). We provide instructions here for two installation modes. One
 using Docker and the other using the docker emulator uDocker. We recommend the
 Docker installation, but installing Docker requires root, so we have made
