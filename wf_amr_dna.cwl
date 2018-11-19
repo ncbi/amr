@@ -5,6 +5,7 @@ class: Workflow
 
 requirements:
   - class: SubworkflowFeatureRequirement
+hints:
   - class: DockerRequirement
     dockerPull: ncbi/amr:18.06
 
@@ -17,7 +18,7 @@ inputs:
   complete_cover_min: float
   query_gencode: int
   num_threads: int?
-  
+
 outputs:
   result:
     type: File
@@ -25,7 +26,7 @@ outputs:
   fasta_check_out:
     type: File
     outputSource: fasta_check/output
-    
+
 steps:
   fasta_check:
     run: fasta_check.cwl
@@ -33,7 +34,7 @@ steps:
       fasta: query
     out:
       [output]
-  
+
   makeblastdb:
     run: wf_makeblastdb.cwl
     in:
@@ -62,4 +63,4 @@ steps:
       complete_cover_min: complete_cover_min
     out:
       [output]
-      
+

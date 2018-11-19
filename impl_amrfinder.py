@@ -220,9 +220,12 @@ class cwlgen:
         else:
             print("No CWL platform found.", file=sys.stderr)
             sys.exit(1)
-        docker_avail = spawn.find_executable("docker")
-        if docker_avail == None:
-            cwlcmd.extend(['--user-space-docker-cmd', 'udocker'])
+        if self.args.docker:
+            docker_avail = spawn.find_executable("docker")
+            if docker_avail == None:
+                cwlcmd.extend(['--user-space-docker-cmd', 'udocker'])
+        else:
+            cwlcmd.extend(['--no-container'])
         if self.args.parallel:
             cwlcmd.extend(['--parallel'])
         script_path = os.path.dirname(os.path.realpath(__file__))
@@ -319,6 +322,8 @@ def run(updater_parser):
                         help='[experimental] Run jobs in parallel. Does not currently keep track of ResourceRequirements like the number of cores or memory and can overload this system.')
     parser.add_argument('-N', '--num_threads', type=int,
                         help='Number of threads to use for blast/hmmr (default: %(default)s).')
+    parser.add_argument('-d', '--docker', action='store_true',
+                        help='Run executables in docker container.')
     max_cpus = min(8, available_cpu_count())
     parser.set_defaults(ident_min=0.9,
                         coverage_min=0.9,

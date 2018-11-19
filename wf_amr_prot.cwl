@@ -5,10 +5,11 @@ class: Workflow
 
 requirements:
   - class: SubworkflowFeatureRequirement
+hints:
   - class: DockerRequirement
     dockerPull: ncbi/amr:18.06
 
-  
+
 inputs:
   query: File
   fasta: File
@@ -18,7 +19,7 @@ inputs:
   parse_deflines: boolean
   num_threads: int?
   cpu: int?
-  
+
 outputs:
   result:
     type: File
@@ -49,7 +50,7 @@ steps:
       #  default: locus.tags
     out:
       [output]
-      
+
   makeblastdb:
     run: wf_makeblastdb.cwl
     in:
@@ -58,7 +59,7 @@ steps:
       fasta: fasta
     out:
       [blastdb]
-  
+
   blastp:
     run: blastp.cwl
     in:
@@ -90,4 +91,4 @@ steps:
       gff: gff
     out:
       [output]
-      
+
