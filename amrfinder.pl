@@ -7,7 +7,7 @@ use File::Temp qw( tempdir );
 use File::Basename;
 use Net::FTP;
 use Cwd qw( getcwd abs_path );
-my $curr_version = '$Revision: 38770 $';
+my $curr_version = '$Revision: 38771 $';
 our $DEBUG = 0;
 
 # todo:
@@ -120,7 +120,7 @@ GetOptions(
     'D'                     => \$DEBUG,
 );
 
-print $usage_long if ($help);
+print $usage_long and exit() if ($help);
 print "version $curr_version\n" if ($version);
 if ($DEBUG) { $quiet = 0; } # turn quiet mode off if we're in debug mode 
 print STDERR "Running $command_line\n" unless ($quiet);
