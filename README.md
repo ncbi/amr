@@ -2,7 +2,7 @@
 
 This software and the accompanying database are designed to find acquired antimicrobial resistance genes in protein or nucleotide sequences.
 
-See [the wiki|https://github.com/ncbi/amr/wiki] for full documentation.
+See [the wiki](https://github.com/ncbi/amr/wiki) for full documentation.
 
 ----
 # Licenses
