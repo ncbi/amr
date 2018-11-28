@@ -103,3 +103,21 @@ dist:
 	tar cvfz $(DISTDIR).tar.gz $(DISTDIR)/*
 	rm -r $(DISTDIR)/*
 	rmdir $(DISTDIR)
+
+# amrfinder binaries for github binary release
+GITHUB_FILE=amrfinder_binaries_v$(VERSION_STRING)
+GITHUB_FILES = test_* amrfinder.pl fasta_check gff_check amr_report
+github_binaries:
+	@if [ ! -e version.txt ]; \
+	then \
+		echo >&2 "version.txt required to make a distribution file"; \
+		false; \
+	fi
+	mkdir $(GITHUB_FILE)
+	echo $(VERSION_STRING) > $(GITHUB_FILE)/version.txt
+	cp $(GITHUB_FILES) $(GITHUB_FILE)
+	if [ -e $(GITHUB_FILE).tar.gz ]; then rm $(GITHUB_FILE).tar.gz; fi
+	tar cvfz $(GITHUB_FILE).tar.gz $(GITHUB_FILE)/*
+	rm -r $(GITHUB_FILE)/*
+	rmdir $(GITHUB_FILE)
+
