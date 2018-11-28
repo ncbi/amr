@@ -135,20 +135,21 @@ if ($update_data) {
     exit 0 unless ($prot_file or $nuc_file); # exit if there's nothing left to do
 }
 make_databases($database_dir) unless (-e "$database_dir/AMRProt.phr");
+my $abs_database_dir = abs_path($database_dir);
 
 # end of config and error checking, now run AMRFinder
 
 my $report;
 if ($prot_file) {
     check_prot();
-    print STDERR "Running AMRFinder on $prot_file with database $database_dir\n" unless ($quiet);
+    print STDERR "Running AMRFinder on $prot_file with database $abs_database_dir\n" unless ($quiet);
     $report = run_prot(); 
 } else {
     check_nuc();
     $min_ident   ||= 0.9;
     $min_cov     ||= 0.9;
     $trans_table ||= 11;
-    print STDERR "Running AMRFinder on $nuc_file with database $database_dir\n" unless ($quiet);
+    print STDERR "Running AMRFinder on $nuc_file with database $abs_database_dir\n" unless ($quiet);
     $report = run_nuc();
 }
 
@@ -323,6 +324,7 @@ sub run_nuc {
     my $cmd = "$BLASTX -db $database_dir/AMRProt -query $nuc_file -show_gis -word_size 3 -evalue 1e-20 -query_gencode $trans_table "
     . "-seg no -comp_based_stats 0 -max_target_seqs 10000 -outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq' "
     . " > $tempdir/blastx 2> $tempdir/blastx.err";
+    print STDERR "Running blastx...\n" unless ($quiet);
     system($cmd) == 0 or die "ERROR running '$cmd'";
     if (-s "$tempdir/blastx.err") {
         die "ERROR running $cmd: " . `cat $tempdir/blastx.err`;
@@ -349,8 +351,10 @@ sub run_nuc {
 sub run_prot {
     # first blast
     my $cmd = "$BLASTP -task blastp-fast -db $database_dir/AMRProt -query $prot_file -show_gis -word_size 6 -threshold 21 -evalue 1e-20 -comp_based_stats 0 -outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq' > $tempdir/blastp 2> $tempdir/blastp.err";
+    print STDERR "Running blastp...\n" unless ($quiet);
     my @waitfor = run_forked_system($cmd);
     $cmd = "$HMMER --tblout $tempdir/hmmsearch --noali --domtblout $tempdir/dom --cut_tc -Z 10000 --cpu 6 $database_dir/AMR.LIB $prot_file > $tempdir/hmmer.out 2> $tempdir/hmmer.err";
+    print STDERR "Running hmmsearch...\n" unless ($quiet);
     push @waitfor, run_forked_system($cmd);
     while (wait() != -1) {}; # wait for the processes to finish
     if (-s "$tempdir/blastp.err") {
