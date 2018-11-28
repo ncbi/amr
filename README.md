@@ -1,4 +1,4 @@
-# NCBI Antimicrobial Resistance Gene Finder (alpha)
+# NCBI Antimicrobial Resistance Gene Finder (AMRFinder)
 
 This software and the accompanying database are designed to find acquired antimicrobial resistance genes in protein or nucleotide sequences.
 
