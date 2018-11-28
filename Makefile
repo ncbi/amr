@@ -39,7 +39,7 @@ INSTALL_DIR=$(datadir)/amrfinder
 
 
 .PHONY: all clean install dist
-DISTFILES = Makefile *.cpp *.hpp *.inc test_* amrfinder.pl AMRFinder-dna.sh AMRFinder-prot.sh
+DISTFILES = Makefile *.cpp *.hpp *.inc test_* amrfinder.pl AMRFinder-dna.sh AMRFinder-prot.sh fasta_check gff_check amr_report
 
 all:	amr_report fasta_check gff_check
 
@@ -101,5 +101,5 @@ dist:
 		$(MAKE) dist INSTALL_DIR=../src/$(DISTDIR)/data/$$datalink;
 	if [ -e $(DISTDIR).tar.gz ]; then rm $(DISTDIR).tar.gz; fi
 	tar cvfz $(DISTDIR).tar.gz $(DISTDIR)/*
-#	rm -r $(DISTDIR)/*
-#	rmdir $(DISTDIR)
+	rm -r $(DISTDIR)/*
+	rmdir $(DISTDIR)

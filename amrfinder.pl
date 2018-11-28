@@ -15,6 +15,8 @@ our $DEBUG = 0;
 # - Add interpretation of error messages and quick-abort if
 #   a forked process returns with an error
 # - Add option to do single-threaded
+# - Add test for availability of -num_threads option to blastp and blastx
+#   - enable -num_threads 6 for blastp and blastx if it is available
 
 # - rework to add functionality from amrfinder.cpp
 # - Add compiling DNA and other blast databases as necessary
@@ -65,9 +67,9 @@ Options relating to protein input (-p):
     -g <gff> GFF file indicating genomic location for proteins in -p <protein>
 Options relating to nucleotide sequence input (-n)
     -n <nucleotide> genomic sequence to search using blastx
-    -i <0.9> Minimum proportion identical translated AA residues for 
+    -i <0.9> Minimum proportion identical translated AA residues 
+    -c <0.5> Minimum coverage of reference protein sequence for
         a "BLASTX" match vs. a "PARTIALX" match
-    -c <0.5> Minimum coverage of reference protein sequence
     -t <11> Translation table for blastx, for options and their meaning see:
         https://www.ncbi.nlm.nih.gov/Taxonomy/Utils/wprintgc.cgi
 END
@@ -129,6 +131,7 @@ opts_ok(); # sanity check on options and files before we get started
 paths_ok(); # check for exectuables and database files, this may modify globals!
 if ($update_data) {
     update_database($database_dir);
+    make_databases($database_dir) unless (-e "$database_dir/AMRProt.phr");
     exit 0 unless ($prot_file or $nuc_file); # exit if there's nothing left to do
 }
 make_databases($database_dir) unless (-e "$database_dir/AMRProt.phr");
@@ -164,7 +167,7 @@ if ($outfile) {
 # under $AMRFINDER_DB
 sub update_database {
     my $database_dir = shift;
-    my $amrfinder_dir = abs_path(dirname(__FILE__));
+    my $amrfinder_dir = dirname(abs_path(__FILE__));
     if ($database_dir !~ m#/latest$# or (-e $database_dir and ! -l "$database_dir/latest")) {
         warn "Updating database directory only works for databases with the default data\n",
             "directory format. Please see https://github.com/ncbi/amr/wiki for details\n",
@@ -318,7 +321,7 @@ sub check_prot {
 # $nuc_file
 sub run_nuc {
     my $cmd = "$BLASTX -db $database_dir/AMRProt -query $nuc_file -show_gis -word_size 3 -evalue 1e-20 -query_gencode $trans_table "
-    . "-seg no -comp_based_stats 0 -max_target_seqs 10000 -num_threads 4 -outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq' "
+    . "-seg no -comp_based_stats 0 -max_target_seqs 10000 -outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq' "
     . " > $tempdir/blastx 2> $tempdir/blastx.err";
     system($cmd) == 0 or die "ERROR running '$cmd'";
     if (-s "$tempdir/blastx.err") {
@@ -345,7 +348,7 @@ sub run_nuc {
 # returns string containing AMR Report
 sub run_prot {
     # first blast
-    my $cmd = "$BLASTP -task blastp-fast -db $database_dir/AMRProt -query $prot_file -show_gis -word_size 6 -threshold 21 -evalue 1e-20 -comp_based_stats 0 -num_threads 6 -outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq' > $tempdir/blastp 2> $tempdir/blastp.err";
+    my $cmd = "$BLASTP -task blastp-fast -db $database_dir/AMRProt -query $prot_file -show_gis -word_size 6 -threshold 21 -evalue 1e-20 -comp_based_stats 0 -outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq' > $tempdir/blastp 2> $tempdir/blastp.err";
     my @waitfor = run_forked_system($cmd);
     $cmd = "$HMMER --tblout $tempdir/hmmsearch --noali --domtblout $tempdir/dom --cut_tc -Z 10000 --cpu 6 $database_dir/AMR.LIB $prot_file > $tempdir/hmmer.out 2> $tempdir/hmmer.err";
     push @waitfor, run_forked_system($cmd);
@@ -442,7 +445,7 @@ sub opts_ok {
 sub paths_ok {
     my @errors;
     # first check the AMRFinder database
-    my $amrfinder_dir = abs_path(dirname(__FILE__));
+    my $amrfinder_dir = dirname(abs_path(__FILE__));
     if ($database_dir) {
         if (!check_db_dir($database_dir)) {
             my $msg = "Database directory $database_dir does not appear to be in the correct format\n";
@@ -460,7 +463,7 @@ sub paths_ok {
         } else {
             if ($database_dir eq '' and $update_data) { 
                 # it's ok if we're going to download data first
-                warn "No current AMRFinder database... use -U to download the latest\n";
+                warn "No current AMRFinder database.\n";
                 $database_dir = "$amrfinder_dir/data/latest";
             } else {
                 push @errors, "ERROR: AMRFinder database files not found\n" .
