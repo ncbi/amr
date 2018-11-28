@@ -116,8 +116,10 @@ github_binaries:
 	mkdir $(GITHUB_FILE)
 	echo $(VERSION_STRING) > $(GITHUB_FILE)/version.txt
 	cp $(GITHUB_FILES) $(GITHUB_FILE)
+	sed "s/curr_version = .*/curr_version = '$(VERSION_STRING)';/" amrfinder.pl > $(GITHUB_FILE)/amrfinder.pl
 	if [ -e $(GITHUB_FILE).tar.gz ]; then rm $(GITHUB_FILE).tar.gz; fi
-	tar cvfz $(GITHUB_FILE).tar.gz $(GITHUB_FILE)/*
+	cd $(GITHUB_FILE); tar cvfz ../$(GITHUB_FILE).tar.gz *
+#	tar cvfz $(GITHUB_FILE).tar.gz $(GITHUB_FILE)/*
 	rm -r $(GITHUB_FILE)/*
 	rmdir $(GITHUB_FILE)
 
