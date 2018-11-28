@@ -7,7 +7,7 @@ use File::Temp qw( tempdir );
 use File::Basename;
 use Net::FTP;
 use Cwd qw( getcwd abs_path );
-my $curr_version = '$Revision: 38771 $';
+my $curr_version = '$Revision: 38801 $';
 our $DEBUG = 0;
 
 # todo:
@@ -105,6 +105,7 @@ my $min_cov         = undef; # default now set in opts_ok
 #my $trans_table     = 11;
 my $trans_table     = undef; # default now set in opts_ok
 my $gff             = '';
+my $NUM_THREADS     = 4; # parameter to -num_threads or --cpu 
 GetOptions(
     'protein=s'             => \$prot_file,
     'nucleotide=s'          => \$nuc_file,
@@ -481,15 +482,17 @@ sub paths_ok {
 
     # Now check executables
     if ($prot_file) {
-        if (system("$BLASTP -help > /dev/null")) {
-            push @errors, "ERROR executing $BLASTP, please make sure blastp is installed and in your path";
+        $BLASTP = check_blast($BLASTP, $NUM_THREADS);
+        if ($BLASTP =~ /^ERROR/) {
+            push @errors, $BLASTP;
         }
         if (system("$HMMER -h > /dev/null")) {
             push @errors, "ERROR executing $HMMER, please make sure hmmsearch is installed and in your path";
         }
     } elsif ($nuc_file) {
-        if (system("$BLASTX -help > /dev/null")) {
-            push @errors, "ERROR exectuing $BLASTX, please make sure blastx is installed and in your path";
+        $BLASTX = check_blast($BLASTX, $NUM_THREADS);
+        if ($BLASTX =~ /^ERROR/) {
+            push @errors, $BLASTX;
         }
     }
 
@@ -512,6 +515,28 @@ sub paths_ok {
     return 1;
 }
 
+# check that blast is executable and return -num_threads option if you can 
+# (Killing 2 birds with 1 stone)
+# INPUTS: blast_program_name, $num_threads
+# OUTPUTS: Returns either:
+#   command-line to run (i.e., $blast_program_name -num_threads $num_threads)
+#   or
+#   an error message beginning with "ERROR executing"...
+sub check_blast {
+    my $progname = shift;
+    my $num_threads = shift;
+    open(my $fh, "-|", "$progname -h") 
+        or return "ERROR executing $progname, please make sure $progname is installed and in your path";
+    while(<$fh>) {
+        if (/-num_threads \<Integer, \(.* and \=\<(\d+)/) {
+	    $num_threads = $1 if ($1 < $num_threads);
+            return "$progname -num_threads $num_threads";
+        }
+    }
+    # if we got here then no num_threads option
+    return "$progname";
+}
+    
 
 ##############################################################################
 # make_databases - format blast and HMMer databases
