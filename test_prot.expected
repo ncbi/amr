@@ -1,0 +1,6 @@
+Target identifier	Gene symbol	Protein name	Method	Target length	Reference protein length	% Coverage of reference protein	% Identity to reference protein	Alignment length	Accession of closest protein	Name of closest protein	HMM id	HMM description
+blaOXA-436_partial	blaOXA	OXA-48 family class D beta-lactamase	PARTIAL	233	265	87.92	100.00	233	WP_058842180.1	OXA-48 family carbapenem-hydrolyzing class D beta-lactamase OXA-436	NF000387.2	OXA-48 family class D beta-lactamase
+blaPDC-114_blast	blaPDC	PDC family class C beta-lactamase	BLAST	397	397	100.00	99.75	397	WP_061189306.1	class C beta-lactamase PDC-114	NF000422.2	PDC family class C beta-lactamase
+blaTEM-156	blaTEM-156	class A beta-lactamase TEM-156	ALLELE	286	286	100.00	100.00	286	WP_061158039.1	class A beta-lactamase TEM-156	NF000531.2	TEM family class A beta-lactamase
+nimIJ_hmm	nimIJ	NimIJ family nitroimidazole resistance protein	HMM	166	NA	NA	NA	NA	NA	NA	NF000262.1	NimIJ family nitroimidazole resistance protein
+vanG	vanG	D-alanine--D-serine ligase VanG	EXACT	349	349	100.00	100.00	349	WP_063856695.1	D-alanine--D-serine ligase VanG	NF000091.3	D-alanine--D-serine ligase VanG
