@@ -1,0 +1,5 @@
+Target identifier	Contig id	Start	Stop	Strand	Gene symbol	Protein name	Method	Target length	Reference protein length	% Coverage of reference protein	% Identity to reference protein	Alignment length	Accession of closest protein	Name of closest protein	HMM id	HMM description
+contig1	contig1	101	958	+	blaTEM-156	class A beta-lactamase TEM-156	ALLELE	286	286	100.00	100.00	286	WP_061158039.1	class A beta-lactamase TEM-156	NF000531.2	TEM family class A beta-lactamase
+contig2	contig2	1	1191	+	blaPDC	PDC family class C beta-lactamase	BLAST	397	397	100.00	99.75	397	WP_061189306.1	class C beta-lactamase PDC-114	NF000422.2	PDC family class C beta-lactamase
+contig3	contig3	101	802	+	blaOXA	OXA-48 family class D beta-lactamase	PARTIAL	234	265	88.30	100.00	234	WP_058842180.1	OXA-48 family carbapenem-hydrolyzing class D beta-lactamase OXA-436	NF000387.2	OXA-48 family class D beta-lactamase
+contig4	contig4	101	1147	+	vanG	D-alanine--D-serine ligase VanG	EXACT	349	349	100.00	100.00	349	WP_063856695.1	D-alanine--D-serine ligase VanG	NF000091.3	D-alanine--D-serine ligase VanG
