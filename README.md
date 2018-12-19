@@ -9,14 +9,6 @@ See [the wiki for documentation](https://github.com/ncbi/amr/wiki).
 ----
 # Licenses
 
-## HMMER
-
-This distribution includes HMMER (c) Sean Eddy and the Howard Hughes Medical
-Institue and licensed under the GNU General Public License version 3 (GPLv3)
-(https://www.gnu.org/licenses/)
-
-See http://hmmer.org for details.
-
 ## PUBLIC DOMAIN NOTICE
 
 This software/database is "United States Government Work" under the terms of
