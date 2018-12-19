@@ -9,8 +9,13 @@ else
 endif
 SVNREV := -D'SVN_REV="$(VERSION_STRING)"'
 
-SHELL=/bin/sh
-INSTALL = install
+# Define default paths
+prefix=/usr/local
+bindir = $(prefix)/bin
+datadir=$(prefix)/share
+BLAST_BIN=$(BIN)
+HMMER_BIN=$(BIN)
+INSTALL_DIR = $(datadir)/amrfinder
 
 CPPFLAGS = -std=gnu++11 \
   -malign-double -fno-math-errno \
@@ -19,29 +24,17 @@ CPPFLAGS = -std=gnu++11 \
   -Wmissing-braces -Wmissing-field-initializers -Wmissing-format-attribute -Wmissing-include-dirs \
   -Woverloaded-virtual -pedantic -Wparentheses -Wpointer-arith -Wsequence-point -Wshadow -Wunused \
   -Wsuggest-attribute=format -Wswitch -Wuninitialized -Wsign-conversion -Wuseless-cast \
-  -O3 \
+  -Werror -O3 \
   $(SVNREV)
-#  -Wno-error=misleading-indentation -Wno-nonnull-compare \
 
 CXX=g++
-COMPILE.cpp= $(CXX) $(CPPFLAGS)  -c
-
-#prefix = /panfs/pan1.be-md.ncbi.nlm.nih.gov/bacterial_pathogens/backup
-prefix=/usr/local
-
-# soft links are created here to INSTALL_DIR
-bindir="$(prefix)/bin"
-
-datadir=$(prefix)/share
-
-# This is where AMRFinder and the default database will be installed
-INSTALL_DIR=$(datadir)/amrfinder
+COMPILE.cpp= $(CXX) $(CPPFLAGS)  -c 
 
 
-.PHONY: all clean install dist
-DISTFILES = Makefile *.cpp *.hpp *.inc test_* amrfinder.pl AMRFinder-dna.sh AMRFinder-prot.sh fasta_check gff_check amr_report
+.PHONY: all clean install release
 
-all:	amr_report fasta_check gff_check
+
+all:	amr_report amrfinder fasta_check gff_check point_mut
 
 release: clean
 	svnversion . > version.txt
@@ -55,8 +48,13 @@ amr_reportOBJS=amr_report.o common.o gff.o
 amr_report:	$(amr_reportOBJS)
 	$(CXX) -o $@ $(amr_reportOBJS)
 
-fasta_check.o:	common.hpp common.inc
-fasta_checkOBJS=fasta_check.o common.o
+amrfinder.o:  common.hpp common.inc
+amrfinderOBJS=amrfinder.o common.o
+amrfinder:	$(amrfinderOBJS)
+	$(CXX) -o $@ $(amrfinderOBJS) 
+
+fasta_check.o:	common.hpp common.inc 
+fasta_checkOBJS=fasta_check.o common.o 
 fasta_check:	$(fasta_checkOBJS)
 	$(CXX) -o $@ $(fasta_checkOBJS)
 
@@ -65,25 +63,38 @@ gff_checkOBJS=gff_check.o common.o gff.o
 gff_check:	$(gff_checkOBJS)
 	$(CXX) -o $@ $(gff_checkOBJS)
 
+point_mut.o:	common.hpp common.inc 
+point_mutOBJS=point_mut.o common.o
+point_mut:	$(point_mutOBJS)
+	$(CXX) -o $@ $(point_mutOBJS)
+
+
 clean:
 	rm -f *.o
-	rm -f amr_report fasta_check gff_check
-	#rm version.txt
+	rm -f amr_report fasta_check gff_check point_mut
 
 install:
-	$(INSTALL) -D -t $(INSTALL_DIR) amr_report fasta_check gff_check amrfinder.pl
-#	@dest=$(INSTALL_DIR); \
-#		if [ ! -e $(bindir)/amrfinder.pl ]; \
-#		then \
-#			ln -s "$$dest/amrfinder.pl" $(bindir); \
-#			ln -s "$$dest/amr_report" $(bindir); \
-#			ln -s "$$dest/fasta_check" $(bindir); \
-#			ln -s "$$dest/gff_check" $(bindir); \
-#		else \
-#			echo "$$dest/amrfinder.pl already exists, so skipping link creation"; \
-#		fi
+	$(INSTALL) -D -t $(INSTALL_DIR) amr_report fasta_check gff_check amrfinder point_mut 
 
-DISTDIR=amrfinder.$(VERSION_STRING)
+# amrfinder binaries for github binary release
+GITHUB_FILE=amrfinder_binaries_v$(VERSION_STRING)
+GITHUB_FILES = test_* fasta_check gff_check amr_report point_mut
+github_binaries:
+	@if [ ! -e version.txt ]; \
+	then \
+		echo >&2 "version.txt required to make a distribution file"; \
+		false; \
+	fi
+	mkdir $(GITHUB_FILE)
+	echo $(VERSION_STRING) > $(GITHUB_FILE)/version.txt
+	cp $(GITHUB_FILES) $(GITHUB_FILE)
+	if [ -e $(GITHUB_FILE).tar.gz ]; then rm $(GITHUB_FILE).tar.gz; fi
+	cd $(GITHUB_FILE); tar cvfz ../$(GITHUB_FILE).tar.gz *
+#	tar cvfz $(GITHUB_FILE).tar.gz $(GITHUB_FILE)/*
+	rm -r $(GITHUB_FILE)/*
+	rmdir $(GITHUB_FILE)
+
+DISTFILES=$(GITHUB_FILES) Makefile *.cpp *.hpp *.inc
 dist:
 	@if [ ! -e version.txt ]; \
 	then \
@@ -104,22 +115,4 @@ dist:
 	rm -r $(DISTDIR)/*
 	rmdir $(DISTDIR)
 
-# amrfinder binaries for github binary release
-GITHUB_FILE=amrfinder_binaries_v$(VERSION_STRING)
-GITHUB_FILES = test_* amrfinder.pl fasta_check gff_check amr_report
-github_binaries:
-	@if [ ! -e version.txt ]; \
-	then \
-		echo >&2 "version.txt required to make a distribution file"; \
-		false; \
-	fi
-	mkdir $(GITHUB_FILE)
-	echo $(VERSION_STRING) > $(GITHUB_FILE)/version.txt
-	cp $(GITHUB_FILES) $(GITHUB_FILE)
-	sed "s/curr_version = .*/curr_version = '$(VERSION_STRING)';/" amrfinder.pl > $(GITHUB_FILE)/amrfinder.pl
-	if [ -e $(GITHUB_FILE).tar.gz ]; then rm $(GITHUB_FILE).tar.gz; fi
-	cd $(GITHUB_FILE); tar cvfz ../$(GITHUB_FILE).tar.gz *
-#	tar cvfz $(GITHUB_FILE).tar.gz $(GITHUB_FILE)/*
-	rm -r $(GITHUB_FILE)/*
-	rmdir $(GITHUB_FILE)
 
