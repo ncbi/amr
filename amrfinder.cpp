@@ -268,7 +268,7 @@ struct ThisApplication : Application
 		}
 		ASSERT (! db. empty ());
 		if (! directoryExists (db))
-		  throw runtime_error ("Directory with data " + db + " does not exist");
+		  throw runtime_error ("Directory with data \"" + db + "\" does not exist");
 
     // blast_bin
     if (blast_bin. empty ())

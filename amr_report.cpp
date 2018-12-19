@@ -884,7 +884,9 @@ private:
     			const size_t dnaStart  = other. targetStart;
     			const size_t dnaStop   = other. targetStop;
     			ASSERT (dnaStart < dnaStop);
+    		#if 0
     		  // PD-2271: partial 
+    		  // use truncated(cds) ??
     			if (cds. strand)  // Checking frames
     			{ if (difference (protStart, dnaStart) > 3 && protStart % 3 != dnaStart % 3)
     			    continue;
@@ -892,6 +894,7 @@ private:
     			else
     			  if (difference (protStop, dnaStop) > 3 && protStop % 3 != dnaStop % 3)
     			    continue;
+    		#endif
     		#if 0  // PD-2099
     			if (cds. strand)  // PD-1902
     			{ if (protStop != dnaStop)
@@ -1023,7 +1026,7 @@ struct Batch
 {
   // Reference input
   map<string/*hmm*/,const Fam*> hmm2fam;
-  Fam* root {nullptr};
+  unique_ptr<Fam> root;
     // Not delete'd in ~Batch()
 
   // Target input
@@ -1042,11 +1045,11 @@ struct Batch
   Batch (const string &famFName,
          const string &organism, 
          const string &point_mut)
-	  : root (new Fam ())
+    : root (new Fam ())
 	  {
 	    if (famFName. empty ())
 	    	throw runtime_error ("fam (protein family hierarchy) file is missing");
-
+	    	
 	  	// Tree of Fam
 	  	// Pass 1  
 	    {
@@ -1067,7 +1070,7 @@ struct Batch
 	  	    ASSERT (   reportable == 0 
 	  	            || reportable == 1
 	  	           );
-	  	    const auto fam = new Fam (root, famId, genesymbol, hmm, tc1, tc2, f. line, reportable);
+	  	    const auto fam = new Fam (root. get (), famId, genesymbol, hmm, tc1, tc2, f. line, reportable);
 	  	    famId2fam [famId] = fam;
 	  	    if (! fam->hmm. empty ())
 	  	      hmm2fam [fam->hmm] = fam;
@@ -1133,7 +1136,7 @@ struct Batch
   // Input: root, blastAls, domains, hmmAls
 	// Output: goodBlastAls
 	{
-		ASSERT (root);
+		ASSERT (root. get ());
 		
     // Use BlastAlignment.cdss
     for (Iter<BlastAls> iter (blastAls); iter. next ();)
