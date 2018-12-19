@@ -1,3 +1,5 @@
+# NOTE: This is a development branch, significant bugs exist. Do not expect it to work.
+
 # NCBI Antimicrobial Resistance Gene Finder (AMRFinder)
 
 This software and the accompanying database are designed to find acquired antimicrobial resistance genes in protein or nucleotide sequences.
