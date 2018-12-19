@@ -1,2 +1,8 @@
 data/
 *.pyc
+*.o
+amr_report
+amrfinder
+fasta_check
+point_mut
+gff_check

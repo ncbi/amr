@@ -102,7 +102,7 @@
 
 
 #define IMPLY(a,b)  { if (a) { ASSERT (b) }}
-#define ASSERT_EQ(x,y,delta)  ASSERT (abs((x) - (y)) <= (delta))
+#define ASSERT_EQ(x,y,delta)  ASSERT (fabs((x) - (y)) <= (delta))
 
 
 

@@ -71,7 +71,16 @@
 #include <iomanip>
 #include <memory>
 #include <algorithm>
+
+#ifdef _MSC_VER
+	#pragma warning(push)
+	#pragma warning(disable:4265)
+	#include <mutex>
+	#pragma warning(pop)
+#endif
+
 #include <thread>
+#include <mutex>
 
 
 
@@ -81,6 +90,7 @@ using namespace std;
 
 
 
+typedef  unsigned char  uchar; 
 typedef  unsigned int   uint; 
 typedef  unsigned long  ulong; 
 
@@ -92,13 +102,20 @@ bool initCommon ();
 
 extern vector<string> programArgs;
 extern string programName;
+
+string getCommandLine ();
+
 extern ostream* logPtr;
 
 extern bool qc_on;
-extern size_t threads_max;
-  // >= 1
 extern ulong seed_global;
   // >= 1
+
+// thread
+extern size_t threads_max;
+  // >= 1
+extern thread::id main_thread_id;
+bool isMainThread ();
 
 
 void errorExit (const char* msg,
@@ -118,7 +135,7 @@ protected:
 	Nocopy ()
 	  {}
   Nocopy (const Nocopy &) = delete;
-  Nocopy (Nocopy&&) = delete;
+  Nocopy (Nocopy &&) = delete;
   Nocopy& operator= (const Nocopy &) = delete;
 };
 
@@ -153,7 +170,7 @@ public:
 struct Chronometer : Nocopy
 // Requires: no thread is used
 {
-  static constexpr clock_t noclock {-1};
+  static constexpr clock_t noclock {(clock_t) -1};
   static bool enabled;
   const string name;
   clock_t time {0};
@@ -217,6 +234,13 @@ struct Chronometer_OnePass : Nocopy
 };
 	
 	
+
+template <typename T>
+  inline T* var_cast (const T* t)
+    { return const_cast <T*> (t); }
+template <typename T>
+  inline T& var_cast (const T &t)
+    { return const_cast <T&> (t); }
 
 template <typename T, typename S>
   inline T const_static_cast (const S* s)
@@ -414,7 +438,6 @@ public:
 
 
 
-
 template <typename T, typename U>
   inline ostream& operator<< (ostream &os,
                               const pair<T,U> &p) 
@@ -435,9 +458,7 @@ public:
         const T &b)
     : P (a, b)
     {}
-  Pair ()
-    : P ()
-    {}
+  Pair () = default;
     
   bool same () const
     { return P::first == P::second; }
@@ -549,7 +570,16 @@ template <typename T>
 
 
 
-//
+struct Istringstream : istringstream
+{
+  Istringstream () = default;
+  void reset (const string &s)
+    { clear ();
+      str (s);
+    }
+};
+
+
 
 template <typename T>
 struct List : list<T>
@@ -559,8 +589,7 @@ private:
 public:
 
 
-	List ()
-	  {}
+	List () = default;
   template <typename U/*:<T>*/>
     explicit List (const list<U> &other)
       { *this << other; }
@@ -641,21 +670,22 @@ inline string nvl (const string& s,
                    const string& nullS = "-")
   { return s. empty () ? nullS : s; }
   	
+inline bool isQuoted (const string &s,
+                      char quote = '\"')
+  { return ! s. empty () && s [0] == quote && s [s. size () - 1] == quote; }
+
+string strQuote (const string &s,
+                 char quote = '\"');
+
+inline string unQuote (const string &s)
+  { return s. substr (1, s. size () - 2); }
+
 inline string prepend (const string &prefix,
                     	 const string &s)
   { if (s. empty ())
   	  return string ();
   	return prefix + s;
   }
-
-inline bool isQuoted (const string &s)
-  { return ! s. empty () && s [0] == '\"' && s [s. size () - 1] == '\"'; }
-
-inline string strQuote (const string &s)
-  { return "\"" + s + "\""; }
-
-inline string unQuote (const string &s)
-  { return s. substr (1, s. size () - 2); }
 
 inline bool isSpace (char c)
   { return c > '\0' && c <= ' ' && isspace (c); }
@@ -673,12 +703,12 @@ template <typename T>
   T str2 (const string &s)
     { static_assert (numeric_limits<T>::max() > 256, "str2 does not work on chars");
     	T i;
-      istringstream iss (s);
+    	istringstream iss (s);
       iss >> i;
       if (   Common_sp::strBlank (s)
           || ! iss. eof ()
          )
-        throw runtime_error ("Converting \"" + s + "\"");    
+        throw runtime_error ("Converting " + strQuote (s));
       return i;
     }
 
@@ -721,6 +751,12 @@ bool isUpper (const string &s);
 
 bool isLower (const string &s);
 
+inline string strUpper1 (const string &s)
+  { if (s. empty ())
+      return s;
+    return toUpper (s [0]) + s. substr (1);
+  }
+
 inline bool charInSet (char c,
 		                   const string &charSet)
   { return charSet. find (c) != string::npos; }
@@ -739,6 +775,23 @@ void trimLeading (string &s);
 
 void trimTrailing (string &s);
 
+inline void trim (string &s)
+  { trimTrailing (s);
+    trimLeading (s); 
+  }
+
+void trimLeading (string &s,
+                  char c);
+
+void trimTrailing (string &s,
+                   char c);
+
+inline void trim (string &s,
+                  char c)
+  { trimTrailing (s, c);
+    trimLeading  (s, c); 
+  }
+
 inline bool contains (const string &hay,
                       const string &needle)
   { return hay. find (needle) != string::npos; }
@@ -751,11 +804,6 @@ size_t containsWord (const string& hay,
                      const string& needle);
   // Return: position of needle in hay; string::npos if needle does not exist
 
-inline void trim (string &s)
-  { trimTrailing (s);
-    trimLeading (s); 
-  }
-
 void replace (string &s,
               char from,
               char to);
@@ -767,12 +815,14 @@ void replace (string &s,
 void replaceStr (string &s,
                  const string &from,
                  const string &to);
+  // Replaces "from" by "to" in s from left to right
+  // The replacing "to" is skipped if it contains "from"
+  // Requires: !from.empty()
 
 string to_c (const string &s);
   // " --> \", etc.
 
 void collapseSpace (string &s);
-
   
 string str2streamWord (const string &s,
                        size_t wordNum);
@@ -794,6 +844,8 @@ string rfindSplit (string &s,
                    char c = ' ');
 	// Return: suffix of c+s after c
 	// Update: s
+
+void reverse (string &s);
 
 List<string> str2list (const string &s,
                        char c = ' ');
@@ -819,16 +871,21 @@ inline string getFileName (const string &path)
   	return path. substr (pos + 1);
   }
 
+inline string getDirName (const string &path)  
+  { const size_t pos = path. rfind ('/');
+  	if (pos == string::npos)
+  		return string ();
+  	return path. substr (0, pos + 1);
+  }
+
 inline bool isDirName (const string &path)
   { return isRight (path, "/"); }
 
 bool fileExists (const string &fName);
 
-
 #ifndef _MSC_VER
-bool directoryExists (const string &dirName);
+  bool directoryExists (const string &dirName);
 #endif
-
 
 size_t strMonth2num (const string& month);
 // Input: month: "Jan", "Feb", ... (3 characters)
@@ -857,7 +914,7 @@ inline void pressAnyKey ()
 
 
 inline streamsize double2decimals (double r)
-  { return r ? (streamsize) max<long> (0, (long) (ceil (- log10 (abs (r)) + 1))) : 0; }
+  { return r ? (streamsize) max<long> (0, (long) (ceil (- log10 (fabs (r)) + 1))) : 0; }
 
 
 
@@ -940,24 +997,8 @@ private:
 	vector<thread> threads;
 public:
 
-  explicit Threads (size_t threadsToStart_arg)
-    { if (! empty ())
-    	  throw logic_error ("Previous threads have not finished");
-    	threadsToStart = threadsToStart_arg;
-    	if (threadsToStart >= threads_max)
-    		throw logic_error ("Too many threads to start");
-    	threads. reserve (threadsToStart);
-    	if (verbose (1))
-		    cout << "# Threads started: " << threadsToStart + 1 << endl;
-    }	
- ~Threads ()
-    { for (auto& t : threads)  
-			  t. join ();
-			threads. clear ();
-			threadsToStart = 0;
-    	if (verbose (1))
-				cout << "Threads finished" << endl;
-		}
+  explicit Threads (size_t threadsToStart_arg);
+ ~Threads ();
   	
 	static bool empty () 
 	  { return ! threadsToStart; }
@@ -976,7 +1017,7 @@ template <typename Func, typename Res, typename... Args>
                      size_t i_max,
                      vector<Res> &results,
                      Args&&... args)
-  // Input: func (size_t from, size_t to, Res& res, Args...)
+  // Input: void func (size_t from, size_t to, Res& res, Args...)
   // Optimial thread_num minimizes (Time_SingleCPU/thread_num + Time_openCloseThread * (thread_num - 1)), which is sqrt(Time_SingleCPU/Time_openCloseThread)
   {
   	ASSERT (threads_max >= 1);
@@ -1025,7 +1066,7 @@ public:
  ~Verbose ();
  
   static bool enabled ()
-    { return Threads::empty (); }
+    { return isMainThread () /*Threads::empty ()*/; }
 };
 
 struct Unverbose 
@@ -1049,10 +1090,9 @@ class Notype {};
 struct Root
 {
 protected:
-  Root () 
-    {}
+  Root () = default;
 public:
-  virtual ~Root () throw (logic_error)
+  virtual ~Root () 
     {}
     // A desrtructor should be virtual to be automatically invoked by a descendant class destructor
   virtual Root* copy () const
@@ -1105,7 +1145,7 @@ template <typename T /*Root*/>
   	typedef  unique_ptr<T>  P;
   public:
   
-  	explicit AutoPtr (T* t = nullptr) throw ()
+  	explicit AutoPtr (T* t = nullptr) 
   	  : P (t)
   	  {}
   	AutoPtr (const AutoPtr<T> &t) 
@@ -1137,8 +1177,7 @@ struct Named : Root
   string name;
     // !empty(), no spaces at the ends, printable ASCII characeters
 
-  Named ()
-    {}  
+  Named () = default;
   explicit Named (const string &name_arg);   
   Named* copy () const override
     { return new Named (*this); }    
@@ -1182,8 +1221,7 @@ public:
   bool searchSorted {false};
 	
 
-	Vector ()
-	  {}
+	Vector () = default;
 	explicit Vector (size_t n, 
 	                 const T &value = T ())
 	  : P (n, value)
@@ -1191,7 +1229,7 @@ public:
   explicit Vector (initializer_list<T> init)
     : P (init)
     {}
-	Vector (const vector<T> &other)
+	Vector (const vector<T> &other) 
     : P (other)
 	  {}
   Vector (const Vector<T> &other) 
@@ -1293,8 +1331,8 @@ public:
     	}
     	searchSorted = false;
     }
-  void randomOrder (ulong seed)
-		{ Rand rand (seed);
+  void randomOrder ()
+		{ Rand rand (seed_global);
 			for (T &t : *this)
 	      swap (t, P::operator[] ((size_t) rand. get ((ulong) P::size ())));
     	searchSorted = false;
@@ -1437,7 +1475,7 @@ public:
         return false;
       }
   template <typename U>
-    bool intersectsFast2 (const Vector<U> &other) const
+    bool intersectsFast_merge (const Vector<U> &other) const
       { checkSorted ();
       	other. checkSorted ();
       	size_t i = 0;
@@ -1450,6 +1488,13 @@ public:
           if (other [i] == t)
             return true;
         }
+        return false;
+      }
+  template <typename U /* : T */>
+    bool intersects (const set<U> &other) const
+      { for (const T& t : *this)
+          if (other. find (t) != other. end ())
+            return true;
         return false;
       }
   template <typename U /* : T */>
@@ -1521,15 +1566,12 @@ private:
 public:
 
 
-  VectorPtr ()
-	  {}	  
+  VectorPtr () = default;
 	explicit VectorPtr (size_t n, 
 	                    const T* value = nullptr)
 	  : P (n, value)
 	  {}
-	VectorPtr (const VectorPtr<T> &other)
-	  : P (other)
-	  {}
+	VectorPtr (const VectorPtr<T> & /*other*/) = default;
   explicit VectorPtr (initializer_list<const T*> init)
     : P (init)
     {}
@@ -1575,8 +1617,7 @@ private:
 	typedef  VectorPtr<T>  P;
 public:
 
-  VectorOwn ()
-	  {}	  
+  VectorOwn () = default;
 	VectorOwn (const VectorOwn<T> &x)
 	  : P ()
 	  { *this = x; }
@@ -1604,8 +1645,7 @@ private:
 public:
 	
 
-  StringVector ()
-    {}
+  StringVector () = default;
   StringVector (initializer_list<string> init)
     : P (init)
     {}
@@ -1793,7 +1833,7 @@ private:
       const string& s2_ = * static_cast <const string*> (s2);
       if (s1_ < s2_) return -1;
       if (s1_ > s2_) return  1;
-                     return  0;
+      return  0;
     }
 };
 
@@ -1809,8 +1849,7 @@ public:
 	  // true => empty()
 	
 
-	Set ()
-	  {}
+	Set () = default;
 	explicit Set (bool universal_arg)
 	  : universal (universal_arg)
 	  {}
@@ -1824,7 +1863,7 @@ public:
 	template <typename U, typename V>
 	  Set (const map<U,V> &other)
 	    : universal (false)
-	    { for (const auto it : other)
+	    { for (const auto& it : other)
 	        P::insert (it. first);
 	    }
 	template <typename U>
@@ -1901,7 +1940,7 @@ public:
   template <typename From>
     void insertAll (const From &from)
       { P::insert (from. begin (), from. end ()); }
-  bool checkUnique (const T& el)
+  bool addUnique (const T& el)
     { if (contains (el))
         return false;
       operator<< (el);
@@ -1982,18 +2021,18 @@ private:
 	static size_t beingUsed;
 public:
 
-	size_t n_max;
+	size_t n_max {0};
 	  // 0 <=> unknown
 	bool active;
 	size_t n {0};
 	string step;
-	size_t displayPeriod;
+	size_t displayPeriod {0};
 	
 
 	explicit Progress (size_t n_max_arg = 0,
 	                   size_t displayPeriod_arg = 1)
 	  : n_max (n_max_arg)
-	  , active (enabled () && displayPeriod_arg)
+	  , active (enabled () && displayPeriod_arg && (! n_max_arg || displayPeriod_arg <= n_max_arg))
 	  , displayPeriod (displayPeriod_arg)
 	  { if (active) 
 	  	  beingUsed++; 
@@ -2020,21 +2059,16 @@ public:
     	  report ();
     }
 private:
-	void report () const
-	  { cerr << '\r';
-    #ifndef _MSC_VER
-      cerr << "\33[2K";
-    #endif
-	    cerr << n; 
-	  	if (n_max)
-	  		cerr << " / " << n_max;
-	  	if (! step. empty ())
-	  		cerr << ' ' << step;
-	  	cerr << ' ';
-	  }
+	void report () const;
 public:
+  void reset ()
+    { n = 0;
+      step. clear ();
+    }
 	static void disable ()
 	  { beingUsed++; }
+	static bool isUsed ()
+	  { return beingUsed; }
 	static bool enabled ()
 	  { return ! beingUsed && verbose (1); }
 };
@@ -2049,6 +2083,8 @@ struct Input : Root, Nocopy
 protected:
 	AutoPtr <char> buf;
 	ifstream ifs;
+  istream* is {nullptr};
+    // !nullptr
 public:
 	bool eof {false};
 	uint lineNum {0};
@@ -2062,6 +2098,13 @@ protected:
   Input (const string &fName,
          size_t bufSize,
          uint displayPeriod);
+  Input (istream &is_arg,
+	       uint displayPeriod);
+public:
+
+
+  void reset ();
+    // Update: ifs
 };
 	
 
@@ -2070,6 +2113,7 @@ struct LineInput : Input
 {
 	string line;
 	  // Current line
+  string commentStart;
 
 	
 	explicit LineInput (const string &fName,
@@ -2077,18 +2121,23 @@ struct LineInput : Input
           	          uint displayPeriod = 0)
     : Input (fName, bufSize, displayPeriod)
     {}
+  explicit LineInput (istream &is_arg,
+	                    uint displayPeriod = 0)
+    : Input (is_arg, displayPeriod)
+    {}
 
 
 	bool nextLine ();
   	// Output: eof, line
   	// Update: lineNum
+    // Invokes: trimTrailing()
 	bool expectPrefix (const string &prefix,
 	                   bool eofAllowed)
 		{ if (nextLine () && trimPrefix (line, prefix))
 		  	return true;  
 			if (eof && eofAllowed)
 				return false;
-		  throw runtime_error ("No \"" + prefix + "\"");
+		  throw runtime_error ("No " + strQuote (prefix));
 		}
 	string getString ()
 	  { string s; 
@@ -2117,6 +2166,10 @@ struct ObjectInput : Input
           	            uint displayPeriod = 0)
     : Input (fName, bufSize, displayPeriod)
     {}
+  explicit ObjectInput (istream &is_arg,
+	                      uint displayPeriod = 0)
+    : Input (is_arg, displayPeriod)
+    {}
 
 
 	bool next (Root &row);
@@ -2128,12 +2181,12 @@ struct ObjectInput : Input
 
 struct CharInput : Input
 {
-  uint charNum;
+  uint charNum {(uint) -1};
     // In the current line
-  bool eol;
+  bool eol {false};
     // eof => eol
 private:
-  bool ungot;
+  bool ungot {false};
 public:
 
 	
@@ -2141,11 +2194,12 @@ public:
               	      size_t bufSize = 100 * 1024,
               	      uint displayPeriod = 0)
     : Input (fName, bufSize, displayPeriod)
-    , charNum ((uint) -1)
-    , eol (false)
-    , ungot (false)
     {}
-  
+  explicit CharInput (istream &is_arg,
+	                    uint displayPeriod = 0)
+    : Input (is_arg, displayPeriod)
+    {}
+
 
 	char get ();
 	  // Output: eof
@@ -2157,14 +2211,14 @@ public:
 	  
 
   struct Error : runtime_error
-  { explicit Error (const CharInput &in,
-		                const string &expected = string ()) 
-			: runtime_error ("Error at line " + toString (in. lineNum + 1) 
-		                   + ", pos. " + toString (in. charNum + 1)
-		                   + (expected. empty () ? string () : (": " + expected + " is expected"))
-		                  )
-	    {}
-	};
+    { explicit Error (const CharInput &in,
+		                  const string &expected = string ()) 
+			  : runtime_error ("Error at line " + toString (in. lineNum + 1) 
+		                     + ", pos. " + toString (in. charNum + 1)
+		                     + (expected. empty () ? string () : (": " + expected + " is expected"))
+		                    )
+	      {}
+	  };
 };
 	
 
@@ -2185,10 +2239,11 @@ public:
 	bool next ()
 	  { if (! f. nextLine ())
 	  	  return false;
-      istringstream iss (f. line);
+	  	static Istringstream iss;
+      iss. reset (f. line);
       iss >> name1 >> name2;
       if (name2. empty ())
-      	throw runtime_error ("Bad request: '" + name1 + "' - '" + name2 + "'");
+      	throw runtime_error ("Bad request: " + strQuote (name1) + " - " + strQuote (name2));
       if (name1 == name2)
       	throw runtime_error ("Same name: " + name1);
       if (name1 > name2)
@@ -2315,8 +2370,7 @@ public:
 
 struct OFStream : ofstream
 {
-	OFStream ()
-	  {}
+	OFStream () = default;
 	OFStream (const string &dirName,
 	          const string &fileName,
 	          const string &extension)
@@ -2413,8 +2467,7 @@ struct Json : Root, Nocopy  // Heaponly
 protected:
   Json (JsonContainer* parent,
         const string& name);
-  Json ()
-    {};
+  Json () = default;
 public:  
   void print (ostream& os) const override = 0;
   
@@ -2509,7 +2562,7 @@ struct JsonDouble : Json
     	if (n == n)
         os << n; 
       else
-        os << "null";  // NAN
+        os << "null";  // NaN
     }      
 
   const JsonDouble* asJsonDouble () const final
@@ -2560,8 +2613,7 @@ protected:
                  const string& name)
     : Json (parent, name)
     {}
-  JsonContainer ()
-    {}
+  JsonContainer () = default;
 public:  
 };
 
@@ -2647,7 +2699,8 @@ public:
 
 
 
-void exec (const string &cmd);
+void exec (const string &cmd,
+           const string &logFName = string());
 
 
 
@@ -2723,10 +2776,14 @@ public:
 ///////////////////////////////////////////////////////////////////////////
 
 struct Application : Singleton<Application>, Root
-// Usage: int main (argc, argv) { Application app; return app. run (argc, argv); }
+// Usage: int main (argc, argv) { ThisApplication /*:Application*/ app; return app. run (argc, argv); }
 {  
   const string description;
   const bool needsArg;
+  const bool gnu;
+  string version {"1"};
+  static constexpr const char* helpS {"help"};
+  static constexpr const char* versionS {"version"};
   
 private:
   struct Positional;  // forward
@@ -2736,11 +2793,12 @@ private:
     const string description;
       // !empty()
     string value;
-      // Init: default
+      // Init: default value
   protected:
     Arg (const string &name_arg,
          const string &description_arg);
   public:
+  	void qc () const override;
     virtual const Positional* asPositional () const
       { return nullptr; }
     virtual const Key* asKey () const
@@ -2759,67 +2817,128 @@ private:
   };  
   struct Key : Arg
   {
+  	const Application& app;
     const bool flag;
-    Key (const string &name_arg,
+    string requiredGroup;
+  	const char acronym;
+  	  // '\0' <=> no acronym
+    const string var;
+      // For help
+    const string defaultValue;
+    Key (const Application &app_arg,
+         const string &name_arg,
          const string &description_arg,
-         const string &defaultValue)
+         const string &defaultValue_arg,
+         char acronym_arg,
+         const string &var_arg)
       : Arg (name_arg, description_arg)
+      , app (app_arg)
       , flag (false)
+      , acronym (acronym_arg)
+      , var (var_arg)
+      , defaultValue (defaultValue_arg)
       { value = defaultValue; }
-    Key (const string &name_arg,
-         const string &description_arg)
+    Key (const Application &app_arg,
+         const string &name_arg,
+         const string &description_arg,
+         char acronym_arg)
       : Arg (name_arg, description_arg)
+      , app (app_arg)
       , flag (true)
+      , acronym (acronym_arg)
       {}
+  	void qc () const override;
     void saveText (ostream &os) const override;
+    string getShortHelp () const;
     const Key* asKey () const final
       { return this; }
   };
   List<Positional> positionals;
   List<Key> keys;
-  map<string/*Arg::name*/,Arg*> args;
-  List<Positional>::iterator posIt;
+  map<string/*Arg::name*/,const Arg*> name2arg;
+  map<char/*Arg::name[0]*/,const Key*> char2arg;
+    // Valid if gnu
 public:
   
 
 protected:
   explicit Application (const string &description_arg,
-                        bool needsArg_arg = true)               
+                        bool needsArg_arg = true,
+                        bool gnu_arg = false)               
     : description (description_arg)
     , needsArg (needsArg_arg)
-    , posIt (positionals. begin ())
-    { addFlag ("qc", "Integrity checks (quality control)");
-      addKey ("verbose", "Level of verbosity", "0");
-      addFlag ("noprogress", "Turn off progress printout");
-      addFlag ("profile", "Use chronometers to profile");
-      addKey ("seed", "Integer positive seed for random number generator", "1");
-      addKey ("threads", "Max. number of threads", "1");
-      addKey ("json", "Output file in Json format");
-      addKey ("log", "Error log file, appended");
-    }
-    // To invoke: addKey(), addFlag(), addPositional()
-  // Command-line parameters
+    , gnu (gnu_arg)
+    {}
+    // To invoke: addKey(), addFlag(), addPositional(), setRequiredGroup()
+  // <Command-line parameters> ::= <arg>*
+  //   <arg> ::= <positional> | <key> | <flag>
+  //   <positional> ::= <string>
+  //   <key> ::= -<name> <value> | -<name>=<value>
+  //   <flag> ::= -<name>
+  // acronym = '\0' <=> no acronym
   void addKey (const string &name, 
                const string &argDescription,
-               const string &defaultValue = string ());
+               const string &defaultValue = string (),
+               char acronym = '\0',
+               const string &var = string ());
     // [-<name> <defaultValue>]
+    // gnu: [--<name> <var>]
   void addFlag (const string &name,
-                const string &argDescription);
+                const string &argDescription,
+                char acronym = '\0');
     // [-<name>]
   void addPositional (const string &name,
                       const string &argDescription);
-    // What if it starts with '-' ??
+  void setRequiredGroup (const string &keyName,
+                         const string &requiredGroup);
+private:
+	void addDefaultArgs ()
+	  { if (gnu)
+    	  addFlag ("debug", "Integrity checks");
+    	else
+    	{ addFlag ("qc", "Integrity checks (quality control)");
+	      addKey ("verbose", "Level of verbosity", "0");
+	      addFlag ("noprogress", "Turn off progress printout");
+	      addFlag ("profile", "Use chronometers to profile");
+	      addKey ("seed", "Positive integer seed for random number generator", "1");
+	      addKey ("threads", "Max. number of threads", "1");
+	      addKey ("json", "Output file in Json format");
+	      addKey ("log", "Error log file, appended");
+	      addFlag ("sigpipe", "Exit normally on SIGPIPE");
+	    }
+	  }
+	void qc () const final;
+	Key* getKey (const string &keyName) const;
+	  // Return: !nullptr
+	void setPositional (List<Positional>::iterator &posIt,
+	                    const string &value);
 public:
 
 
 protected:
   string getArg (const string &name) const;
     // Input: keys, where Key::flag = false, and positionals
+  uint arg2uint (const string &name) const
+    { uint n = 0;
+    	try { n = str2<uint> (getArg (name)); }
+    	  catch (...) { throw runtime_error ("Cannot convert -" + name + " to non-negative number"); }
+    	return n;
+    }
+  double arg2double (const string &name) const
+    { double d = numeric_limits<double>::quiet_NaN ();
+    	try { d = str2<double> (getArg (name)); }
+    	  catch (...) { throw runtime_error ("Cannot convert -" + name + " to number"); }
+    	return d;
+    }
   bool getFlag (const string &name) const;
     // Input: keys, where Key::flag = true
-public:
+  string key2shortHelp (const string &name) const;
+  string getProgramDirName () const
+    { return getDirName (programArgs. front ()); }
+private:
   string getInstruction () const;
   string getHelp () const;
+public:
   int run (int argc, 
            const char* argv []);
     // Invokes: body()

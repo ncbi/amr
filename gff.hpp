@@ -46,41 +46,66 @@ namespace GFF_sp
 
 
 
-struct Cds 
+struct Locus 
 {
+  static constexpr size_t end_delta = 3;  // PAR
+  size_t lineNum {0};
+    // >= 1
   string contig;
   size_t start {0};
   size_t stop {0};
+    // start <= stop
   bool strand {false};
-  size_t crossOriginSeqLen {0};
-    // !0 => cross origin
-    // To be set externally
+  bool partial {false};
+  size_t contigLen {0};
+    // 0 <=> unknown
+  bool crossOrigin {false};
   
-  Cds (const string &contig_arg,
-       size_t start_arg,
-       size_t stop_arg,
-       bool strand_arg,
-       size_t crossOriginSeqLen);
-  Cds ()
-    {} 
+  Locus (size_t lineNum_arg,
+         const string &contig_arg,
+         size_t start_arg,
+         size_t stop_arg,
+         bool strand_arg,
+         bool partial_arg,
+         size_t crossOriginSeqLen);
+  Locus () = default;
     
+  bool empty () const
+    { return contig. empty (); }
   void print (ostream &os) const
-    { os << contig << ' ' << start << ' ' << stop << ' ' << strand << ' ' << crossOriginSeqLen << endl; }
-  bool operator< (const Cds& other) const;
+    { os << contig << ' ' << start << ' ' << stop << ' ' << strand << ' ' << contigLen << ' ' << crossOrigin << endl; }
+  bool operator< (const Locus& other) const;
+  size_t size () const
+    { return crossOrigin
+               ? contigLen - stop + start
+               : stop - start;            
+    }
+  bool atContigStart () const
+    { return start <= end_delta; }
+  bool atContigStop () const
+    { return contigLen && contigLen - stop <= end_delta;}
 };
 
 
 
-struct Gff : Root
-// https://github.com/The-Sequence-Ontology/Specifications/blob/master/gff3.md
-// Requirement: the protein id should be in the attribute "Name=<id>" (9th field) of the rows with type "CDS" or "gene" (3rd field)
+struct Annot : Root
 {	
-  map<string, Set<Cds> > seqid2cdss; 
+  map<string, Set<Locus>> prot2cdss; 
 
-  Gff (const string &fName,
-       bool locus_tag);
+
+  class Gff {};
+  Annot (Gff,
+         const string &fName,
+         bool locus_tag);
+		// https://github.com/The-Sequence-Ontology/Specifications/blob/master/gff3.md
+		// Requirement: the protein id should be in the attribute "Name=<id>" (9th field) of the rows with type "CDS" or "gene" (3rd field)
     // Input: fName may be empty
+  class Bed {};
+  Annot (Bed,
+         const string &fName);
+		// https://genome.ucsc.edu/FAQ/FAQformat.html#format1
 };
+
 
 
 
