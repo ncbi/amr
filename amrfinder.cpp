@@ -160,7 +160,7 @@ struct ThisApplication : Application
     	addKey ("gff", "GFF file for protein locations. Protein id should be in the attribute 'Name=<id>' (9th field) of the rows with type 'CDS' or 'gene' (3rd field).", "", 'g', "GFF_FILE");
     	addKey ("ident_min", "Minimum identity for nucleotide hit (0..1)", "0.9", 'i', "MIN_IDENT");
     	addKey ("coverage_min", "Minimum coverage of the reference protein to report a match as complete (0..1)", "0.9", 'c', "MIN_COV");
-    	addKey ("organism", "Taxonomy group for point mutation assessment\n    Campylobacter|Escherichia|Salmonella", "", 'O', "ORGANISM");
+    	addKey ("organism", "Taxonomy group for point mutation assessment", "", 'O', "ORGANISM");
     	addKey ("translation_table", "NCBI genetic code for translated blast", "11", 't', "TRANSLATION_TABLE");
     	addKey ("parm", "amr_report parameters for testing: -nosame -noblast -skip_hmm_check -bed", "", '\0', "PARM");
     	addKey ("point_mut_all", "File to report all target positions of reference point mutations", "", '\0', "POINT_MUT_ALL_FILE");
@@ -325,7 +325,7 @@ struct ThisApplication : Application
 			findProg ("blastp");
 			findProg ("hmmsearch");
 
-		  exec (fullProg ("fasta_check") + prot + " -aa -hyphen");  
+		  exec (fullProg ("fasta_check") + prot + " -aa -hyphen  -log " + logFName, logFName);  
 			
 			string gff_match;
 			if (! emptyArg (gff) && ! contains (parm, "-bed"))
@@ -341,7 +341,7 @@ struct ThisApplication : Application
 			  string dnaPar;
 			  if (! emptyArg (dna))
 			    dnaPar = " -dna " + dna;
-			  exec (fullProg ("gff_check") + gff + " -prot " + prot + dnaPar + " " + locus_tag);
+			  exec (fullProg ("gff_check") + gff + " -prot " + prot + dnaPar + " " + locus_tag + " -log " + logFName, logFName);
 			}
 			
 			if (! fileExists (db + "/AMRProt.phr"))
@@ -368,7 +368,7 @@ struct ThisApplication : Application
 		if (! emptyArg (dna))
 		{
 			findProg ("blastx");
-		  exec (fullProg ("fasta_check") + dna + " -hyphen  -len "+ tmp + ".len"); 
+		  exec (fullProg ("fasta_check") + dna + " -hyphen  -len "+ tmp + ".len  -log " + logFName, logFName); 
 			stderr << "Running blastx...\n";
 			exec (fullProg ("blastx") + "  -query " + dna + " -db " + db + "/AMRProt  "
 			  "-show_gis  -word_size 3  -evalue 1e-20  -query_gencode " + toString (gencode) + "  "

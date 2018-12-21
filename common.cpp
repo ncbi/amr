@@ -174,16 +174,20 @@ void errorExit (const char* msg,
 	const char* hostname = getenv ("HOSTNAME");
 	const char* pwd = getenv ("PWD");
 #endif
-	*os << endl
-      << "*** ERROR ***" << endl
-      << msg << endl << endl
-    #ifndef _MSC_VER
-	    << "HOSTNAME: " << (hostname ? hostname : "?") << endl
-	    << "PWD: " << (pwd ? pwd : "?") << endl
-    #endif
-	    << "Progam name: " << programName << endl
-	    << "Command line:" << getCommandLine () << endl;
-//system (("env >> " + logFName). c_str ());
+  const string errorS ("*** ERROR ***");
+  if (isLeft (msg, errorS))  // msg already is the result of errorExit()
+    *os << endl << msg << endl;
+  else
+  	*os << endl
+        << errorS << endl
+        << msg << endl << endl
+      #ifndef _MSC_VER
+  	    << "HOSTNAME: " << (hostname ? hostname : "?") << endl
+  	    << "PWD: " << (pwd ? pwd : "?") << endl
+      #endif
+  	    << "Progam name:  " << programName << endl
+  	    << "Command line: " << getCommandLine () << endl;
+  //system (("env >> " + logFName). c_str ());
 
   os->flush ();
 
@@ -1112,7 +1116,7 @@ Input::Input (const string &fName,
 , prog (0, displayPeriod)  
 { 
   if (! ifs. good ())
-    throw runtime_error ("Bad file: " + strQuote (fName));
+    throw runtime_error ("Cannot open: " + strQuote (fName));
   if (! ifs. rdbuf () -> pubsetbuf (buf. get (), (long) bufSize))
   	throw runtime_error ("Cannot allocate buffer to " + strQuote (fName));
 }
@@ -1698,7 +1702,7 @@ JsonMap::JsonMap (const string &fName)
 {
   ifstream ifs (fName. c_str ());
   if (! ifs. good ())
-    throw runtime_error ("Bad file: " + strQuote (fName));
+    throw runtime_error ("cannot open: " + strQuote (fName));
   const Token token (readToken (ifs));
   if (! token. isDelimiter ('{'))
     throw runtime_error ("Json file: " + strQuote (fName) + ": should start with '{'");
@@ -1788,7 +1792,11 @@ void exec (const string &cmd,
 	  if (! logFName. empty ())
 	  {
 	    LineInput f (logFName);
+	  #if 0
 	    cout << endl << f. getString () << endl;
+	  #else
+	    throw runtime_error (f. getString ());
+	  #endif
 	  }
 		throw runtime_error ("Command failed:\n" + cmd + "\nstatus = " + toString (status));		
 	}
