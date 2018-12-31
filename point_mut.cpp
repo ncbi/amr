@@ -146,8 +146,7 @@ struct PointMut
       ASSERT (geneMutation. front () != alleleChar);
       ASSERT (geneMutationGen. front () != alleleChar);
 		}
-	PointMut ()
-	  {}
+	PointMut () = default;
 
 
   bool empty () const
@@ -243,7 +242,9 @@ struct BlastAlignment
 	    if (const vector<PointMut>* pointMuts_ = findPtr (accession2pointMuts, refName))
 	    {
 	    	if (verbose ())
-	        cout << "PointMut DNA found: " << refName << endl;
+	        cout << "PointMut DNA found: " << refName << endl 
+	             << targetStart << ' ' << targetEnd << ' ' << targetStrand << ' ' << targetSeq << endl 
+	             << refStart    << ' ' << refEnd    << ' ' << refStrand    << ' ' << refSeq << endl;
 	      ASSERT (! pointMuts_->empty ());
 	    	for (const PointMut& pm : *pointMuts_)
 	    	{
@@ -254,7 +255,14 @@ struct BlastAlignment
 		    	  {
 		    	  	if (verbose ())
 			    	  	if (targetSeq [i] != refSeq [i])  
-			    	  		cout << i + 1 << ' ' << refSeq [i]  << ' ' << targetSeq [i] << ' ' << pos + 1 << endl;
+			    	  		cout        << i + 1 
+			    	  		     << ' ' << refSeq [i]  
+			    	  		     << ' ' << targetSeq [i] 
+			    	  		     << ' ' << pos + 1 
+			    	  		     << ' ' << pm. pos + 1
+			    	  		     << ' ' << pm. alleleChar
+			    	  		     << ' ' << goodNeighborhood (targetSeq, refSeq, i)
+			    	  		     << endl;
 		    	  	if (pos == pm. pos)
 		    	  	{
 				    		if (toUpper (targetSeq [i]) == pm. alleleChar)
@@ -326,26 +334,45 @@ struct BlastAlignment
                          size_t i) const
     { ASSERT (targetSeq. size () == refSeq. size ());
     	ASSERT (i < targetSeq. size ())
-    	if (i == 0)
-    		return false;
+    	ASSERT (targetSeq [i] != '-');
+    	ASSERT (refSeq    [i] != '-');
+    	ASSERT (targetEnd - targetStart <= targetSeq. size ());
+    	ASSERT (refEnd - refStart <= refSeq. size ());
     	// PD-2001
-      size_t mismatches = 0;
-      size_t j = i - 1; 
-      while (i - j <= flankingLen)
-      { if (targetSeq [j] != refSeq [j])
-        	mismatches++;
-        if (j == 0)
-        	break;
-        j--;
+    	size_t len = 0;
+      size_t mismatches = 0; 
+      size_t j = 0;
+      // Left flank
+      if (i)
+      {
+        j = i - 1; 
+        while (i - j <= flankingLen)
+        { len++;
+          if (targetSeq [j] != refSeq [j])
+          	mismatches++;
+          if (j == 0)
+          	break;
+          j--;
+        }
       }
-      if (i - j != flankingLen + 1)
-      	return false;
+      ASSERT (i >= j);
+      const size_t left = min (min (targetStart, refStart), flankingLen + 1 - (i - j)); 
+      len        += left;
+      mismatches += left; 
+    //cout << i << ' ' << j << ' ' << left;  
+      // Right flank
       for (j = i + 1; j < targetSeq. size () && j < refSeq. size () && j - i <= flankingLen; j++)
+      { len++;
         if (targetSeq [j] != refSeq [j])
         	mismatches++;
-      if (j - i != flankingLen + 1)
-      	return false;
-      return (double) mismatches / (2.0 * flankingLen) <= 0.03;  // PAR
+      }
+      ASSERT (j >= i);
+      const size_t right = min (min (targetLen - targetEnd, refLen - refEnd), flankingLen + 1 - (j - i));
+      len        += right;
+      mismatches += right;     
+      //
+    //cout << ' ' << j << right << ' ' << mismatches << ' ' << len << endl;  
+      return (double) mismatches / (double) len <= 0.03;  // PAR
     }
   bool good () const
     { return length >= 2 * flankingLen + 1; }

@@ -2264,14 +2264,14 @@ struct Token : Root
 	                        // Start: !isDigit()
 	          , eDelimiter  // Does not include ' '
 	          };
-	Type type;
+	Type type {eText};
 	string name;
 	  // All characters: printable()
 	  // eText => embracing quote's are removed
 	  // May be: !goodName(name)
-	uint num;
+	uint num {noNum};
 	  // Valid if type = eNumber
-	uint charNum;	
+	uint charNum {0};	
 	  // First CharInput::charNum of name
 
 	  
@@ -2281,19 +2281,14 @@ struct Token : Root
 	       Type type_arg = eName)
 	  : type (type_arg)
 	  , name (name_arg)
-	  , num (noNum)
-	  , charNum (0)
 	  {}
 	Token (const uint num_arg)
 	  : type (eNumber)
 	  , num (num_arg)
-	  , charNum (0)
 	  {}
 	Token (char delimiter_arg)
 	  : type (eDelimiter)
 	  , name (1, delimiter_arg)
-	  , num (noNum)
-	  , charNum (0)
 	  {}
 	explicit Token (CharInput &in)
 	  { readInput (in); }
