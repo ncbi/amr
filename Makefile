@@ -55,7 +55,7 @@ COMPILE.cpp= $(CXX) $(CPPFLAGS)  -c
 .PHONY: all clean install release
 
 
-all:	amr_report amrfinder fasta_check gff_check point_mut
+all:	amr_report amrfinder amrfinder_update fasta_check gff_check point_mut
 
 release: clean
 	svnversion . > version.txt
@@ -73,6 +73,11 @@ amrfinder.o:  common.hpp common.inc
 amrfinderOBJS=amrfinder.o common.o
 amrfinder:	$(amrfinderOBJS)
 	$(CXX) -o $@ $(amrfinderOBJS) 
+
+amrfinder_update.o:  common.hpp common.inc
+amrfinder_updateOBJS=amrfinder_update.o common.o
+amrfinder_update:      $(amrfinder_updateOBJS)
+	$(CXX) -o $@ $(amrfinder_updateOBJS)
 
 fasta_check.o:	common.hpp common.inc 
 fasta_checkOBJS=fasta_check.o common.o 

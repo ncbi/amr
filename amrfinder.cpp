@@ -46,116 +46,18 @@ using namespace Common_sp;
 
 namespace 
 {
-	
-	
-	
-string shellQuote (string s)
-{
-	replaceStr (s, "\'", "\'\"\'\"\'");
-	return "\'" + s + "\'";
-}
-
-
-
-bool emptyArg (const string &s)
-{
-	return s. empty () || s == "\'\'";
-}
-
-
-
-struct Stderr : Singleton<Stderr>
-{
-  bool quiet {false};
-  
-  explicit Stderr (bool quiet_arg)
-    : quiet (quiet_arg)
-    {}
-    
-  template <typename T>
-    Stderr& operator<< (const T& t) 
-      { if (quiet)
-          return *this;
-        cerr << t;
-        return *this;
-      }
-};
-
-
-
-string tmp;
-
-
-
-string which (const string &progName)
-// Return: isRight(,"/") or empty()
-{
-	ASSERT (! tmp. empty ());
-	
-	try { exec ("which " + progName + " 1> " + tmp + ".src 2> /dev/null"); }
-	  catch (const runtime_error &)
-	    { return string (); }
-	LineInput li (tmp + ".src");
-	const string s (li. getString ());
-	return getDirName (s);
-}
-
-	
-
-string execDir;
-map<string,string> prog2dir;
-	
-	
-	
-void findProg (const string &progName)
-// Output: prog2dir
-{
-	ASSERT (! progName. empty ());
-	ASSERT (! contains (progName, '/'));
-	ASSERT (isRight (execDir, "/"));
-	
-	string dir;
-	if (! find (prog2dir, progName, dir))
-	{
-		dir = fileExists (execDir + progName)
-		        ? execDir
-		        : which (progName);
-	  if (dir. empty ())
-	  {
-	  	cout << "AMRFinder binary " << shellQuote (progName) << " is not found." << endl;
-		  cout << "Please make sure that " << shellQuote (progName) << " is in the same directory as " + shellQuote (Common_sp::programName) + " or is in your $PATH." << endl;
-	  	exit (1);
-	  }	
-	  prog2dir [progName] = dir;
-	}
-	  
-	ASSERT (isRight (dir, "/"));
-}
-
-
-
-string fullProg (const string &progName)
-// Requires: After findProg(progName)
-{
-	string dir;
-	EXEC_ASSERT (find (prog2dir, progName, dir));
-	ASSERT (isRight (dir, "/"));
-	return dir + progName + " ";
-}
-
-
-
+		
 
 // ThisApplication
 
-struct ThisApplication : Application
+struct ThisApplication : ShellApplication
 {
   ThisApplication ()
-    : Application ("Identify AMR genes in proteins and/or contigs and print a report", true, true)
+    : ShellApplication ("Identify AMR genes in proteins and/or contigs and print a report", true, true, true)
     {
     	addKey ("protein", "Protein FASTA file to search", "", 'p', "PROT_FASTA");
     	addKey ("nucleotide", "Nucleotide FASTA file to search", "", 'n', "NUC_FASTA");
-    	addKey ("database", "Alternative directory with AMRFinder database. Default: $AMRFINDER_DB ", "", 'd', "DATABASE_DIR");
+    	addKey ("database", "Alternative directory with AMRFinder database. Default: $AMRFINDER_DB", "", 'd', "DATABASE_DIR");
     //addKey ("fasta_prot", "Create FASTA file containing protein sequence for identified proteins", "", 'f', "FASTA_PROT_OUT");
     	addKey ("gff", "GFF file for protein locations. Protein id should be in the attribute 'Name=<id>' (9th field) of the rows with type 'CDS' or 'gene' (3rd field).", "", 'g', "GFF_FILE");
     	addKey ("ident_min", "Minimum identity for nucleotide hit (0..1)", "0.9", 'i', "MIN_IDENT");
@@ -196,9 +98,7 @@ struct ThisApplication : Application
     
     
     Stderr stderr (quiet);
-    
     stderr << "Running "<< getCommandLine () << '\n';
-    
     const Verbose vrb (qc_on);
     
     
@@ -245,19 +145,6 @@ struct ThisApplication : Application
 		  throw runtime_error ("coverage_min must be between 0 and 1");
 		  
     
-    // tmp
-		tmp = tmpnam (NULL);
-		if (tmp. empty ())
-			throw runtime_error ("Cannot generate a temporary file");
-		if (qc_on)
-			cout << tmp << endl;  
-		
-    // execDir
-		execDir = getProgramDirName ();
-		if (execDir. empty ())
-			execDir = which (programName);
-		ASSERT (isRight (execDir, "/"));
-				
 		// db
 		if (db. empty ())
 		{
@@ -417,16 +304,13 @@ struct ThisApplication : Application
 		  exec ("cat " + tmp + ".amr");
 		else
 		  exec ("cp " + tmp + ".amr " + output);
-		
-		
-		if (! qc_on)
-		  exec ("rm -f " + tmp + "*");  
   }
 };
 
 
 
 }  // namespace
+
 
 
 

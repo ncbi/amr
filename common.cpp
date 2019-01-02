@@ -2203,7 +2203,7 @@ int Application::run (int argc,
 	      programArgs. push_back (value);
     }
     ASSERT (! programArgs. empty ());
-  
+	  
       
     // positionals, keys
     {
@@ -2375,6 +2375,7 @@ int Application::run (int argc,
 	  	
   
 		qc ();
+		initEnvironment ();
   	body ();
 
   
@@ -2401,6 +2402,98 @@ int Application::run (int argc,
 
   return 0;
 }
+
+
+
+
+// ShellApplication
+
+ShellApplication::~ShellApplication ()
+{
+	if (! qc_on && ! tmp. empty ())
+	  exec ("rm -f " + tmp + "*");  
+}
+
+
+
+void ShellApplication::initEnvironment () 
+{
+  ASSERT (tmp. empty ());
+  
+  // tmp
+  if (useTmp)
+  {
+    char templateS [] = {'/', 't', 'm', 'p', '/', 'X', 'X', 'X', 'X', 'X', 'X', '\0'}; 
+  #if 0
+    tmp = tmpnam (NULL);
+  #else
+    mkstemp (templateS);
+    tmp = templateS;
+  #endif
+  	if (tmp. empty ())
+  		throw runtime_error ("Cannot generate a temporary file");
+  	if (qc_on)
+  		cout << tmp << endl;  
+  }
+
+  // execDir
+	execDir = getProgramDirName ();
+	if (execDir. empty ())
+		execDir = which (programName);
+	ASSERT (isRight (execDir, "/"));
+}
+
+
+
+string ShellApplication::which (const string &progName) const
+{
+	if (tmp. empty ())
+	  throw runtime_error ("Temporary file is needed");
+	
+	try { exec ("which " + progName + " 1> " + tmp + ".src 2> /dev/null"); }
+	  catch (const runtime_error &)
+	    { return string (); }
+	LineInput li (tmp + ".src");
+	const string s (li. getString ());
+	return getDirName (s);
+}
+
+	
+
+void ShellApplication::findProg (const string &progName) const
+{
+	ASSERT (! progName. empty ());
+	ASSERT (! contains (progName, '/'));
+	ASSERT (isRight (execDir, "/"));
+	
+	string dir;
+	if (! find (prog2dir, progName, dir))
+	{
+		dir = fileExists (execDir + progName)
+		        ? execDir
+		        : which (progName);
+	  if (dir. empty ())
+	  {
+	  	cout << "AMRFinder binary " << shellQuote (progName) << " is not found." << endl;
+		  cout << "Please make sure that " << shellQuote (progName) << " is in the same directory as " + shellQuote (Common_sp::programName) + " or is in your $PATH." << endl;
+	  	exit (1);
+	  }	
+	  prog2dir [progName] = dir;
+	}
+	  
+	ASSERT (isRight (dir, "/"));
+}
+
+
+
+string ShellApplication::fullProg (const string &progName) const
+{
+	string dir;
+	EXEC_ASSERT (find (prog2dir, progName, dir));
+	ASSERT (isRight (dir, "/"));
+	return dir + progName + " ";
+}
+
 
 
 

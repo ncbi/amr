@@ -2361,8 +2361,6 @@ public:
 
 
 
-// OFStream
-
 struct OFStream : ofstream
 {
 	OFStream () = default;
@@ -2380,6 +2378,24 @@ struct OFStream : ofstream
 	  // Input: !fileName.empty()
 };
 
+
+
+struct Stderr : Singleton<Stderr>
+{
+  bool quiet {false};
+  
+  explicit Stderr (bool quiet_arg)
+    : quiet (quiet_arg)
+    {}
+    
+  template <typename T>
+    Stderr& operator<< (const T& t) 
+      { if (quiet)
+          return *this;
+        cerr << t;
+        return *this;
+      }
+};
 
 
 
@@ -2908,6 +2924,8 @@ private:
 	void setPositional (List<Positional>::iterator &posIt,
 	                    const string &value);
 public:
+  virtual ~Application ()
+    {}
 
 
 protected:
@@ -2930,6 +2948,8 @@ protected:
   string key2shortHelp (const string &name) const;
   string getProgramDirName () const
     { return getDirName (programArgs. front ()); }
+  virtual void initEnvironment ()
+    {}
 private:
   string getInstruction () const;
   string getHelp () const;
@@ -2939,7 +2959,45 @@ public:
     // Invokes: body()
 private:
   virtual void body () const = 0;
+    // Invokes: initEnvironment()
     // Requires: to be invoked once
+};
+
+
+
+struct ShellApplication : Application
+{
+  // Environment
+  const bool useTmp;
+  string tmp;
+  string execDir;
+  mutable map<string,string> prog2dir;
+  
+
+  ShellApplication (const string &description_arg,
+                    bool needsArg_arg,
+                    bool gnu_arg,
+                    bool useTmp_arg)
+    : Application (description_arg, needsArg_arg, gnu_arg)
+    , useTmp (useTmp_arg)
+    {}
+ ~ShellApplication ();
+
+
+  void initEnvironment () override;
+
+  static string shellQuote (string s)
+    { replaceStr (s, "\'", "\'\"\'\"\'");
+    	return "\'" + s + "\'";
+    }
+  static bool emptyArg (const string &s)
+    {	return s. empty () || s == "\'\'"; }
+  string which (const string &progName) const;
+    // Return: isRight(,"/") or empty()
+  void findProg (const string &progName) const;
+    // Output: prog2dir
+  string fullProg (const string &progName) const;
+   // Requires: After findProg(progName)
 };
 
 
