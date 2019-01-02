@@ -1303,7 +1303,8 @@ void Token::readInput (CharInput &in)
 		{ 
 			c = in. get (); 
 			if (in. eol)
-				throw CharInput::Error (in, "ending quote");
+		  //throw CharInput::Error (in, "ending quote");
+		    continue;
 			if (c == quote)
 				break;
 			name += c;
@@ -1335,7 +1336,7 @@ void Token::readInput (CharInput &in)
 	}
 	else 
 	{
-	  ASSERT (type == eDelimiter);
+	  type = eDelimiter;
 		name = c;
 	}	
 	ASSERT (! empty ());
@@ -1702,7 +1703,7 @@ JsonMap::JsonMap (const string &fName)
 {
   ifstream ifs (fName. c_str ());
   if (! ifs. good ())
-    throw runtime_error ("cannot open: " + strQuote (fName));
+    throw runtime_error ("Cannot open: " + strQuote (fName));
   const Token token (readToken (ifs));
   if (! token. isDelimiter ('{'))
     throw runtime_error ("Json file: " + strQuote (fName) + ": should start with '{'");
@@ -1792,11 +1793,7 @@ void exec (const string &cmd,
 	  if (! logFName. empty ())
 	  {
 	    LineInput f (logFName);
-	  #if 0
-	    cout << endl << f. getString () << endl;
-	  #else
 	    throw runtime_error (f. getString ());
-	  #endif
 	  }
 		throw runtime_error ("Command failed:\n" + cmd + "\nstatus = " + toString (status));		
 	}
@@ -2149,14 +2146,14 @@ string Application::getHelp () const
 
   if (! positionals. empty ())
   {
-	  instr += "\n\nOBLIGATORY PARAMETERS";
+	  instr += "\n\nOBLIGATORY PARAMETERS:";
 	  for (const Positional& p : positionals)
 	    instr += "\n" + p. str () + par + p. description;
 	}
 
   if (! keys. empty ())
   {
-	  instr += "\n\nOPTIONAL PARAMETERS";
+	  instr += "\n\nOPTIONAL PARAMETERS:";
 	  for (const Key& key : keys)
 	  {
 	    instr += "\n" + key. getShortHelp () + par + key. description;
