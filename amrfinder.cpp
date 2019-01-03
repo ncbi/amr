@@ -46,6 +46,10 @@ using namespace Common_sp;
 
 namespace 
 {
+  
+  
+#define ORGANISMS "Campylobacter|Escherichia|Salmonella"
+  
 		
 
 // ThisApplication
@@ -62,7 +66,7 @@ struct ThisApplication : ShellApplication
     	addKey ("gff", "GFF file for protein locations. Protein id should be in the attribute 'Name=<id>' (9th field) of the rows with type 'CDS' or 'gene' (3rd field).", "", 'g', "GFF_FILE");
     	addKey ("ident_min", "Minimum identity for nucleotide hit (0..1)", "0.9", 'i', "MIN_IDENT");
     	addKey ("coverage_min", "Minimum coverage of the reference protein to report a match as complete (0..1)", "0.9", 'c', "MIN_COV");
-        addKey ("organism", "Taxonomy group for point mutation assessment\n    Campylobacter|Escherichia|Salmonella", "", 'O', "ORGANISM");
+      addKey ("organism", "Taxonomy group for point mutation assessment\n    " ORGANISMS, "", 'O', "ORGANISM");
     	addKey ("translation_table", "NCBI genetic code for translated blast", "11", 't', "TRANSLATION_TABLE");
     	addKey ("parm", "amr_report parameters for testing: -nosame -noblast -skip_hmm_check -bed", "", '\0', "PARM");
     	addKey ("point_mut_all", "File to report all target positions of reference point mutations", "", '\0', "POINT_MUT_ALL_FILE");
@@ -174,25 +178,17 @@ struct ThisApplication : ShellApplication
 	  {
 	  	string organism1 (getArg ("organism"));
  	  	replace (organism1, ' ', '_');
- 	  	bool found = true;
+ 	  	string errMsg;
 			try { exec ("grep -w ^" + organism1 + " " + db + "/AMRProt-point_mut.tab &> /dev/null"); }
 			  catch (const runtime_error &)
 			  { 
-			  	cout << "No protein point mutations for organism " + organism << endl;
-			  	found = false;
+			  	errMsg = "No protein point mutations for organism " + organism;
 			  }
   		if (! emptyArg (dna))
   			if (! fileExists (db + "/AMR_DNA-" + organism1))
-  			{
-  	      cout << "No DNA point mutations for organism " + organism << endl;
-			  	found = false;
-  			}
-  		if (! found)
-  		{
-		  	cout << "Possible organisms:" << endl;
-		  	exec ("cut -f 1 " + db + "/AMRProt-point_mut.tab | sort | uniq | sed 's/_/ /g'");
- 				exit (1);
-  		}
+  	      errMsg = "No DNA point mutations for organism " + organism;
+  		if (! errMsg. empty ())
+  		  throw runtime_error (errMsg + "\nPossible organisms: " ORGANISMS);
 	  }
         
 
@@ -232,10 +228,7 @@ struct ThisApplication : ShellApplication
 			}
 			
 			if (! fileExists (db + "/AMRProt.phr"))
-			{
-				cout << "BLAST database " << shellQuote (db + "/AMRProt") << " does not exist" << endl;
-				exit (1);
-			}
+				throw runtime_error ("BLAST database " + shellQuote (db + "/AMRProt") + " does not exist");
 			
 			stderr << "Running blastp...\n";
 			exec (fullProg ("blastp") + " -task blastp-fast  -query " + prot + " -db " + db + "/AMRProt  -show_gis  -word_size 6  -threshold 21  -evalue 1e-20  -comp_based_stats 0  "

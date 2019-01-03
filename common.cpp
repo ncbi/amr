@@ -2473,11 +2473,8 @@ void ShellApplication::findProg (const string &progName) const
 		        ? execDir
 		        : which (progName);
 	  if (dir. empty ())
-	  {
-	  	cout << "AMRFinder binary " << shellQuote (progName) << " is not found." << endl;
-		  cout << "Please make sure that " << shellQuote (progName) << " is in the same directory as " + shellQuote (Common_sp::programName) + " or is in your $PATH." << endl;
-	  	exit (1);
-	  }	
+	    throw runtime_error ("AMRFinder binary " + shellQuote (progName) + " is not found.\nPlease make sure that " 
+	                         + shellQuote (progName) + " is in the same directory as " + shellQuote (Common_sp::programName) + " or is in your $PATH.");;
 	  prog2dir [progName] = dir;
 	}
 	  
