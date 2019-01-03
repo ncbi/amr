@@ -143,8 +143,6 @@ struct PointMut
       replace (name, '_', ' ');
       ASSERT (geneMutation. back () == alleleChar);
       ASSERT (geneMutationGen. back () == alleleChar);
-      ASSERT (geneMutation. front () != alleleChar);
-      ASSERT (geneMutationGen. front () != alleleChar);
 		}
 	PointMut () = default;
 
@@ -250,7 +248,16 @@ struct BlastAlignment
 	    	{
 	    		size_t pos = refStart;
 	    		// One pass for all *pointMuts_ ??
+	    		size_t targetPos = (targetStrand ? targetStart : (targetEnd - 1));
 	    		FFOR (size_t, i, refSeq. size ())
+	    		{
+	    		  if (targetSeq [i] != '-')
+	    		  {
+	    		    if (targetStrand)
+	    		      targetPos++;
+	    		    else
+	    		      targetPos--;
+	    		  }
 	    		  if (refSeq [i] != '-')
 		    	  {
 		    	  	if (verbose ())
@@ -270,7 +277,6 @@ struct BlastAlignment
 				    			ASSERT (targetSeq [i] != refSeq [i]);
 				    			if (goodNeighborhood (targetSeq, refSeq, i))
 				    			{
-				    			  const size_t targetPos = (targetStrand ? targetStart + i : (targetEnd - 1 - i));
 				    			  ASSERT (targetPos2pointMut [targetPos]. empty ());
 				    			  targetPos2pointMut [targetPos] = pm;
 				    			}
@@ -279,6 +285,7 @@ struct BlastAlignment
 		    	  	}
 	    		  	pos++;
 		    		}
+		    	}
 	      }
 	    }
     }
@@ -306,7 +313,7 @@ struct BlastAlignment
            << targetStart + 1
            << targetEnd
            << (targetStrand ? '+' : '-');
-        td << pm. geneMutation
+        td << pm. geneMutationGen  // was: pm.geneMutation
            << pm. name
            << "POINTN"  // PD-2088
            << targetLen;
@@ -334,8 +341,8 @@ struct BlastAlignment
                          size_t i) const
     { ASSERT (targetSeq. size () == refSeq. size ());
     	ASSERT (i < targetSeq. size ())
-    	ASSERT (targetSeq [i] != '-');
-    	ASSERT (refSeq    [i] != '-');
+      IMPLY (! verbose (), targetSeq [i] != '-');
+      ASSERT (refSeq    [i] != '-');
     	ASSERT (targetEnd - targetStart <= targetSeq. size ());
     	ASSERT (refEnd - refStart <= refSeq. size ());
     	// PD-2001
@@ -378,6 +385,7 @@ struct BlastAlignment
     { return length >= 2 * flankingLen + 1; }
   bool operator< (const BlastAlignment &other) const
     { LESS_PART (*this, other, targetName);
+      LESS_PART (other, *this, pIdentity ());
       LESS_PART (*this, other, targetStart);
       LESS_PART (*this, other, refName);
       return false;
@@ -395,16 +403,16 @@ struct Batch
   explicit Batch (const string &point_mut)
 	  {
       LineInput f (point_mut);
+	  	string accession;
+	  	string gene;
+			int pos;
+			char alleleChar;
+			string geneMutation;
+			string geneMutationGen;
+			string name;
  	  	Istringstream iss;
   	  while (f. nextLine ())
   	  {
-  	  	string accession;
-  	  	string gene;
-				int pos;
-				char alleleChar;
-				string geneMutation;
-				string geneMutationGen;
-				string name;
    	  	iss. reset (f. line);
   	  	iss >> accession >> gene >> pos >> alleleChar >> geneMutation >> geneMutationGen >> name;
   	  	ASSERT (pos > 0);
