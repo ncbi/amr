@@ -167,7 +167,7 @@ void errorExit (const char* msg,
                 bool segmFault)
 // alloc() may not work
 { 
-	ostream* os = logPtr ? logPtr : & cout; 
+	ostream* os = logPtr ? logPtr : & cerr; 
 	
 	// time ??
 #ifndef _MSC_VER
