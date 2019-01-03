@@ -54,8 +54,9 @@ COMPILE.cpp= $(CXX) $(CPPFLAGS)  -c
 
 .PHONY: all clean install release
 
+BINARIES= amr_report amrfinder amrfinder_update fasta_check gff_check point_mut 
 
-all:	amr_report amrfinder amrfinder_update fasta_check gff_check point_mut
+all:	$(BINARIES)
 
 release: clean
 	svnversion . > version.txt
@@ -104,7 +105,7 @@ install:
 
 # amrfinder binaries for github binary release
 GITHUB_FILE=amrfinder_binaries_v$(VERSION_STRING)
-GITHUB_FILES = test_* fasta_check gff_check amr_report point_mut
+GITHUB_FILES = test_* $(BINARIES)
 github_binaries:
 	@if [ ! -e version.txt ]; \
 	then \
