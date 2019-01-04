@@ -98,7 +98,7 @@ point_mut:	$(point_mutOBJS)
 
 clean:
 	rm -f *.o
-	rm -f amr_report fasta_check gff_check point_mut
+	rm -f $(BINARIES)
 
 install:
 	$(INSTALL) -D -t $(INSTALL_DIR) amr_report fasta_check gff_check amrfinder point_mut 
