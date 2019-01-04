@@ -137,18 +137,6 @@ struct ThisApplication : ShellApplication
     else
       mode += " and point-mutation";
     
-    stderr << "AMRFinder " << mode << " search\n";
-    for (const string& include : includes)
-      stderr << "  - include " << include << '\n';
-
-
-		if (ident <= 0 || ident > 1)
-		  throw runtime_error ("ident_min must be between 0 and 1");
-		
-		if (cov <= 0 || cov > 1)
-		  throw runtime_error ("coverage_min must be between 0 and 1");
-		  
-    
 		// db
 		if (db. empty ())
 		{
@@ -161,6 +149,19 @@ struct ThisApplication : ShellApplication
 		if (! directoryExists (db))
 		  throw runtime_error ("Directory with data \"" + db + "\" does not exist");
 
+
+    stderr << "AMRFinder " << mode << " search with database " << db << "\n";
+    for (const string& include : includes)
+      stderr << "  - include " << include << '\n';
+
+
+		if (ident <= 0 || ident > 1)
+		  throw runtime_error ("ident_min must be between 0 and 1");
+		
+		if (cov <= 0 || cov > 1)
+		  throw runtime_error ("coverage_min must be between 0 and 1");
+		  
+    
     // blast_bin
     if (blast_bin. empty ())
     	if (const char* s = getenv ("BLAST_BIN"))
