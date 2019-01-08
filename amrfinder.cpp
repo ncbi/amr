@@ -161,6 +161,11 @@ struct ThisApplication : ShellApplication
 		if (cov <= 0 || cov > 1)
 		  throw runtime_error ("coverage_min must be between 0 and 1");
 		  
+
+		if (! emptyArg (output))
+		  try { OFStream f (unQuote (output)); }
+		    catch (...) { throw runtime_error ("Cannot open output file " + output); }
+
     
     // blast_bin
     if (blast_bin. empty ())
@@ -177,7 +182,7 @@ struct ThisApplication : ShellApplication
 	  
 	  if (! emptyArg (organism))
 	  {
-	  	string organism1 (getArg ("organism"));
+	  	string organism1 (unQuote (organism));
  	  	replace (organism1, ' ', '_');
  	  	string errMsg;
 			try { exec ("grep -w ^" + organism1 + " " + db + "/AMRProt-point_mut.tab &> /dev/null"); }
@@ -256,8 +261,8 @@ struct ThisApplication : ShellApplication
 			  "-seg no  -comp_based_stats 0  -max_target_seqs 10000  "
 			  "-outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq sseq' "
 			  "-out " + tmp + ".blastx &> /dev/null");
-		  blastx_par = "-blastx " + tmp + ".blastx  -ident_min " + getArg ("ident_min") 
-		               + "  -complete_cover_min " + getArg ("coverage_min")
+		  blastx_par = "-blastx " + tmp + ".blastx  -ident_min " + toString (ident) 
+		               + "  -complete_cover_min " + toString (cov)
 		               + "  -dna_len " + tmp + ".len";
 		}
 		
@@ -270,7 +275,7 @@ struct ThisApplication : ShellApplication
 		
 		if (! emptyArg (dna) && ! emptyArg (organism))
 		{
-			string organism1 = getArg ("organism");
+			string organism1 (unQuote (organism));
 			replace (organism1, ' ', '_');
 			ASSERT (fileExists (db + "/AMR_DNA-" + organism1));
 			findProg ("blastn");
