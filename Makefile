@@ -78,7 +78,7 @@ amrfinder:	$(amrfinderOBJS)
 amrfinder_update.o:  common.hpp common.inc
 amrfinder_updateOBJS=amrfinder_update.o common.o
 amrfinder_update:      $(amrfinder_updateOBJS)
-	$(CXX) -o $@ $(amrfinder_updateOBJS)
+	$(CXX) -o $@ $(amrfinder_updateOBJS) -lcurl
 
 fasta_check.o:	common.hpp common.inc 
 fasta_checkOBJS=fasta_check.o common.o 

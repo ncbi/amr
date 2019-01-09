@@ -39,6 +39,8 @@
 #undef NDEBUG 
 #include "common.inc"
 
+#include <curl/curl.h>
+
 #include "common.hpp"
 using namespace Common_sp;
 
@@ -46,8 +48,142 @@ using namespace Common_sp;
 
 namespace 
 {
+
+
+
+struct Curl
+{
+  CURL* eh {nullptr};
+
+
+  Curl ()
+    { eh = curl_easy_init ();
+      ASSERT (eh);
+    }
+ ~Curl ()
+   { curl_easy_cleanup (eh); }
+
+
+  void download (const string &url,
+                 const string &fName);
+  string read (const string &url);
+};
+
 	
-	
+
+
+size_t write_stream_cb (char* ptr,
+                        size_t size, 
+                        size_t nMemb, 
+                        void* userData)
+{
+  ASSERT (ptr);
+  ASSERT (size == 1);
+  ASSERT (userData);
+  
+  OFStream& f = * static_cast <OFStream*> (userData);
+  FOR (size_t, i, nMemb)
+    f << ptr [i];;
+  
+  return nMemb;
+}
+
+
+ 	
+void Curl::download (const string &url,
+                     const string &fName) 
+{
+  ASSERT (! url. empty ());  
+  ASSERT (! fName. empty ());  
+  
+  OFStream f (fName);
+  curl_easy_setopt (eh, CURLOPT_URL, url. c_str ());
+  curl_easy_setopt (eh, CURLOPT_WRITEFUNCTION, write_stream_cb);
+  curl_easy_setopt (eh, CURLOPT_WRITEDATA, & f);
+  EXEC_ASSERT (curl_easy_perform (eh) == 0);
+}
+
+
+
+size_t write_string_cb (char* ptr,
+                        size_t size, 
+                        size_t nMemb, 
+                        void* userData)
+{
+  ASSERT (ptr);
+  ASSERT (size == 1);
+  ASSERT (userData);
+  
+  string& s = * static_cast <string*> (userData);
+  FOR (size_t, i, nMemb)
+    s += ptr [i];;
+  
+  return nMemb;
+}
+
+
+ 	
+string Curl::read (const string &url)
+{
+  ASSERT (! url. empty ());  
+  
+  string s;  s. reserve (1024);  // PAR  
+  curl_easy_setopt (eh, CURLOPT_URL, url. c_str ());
+  curl_easy_setopt (eh, CURLOPT_WRITEFUNCTION, write_string_cb);
+  curl_easy_setopt (eh, CURLOPT_WRITEDATA, & s);
+  EXEC_ASSERT (curl_easy_perform (eh) == 0);
+  
+  return s;
+}
+
+//
+
+
+
+#define URL "https://ftp.ncbi.nlm.nih.gov/pathogen/Antimicrobial_resistance/AMRFinder/data/"
+
+
+
+string getLatestVersion (Curl &curl)
+// Return: empty() <=> failure
+{
+  string prevLine;
+  const StringVector dir (curl. read (URL), '\n');
+  for (const string& line : dir)
+  {
+    if (contains (line, "<a href=\"latest/\">latest/</a>"))
+      break;
+    prevLine = line;      
+  }
+  if (prevLine. empty ())
+    return string ();
+    
+  const size_t pos1 = prevLine. find ('>');
+  if (pos1 == string::npos)
+    return string ();
+  prevLine. erase (0, pos1 + 1);
+
+  const size_t pos2 = prevLine. find ("/<");
+  if (pos2 == string::npos)
+    return string ();
+  prevLine. erase (pos2);
+  
+  return prevLine;
+}
+
+
+
+void fetchAMRFile (Curl &curl,
+                   const string &dir,
+                   const string &fName) 
+{
+  ASSERT (isDirName (dir));
+  ASSERT (! fName. empty ());  
+  curl. download (string (URL "latest/") + fName, dir + fName);
+}
+
+
+
 	
 // ThisApplication
 
@@ -56,7 +192,7 @@ struct ThisApplication : ShellApplication
   ThisApplication ()
     : ShellApplication ("Identify AMR genes in proteins and/or contigs and print a report", true, true, true)
     {
-    	addKey ("database", "Directory for AMRFinder database", "", 'd', "DATABASE_DIR");
+    	addKey ("database", "Directory for all versions of AMRFinder databases", "", 'd', "DATABASE_DIR");
       addFlag ("quiet", "Suppress messages to STDERR", 'q');
 	  #ifdef SVN_REV
 	    version = SVN_REV;
@@ -64,20 +200,10 @@ struct ThisApplication : ShellApplication
     }
 
 
-  
-  void download (const string &dbDir,
-                 const string &fName) const
-  {
-    ASSERT (isDirName (dbDir));
-    ASSERT (! fName. empty ());    
-    exec ("wget 'https://ftp.ncbi.nlm.nih.gov/pathogen/Antimicrobial_resistance/AMRFinder/data/latest/" + fName + "' -O " + dbDir + fName + " -o /dev/null");
-  }
-
-
 
   void body () const final
   {
-          string dbDir = getArg ("database");
+          string mainDir = getArg ("database");
     const bool   quiet = getFlag ("quiet");
     
     
@@ -85,34 +211,42 @@ struct ThisApplication : ShellApplication
     stderr << "Running "<< getCommandLine () << '\n';
     const Verbose vrb (qc_on);
     
-    
-    // dbDir
-    if (! isRight (dbDir, "/"))
-      dbDir += "/";    
-    if (! directoryExists (dbDir))
-      throw runtime_error ("Directory " + strQuote (dbDir) + " does not exist");
-    
+    // mainDir
+    if (! isRight (mainDir, "/"))
+      mainDir += "/";    
+
     findProg ("makeblastdb");
     
+    Curl curl;    
     
-    string latest_version;
-    exec ("wget 'https://ftp.ncbi.nlm.nih.gov/pathogen/Antimicrobial_resistance/AMRFinder/data/' -O " + tmp + ".html  -o /dev/null");
-    exec ("grep '<a href=\"latest/\">latest/</a>' -B 1 " + tmp + ".html | head -1 | sed 's/^[^>]*>//1' | sed 's|/<.*$||1' > " + tmp + ".txt");
-    {
-      LineInput li (tmp + ".txt");
-      latest_version = li. getString ();
-      if (latest_version. empty ())
-        throw runtime_error ("Cannot get the latest version");
-    }
+    
+    const string latest_version (getLatestVersion (curl));
+    if (latest_version. empty ())
+      throw runtime_error ("Cannot get the latest version");
+      
+    const string latestDir (mainDir + latest_version + "/");
+    const string latestLink (mainDir + "latest");
+      
+    if (! directoryExists (mainDir))
+      exec ("mkdir " + mainDir);
+    
+    if (directoryExists (latestDir))
+      stderr << latestDir << " already exists, overwriting what was there\n";
+    else
+      exec ("mkdir " + latestDir);
+    
+    if (directoryExists (latestLink))
+      exec ("rm " + latestLink);
+    exec ("ln -s " + latest_version + " " + latestLink);
     
     stderr << "Dowloading AMRFinder database version " << latest_version << "\n";
-    download (dbDir, "AMR.LIB");
-    download (dbDir, "AMRProt");
-    download (dbDir, "AMR_CDS");
-    download (dbDir, "fam.tab");
-    download (dbDir, "changes.txt");
-
-	  exec (fullProg ("makeblastdb") + " -in " + dbDir + "AMRProt  -dbtype prot  -logfile /dev/null");  
+    fetchAMRFile (curl, latestDir, "AMR.LIB");
+    fetchAMRFile (curl, latestDir, "AMRProt");
+    fetchAMRFile (curl, latestDir, "AMR_CDS");
+    fetchAMRFile (curl, latestDir, "fam.tab");
+    fetchAMRFile (curl, latestDir, "changes.txt");
+    
+	  exec (fullProg ("makeblastdb") + " -in " + latestDir + "AMRProt  -dbtype prot  -logfile /dev/null");  
   }
 };
 
