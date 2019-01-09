@@ -1323,16 +1323,16 @@ struct Batch
 	         << "Stop"  // targetStop
 	         << "Strand";  // targetStrand
 	    td << (print_fam ? "FAM.id" : "Gene symbol")
-	       << "Protein name"
+	       << "Sequence name"
 	       << "Method"
 	       << "Target length" 
 	       //
-	       << "Reference protein length"         // refLen
-	       << "% Coverage of reference protein"  // queryCoverage
-	       << "% Identity to reference protein"  
+	       << "Reference sequence length"         // refLen
+	       << "% Coverage of reference sequence"  // queryCoverage
+	       << "% Identity to reference sequence"  
 	       << "Alignment length"                 // length
-	       << "Accession of closest protein"     // accessionProt
-	       << "Name of closest protein"
+	       << "Accession of closest sequence"     // accessionProt
+	       << "Name of closest sequence"
 	       //
 	       << "HMM id"
 	       << "HMM description"
