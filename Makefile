@@ -73,7 +73,7 @@ amr_report:	$(amr_reportOBJS)
 amrfinder.o:  common.hpp common.inc
 amrfinderOBJS=amrfinder.o common.o
 amrfinder:	$(amrfinderOBJS)
-	$(CXX) -o $@ $(amrfinderOBJS) 
+	$(CXX) -o $@ $(amrfinderOBJS) -pthread 
 
 amrfinder_update.o:  common.hpp common.inc
 amrfinder_updateOBJS=amrfinder_update.o common.o
