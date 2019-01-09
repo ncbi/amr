@@ -652,7 +652,7 @@ List<string> str2list (const string &s,
 	List<string> res;
 	string s1 (s);
 	while (! s1. empty ())
-	  res << findSplit (s1, c);
+	  res << move (findSplit (s1, c));
 	return res;
 }
 
@@ -928,7 +928,6 @@ Verbose::~Verbose ()
 }
 
 
-
 Unverbose::Unverbose ()
 {
 	if (Verbose::enabled ())
@@ -947,7 +946,9 @@ Unverbose::~Unverbose ()
 
 // Threads
 
-Threads::Threads (size_t threadsToStart_arg)
+Threads::Threads (size_t threadsToStart_arg, 
+                  bool quiet_arg)
+: quiet (quiet_arg)
 { 
   if (! isMainThread ())
 	  throw logic_error ("Threads are started not from the main thread");
@@ -960,7 +961,7 @@ Threads::Threads (size_t threadsToStart_arg)
 		
 	threads. reserve (threadsToStart);
 	
-	if (verbose (1))
+	if (! quiet && verbose (1))
     cerr << "# Threads started: " << threadsToStart + 1 << endl;
 }	
 
@@ -969,9 +970,9 @@ Threads::Threads (size_t threadsToStart_arg)
 Threads::~Threads ()
 { 
   {
-    Progress prog (threads. size () + 1);
+    Progress prog (threads. size () + 1, ! quiet);
     const string step ("consecutive threads finished");
-    prog (step);
+    prog (step);  // Main thread
     for (auto& t : threads) 
     { 
       t. join ();
@@ -1043,6 +1044,18 @@ StringVector::StringVector (const string &fName,
 	  prev = s;
 	}
 }
+
+
+
+StringVector::StringVector (const string &s,
+                            char c)
+{
+	StringVector res;
+	string s1 (s);
+	while (! s1. empty ())
+	  *this << move (findSplit (s1, c));
+}
+
 
 
 

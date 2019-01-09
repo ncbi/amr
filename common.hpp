@@ -995,9 +995,11 @@ struct Threads : Singleton<Threads>
 private:
 	static size_t threadsToStart;
 	vector<thread> threads;
+	const bool quiet;
 public:
 
-  explicit Threads (size_t threadsToStart_arg);
+  explicit Threads (size_t threadsToStart_arg,
+                    bool quiet_arg = false);
  ~Threads ();
   	
 	static bool empty () 
@@ -1651,6 +1653,8 @@ public:
     {}
   StringVector (const string &fName,
                 size_t reserve_size);
+  explicit StringVector (const string &s, 
+                         char c = ' ');
 
 
   string toString (const string& sep) const
