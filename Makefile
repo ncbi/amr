@@ -38,7 +38,7 @@ BLAST_BIN=$(BIN)
 HMMER_BIN=$(BIN)
 INSTALL_DIR = $(datadir)/amrfinder
 
-CPPFLAGS = -std=gnu++11 \
+CPPFLAGS = -std=gnu++11 -pthread \
   -malign-double -fno-math-errno \
   -Wall -Wextra \
   -Wcast-align -Wconversion -Wdeprecated-declarations -Wformat -Winit-self -Wlogical-op \
