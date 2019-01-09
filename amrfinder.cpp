@@ -104,7 +104,7 @@ struct ThisApplication : ShellApplication
     Stderr stderr (quiet);
     stderr << "Running "<< getCommandLine () << '\n';
     const Verbose vrb (qc_on);
-    
+    threads_max = 4;  // PAR
     
     string mode;
     StringVector includes;
@@ -180,10 +180,16 @@ struct ThisApplication : ShellApplication
 	    prog2dir ["blastn"] = blast_bin;
 	  }
 	  
+	  string organism1;
 	  if (! emptyArg (organism))
 	  {
-	  	string organism1 (unQuote (organism));
+	  	organism1 = unQuote (organism);
  	  	replace (organism1, ' ', '_');
+ 	  }
+
+
+	  if (! emptyArg (organism))
+	  {
  	  	string errMsg;
 			try { exec ("grep -w ^" + organism1 + " " + db + "/AMRProt-point_mut.tab &> /dev/null"); }
 			  catch (const runtime_error &)
@@ -209,62 +215,75 @@ struct ThisApplication : ShellApplication
     
     
     string blastp_par;	
-		if ( ! emptyArg (prot))
-		{
-			findProg ("blastp");
-			findProg ("hmmsearch");
+ 		string blastx_par;
+    {
+      Threads th (threads_max - 1, true);
 
-		  exec (fullProg ("fasta_check") + prot + " -aa -hyphen  -log " + logFName, logFName);  
-			
-			string gff_match;
-			if (! emptyArg (gff) && ! contains (parm, "-bed"))
-			{
-			  string locus_tag;
-			  const int status = system (("grep '^>.*\\[locus_tag=' " + prot + " > /dev/null"). c_str ());
-			  if (status == 0)
-			  {
-			    locus_tag = "-locus_tag " + tmp + ".match";
-			    gff_match = "-gff_match " + tmp + ".match";
-			  }
-			  findProg ("gff_check");		
-			  string dnaPar;
-			  if (! emptyArg (dna))
-			    dnaPar = " -dna " + dna;
-			  exec (fullProg ("gff_check") + gff + " -prot " + prot + dnaPar + " " + locus_tag + " -log " + logFName, logFName);
-			}
-			
-			if (! fileExists (db + "/AMRProt.phr"))
-				throw runtime_error ("BLAST database " + shellQuote (db + "/AMRProt") + " does not exist");
-			
-			stderr << "Running blastp...\n";
-			exec (fullProg ("blastp") + " -task blastp-fast  -query " + prot + " -db " + db + "/AMRProt  -show_gis  -word_size 6  -threshold 21  -evalue 1e-20  -comp_based_stats 0  "
-			  "-num_threads 6  "
-			  "-outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq sseq' "
-			  "-out " + tmp + ".blastp &> /dev/null");
-			stderr << "Running hmmsearch...\n";
-			exec (fullProg ("hmmsearch") + " --tblout " + tmp + ".hmmsearch  --noali  --domtblout " + tmp + ".dom  --cut_tc  -Z 10000  --cpu 8  " + db + "/AMR.LIB " + prot + "&> " + tmp + ".out");
+  		if ( ! emptyArg (prot))
+  		{
+  			findProg ("blastp");
+  			findProg ("hmmsearch");
 
-		  blastp_par = "-blastp " + tmp + ".blastp  -hmmsearch " + tmp + ".hmmsearch  -hmmdom " + tmp + ".dom";
-			if (! emptyArg (gff))
-			  blastp_par += "  -gff " + gff + " " + gff_match;
-		}
-		
-		
-		string blastx_par;
-		if (! emptyArg (dna))
-		{
-			findProg ("blastx");
-		  exec (fullProg ("fasta_check") + dna + " -hyphen  -len "+ tmp + ".len  -log " + logFName, logFName); 
-			stderr << "Running blastx...\n";
-			exec (fullProg ("blastx") + "  -query " + dna + " -db " + db + "/AMRProt  "
-			  "-show_gis  -word_size 3  -evalue 1e-20  -query_gencode " + toString (gencode) + "  "
-			  "-seg no  -comp_based_stats 0  -max_target_seqs 10000  "
-			  "-outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq sseq' "
-			  "-out " + tmp + ".blastx &> /dev/null");
-		  blastx_par = "-blastx " + tmp + ".blastx  -ident_min " + toString (ident) 
-		               + "  -complete_cover_min " + toString (cov)
-		               + "  -dna_len " + tmp + ".len";
-		}
+  		  exec (fullProg ("fasta_check") + prot + " -aa -hyphen  -log " + logFName, logFName);  
+  			
+  			string gff_match;
+  			if (! emptyArg (gff) && ! contains (parm, "-bed"))
+  			{
+  			  string locus_tag;
+  			  const int status = system (("grep '^>.*\\[locus_tag=' " + prot + " > /dev/null"). c_str ());
+  			  if (status == 0)
+  			  {
+  			    locus_tag = "-locus_tag " + tmp + ".match";
+  			    gff_match = "-gff_match " + tmp + ".match";
+  			  }
+  			  findProg ("gff_check");		
+  			  string dnaPar;
+  			  if (! emptyArg (dna))
+  			    dnaPar = " -dna " + dna;
+  			  exec (fullProg ("gff_check") + gff + " -prot " + prot + dnaPar + " " + locus_tag + " -log " + logFName, logFName);
+  			}
+  			
+  			if (! fileExists (db + "/AMRProt.phr"))
+  				throw runtime_error ("BLAST database " + shellQuote (db + "/AMRProt") + " does not exist");
+  			
+  			stderr << "Running blastp...\n";
+  			th << thread (exec, fullProg ("blastp") + " -task blastp-fast  -query " + prot + " -db " + db + "/AMRProt  -show_gis  -word_size 6  -threshold 21  -evalue 1e-20  -comp_based_stats 0  "
+  			  "-num_threads 6  "
+  			  "-outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq sseq' "
+  			  "-out " + tmp + ".blastp &> /dev/null", string ());
+  			stderr << "Running hmmsearch...\n";
+  			th << thread (exec, fullProg ("hmmsearch") + " --tblout " + tmp + ".hmmsearch  --noali  --domtblout " + tmp + ".dom  --cut_tc  -Z 10000  --cpu 8  " + db + "/AMR.LIB " + prot + "&> " + tmp + ".out", string ());
+
+  		  blastp_par = "-blastp " + tmp + ".blastp  -hmmsearch " + tmp + ".hmmsearch  -hmmdom " + tmp + ".dom";
+  			if (! emptyArg (gff))
+  			  blastp_par += "  -gff " + gff + " " + gff_match;
+  		}  		
+  		
+  		if (! emptyArg (dna))
+  		{
+  			findProg ("blastx");
+  		  exec (fullProg ("fasta_check") + dna + " -hyphen  -len "+ tmp + ".len  -log " + logFName, logFName); 
+  			stderr << "Running blastx...\n";
+  			th << thread (exec, fullProg ("blastx") + "  -query " + dna + " -db " + db + "/AMRProt  "
+  			  "-show_gis  -word_size 3  -evalue 1e-20  -query_gencode " + toString (gencode) + "  "
+  			  "-seg no  -comp_based_stats 0  -max_target_seqs 10000  -num_threads 6 "
+  			  "-outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq sseq' "
+  			  "-out " + tmp + ".blastx &> /dev/null", string ());
+  		  blastx_par = "-blastx " + tmp + ".blastx  -ident_min " + toString (ident) 
+  		               + "  -complete_cover_min " + toString (cov)
+  		               + "  -dna_len " + tmp + ".len";
+  		}
+
+  		if (! emptyArg (dna) && ! emptyArg (organism))
+  		{
+  			ASSERT (fileExists (db + "/AMR_DNA-" + organism1));
+  			findProg ("blastn");
+  			findProg ("point_mut");
+  			stderr << "Running blastn...\n";
+  			exec (fullProg ("blastn") + " -query " +dna + " -db " + db + "/AMR_DNA-" + organism1 + " -evalue 1e-20  -dust no  "
+  			  "-outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq sseq' -out " + tmp + ".blastn &> /dev/null");
+  		}
+  	}
 		
 
 		exec (fullProg ("amr_report") + " -fam " + db + "/fam.tab  " + blastp_par + "  " + blastx_par
@@ -272,21 +291,12 @@ struct ThisApplication : ShellApplication
 		  + force_cds_report + " -pseudo"
 		  + " " + qcS + " " + parm + " -log " + logFName + "> " + tmp + ".amr-raw", logFName);
 
-		
 		if (! emptyArg (dna) && ! emptyArg (organism))
 		{
-			string organism1 (unQuote (organism));
-			replace (organism1, ' ', '_');
 			ASSERT (fileExists (db + "/AMR_DNA-" + organism1));
-			findProg ("blastn");
-			findProg ("point_mut");
-			stderr << "Running blastn...\n";
-			exec (fullProg ("blastn") + " -query " +dna + " -db " + db + "/AMR_DNA-" + organism1 + " -evalue 1e-20  -dust no  "
-			  "-outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq sseq' -out " + tmp + ".blastn &> /dev/null");
 			exec (fullProg ("point_mut") + tmp + ".blastn " + db + "/AMR_DNA-" + organism1 + ".tab " + qcS + " -log " + logFName + " > " + tmp + ".amr-snp", logFName);
 			exec ("tail -n +2 " + tmp + ".amr-snp >> " + tmp + ".amr-raw");
 		}
-		
 		
 		// $tmp.amr-raw --> $tmp.amr
     string sort_cols;
