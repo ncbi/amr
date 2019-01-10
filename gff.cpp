@@ -112,7 +112,8 @@ Annot::Annot (Gff,
        )
       continue;
 
-    replace (f. line, ' ', '_');  // to use '\t' as delimiter
+    constexpr char tmpSpace {'_'};
+    replace (f. line, ' ', tmpSpace);  // to use '\t' as delimiter
 
    	const string errorS ("File " + fName + ", line " + toString (f. lineNum) + ": ");
 
@@ -120,6 +121,15 @@ Annot::Annot (Gff,
     static Istringstream iss;
     iss. reset (f. line);
     iss >> contig >> source >> type >> startS >> stopS >> score >> strand >> phase >> attributes;
+    trim (contig, tmpSpace);
+    trim (source, tmpSpace);
+    trim (type, tmpSpace);
+    trim (startS, tmpSpace);
+    trim (stopS, tmpSpace);
+    trim (score, tmpSpace);
+    trim (strand, tmpSpace);
+    trim (phase, tmpSpace);
+    trim (attributes, tmpSpace);
 
     if (attributes. empty ())
     	throw runtime_error (errorS + "9 fields are expected in each line");
@@ -192,7 +202,7 @@ Annot::Annot (Gff,
 	    findSplit (locusTag, '='); 
 	  trimPrefix (locusTag, "\"");
 	  trimSuffix (locusTag, "\"");
-	  trim (locusTag, '_');
+	  trim (locusTag, tmpSpace);
 	  ASSERT (! locusTag. empty ());
 	  
 	  const Locus locus (f. lineNum, contig, (size_t) start, (size_t) stop, strand == "+", partial, 0);

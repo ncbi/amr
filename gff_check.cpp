@@ -133,6 +133,8 @@ struct ThisApplication : Application
 			  if (gffIds. size () != fastaIds. size ())
 			  	throw runtime_error ("GFF identifiers are not unique");
 			}
+			if (verbose ())
+			  cout << "# Proteins in GFF: " << annot. prot2cdss. size () << endl;
 		  for (const string& seqid : gffIds)
 		  	if (! contains (annot. prot2cdss, seqid))
 		  		throw runtime_error ("Protein id " + strQuote (seqid) + " is not in the .gff-file");
