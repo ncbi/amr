@@ -1797,6 +1797,7 @@ void exec (const string &cmd,
 {
   ASSERT (! cmd. empty ());
   
+//Chronometer_OnePass cop (cmd);  
   if (verbose ())
   	cout << cmd << endl;
   	

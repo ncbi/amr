@@ -116,6 +116,7 @@ struct PointMut
 	  // geneMutation generalized, may have a different pos
 	string name;
 	  // Species binomial + resistance
+	double neighborhoodMismatch {0.0};
 
 	
 	PointMut (const string &gene_arg,
@@ -155,6 +156,17 @@ struct PointMut
     	p = name. find (' ', p + 1);
     	ASSERT (p != string::npos);
     	return name. substr (p + 1);
+    }
+  bool better (const PointMut &other) const  
+    { if (geneMutationGen != other. geneMutationGen)
+        return false;
+      if (pos != other. pos)
+        return false;
+      LESS_PART (*this, other, neighborhoodMismatch);
+      // Tie
+      LESS_PART (*this, other, name); 
+      LESS_PART (*this, other, geneMutation);  
+      return false;
     }
 };
 
@@ -260,29 +272,34 @@ struct BlastAlignment
 	    		  }
 	    		  if (refSeq [i] != '-')
 		    	  {
-		    	  	if (verbose ())
-			    	  	if (targetSeq [i] != refSeq [i])  
-			    	  		cout        << i + 1 
-			    	  		     << ' ' << refSeq [i]  
-			    	  		     << ' ' << targetSeq [i] 
-			    	  		     << ' ' << pos + 1 
-			    	  		     << ' ' << pm. pos + 1
-			    	  		     << ' ' << pm. alleleChar
-			    	  		     << ' ' << goodNeighborhood (targetSeq, refSeq, i)
-			    	  		     << endl;
-		    	  	if (pos == pm. pos)
-		    	  	{
-				    		if (toUpper (targetSeq [i]) == pm. alleleChar)
-				    		{
-				    			ASSERT (targetSeq [i] != refSeq [i]);
-				    			if (goodNeighborhood (targetSeq, refSeq, i))
-				    			{
-				    			  ASSERT (targetPos2pointMut [targetPos]. empty ());
-				    			  targetPos2pointMut [targetPos] = pm;
-				    			}
-				    		}
-		    	  		break;
-		    	  	}
+		    	    if (targetSeq [i] != '-')
+		    	    {
+  		    	    const double neighborhoodMismatch = getNeighborhoodMismatch (targetSeq, refSeq, i);
+  		    	  	if (verbose ())
+  			    	  	if (targetSeq [i] != refSeq [i])  
+  			    	  		cout        << i + 1 
+  			    	  		     << ' ' << refSeq [i]  
+  			    	  		     << ' ' << targetSeq [i] 
+  			    	  		     << ' ' << pos + 1 
+  			    	  		     << ' ' << pm. pos + 1
+  			    	  		     << ' ' << pm. alleleChar
+  			    	  		     << ' ' << neighborhoodMismatch
+  			    	  		     << endl;
+  		    	  	if (pos == pm. pos)
+  		    	  	{
+  				    		if (toUpper (targetSeq [i]) == pm. alleleChar)
+  				    		{
+  				    			ASSERT (targetSeq [i] != refSeq [i]);
+  				    			if (neighborhoodMismatch <= 0.03)   // PAR
+  				    			{
+  				    			  ASSERT (targetPos2pointMut [targetPos]. empty ());
+  				    			  targetPos2pointMut [targetPos] = pm;
+  				    			  targetPos2pointMut [targetPos]. neighborhoodMismatch = neighborhoodMismatch;
+  				    			}
+  				    		}
+  		    	  		break;
+  		    	  	}
+  		    	  }
 	    		  	pos++;
 		    		}
 		    	}
@@ -336,12 +353,12 @@ struct BlastAlignment
     { return (double) nident / (double) length; }
   double refCoverage () const
     { return (double) (refEnd - refStart) / (double) refLen; }
-  bool goodNeighborhood (const string &targetSeq, 
-                         const string &refSeq, 
-                         size_t i) const
+  double getNeighborhoodMismatch (const string &targetSeq, 
+                                  const string &refSeq, 
+                                  size_t i) const
     { ASSERT (targetSeq. size () == refSeq. size ());
     	ASSERT (i < targetSeq. size ())
-      IMPLY (! verbose (), targetSeq [i] != '-');
+      ASSERT (targetSeq [i] != '-');
       ASSERT (refSeq    [i] != '-');
     	ASSERT (targetEnd - targetStart <= targetSeq. size ());
     	ASSERT (refEnd - refStart <= refSeq. size ());
@@ -379,7 +396,7 @@ struct BlastAlignment
       mismatches += right;     
       //
     //cout << ' ' << j << right << ' ' << mismatches << ' ' << len << endl;  
-      return (double) mismatches / (double) len <= 0.03;  // PAR
+      return (double) mismatches / (double) len;
     }
   bool good () const
     { return length >= 2 * flankingLen + 1; }
@@ -499,10 +516,10 @@ struct ThisApplication : Application
   	      if (verbose ())
   	        cout << f. line << endl;  
   	    }
-  	    const BlastAlignment al (f. line);
+  	    BlastAlignment al (f. line);
   	    al. qc ();  
   	    if (al. good ())
-  	      batch. blastAls. push_back (al);
+  	      batch. blastAls. push_back (move (al));
   	  }
   	}
   	if (verbose ())
@@ -511,7 +528,7 @@ struct ThisApplication : Application
     
     // Output
     // Group by targetName and process each targetName separately for speed ??    
-    Common_sp::sort (batch. blastAls);
+  //Common_sp::sort (batch. blastAls);
     if (verbose ())
     {
 	    cout << "After process():" << endl;
@@ -523,34 +540,39 @@ struct ThisApplication : Application
 		}
 		
     
-    FFOR (size_t, i, batch. blastAls. size ())
-    {
-      const BlastAlignment& blastAl1 = batch. blastAls [i];
+    for (const BlastAlignment& blastAl1 : batch. blastAls)
       for (const auto& it1 : blastAl1. targetPos2pointMut)
       {
         const PointMut& pm1 = it1. second;
-        FFOR_START (size_t, j, i + 1, batch. blastAls. size ())
-        {
-          BlastAlignment& blastAl2 = batch. blastAls [j];
-          if (blastAl2. targetName == blastAl1. targetName)  
+        if (pm1. empty ())
+          continue;
+        for (BlastAlignment& blastAl2 : batch. blastAls)
+          if (   blastAl2. targetName == blastAl1. targetName
+              && & blastAl2 != & blastAl1
+             )  
             for (auto& it2 : blastAl2. targetPos2pointMut)
             {
               PointMut& pm2 = it2. second;
+              if (pm2. empty ())
+                continue;
               if (verbose ())
                 cout        << blastAl2. targetName 
                      << ' ' << it1. first 
                      << ' ' << it2. first 
+                     << ' ' << pm1. geneMutation 
+                     << ' ' << pm2. geneMutation 
                      << ' ' << pm1. geneMutationGen 
                      << ' ' << pm2. geneMutationGen 
+                     << ' ' << pm1. neighborhoodMismatch 
+                     << ' ' << pm2. neighborhoodMismatch 
+                     << ' ' << pm1. better (pm2)
                      << endl; 
-              if (   it1. first == it2. first
-                  && pm1. geneMutationGen == pm2. geneMutationGen
+              if (   it2. first == it1. first
+                  && pm1. better (pm2)
                  )
                 pm2 = PointMut ();
             }
-        }
       }
-    }
 		
 		
     batch. report (cout);
