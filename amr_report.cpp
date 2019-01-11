@@ -792,7 +792,7 @@ public:
     }
 	string getMethod (const Locus &cds) const
 	  { string method (refExactlyMatched () 
-        	             ? allele () && (! targetProt || refLen == targetLen)
+        	             ? allele () /*&& (! targetProt || refLen == targetLen)*/  // PD-2313
         	               ? "ALLELE"
         	               : "EXACT"  // PD-776
         	             : gi
