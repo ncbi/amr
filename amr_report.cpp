@@ -71,9 +71,9 @@ struct BlastRule
 {
   // 0 <=> undefined
   // 0 .. 1
-  double ident {0};
-  double target_coverage {0};
-  double ref_coverage {0};
+  double ident {0.0};
+  double target_coverage {0.0};
+  double ref_coverage {0.0};
 
   BlastRule (double ident_arg,
              double target_coverage_arg,
@@ -82,14 +82,14 @@ struct BlastRule
     , target_coverage (target_coverage_arg)
     , ref_coverage    (ref_coverage_arg)
     {
-      ASSERT (ident >= 0);
-      ASSERT (ident <= 1);
-      ASSERT (target_coverage >= 0);
-      ASSERT (target_coverage <= 1);
-      ASSERT (ref_coverage >= 0);
-      ASSERT (ref_coverage <= 1);
-      ASSERT ((bool) ident == (bool) target_coverage);
-      ASSERT ((bool) ref_coverage == (bool) target_coverage);
+      ASSERT (ident >= 0.0);
+      ASSERT (ident <= 1.0);
+      ASSERT (target_coverage >= 0.0);
+      ASSERT (target_coverage <= 1.0);
+      ASSERT (ref_coverage >= 0.0);
+      ASSERT (ref_coverage <= 1.0);
+    //ASSERT ((bool) ident == (bool) target_coverage);
+    //ASSERT ((bool) ref_coverage == (bool) target_coverage);
     }  
   BlastRule () = default;
     

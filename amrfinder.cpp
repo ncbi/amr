@@ -155,10 +155,10 @@ struct ThisApplication : ShellApplication
       stderr << "  - include " << include << '\n';
 
 
-		if (ident <= 0 || ident > 1)
+		if (ident < 0 || ident > 1)
 		  throw runtime_error ("ident_min must be between 0 and 1");
 		
-		if (cov <= 0 || cov > 1)
+		if (cov < 0 || cov > 1)
 		  throw runtime_error ("coverage_min must be between 0 and 1");
 		  
 
@@ -269,9 +269,7 @@ struct ThisApplication : ShellApplication
   			  "-seg no  -comp_based_stats 0  -max_target_seqs 10000  -num_threads 6 "
   			  "-outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq sseq' "
   			  "-out " + tmp + ".blastx &> /dev/null", string ());
-  		  blastx_par = "-blastx " + tmp + ".blastx  -ident_min " + toString (ident) 
-  		               + "  -complete_cover_min " + toString (cov)
-  		               + "  -dna_len " + tmp + ".len";
+  		  blastx_par = "-blastx " + tmp + ".blastx  -dna_len " + tmp + ".len";
   		}
 
   		if (! emptyArg (dna) && ! emptyArg (organism))
@@ -289,6 +287,7 @@ struct ThisApplication : ShellApplication
 		exec (fullProg ("amr_report") + " -fam " + db + "/fam.tab  " + blastp_par + "  " + blastx_par
 		  + "  -organism " + organism + "  -point_mut " + db + "/AMRProt-point_mut.tab " + point_mut_allS + " "
 		  + force_cds_report + " -pseudo"
+		  + "  -ident_min " + toString (ident) + "  -complete_cover_min " + toString (cov) + "  -partial_cover_min 0.5"
 		  + " " + qcS + " " + parm + " -log " + logFName + "> " + tmp + ".amr-raw", logFName);
 
 		if (! emptyArg (dna) && ! emptyArg (organism))
