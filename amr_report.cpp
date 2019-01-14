@@ -1028,6 +1028,7 @@ struct Batch
   map<string/*hmm*/,const Fam*> hmm2fam;
   unique_ptr<Fam> root;
     // Not delete'd in ~Batch()
+  bool non_reportable {false};
 
   // Target input
   typedef  List<BlastAlignment>  BlastAls; 
@@ -1044,8 +1045,10 @@ struct Batch
   
   Batch (const string &famFName,
          const string &organism, 
-         const string &point_mut)
+         const string &point_mut,
+         bool non_reportable_arg)
     : root (new Fam ())
+    , non_reportable (non_reportable_arg)
 	  {
 	    if (famFName. empty ())
 	    	throw runtime_error ("fam (protein family hierarchy) file is missing");
@@ -1348,7 +1351,7 @@ struct Batch
   	for (const auto& blastAl : goodBlastAls)
   	{
    	  blastAl. qc ();
-  	  if (   blastAl. getFam () -> reportable
+  	  if (   (non_reportable || blastAl. getFam () -> reportable)
   	  	  || ! blastAl. pointMuts. empty ()
   	  	 )
     	  blastAl. saveText (os);
@@ -1361,7 +1364,7 @@ struct Batch
 	{
 		ASSERT (os. good ());
   	for (const auto& blastAl : goodBlastAls)
-  	  if (   blastAl. getFam () -> reportable
+  	  if (   (non_reportable || blastAl. getFam () -> reportable)
   	  	  && blastAl. targetProt
   	  	 )
         os << blastAl. targetName << endl;
@@ -1489,6 +1492,7 @@ struct ThisApplication : Application
       addFlag ("print_fam", "Print the FAM.id instead of gene symbol"); 
       addFlag ("pseudo", "Indicate pseudo-genes in the protein name as " + strQuote (stopCodonS) + " or " + strQuote (frameShiftS)); 
       addFlag ("force_cds_report", "Report contig/start/stop/strand even if this information does not exist");
+      addFlag ("non_reportable", "Report non-reportable families");
       // Testing
       addFlag ("nosame", "Exclude the same reference ptotein from the BLAST output (for testing)"); 
       addFlag ("noblast", "Exclude the BLAST output (for testing)"); 
@@ -1521,6 +1525,7 @@ struct ThisApplication : Application
                  print_fam           = getFlag ("print_fam");
                  reportPseudo        = getFlag ("pseudo");
     const bool   force_cds_report    = getFlag ("force_cds_report");
+    const bool   non_reportable      = getFlag ("non_reportable");
     const bool   nosame              = getFlag ("nosame");
     const bool   noblast             = getFlag ("noblast");
     
@@ -1552,7 +1557,7 @@ struct ThisApplication : Application
       point_mut_all. reset (new OFStream (point_mut_all_FName));
       
 
-    Batch batch (famFName, organism, point_mut);  
+    Batch batch (famFName, organism, point_mut, non_reportable);  
   
   
     // Fusion proteins, see PD-283 ??
