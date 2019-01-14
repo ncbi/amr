@@ -506,7 +506,7 @@ struct BlastAlignment
 		    if (! targetProt && targetStop - targetStart >= 30)  // PAR, PD-671
 		    {
 		           if (refStart > 0      && targetTail (true)  <= mismatchTailDna)  partialDna = true;
-		      else if (refStop   < refLen && targetTail (false) <= mismatchTailDna)  partialDna = true;
+		      else if (refStop  < refLen && targetTail (false) <= mismatchTailDna)  partialDna = true;
 		    }
 	
 	      setTargetAlign ();	    
@@ -792,7 +792,7 @@ public:
     }
 	string getMethod (const Locus &cds) const
 	  { string method (refExactlyMatched () 
-        	             ? allele () /*&& (! targetProt || refLen == targetLen)*/  // PD-2313
+        	             ? allele () && (! targetProt || refLen == targetLen)
         	               ? "ALLELE"
         	               : "EXACT"  // PD-776
         	             : gi
@@ -931,10 +931,10 @@ private:
 	      return true;
 	    }
 	    else
-	    { // PD-1902, PD-2139
+	    { // PD-1902, PD-2139, PD-2313
 	    	if (targetProt)
-	    		return matchesCds (other) /*&& refExactlyMatched ()*/;
-    		return other. matchesCds (*this) && refExactlyMatched () && ! other. refExactlyMatched ();
+	    		return matchesCds (other) && ! other. refExactlyMatched ();
+    		return other. matchesCds (*this) && refExactlyMatched () && (allele () || ! other. refExactlyMatched ());
 	    }
     }
 public:
