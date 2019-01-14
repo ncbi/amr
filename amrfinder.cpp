@@ -287,7 +287,7 @@ struct ThisApplication : ShellApplication
 		exec (fullProg ("amr_report") + " -fam " + db + "/fam.tab  " + blastp_par + "  " + blastx_par
 		  + "  -organism " + organism + "  -point_mut " + db + "/AMRProt-point_mut.tab " + point_mut_allS + " "
 		  + force_cds_report + " -pseudo"
-		  + "  -ident_min " + toString (ident) + "  -complete_cover_min " + toString (cov) + "  -partial_cover_min " + toString (cov)
+		  + "  -ident_min " + toString (ident) + "  -complete_cover_min " + toString (cov) + "  -partial_cover_min 0.5"  // + toString (cov)
 		  + " " + qcS + " " + parm + " -log " + logFName + "> " + tmp + ".amr-raw", logFName);
 
 		if (! emptyArg (dna) && ! emptyArg (organism))
