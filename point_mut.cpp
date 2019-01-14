@@ -160,8 +160,8 @@ struct PointMut
   bool better (const PointMut &other) const  
     { if (geneMutationGen != other. geneMutationGen)
         return false;
-      if (pos != other. pos)
-        return false;
+    /*if (pos != other. pos)
+        return false; */
       LESS_PART (*this, other, neighborhoodMismatch);
       // Tie
       LESS_PART (*this, other, name); 
