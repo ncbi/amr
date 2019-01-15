@@ -774,6 +774,11 @@ public:
              && nident == refLen 
              && refLen == length;
 	  }
+  bool targetExactlyMatched () const
+    { return    targetLen   
+             && nident == targetLen 
+             && targetLen == length;
+	  }
   bool partial () const
     // Requires: good()
     { return refCoverage () < complete_cover_min - frac_delta; }
@@ -940,14 +945,27 @@ private:
 	      LESS_PART (other, *this, refExactlyMatched ());  // PD-1261, PD-1678
 	      LESS_PART (other, *this, nident);
 	      LESS_PART (*this, other, refEffectiveLen ());
-	      return true;
 	    }
 	    else
-	    { // PD-1902, PD-2139, PD-2313
+	    { // PD-1902, PD-2139, PD-2313, PD-2320
+	    	if (targetProt && ! matchesCds (other))
+	    	  return false;
+	    	if (! targetProt && ! other. matchesCds (*this))
+	    	  return false;
+	      LESS_PART (other, *this, refExactlyMatched ());  
+	      LESS_PART (other, *this, allele ());  
+	      LESS_PART (other, *this, targetExactlyMatched ());  
+	      LESS_PART (*this, other, targetProt);
+      /*
 	    	if (targetProt)
 	    		return matchesCds (other) && ! other. refExactlyMatched ();
-    		return other. matchesCds (*this) && refExactlyMatched () && (allele () || ! other. refExactlyMatched ());
+    		return    other. matchesCds (*this) 
+    		       && refExactlyMatched () 
+    		       && allele () 
+    		       && ! (other. refExactlyMatched () && other. refLen == other. targetLen);
+      */
 	    }
+      return true;
     }
 public:
   const Fam* getFam () const
