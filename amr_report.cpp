@@ -536,6 +536,7 @@ struct BlastAlignment
 		    {
 		    	if (verbose ())
 		        cout << "PointMut protein found: " << refName << endl;
+  	      ASSERT (isPointMut ());
 		      ASSERT (! pointMuts_all->empty ());
 		      string s (pointMuts_all->front (). geneMutation);
 		      rfindSplit (s, pm_delimiter);  
@@ -639,7 +640,7 @@ public:
 	    ASSERT ((bool) gi == (bool) refLen);
 	    ASSERT ((bool) gi == (bool) nident);
 	    ASSERT ((bool) gi == ! accessionProt. empty ());
-	    IMPLY (! gi, getFam () -> getHmmFam ());
+	    IMPLY (! gi && ! isPointMut (), getFam () -> getHmmFam ());
 	    IMPLY (targetProt, ! partialDna);
 	  //IMPLY (! targetProt, (targetStop - targetStart) % 3 == 0);
 	    ASSERT (targetAlign);
@@ -662,13 +663,17 @@ public:
     	            || cds. size () == 3 * targetLen 
     	           );
     #endif
-	    IMPLY (! pointMuts. empty (), ! getFam () -> getHmmFam ());
-	    IMPLY (! pointMuts. empty (), ! getFam () -> reportable);
+	    IMPLY (! pointMuts. empty (), isPointMut ());
     }
   void saveText (ostream& os) const 
     { // PD-736, PD-774, PD-780, PD-799
       const string na ("NA");
-      const string proteinName (refExactlyMatched () || ! gi ? product : nvl (getFam () -> familyName, na));
+      const string proteinName (isPointMut () 
+                                  ? string ()
+                                  : refExactlyMatched () || ! gi 
+                                    ? product 
+                                    : nvl (getFam () -> familyName, na)
+                               );
       ASSERT (! contains (proteinName, '\t'));
       Vector<Locus> cdss_ (cdss);
       if (cdss_. empty ())
@@ -713,7 +718,10 @@ public:
 	             << na
 	             << na;
 	        // PD-775
-	  	    if (const Fam* f = getFam () -> getHmmFam ())
+	        if (isPointMut ())
+	          td << na
+	             << na;
+	        else if (const Fam* f = getFam () -> getHmmFam ())
 	          td << f->hmm
 	             << f->familyName;
 	        else
@@ -741,6 +749,8 @@ public:
     }
     
 
+  bool isPointMut () const
+    { return resistance == "point_mutation"; }
   bool allele () const
     { return famId != gene && parts == 1; }
   size_t targetTail (bool upstream) const
@@ -800,7 +810,7 @@ public:
         	                  ? truncated (cds)
         	                    ? "PARTIAL_CONTIG_END"  // PD-2267
         	                    : "PARTIAL"
-        	                  : resistance == "point_mutation"
+        	                  : isPointMut ()
         	                    ? "POINT"
         	                    : "BLAST"
         	                : "HMM"
@@ -858,10 +868,12 @@ private:
              && targetStop                       <= other. targetStop + mismatchTailTarget;	    
     }
     // Requires: same targetName
+#if 0
   bool descendantOf (const BlastAlignment &other) const
     { return    ! other. allele ()
              && getFam () -> descendantOf (other. getFam ());
     }
+#endif
   bool matchesCds (const BlastAlignment &other) const
     { ASSERT (targetProt);
     	ASSERT (! other. targetProt);
@@ -939,11 +951,12 @@ private:
     }
 public:
   const Fam* getFam () const
-    { const Fam* fam = famId2fam [famId];
+    { ASSERT (! isPointMut ());
+      const Fam* fam = famId2fam [famId];
       if (! fam)
         fam = famId2fam [gene];
       if (! fam)
-      	throw runtime_error ("cannot find hierarchy for " + famId + " / " + gene);
+      	throw runtime_error ("Cannot find hierarchy for " + famId + " / " + gene);
       return fam;
     }
   bool better (const BlastAlignment &other) const
@@ -955,6 +968,8 @@ public:
   bool better (const HmmAlignment& other) const
     { ASSERT (other. good ());
     	ASSERT (other. blastAl. get ());
+    	if (isPointMut ())
+    	  return false;
     	if (targetProt)
     	{ if (targetName != other. sseqid)
 	        return false;
@@ -1055,6 +1070,7 @@ struct Batch
 	    	
 	  	// Tree of Fam
 	  	// Pass 1  
+	  	const string pointMutParent ("POINT_MUTATION");
 	    {
 	    	if (verbose ())
 	    		cout << "Reading " << famFName << " Pass 1 ..." << endl;
@@ -1064,7 +1080,7 @@ struct Batch
 	  	    trim (f. line);
 	      //cout << f. line << endl; 
 	  	    const string famId               (findSplit (f. line, '\t'));
-	  	    /*const string parentFamName =*/  findSplit (f. line, '\t');
+	  	    const string parentFamId         (findSplit (f. line, '\t'));
 	  	    const string genesymbol          (findSplit (f. line, '\t'));
 	  	    const string hmm                 (findSplit (f. line, '\t'));
 	  	    const double tc1 = str2<double>  (findSplit (f. line, '\t'));
@@ -1073,7 +1089,11 @@ struct Batch
 	  	    ASSERT (   reportable == 0 
 	  	            || reportable == 1
 	  	           );
+	  	    if (parentFamId == pointMutParent)
+	  	      continue;
 	  	    const auto fam = new Fam (root. get (), famId, genesymbol, hmm, tc1, tc2, f. line, reportable);
+	  	    if (famId2fam [famId])
+	  	      throw runtime_error ("Family " + famId + " is duplicated");
 	  	    famId2fam [famId] = fam;
 	  	    if (! fam->hmm. empty ())
 	  	      hmm2fam [fam->hmm] = fam;
@@ -1089,8 +1109,10 @@ struct Batch
 	  	    trim (f. line);
 	  	  //cout << f. line << endl;  
 	  	    Fam* child = var_cast (famId2fam [findSplit (f. line, '\t')]);
-	  	    ASSERT (child);
 	  	    const string parentFamId (findSplit (f. line, '\t'));
+	  	    if (parentFamId == pointMutParent)
+	  	      continue;
+	  	    ASSERT (child);
 	  	    Fam* parent = nullptr;
 	  	    if (! parentFamId. empty ())
 	  	    { 
@@ -1258,7 +1280,8 @@ struct Batch
   	if (hmmExist && ! skip_hmm_check)
       for (Iter<BlastAls> iter (goodBlastAls); iter. next ();)
         if (   /*! iter->refExactlyMatched () */
-        	     iter->targetProt
+               ! iter->isPointMut ()
+        	  && iter->targetProt
         	  && iter->pIdentity () < 0.98 - frac_delta  // PAR  // PD-1673
             && ! iter->partial ()
            )
@@ -1351,7 +1374,7 @@ struct Batch
   	for (const auto& blastAl : goodBlastAls)
   	{
    	  blastAl. qc ();
-  	  if (   (non_reportable || blastAl. getFam () -> reportable)
+  	  if (   (non_reportable || (! blastAl. isPointMut () && blastAl. getFam () -> reportable))
   	  	  || ! blastAl. pointMuts. empty ()
   	  	 )
     	  blastAl. saveText (os);
@@ -1364,7 +1387,7 @@ struct Batch
 	{
 		ASSERT (os. good ());
   	for (const auto& blastAl : goodBlastAls)
-  	  if (   (non_reportable || blastAl. getFam () -> reportable)
+  	  if (   (non_reportable || (! blastAl. isPointMut () && blastAl. getFam () -> reportable))
   	  	  && blastAl. targetProt
   	  	 )
         os << blastAl. targetName << endl;
