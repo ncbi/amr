@@ -699,7 +699,7 @@ public:
 			             : pm. geneMutation
 	              )
 	           <<   (pm. empty () ? proteinName : pm. name)
-	              + ifS (reportPseudo, /*ifS (stopCodon, " " + stopCodonS) +*/ ifS (frameShift, " " + frameShiftS))
+	              + ifS (reportPseudo, ifS (frameShift, " " + frameShiftS))
 	           << method
 	           << (targetProt ? targetLen : targetAlign_aa);  
 	        if (gi)
@@ -820,14 +820,17 @@ public:
         	                    : "BLAST"
         	                : "HMM"
         	           );
-      // PD-2088
+      // PD-2088, PD-2320
+    #if 0
 	    if ((   method == "BLAST" 
 	         || method == "PARTIAL"
 	         || method == "PARTIAL_CONTIG_END"
 	        ) && stopCodon
 	       )
 	      method = "INTERNAL_STOP";	
-	    else if (method != "HMM")
+	    else 
+	  #endif
+	    if (method != "HMM")
 	      method += (targetProt ? "P" : "X");	  
 	    return method;
 	  }
@@ -954,8 +957,8 @@ private:
 	    	  return false;
 	      LESS_PART (other, *this, refExactlyMatched ());  
 	      LESS_PART (other, *this, allele ());  
-	      LESS_PART (other, *this, targetExactlyMatched ());  
-	      LESS_PART (*this, other, targetProt);
+	    //LESS_PART (other, *this, targetExactlyMatched ());  
+	      LESS_PART (other, *this, targetProt);
       /*
 	    	if (targetProt)
 	    		return matchesCds (other) && ! other. refExactlyMatched ();
