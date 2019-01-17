@@ -368,6 +368,7 @@ map <string/*accession*/, Vector<PointMut>>  accession2pointMuts;
 
 double complete_cover_min = NaN;
 
+bool combiner = false;
 bool cdsExist = false;
 bool print_fam = false;
 
@@ -821,16 +822,15 @@ public:
         	                : "HMM"
         	           );
       // PD-2088, PD-2320
-    #if 0
-	    if ((   method == "BLAST" 
-	         || method == "PARTIAL"
-	         || method == "PARTIAL_CONTIG_END"
-	        ) && stopCodon
+	    if (   (   method == "BLAST" 
+    	        || method == "PARTIAL"
+    	        || method == "PARTIAL_CONTIG_END"
+    	       ) 
+	        && stopCodon
+	        && ! combiner
 	       )
 	      method = "INTERNAL_STOP";	
-	    else 
-	  #endif
-	    if (method != "HMM")
+	    else if (method != "HMM")
 	      method += (targetProt ? "P" : "X");	  
 	    return method;
 	  }
@@ -1591,6 +1591,8 @@ struct ThisApplication : Application
     globalCompleteBR = BlastRule (ident_min, complete_cover_min, complete_cover_min);
     globalPartialBR  = BlastRule (ident_min, complete_cover_min, partial_cover_min);
     
+    
+    combiner = ! blastpFName. empty () && ! blastxFName. empty ();
     
     cdsExist =    force_cds_report
                || ! blastxFName. empty ()
