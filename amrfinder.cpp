@@ -62,7 +62,7 @@ struct ThisApplication : ShellApplication
     	addKey ("protein", "Protein FASTA file to search", "", 'p', "PROT_FASTA");
     	addKey ("nucleotide", "Nucleotide FASTA file to search", "", 'n', "NUC_FASTA");
     	addKey ("database", "Alternative directory with AMRFinder database. Default: $AMRFINDER_DB", "", 'd', "DATABASE_DIR");
-    //addKey ("fasta_prot", "Create FASTA file containing protein sequence for identified proteins", "", 'f', "FASTA_PROT_OUT");
+    //addFlag ("update_database", "Update the AMRFinder database from the FTP site", 'U');
     	addKey ("gff", "GFF file for protein locations. Protein id should be in the attribute 'Name=<id>' (9th field) of the rows with type 'CDS' or 'gene' (3rd field).", "", 'g', "GFF_FILE");
     	addKey ("ident_min", "Minimum identity for nucleotide hit (0..1)", "0.9", 'i', "MIN_IDENT");
     	addKey ("coverage_min", "Minimum coverage of the reference protein to report a match as complete (0..1)", "0.9", 'c', "MIN_COV");
@@ -89,6 +89,7 @@ struct ThisApplication : ShellApplication
     const string prot          = shellQuote (getArg ("protein"));
     const string dna           = shellQuote (getArg ("nucleotide"));
           string db            =             getArg ("database");
+  //const bool   update_db     =             getFlag ("update_database");
     const string gff           = shellQuote (getArg ("gff"));
     const double ident         =             arg2double ("ident_min");
     const double cov           =             arg2double ("coverage_min");
@@ -136,6 +137,9 @@ struct ThisApplication : ShellApplication
       includes << key2shortHelp ("organism") + " option to add point-mutation searches";
     else
       mode += " and point-mutation";
+      
+      
+    const string dbSuff ("/data/latest");  // "/../data" 
     
 		// db
 		if (db. empty ())
@@ -143,7 +147,7 @@ struct ThisApplication : ShellApplication
     	if (const char* s = getenv ("AMRFINDER_DB"))
     		db = string (s);
     	else
-			  db = execDir + "/../data";
+			  db = execDir + dbSuff;
 		}
 		ASSERT (! db. empty ());
 		if (! directoryExists (db))
@@ -208,6 +212,19 @@ struct ThisApplication : ShellApplication
     const string point_mut_allS (point_mut_all. empty () ? "" : ("-point_mut_all " + point_mut_all));
 		const string force_cds_report (! emptyArg (dna) && ! emptyArg (organism) ? "-force_cds_report" : "");  // Needed for point_mut
 		const string logFName (tmp + ".log");
+		
+		
+	#if 0
+		if (update_db)
+		{
+		  findProg ("amrfinder_update");
+		  string dbBase (db);
+		  trimSuffix (dbBase, "/");
+		  if (! trimSuffix (dbBase, dbSuff))
+		    throw runtime_error ("AMRFinder database should be in a \"..." + dbSuff + "\" directory");
+		  exec (fullProg ("amrfinder_update -d ") + dbBase + (quiet ? " -q" : "") + " -log " + logFName + " " + qcS, logFName);
+		}
+	#endif
 			
 						  
     findProg ("fasta_check");
