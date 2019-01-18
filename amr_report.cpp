@@ -368,7 +368,7 @@ map <string/*accession*/, Vector<PointMut>>  accession2pointMuts;
 
 double complete_cover_min = NaN;
 
-bool combiner = false;
+//bool combiner = false;
 bool cdsExist = false;
 bool print_fam = false;
 
@@ -827,7 +827,7 @@ public:
     	        || method == "PARTIAL_CONTIG_END"
     	       ) 
 	        && stopCodon
-	        && ! combiner
+	        && ! targetProt
 	       )
 	      method = "INTERNAL_STOP";	
 	    else if (method != "HMM")
@@ -1592,7 +1592,7 @@ struct ThisApplication : Application
     globalPartialBR  = BlastRule (ident_min, complete_cover_min, partial_cover_min);
     
     
-    combiner = ! blastpFName. empty () && ! blastxFName. empty ();
+  //combiner = ! blastpFName. empty () && ! blastxFName. empty ();
     
     cdsExist =    force_cds_report
                || ! blastxFName. empty ()
