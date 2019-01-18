@@ -190,9 +190,9 @@ void fetchAMRFile (Curl &curl,
 struct ThisApplication : ShellApplication
 {
   ThisApplication ()
-    : ShellApplication ("Identify AMR genes in proteins and/or contigs and print a report", true, true, true)
+    : ShellApplication ("Identify AMR genes in proteins and/or contigs and print a report", false, true, true)
     {
-    	addKey ("database", "Directory for all versions of AMRFinder databases", "", 'd', "DATABASE_DIR");
+    	addKey ("database", "Directory for all versions of AMRFinder databases", "$BASE/data", 'd', "DATABASE_DIR");
       addFlag ("quiet", "Suppress messages to STDERR", 'q');
 	  #ifdef SVN_REV
 	    version = SVN_REV;
@@ -204,7 +204,7 @@ struct ThisApplication : ShellApplication
   void body () const final
   {
           string mainDir = getArg ("database");
-    const bool   quiet = getFlag ("quiet");
+    const bool   quiet   = getFlag ("quiet");
     
     
     Stderr stderr (quiet);
@@ -239,7 +239,7 @@ struct ThisApplication : ShellApplication
       exec ("rm " + latestLink);
     exec ("ln -s " + latest_version + " " + latestLink);
     
-    stderr << "Dowloading AMRFinder database version " << latest_version << "\n";
+    stderr << "Dowloading AMRFinder database version " << latest_version << " into " << latestDir << "\n";
     fetchAMRFile (curl, latestDir, "AMR.LIB");
     fetchAMRFile (curl, latestDir, "AMRProt");
     fetchAMRFile (curl, latestDir, "AMR_CDS");

@@ -2188,7 +2188,7 @@ int Application::run (int argc,
   
 
   addDefaultArgs ();
-  
+    
   
 	try
   { 
@@ -2219,12 +2219,15 @@ int Application::run (int argc,
     ASSERT (! programArgs. empty ());
 	  
       
+		initEnvironment ();
+
+
     // positionals, keys
+    Set<Key*> keysRead;
     {
 	    bool first = true;
 		  List<Positional>::iterator posIt = positionals. begin ();
 	    Key* key = nullptr;
-	    Set<const Key*> keysRead;
 	    for (string s : programArgs)
 	    {
 	      if (first)
@@ -2320,6 +2323,11 @@ int Application::run (int argc,
 	  }
     
     
+    for (Key& key : keys)
+      if (! keysRead. contains (& key))
+        key. value = key. defaultValue;
+
+
     {
 	    map<string,StringVector> requiredGroup2names;
 	    map<string,StringVector> requiredGroup2given;
@@ -2389,7 +2397,6 @@ int Application::run (int argc,
 	  	
   
 		qc ();
-		initEnvironment ();
   	body ();
 
   
@@ -2433,6 +2440,7 @@ ShellApplication::~ShellApplication ()
 void ShellApplication::initEnvironment () 
 {
   ASSERT (tmp. empty ());
+  ASSERT (! programArgs. empty ());
   
   // tmp
   if (useTmp)
@@ -2453,8 +2461,15 @@ void ShellApplication::initEnvironment ()
   // execDir
 	execDir = getProgramDirName ();
 	if (execDir. empty ())
-		execDir = which (programName);
+		execDir = which (programArgs. front ());
 	ASSERT (isRight (execDir, "/"));
+
+
+  string execDir_ (execDir);
+  trimSuffix (execDir_, "/");
+  for (Key& key : keys)
+    if (! key. flag)
+      replaceStr (key. defaultValue, "$BASE", execDir_);
 }
 
 

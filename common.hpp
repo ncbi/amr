@@ -132,8 +132,7 @@ inline void errorExitStr (const string &msg)
 struct Nocopy
 {
 protected:
-	Nocopy ()
-	  {}
+	Nocopy () = default;
   Nocopy (const Nocopy &) = delete;
   Nocopy (Nocopy &&) = delete;
   Nocopy& operator= (const Nocopy &) = delete;
@@ -2800,7 +2799,7 @@ struct Application : Singleton<Application>, Root
   static constexpr const char* helpS {"help"};
   static constexpr const char* versionS {"version"};
   
-private:
+protected:
   struct Positional;  // forward
   struct Key;         // forward
   struct Arg : Named
@@ -2808,7 +2807,6 @@ private:
     const string description;
       // !empty()
     string value;
-      // Init: default value
   protected:
     Arg (const string &name_arg,
          const string &description_arg);
@@ -2839,7 +2837,7 @@ private:
   	  // '\0' <=> no acronym
     const string var;
       // For help
-    const string defaultValue;
+    string defaultValue;
     Key (const Application &app_arg,
          const string &name_arg,
          const string &description_arg,
@@ -2852,7 +2850,8 @@ private:
       , acronym (acronym_arg)
       , var (var_arg)
       , defaultValue (defaultValue_arg)
-      { value = defaultValue; }
+      {}
+      // "$BASE" in defaultValue means `dirname $0`
     Key (const Application &app_arg,
          const string &name_arg,
          const string &description_arg,
