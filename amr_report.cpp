@@ -706,7 +706,7 @@ public:
 	        if (gi)
 	          td << refLen
 	             << refCoverage () * 100  
-	             << (/*targetProt ? pRefEffectiveLen () :*/ pIdentity ()) * 100  // refIdentity
+	             << pIdentity () * 100  // refIdentity
 	             << length
 	             << accessionProt
 	             << product
@@ -758,12 +758,6 @@ public:
     { return targetStrand == upstream ? targetStart : (targetLen - targetStop); }
   size_t refEffectiveLen () const
     { return partialDna ? refStop - refStart : refLen; }
-#if 0
-  double pRefEffectiveLen () const
-    { ASSERT (nident);
-      return (double) nident / (double) refEffectiveLen ();
-    }
-#endif
   double pIdentity () const
     { return (double) nident / (double) length; }
   double refCoverage () const
@@ -806,9 +800,11 @@ public:
     { return    (missedDnaStart (cds) > 0 && (targetProt ? (cds. empty () ? false : cds. atContigStart ()) : targetStart            <= Locus::end_delta))
              || (missedDnaStop  (cds) > 0 && (targetProt ? (cds. empty () ? false : cds. atContigStop  ()) : targetLen - targetStop <= Locus::end_delta));
     }
+  bool alleleReported () const
+    { return refExactlyMatched () && allele () && (! targetProt || refLen == targetLen); }
 	string getMethod (const Locus &cds) const
 	  { string method (refExactlyMatched () 
-        	             ? allele () && (! targetProt || refLen == targetLen)
+        	             ? alleleReported () 
         	               ? "ALLELE"
         	               : "EXACT"  // PD-776
         	             : gi
@@ -957,7 +953,7 @@ private:
 	    	  return false;
 	      LESS_PART (other, *this, refExactlyMatched ());  
 	      LESS_PART (other, *this, allele ());  
-	    //LESS_PART (other, *this, targetExactlyMatched ());  
+	      LESS_PART (other, *this, alleleReported ());  
 	      LESS_PART (other, *this, targetProt);
       /*
 	    	if (targetProt)
