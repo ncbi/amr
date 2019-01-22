@@ -2453,9 +2453,7 @@ void ShellApplication::initEnvironment ()
     tmp = templateS;
   #endif
   	if (tmp. empty ())
-  		throw runtime_error ("Cannot generate a temporary file");
-  	if (qc_on)
-  		cout << tmp << endl;  
+  		throw runtime_error ("Cannot create a temporary file");
   }
 
   // execDir
@@ -2470,6 +2468,15 @@ void ShellApplication::initEnvironment ()
   for (Key& key : keys)
     if (! key. flag)
       replaceStr (key. defaultValue, "$BASE", execDir_);
+}
+
+
+
+void ShellApplication::body () const
+{
+  if (useTmp && qc_on)
+    cout << tmp << endl;  
+  shellBody ();
 }
 
 

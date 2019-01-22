@@ -2951,9 +2951,9 @@ protected:
   string key2shortHelp (const string &name) const;
   string getProgramDirName () const
     { return getDirName (programArgs. front ()); }
+private:
   virtual void initEnvironment ()
     {}
-private:
   string getInstruction () const;
   string getHelp () const;
 public:
@@ -2963,12 +2963,12 @@ public:
 private:
   virtual void body () const = 0;
     // Invokes: initEnvironment()
-    // Requires: to be invoked once
 };
 
 
 
 struct ShellApplication : Application
+// Requires: SHELL=bash
 {
   // Environment
   const bool useTmp;
@@ -2987,8 +2987,11 @@ struct ShellApplication : Application
  ~ShellApplication ();
 
 
+private:
   void initEnvironment () override;
-
+  void body () const final;
+  virtual void shellBody () const = 0;
+protected:
   static string shellQuote (string s)
     { replaceStr (s, "\'", "\'\"\'\"\'");
     	return "\'" + s + "\'";
