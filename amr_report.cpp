@@ -68,28 +68,27 @@ const double NaN = numeric_limits<double>::quiet_NaN ();
 
 
 struct BlastRule
+// PD-2310
 {
   // 0 <=> undefined
   // 0 .. 1
   double ident {0.0};
-  double target_coverage {0.0};
+//double target_coverage {0.0};
   double ref_coverage {0.0};
 
   BlastRule (double ident_arg,
-             double target_coverage_arg,
+           //double target_coverage_arg,
              double ref_coverage_arg)
     : ident           (ident_arg)
-    , target_coverage (target_coverage_arg)
+  //, target_coverage (target_coverage_arg)
     , ref_coverage    (ref_coverage_arg)
     {
       ASSERT (ident >= 0.0);
       ASSERT (ident <= 1.0);
-      ASSERT (target_coverage >= 0.0);
-      ASSERT (target_coverage <= 1.0);
+    //ASSERT (target_coverage >= 0.0);
+    //ASSERT (target_coverage <= 1.0);
       ASSERT (ref_coverage >= 0.0);
       ASSERT (ref_coverage <= 1.0);
-    //ASSERT ((bool) ident == (bool) target_coverage);
-    //ASSERT ((bool) ref_coverage == (bool) target_coverage);
     }  
   BlastRule () = default;
     
@@ -97,8 +96,8 @@ struct BlastRule
     { return ! ident; }
 };
 
-BlastRule globalCompleteBR;
-BlastRule globalPartialBR;
+BlastRule defaultCompleteBR;
+BlastRule defaultPartialBR;
 
 
 
@@ -366,9 +365,6 @@ struct PointMut
 map <string/*accession*/, Vector<PointMut>>  accession2pointMuts;
 
 
-double complete_cover_min = NaN;
-
-//bool combiner = false;
 bool cdsExist = false;
 bool print_fam = false;
 
@@ -449,11 +445,11 @@ struct BlastAlignment
 		      // refName	    
 			    product                     =                     rfindSplit (refName, '|'); 
 			  #if VER >= 3			    
-          partialBR.  ref_coverage    =       str2<double> (rfindSplit (refName, '|')); 
-          partialBR.  target_coverage =       str2<double> (rfindSplit (refName, '|')); 
+        /*partialBR.  ref_coverage    =*/     str2<double> (rfindSplit (refName, '|')); 
+        /*partialBR.  target_coverage =*/     str2<double> (rfindSplit (refName, '|')); 
           partialBR.  ident           =       str2<double> (rfindSplit (refName, '|')); 
-          completeBR. ref_coverage    =       str2<double> (rfindSplit (refName, '|')); 
-          completeBR. target_coverage =       str2<double> (rfindSplit (refName, '|')); 
+        /*completeBR. ref_coverage    =*/     str2<double> (rfindSplit (refName, '|')); 
+        /*completeBR. target_coverage =*/     str2<double> (rfindSplit (refName, '|')); 
           completeBR. ident           =       str2<double> (rfindSplit (refName, '|')); 
         #endif
 			    resistance                  =                     rfindSplit (refName, '|'); 
@@ -476,16 +472,20 @@ struct BlastAlignment
 		    replace (product, '_', ' ');
 		    
 		    toProb (completeBR. ident);
-		    toProb (completeBR. target_coverage);
+		  //toProb (completeBR. target_coverage);
 		    toProb (completeBR. ref_coverage);
 		    toProb (partialBR.  ident);
-		    toProb (partialBR.  target_coverage);
+		  //toProb (partialBR.  target_coverage);
 		    toProb (partialBR.  ref_coverage);
 		    
 		    if (completeBR. empty ())
-		      completeBR = globalCompleteBR;
+		      completeBR = defaultCompleteBR;
 		    if (partialBR. empty ())
-		      partialBR = globalPartialBR;
+		      partialBR = defaultPartialBR;
+		    
+		    // PD-2310
+		    completeBR. ref_coverage = defaultCompleteBR. ref_coverage;
+		    partialBR.  ref_coverage = defaultPartialBR.  ref_coverage;
 		    
 		    ASSERT (refStart < refStop);  
 	
@@ -776,7 +776,7 @@ public:
 	  }
   bool partial () const
     // Requires: good()
-    { return refCoverage () < complete_cover_min - frac_delta; }
+    { return refCoverage () < 0.9 /*complete_cover_min*/ - frac_delta; }  // PAR
   bool getTargetStrand (const Locus &cds) const
     { return targetProt
                ? cds. empty ()
@@ -834,9 +834,7 @@ public:
 	bool passBlastRule (const BlastRule &br) const
 	  { return    pIdentity ()      >= br. ident        - frac_delta
   	         && refCoverage ()    >= br. ref_coverage - frac_delta
-  	       /*&& (   ! targetProt 
-  	             || targetCoverage () >= br. target_coverage - frac_delta
-  	            )*/;  // PD-2124
+  	         ;
 	  }
   bool good () const
     { if (! reportPseudo)
@@ -1524,8 +1522,8 @@ struct ThisApplication : Application
       addKey ("point_mut", "Point mutation table");
       addKey ("point_mut_all", "File to report all target positions of reference point mutations");
       addKey ("ident_min", "Min. identity to the reference protein (0..1)", "0.9");
-      addKey ("complete_cover_min", "Min. coverage of the reference protein (0..1) for a complete hit, otherwise it is partial", "0.9");
-      addKey ("partial_cover_min", "Min. coverage of the reference protein (0..1) for a partial hit", "0.5");
+      addKey ("coverage_min", "Min. coverage of the reference protein (0..1) for a complete hit, otherwise it is partial", "0.9");
+    //addKey ("partial_cover_min", "Min. coverage of the reference protein (0..1) for a partial hit", "0.5");
       addFlag ("skip_hmm_check", "Skip checking HMM for a BLAST hit");
       // Output
       addKey ("out", "Identifiers of the reported input proteins");
@@ -1558,8 +1556,8 @@ struct ThisApplication : Application
     const string point_mut           = getArg ("point_mut");  
     const string point_mut_all_FName = getArg ("point_mut_all");
     const double ident_min           = str2<double> (getArg ("ident_min"));  
-                 complete_cover_min  = str2<double> (getArg ("complete_cover_min"));  
-    const double partial_cover_min   = str2<double> (getArg ("partial_cover_min")); 
+    const double coverage_min        = str2<double> (getArg ("coverage_min"));  
+  //const double partial_cover_min   = str2<double> (getArg ("partial_cover_min")); 
     const bool   skip_hmm_check      = getFlag ("skip_hmm_check"); 
     const string outFName            = getArg ("out");
                  print_fam           = getFlag ("print_fam");
@@ -1577,18 +1575,18 @@ struct ThisApplication : Application
     
     if (! (ident_min >= 0 && ident_min <= 1))
     	throw runtime_error ("ident_min must be between 0 and 1");
-    if (! (complete_cover_min >= 0 && complete_cover_min <= 1))
-    	throw runtime_error ("complete_cover_min must be between 0 and 1");
+    if (! (coverage_min >= 0 && coverage_min <= 1))
+    	throw runtime_error ("coverage_min must be between 0 and 1");
+  #if 0
     if (! (partial_cover_min >= 0 && partial_cover_min <= 1))
-    	throw runtime_error ("partial_cover_min must be between 0 and 1");
+    	throw runtime_error ("partial_cover_min must be between 0 and 1"); 
     if (partial_cover_min > complete_cover_min)
     	throw runtime_error ("partial_cover_min must be less than or equal to complete_cover_min");
+  #endif
 
-    globalCompleteBR = BlastRule (ident_min, complete_cover_min, complete_cover_min);
-    globalPartialBR  = BlastRule (ident_min, complete_cover_min, partial_cover_min);
+    defaultCompleteBR = BlastRule (ident_min, /*complete_cover_min,*/ 0.9);  // PAR
+    defaultPartialBR  = BlastRule (ident_min, /*complete_cover_min,*/ coverage_min);
     
-    
-  //combiner = ! blastpFName. empty () && ! blastxFName. empty ();
     
     cdsExist =    force_cds_report
                || ! blastxFName. empty ()
