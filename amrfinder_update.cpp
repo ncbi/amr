@@ -201,7 +201,7 @@ struct ThisApplication : ShellApplication
 
 
 
-  void body () const final
+  void shellBody () const final
   {
           string mainDir = getArg ("database");
     const bool   quiet   = getFlag ("quiet");
