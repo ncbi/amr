@@ -64,6 +64,12 @@ namespace
 
 constexpr static double frac_delta = 1e-5;  // PAR      
 const double NaN = numeric_limits<double>::quiet_NaN ();  
+  
+// PAR
+constexpr double ident_min_def = 0.9;
+constexpr double complete_coverage_min_def = 0.9;
+constexpr double partial_coverage_min_def = 0.5;
+bool ident_min_user = false;
 
 
 
@@ -478,15 +484,23 @@ struct BlastAlignment
 		  //toProb (partialBR.  target_coverage);
 		    toProb (partialBR.  ref_coverage);
 		    
+
+		    // PD-2310
+		    completeBR. ref_coverage = complete_coverage_min_def;
+		    partialBR.  ref_coverage = partial_coverage_min_def;
+		    
 		    if (completeBR. empty ())
 		      completeBR = defaultCompleteBR;
 		    if (partialBR. empty ())
 		      partialBR = defaultPartialBR;
+		      
+		    if (ident_min_user)
+		    {
+		      completeBR. ident = defaultCompleteBR. ident;
+		      partialBR.  ident = defaultPartialBR.  ident;
+		    }
 		    
-		    // PD-2310
-		    completeBR. ref_coverage = defaultCompleteBR. ref_coverage;
-		    partialBR.  ref_coverage = defaultPartialBR.  ref_coverage;
-		    
+
 		    ASSERT (refStart < refStop);  
 	
 		    ASSERT (targetStart != targetStop);
@@ -1521,9 +1535,8 @@ struct ThisApplication : Application
       addKey ("organism", "Taxonomy group for point mutations");
       addKey ("point_mut", "Point mutation table");
       addKey ("point_mut_all", "File to report all target positions of reference point mutations");
-      addKey ("ident_min", "Min. identity to the reference protein (0..1)", "0.9");
-      addKey ("coverage_min", "Min. coverage of the reference protein (0..1) for a complete hit, otherwise it is partial", "0.9");
-    //addKey ("partial_cover_min", "Min. coverage of the reference protein (0..1) for a partial hit", "0.5");
+      addKey ("ident_min", "Min. identity to the reference protein (0..1). -1 means use a curated threshold if it exists and " + toString (ident_min_def) + " otherwise", "-1");
+      addKey ("coverage_min", "Min. coverage of the reference protein (0..1)", toString (partial_coverage_min_def));
       addFlag ("skip_hmm_check", "Skip checking HMM for a BLAST hit");
       // Output
       addKey ("out", "Identifiers of the reported input proteins");
@@ -1543,49 +1556,51 @@ struct ThisApplication : Application
 
   void body () const final
   {
-    const string famFName            = getArg ("fam");
-    const string blastpFName         = getArg ("blastp");
-    const string blastxFName         = getArg ("blastx");
-    const string gffFName            = getArg ("gff");
-    const string gffMatchFName       = getArg ("gff_match");
-    const bool   bedP                = getFlag ("bed");
-    const string dnaLenFName         = getArg ("dna_len");
-    const string hmmDom              = getArg ("hmmdom");
-    const string hmmsearch           = getArg ("hmmsearch");  
-    const string organism            = getArg ("organism");  
-    const string point_mut           = getArg ("point_mut");  
-    const string point_mut_all_FName = getArg ("point_mut_all");
-    const double ident_min           = str2<double> (getArg ("ident_min"));  
-    const double coverage_min        = str2<double> (getArg ("coverage_min"));  
-  //const double partial_cover_min   = str2<double> (getArg ("partial_cover_min")); 
-    const bool   skip_hmm_check      = getFlag ("skip_hmm_check"); 
-    const string outFName            = getArg ("out");
-                 print_fam           = getFlag ("print_fam");
-                 reportPseudo        = getFlag ("pseudo");
-    const bool   force_cds_report    = getFlag ("force_cds_report");
-    const bool   non_reportable      = getFlag ("non_reportable");
-    const bool   nosame              = getFlag ("nosame");
-    const bool   noblast             = getFlag ("noblast");
+    static_assert (complete_coverage_min_def > partial_coverage_min_def, "complete_coverage_min_def > partial_coverage_min_def");
+    
+    const string famFName             = getArg ("fam");
+    const string blastpFName          = getArg ("blastp");
+    const string blastxFName          = getArg ("blastx");
+    const string gffFName             = getArg ("gff");
+    const string gffMatchFName        = getArg ("gff_match");
+    const bool   bedP                 = getFlag ("bed");
+    const string dnaLenFName          = getArg ("dna_len");
+    const string hmmDom               = getArg ("hmmdom");
+    const string hmmsearch            = getArg ("hmmsearch");  
+    const string organism             = getArg ("organism");  
+    const string point_mut            = getArg ("point_mut");  
+    const string point_mut_all_FName  = getArg ("point_mut_all");
+          double ident_min            = str2<double> (getArg ("ident_min"));  
+    const double partial_coverage_min = str2<double> (getArg ("coverage_min"));  
+    const bool   skip_hmm_check       = getFlag ("skip_hmm_check"); 
+    const string outFName             = getArg ("out");
+                 print_fam            = getFlag ("print_fam");
+                 reportPseudo         = getFlag ("pseudo");
+    const bool   force_cds_report     = getFlag ("force_cds_report");
+    const bool   non_reportable       = getFlag ("non_reportable");
+    const bool   nosame               = getFlag ("nosame");
+    const bool   noblast              = getFlag ("noblast");
     
     ASSERT (hmmsearch. empty () == hmmDom. empty ());
     IMPLY (! outFName. empty (), ! blastpFName. empty ());
     IMPLY (! gffFName. empty (), ! blastpFName. empty ());
     if (! blastpFName. empty () && ! blastxFName. empty () && gffFName. empty ())
     	throw runtime_error ("If BLASTP and BLASTX files are present then a GFF file must be present");
+       	
     
+    if (ident_min == -1)
+      ident_min = ident_min_def;
+    else
+      ident_min_user = true;
+      
     if (! (ident_min >= 0 && ident_min <= 1))
-    	throw runtime_error ("ident_min must be between 0 and 1");
-    if (! (coverage_min >= 0 && coverage_min <= 1))
-    	throw runtime_error ("coverage_min must be between 0 and 1");
-  #if 0
-    if (! (partial_cover_min >= 0 && partial_cover_min <= 1))
-    	throw runtime_error ("partial_cover_min must be between 0 and 1"); 
-    if (partial_cover_min > complete_cover_min)
-    	throw runtime_error ("partial_cover_min must be less than or equal to complete_cover_min");
-  #endif
+    	throw runtime_error ("ident_min must be -1 or between 0 and 1");
+    if (! (partial_coverage_min >= 0 && partial_coverage_min <= 1))
+    	throw runtime_error ("coverage_min must be -1 or between 0 and 1");
 
-    defaultCompleteBR = BlastRule (ident_min, /*complete_cover_min,*/ 0.9);  // PAR
-    defaultPartialBR  = BlastRule (ident_min, /*complete_cover_min,*/ coverage_min);
+
+    defaultCompleteBR = BlastRule (ident_min, /*complete_coverage_min,*/ 0.9);  // PAR
+    defaultPartialBR  = BlastRule (ident_min, /*complete_coverage_min,*/ partial_coverage_min);
     
     
     cdsExist =    force_cds_report

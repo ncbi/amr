@@ -47,7 +47,13 @@ using namespace Common_sp;
 namespace 
 {
   
+
+// PAR
+// Cf. amr_report.cpp
+constexpr double ident_min_def = 0.9;
+constexpr double partial_coverage_min_def = 0.5;
   
+
 #define ORGANISMS "Campylobacter|Escherichia|Salmonella"
   
 		
@@ -63,8 +69,8 @@ struct ThisApplication : ShellApplication
     	addKey ("nucleotide", "Nucleotide FASTA file to search", "", 'n', "NUC_FASTA");
     	addKey ("database", "Alternative directory with AMRFinder database. Default: $AMRFINDER_DB", "", 'd', "DATABASE_DIR");
     	addKey ("gff", "GFF file for protein locations. Protein id should be in the attribute 'Name=<id>' (9th field) of the rows with type 'CDS' or 'gene' (3rd field).", "", 'g', "GFF_FILE");
-    	addKey ("ident_min", "Minimum identity for nucleotide hit (0..1)", "0.9", 'i', "MIN_IDENT");
-    	addKey ("coverage_min", "Minimum coverage of the reference protein to report a match as complete (0..1)", "0.9", 'c', "MIN_COV");
+    	addKey ("ident_min", "Minimum identity for nucleotide hit (0..1). -1 means use a curated threshold if it exists and " + toString (ident_min_def) + " otherwise", "-1", 'i', "MIN_IDENT");
+    	addKey ("coverage_min", "Minimum coverage of the reference protein (0..1)", toString (partial_coverage_min_def), 'c', "MIN_COV");
       addKey ("organism", "Taxonomy group for point mutation assessment\n    " ORGANISMS, "", 'O', "ORGANISM");
     	addKey ("translation_table", "NCBI genetic code for translated blast", "11", 't', "TRANSLATION_TABLE");
     	addKey ("parm", "amr_report parameters for testing: -nosame -noblast -skip_hmm_check -bed", "", '\0', "PARM");
@@ -157,7 +163,7 @@ struct ThisApplication : ShellApplication
       stderr << "  - include " << include << '\n';
 
 
-		if (ident < 0 || ident > 1)
+		if (ident != -1 && (ident < 0 || ident > 1))
 		  throw runtime_error ("ident_min must be between 0 and 1");
 		
 		if (cov < 0 || cov > 1)
@@ -289,7 +295,8 @@ struct ThisApplication : ShellApplication
 		exec (fullProg ("amr_report") + " -fam " + db + "/fam.tab  " + blastp_par + "  " + blastx_par
 		  + "  -organism " + organism + "  -point_mut " + db + "/AMRProt-point_mut.tab " + point_mut_allS + " "
 		  + force_cds_report + " -pseudo"
-		  + "  -ident_min " + toString (ident) + "  -coverage_min " + toString (cov) 
+		  + (ident == -1 ? string () : "  -ident_min "    + toString (ident)) 
+		  + "  -coverage_min " + toString (cov)
 		  + " " + qcS + " " + parm + " -log " + logFName + "> " + tmp + ".amr-raw", logFName);
 
 		if (! emptyArg (dna) && ! emptyArg (organism))
