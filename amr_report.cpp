@@ -79,7 +79,7 @@ struct BlastRule
   // 0 <=> undefined
   // 0 .. 1
   double ident {0.0};
-//double target_coverage {0.0};
+  double target_coverage {0.0};
   double ref_coverage {0.0};
 
   BlastRule (double ident_arg,
@@ -91,8 +91,8 @@ struct BlastRule
     {
       ASSERT (ident >= 0.0);
       ASSERT (ident <= 1.0);
-    //ASSERT (target_coverage >= 0.0);
-    //ASSERT (target_coverage <= 1.0);
+      ASSERT (target_coverage >= 0.0);
+      ASSERT (target_coverage <= 1.0);
       ASSERT (ref_coverage >= 0.0);
       ASSERT (ref_coverage <= 1.0);
     }  
@@ -127,6 +127,10 @@ struct Fam
   double tc1 {NaN}; 
   double tc2 {NaN}; 
 
+  // BlastRule's
+  BlastRule completeBR;
+  BlastRule partialBR;
+
 
   Fam (Fam* parent_arg,
        const string &id_arg,
@@ -134,6 +138,8 @@ struct Fam
        const string &hmm_arg,
        double tc1_arg,
        double tc2_arg,
+       const BlastRule &completeBR_arg,
+       const BlastRule &partialBR_arg,
        const string &familyName_arg,
        bool reportable_arg)
     : parent (parent_arg)
@@ -144,6 +150,8 @@ struct Fam
     , hmm (hmm_arg)
     , tc1 (tc1_arg)
     , tc2 (tc2_arg)
+    , completeBR (completeBR_arg)
+    , partialBR (partialBR_arg)
     { if (genesymbol == "-")
         genesymbol. clear ();
       if (hmm == "-")
@@ -450,14 +458,6 @@ struct BlastAlignment
         {	
 		      // refName	    
 			    product                     =                     rfindSplit (refName, '|'); 
-			  #if VER >= 3			    
-        /*partialBR.  ref_coverage    =*/     str2<double> (rfindSplit (refName, '|')); 
-        /*partialBR.  target_coverage =*/     str2<double> (rfindSplit (refName, '|')); 
-          partialBR.  ident           =       str2<double> (rfindSplit (refName, '|')); 
-        /*completeBR. ref_coverage    =*/     str2<double> (rfindSplit (refName, '|')); 
-        /*completeBR. target_coverage =*/     str2<double> (rfindSplit (refName, '|')); 
-          completeBR. ident           =       str2<double> (rfindSplit (refName, '|')); 
-        #endif
 			    resistance                  =                     rfindSplit (refName, '|'); 
 			    gene                        =                     rfindSplit (refName, '|');  // Reportable_vw.class
 			    famId                       =                     rfindSplit (refName, '|');  // Reportable_vw.fam
@@ -477,28 +477,27 @@ struct BlastAlignment
 		    	    
 		    replace (product, '_', ' ');
 		    
-		    toProb (completeBR. ident);
-		  //toProb (completeBR. target_coverage);
-		    toProb (completeBR. ref_coverage);
-		    toProb (partialBR.  ident);
-		  //toProb (partialBR.  target_coverage);
-		    toProb (partialBR.  ref_coverage);
-		    
 
-		    // PD-2310
-		    completeBR. ref_coverage = complete_coverage_min_def;
-		    partialBR.  ref_coverage = partial_coverage_min_def;
-		    
-		    if (completeBR. empty ())
-		      completeBR = defaultCompleteBR;
-		    if (partialBR. empty ())
-		      partialBR = defaultPartialBR;
-		      
-		    if (ident_min_user)
-		    {
-		      completeBR. ident = defaultCompleteBR. ident;
-		      partialBR.  ident = defaultPartialBR.  ident;
-		    }
+        if (! isPointMut ())
+        {
+  		    // PD-2310
+  		    completeBR. ident = getFam () -> completeBR. ident;
+  		    partialBR.  ident = getFam () -> partialBR.  ident;
+  		    
+  		    completeBR. ref_coverage = complete_coverage_min_def;
+  		    partialBR.  ref_coverage = partial_coverage_min_def;
+  		    
+  		    if (completeBR. empty ())
+  		      completeBR = defaultCompleteBR;
+  		    if (partialBR. empty ())
+  		      partialBR = defaultPartialBR;
+  		      
+  		    if (ident_min_user)
+  		    {
+  		      completeBR. ident = defaultCompleteBR. ident;
+  		      partialBR.  ident = defaultPartialBR.  ident;
+  		    }
+  		  }
 		    
 
 		    ASSERT (refStart < refStop);  
@@ -624,13 +623,6 @@ struct BlastAlignment
 		  	throw;
 		  }
     }
-private:
-  static void toProb (double &x)
-    { ASSERT (x >= 0.0);
-      ASSERT (x <= 100.0);
-      x /= 100.0;
-    }
-public:
   explicit BlastAlignment (const HmmAlignment& other)
     : targetName (other. sseqid)     
     , famId      (other. fam->id)   
@@ -1105,28 +1097,49 @@ struct Batch
 	    		cout << "Reading " << famFName << " Pass 1 ..." << endl;
 	      LineInput f (famFName);  
 	  	  while (f. nextLine ())
-	  	  {
-	  	    trim (f. line);
-	      //cout << f. line << endl; 
-	  	    const string famId               (findSplit (f. line, '\t'));
-	  	    const string parentFamId         (findSplit (f. line, '\t'));
-	  	    const string genesymbol          (findSplit (f. line, '\t'));
-	  	    const string hmm                 (findSplit (f. line, '\t'));
-	  	    const double tc1 = str2<double>  (findSplit (f. line, '\t'));
-	  	    const double tc2 = str2<double>  (findSplit (f. line, '\t'));
-	  	    const int reportable = str2<int> (findSplit (f. line, '\t'));
-	  	    ASSERT (   reportable == 0 
-	  	            || reportable == 1
-	  	           );
-	  	    if (parentFamId == pointMutParent)
-	  	      continue;
-	  	    const auto fam = new Fam (root. get (), famId, genesymbol, hmm, tc1, tc2, f. line, reportable);
-	  	    if (famId2fam [famId])
-	  	      throw runtime_error ("Family " + famId + " is duplicated");
-	  	    famId2fam [famId] = fam;
-	  	    if (! fam->hmm. empty ())
-	  	      hmm2fam [fam->hmm] = fam;
-	  	  }
+	  	    try
+  	  	  {
+  	  	    trim (f. line);
+  	      //cout << f. line << endl; 
+  	  	    const string famId               (findSplit (f. line, '\t'));
+  	  	    const string parentFamId         (findSplit (f. line, '\t'));
+  	  	    const string genesymbol          (findSplit (f. line, '\t'));
+  	  	    const string hmm                 (findSplit (f. line, '\t'));
+  	  	    const double tc1 = str2<double>  (findSplit (f. line, '\t'));
+  	  	    const double tc2 = str2<double>  (findSplit (f. line, '\t'));
+  	  	    BlastRule completeBR;
+  	  	    BlastRule partialBR;
+  			  #if VER >= 3			    
+            completeBR. ident           = str2<double> (findSplit (f. line, '\t')); 
+            completeBR. target_coverage = str2<double> (findSplit (f. line, '\t')); 
+            completeBR. ref_coverage    = str2<double> (findSplit (f. line, '\t')); 
+            partialBR.  ident           = str2<double> (findSplit (f. line, '\t')); 
+            partialBR.  target_coverage = str2<double> (findSplit (f. line, '\t')); 
+            partialBR.  ref_coverage    = str2<double> (findSplit (f. line, '\t')); 
+    		    toProb (completeBR. ident);
+    		    toProb (completeBR. target_coverage);
+    		    toProb (completeBR. ref_coverage);
+    		    toProb (partialBR.  ident);
+    		    toProb (partialBR.  target_coverage);
+    		    toProb (partialBR.  ref_coverage);
+          #endif
+  	  	    const int reportable = str2<int> (findSplit (f. line, '\t'));
+  	  	    ASSERT (   reportable == 0 
+  	  	            || reportable == 1
+  	  	           );
+  	  	    if (parentFamId == pointMutParent)
+  	  	      continue;
+  	  	    const auto fam = new Fam (root. get (), famId, genesymbol, hmm, tc1, tc2, completeBR, partialBR, f. line, reportable);
+  	  	    if (famId2fam [famId])
+  	  	      throw runtime_error ("Family " + famId + " is duplicated");
+  	  	    famId2fam [famId] = fam;
+  	  	    if (! fam->hmm. empty ())
+  	  	      hmm2fam [fam->hmm] = fam;
+  	  	  }
+  	  	  catch (const exception &e)
+  	  	  {
+  	  	    throw runtime_error ("Cannot read " + famFName +", line " + toString (f. lineNum) + "\n" + e. what ());
+  	  	  }
 	  	}
 	  	// Pass 2
 	    {
@@ -1184,6 +1197,13 @@ struct Batch
 	  	  }
 	    }
 	  }
+private:
+  static void toProb (double &x)
+    { ASSERT (x >= 0.0);
+      ASSERT (x <= 100.0);
+      x /= 100.0;
+    }
+public:
 	  	  
 
 	void process (bool skip_hmm_check) 

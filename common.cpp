@@ -1129,9 +1129,9 @@ Input::Input (const string &fName,
 , prog (0, displayPeriod)  
 { 
   if (! ifs. good ())
-    throw runtime_error ("Cannot open: " + strQuote (fName));
+    throw runtime_error ("Cannot open file " + strQuote (fName));
   if (! ifs. rdbuf () -> pubsetbuf (buf. get (), (long) bufSize))
-  	throw runtime_error ("Cannot allocate buffer to " + strQuote (fName));
+  	throw runtime_error ("Cannot allocate buffer to file " + strQuote (fName));
 }
  
 
@@ -1716,10 +1716,10 @@ JsonMap::JsonMap (const string &fName)
 {
   ifstream ifs (fName. c_str ());
   if (! ifs. good ())
-    throw runtime_error ("Cannot open: " + strQuote (fName));
+    throw runtime_error ("Cannot open file " + strQuote (fName));
   const Token token (readToken (ifs));
   if (! token. isDelimiter ('{'))
-    throw runtime_error ("Json file: " + strQuote (fName) + ": should start with '{'");
+    throw runtime_error ("Json file " + strQuote (fName) + ": text should start with '{'");
   parse (ifs);
 }
 
