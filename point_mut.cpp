@@ -114,6 +114,8 @@ struct PointMut
 	  // Depends on the above
 	string geneMutationGen;
 	  // geneMutation generalized, may have a different pos
+	string classS;
+	string subclass;
 	string name;
 	  // Species binomial + resistance
 	double neighborhoodMismatch {0.0};
@@ -124,12 +126,16 @@ struct PointMut
 						char alleleChar_arg,
 						const string &geneMutation_arg,
 						const string &geneMutationGen_arg,
+						const string &class_arg,
+						const string &subclass_arg,
 						const string &name_arg)
 		: gene (gene_arg)
 		, pos (pos_arg)
 		, alleleChar (alleleChar_arg)
 		, geneMutation (geneMutation_arg)
 		, geneMutationGen (geneMutationGen_arg)
+		, classS (class_arg)
+		, subclass (subclass_arg)
 		, name (name_arg)
 		{ 
 			ASSERT (! gene. empty ());
@@ -332,6 +338,12 @@ struct BlastAlignment
            << (targetStrand ? '+' : '-');
         td << pm. geneMutationGen  // was: pm.geneMutation
            << pm. name
+           // PD-1856
+           << "AMR"
+           << "POINT"
+           << nvl (pm. classS, na)
+           << nvl (pm. subclass, na)
+           //
            << "POINTN"  // PD-2088
            << targetLen;
         td << refLen
@@ -420,20 +432,16 @@ struct Batch
   explicit Batch (const string &point_mut)
 	  {
       LineInput f (point_mut);
-	  	string accession;
-	  	string gene;
+	  	string accession, gene, geneMutation, geneMutationGen, classS, subclass, name;
 			int pos;
 			char alleleChar;
-			string geneMutation;
-			string geneMutationGen;
-			string name;
  	  	Istringstream iss;
   	  while (f. nextLine ())
   	  {
    	  	iss. reset (f. line);
-  	  	iss >> accession >> gene >> pos >> alleleChar >> geneMutation >> geneMutationGen >> name;
+  	  	iss >> accession >> gene >> pos >> alleleChar >> geneMutation >> geneMutationGen >> classS >> subclass >> name;
   	  	ASSERT (pos > 0);
- 	  		accession2pointMuts [accession]. push_back (PointMut (gene, (size_t) pos, alleleChar, geneMutation, geneMutationGen, name));
+ 	  		accession2pointMuts [accession]. push_back (move (PointMut (gene, (size_t) pos, alleleChar, geneMutation, geneMutationGen, classS, subclass, name)));
   	  }	    
 	  }
 	  	  
@@ -451,6 +459,12 @@ struct Batch
          << "Strand"   // targetStrand
 	       << "Gene symbol"
 	       << "Mutation name"
+	       // PD-1856
+	       << "Element type"
+	       << "Element subtype"
+	       << "class"
+	       << "Subclass"
+	       //
 	       << "Method"
 	       << "Target length" 
 	       //

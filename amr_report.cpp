@@ -130,6 +130,11 @@ struct Fam
   // BlastRule's
   BlastRule completeBR;
   BlastRule partialBR;
+  
+  string type;
+  string subtype;
+  string classS;
+  string subclass;
 
 
   Fam (Fam* parent_arg,
@@ -140,6 +145,10 @@ struct Fam
        double tc2_arg,
        const BlastRule &completeBR_arg,
        const BlastRule &partialBR_arg,
+       const string &type_arg,
+       const string &subtype_arg,
+       const string &class_arg,
+       const string &subclass_arg,
        const string &familyName_arg,
        bool reportable_arg)
     : parent (parent_arg)
@@ -152,6 +161,10 @@ struct Fam
     , tc2 (tc2_arg)
     , completeBR (completeBR_arg)
     , partialBR (partialBR_arg)
+    , type (type_arg)
+    , subtype (subtype_arg)
+    , classS (class_arg)
+    , subclass (subclass_arg)
     { if (genesymbol == "-")
         genesymbol. clear ();
       if (hmm == "-")
@@ -299,6 +312,8 @@ struct PointMut
 	  // Depends on the above
 	string geneMutationGen;
 	  // geneMutation generalized, may have a different pos
+	string classS;
+	string subclass;
 	string name;
 	  // Species binomial + resistance
 	bool additional {false};
@@ -308,11 +323,15 @@ struct PointMut
 						char alleleChar_arg,
 						const string &geneMutation_arg,
 						const string &geneMutationGen_arg,
+						const string &class_arg,
+						const string &subclass_arg,
 						const string &name_arg)
 		: pos (pos_arg)
 		, alleleChar (toUpper (alleleChar_arg))
 		, geneMutation (geneMutation_arg)
 		, geneMutationGen (geneMutationGen_arg)
+		, classS (class_arg)
+		, subclass (subclass_arg)
 		, name (name_arg)
 		{ ASSERT (pos > 0);
 			pos--;
@@ -707,8 +726,19 @@ struct BlastAlignment
 	              )
 	           <<   (pm. empty () ? proteinName : pm. name)
 	              + ifS (reportPseudo, ifS (frameShift, " " + frameShiftS))
-	           << method
-	           << (targetProt ? targetLen : targetAlign_aa);  
+	           << method;
+          // PD-1856
+	        if (isPointMut ())
+	          td << "AMR"
+	             << "POINT"
+	             << nvl (pm. classS, na)
+	             << nvl (pm. subclass, na);
+	        else
+	          td << nvl (getFam () -> type, na)  
+  	           << nvl (getFam () -> subtype, na)
+  	           << nvl (getFam () -> classS, na)
+  	           << nvl (getFam () -> subclass, na);
+	        td << (targetProt ? targetLen : targetAlign_aa);  
 	        if (gi)
 	          td << refLen
 	             << refCoverage () * 100  
@@ -876,12 +906,6 @@ private:
              && targetStop                       <= other. targetStop + mismatchTailTarget;	    
     }
     // Requires: same targetName
-#if 0
-  bool descendantOf (const BlastAlignment &other) const
-    { return    ! other. allele ()
-             && getFam () -> descendantOf (other. getFam ());
-    }
-#endif
   bool matchesCds (const BlastAlignment &other) const
     { ASSERT (targetProt);
     	ASSERT (! other. targetProt);
@@ -1127,9 +1151,13 @@ struct Batch
   	  	    ASSERT (   reportable == 0 
   	  	            || reportable == 1
   	  	           );
+  	  	    const string type     (findSplit (f. line, '\t'));
+  	  	    const string subtype  (findSplit (f. line, '\t'));
+  	  	    const string classS   (findSplit (f. line, '\t'));
+  	  	    const string subclass (findSplit (f. line, '\t'));
   	  	    if (parentFamId == pointMutParent)
   	  	      continue;
-  	  	    const auto fam = new Fam (root. get (), famId, genesymbol, hmm, tc1, tc2, completeBR, partialBR, f. line, reportable);
+  	  	    const auto fam = new Fam (root. get (), famId, genesymbol, hmm, tc1, tc2, completeBR, partialBR, type, subtype, classS, subclass, f. line, reportable);
   	  	    if (famId2fam [famId])
   	  	      throw runtime_error ("Family " + famId + " is duplicated");
   	  	    famId2fam [famId] = fam;
@@ -1172,19 +1200,15 @@ struct Batch
 	      Istringstream iss;
 	  	  while (f. nextLine ())
 	  	  {
-	  	  	string organism_;
-	  	  	string accession;
+	  	  	string organism_, accession, geneMutation, geneMutationGen, classS, subclass, name;
 					int pos;
 					char alleleChar;
-					string geneMutation;
-					string geneMutationGen;
-					string name;
     	  	iss. reset (f. line);
-	  	  	iss >> organism_ >> accession >> pos >> alleleChar >> geneMutation >> geneMutationGen >> name;
+	  	  	iss >> organism_ >> accession >> pos >> alleleChar >> geneMutation >> geneMutationGen >> classS >> subclass >> name;
 	  	  	ASSERT (pos > 0);
 	  	  	replace (organism_, '_', ' ');
 	  	  	if (organism_ == organism)
-	  	  		accession2pointMuts [accession] << move (PointMut ((size_t) pos, alleleChar, geneMutation, geneMutationGen, name));
+	  	  		accession2pointMuts [accession] << move (PointMut ((size_t) pos, alleleChar, geneMutation, geneMutationGen, classS, subclass, name));
 	  	  }
 	  	  // PD-2008
 	  	  if (accession2pointMuts. empty ())
@@ -1394,18 +1418,24 @@ public:
 	    if (cdsExist)  
 	      // Contig
 	      td << "Contig id"
-	         << "Start"  // targetStart
-	         << "Stop"  // targetStop
+	         << "Start"    // targetStart
+	         << "Stop"     // targetStop
 	         << "Strand";  // targetStrand
 	    td << (print_fam ? "FAM.id" : "Gene symbol")
 	       << "Sequence name"
+	       // PD-1856
+	       << "Element type"
+	       << "Element subtype"
+	       << "class"
+	       << "Subclass"
+	       //
 	       << "Method"
 	       << "Target length" 
 	       //
 	       << "Reference sequence length"         // refLen
 	       << "% Coverage of reference sequence"  // queryCoverage
 	       << "% Identity to reference sequence"  
-	       << "Alignment length"                 // length
+	       << "Alignment length"                  // length
 	       << "Accession of closest sequence"     // accessionProt
 	       << "Name of closest sequence"
 	       //
