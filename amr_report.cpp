@@ -725,8 +725,7 @@ struct BlastAlignment
 			             : pm. geneMutation
 	              )
 	           <<   (pm. empty () ? proteinName : pm. name)
-	              + ifS (reportPseudo, ifS (frameShift, " " + frameShiftS))
-	           << method;
+	              + ifS (reportPseudo, ifS (frameShift, " " + frameShiftS));
           // PD-1856
 	        if (isPointMut ())
 	          td << "AMR"
@@ -738,7 +737,8 @@ struct BlastAlignment
   	           << nvl (getFam () -> subtype, na)
   	           << nvl (getFam () -> classS, na)
   	           << nvl (getFam () -> subclass, na);
-	        td << (targetProt ? targetLen : targetAlign_aa);  
+	        td << method
+	           << (targetProt ? targetLen : targetAlign_aa);  
 	        if (gi)
 	          td << refLen
 	             << refCoverage () * 100  
