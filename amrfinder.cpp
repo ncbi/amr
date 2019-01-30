@@ -255,7 +255,8 @@ struct ThisApplication : ShellApplication
   				throw runtime_error ("BLAST database " + shellQuote (db + "/AMRProt") + " does not exist");
   			
   			stderr << "Running blastp...\n";
-  			th << thread (exec, fullProg ("blastp") + " -task blastp-fast  -query " + prot + " -db " + db + "/AMRProt  -show_gis  -word_size 6  -threshold 21  -evalue 1e-20  -comp_based_stats 0  "
+  			// " -task blastp-fast -word_size 6  -threshold 21 "  // PD-2303
+  			th << thread (exec, fullProg ("blastp") + " -query " + prot + " -db " + db + "/AMRProt  -show_gis  -evalue 1e-20  -comp_based_stats 0  "
   			  "-num_threads 6  "
   			  "-outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq sseq' "
   			  "-out " + tmp + ".blastp &> /dev/null", string ());
