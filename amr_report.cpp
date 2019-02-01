@@ -502,21 +502,21 @@ struct BlastAlignment
   		    // PD-2310
   		    completeBR. ident = getFam () -> completeBR. ident;
   		    partialBR.  ident = getFam () -> partialBR.  ident;
-  		    
-  		    completeBR. ref_coverage = complete_coverage_min_def;
-  		    partialBR.  ref_coverage = partial_coverage_min_def;
-  		    
-  		    if (completeBR. empty ())
-  		      completeBR = defaultCompleteBR;
-  		    if (partialBR. empty ())
-  		      partialBR = defaultPartialBR;
-  		      
-  		    if (ident_min_user)
-  		    {
-  		      completeBR. ident = defaultCompleteBR. ident;
-  		      partialBR.  ident = defaultPartialBR.  ident;
-  		    }
   		  }
+  		    
+		    completeBR. ref_coverage = complete_coverage_min_def;
+		    partialBR.  ref_coverage = partial_coverage_min_def;
+		    
+		    if (completeBR. empty ())
+		      completeBR = defaultCompleteBR;
+		    if (partialBR. empty ())
+		      partialBR = defaultPartialBR;
+		      
+		    if (ident_min_user)
+		    {
+		      completeBR. ident = defaultCompleteBR. ident;
+		      partialBR.  ident = defaultPartialBR.  ident;
+		    }
 		    
 
 		    ASSERT (refStart < refStop);  
@@ -718,11 +718,11 @@ struct BlastAlignment
 	             << (cds. contig. empty () ? targetStart : cds. start) + 1
 	             << (cds. contig. empty () ? targetStop  : cds. stop)
 	             << (cds. contig. empty () ? (targetStrand ? '+' : '-') : (cds. strand ? '+' : '-'));
-	        td << (pm. empty ()
-	                 ? print_fam 
+	        td << (isPointMut () /*! pm. empty ()*/
+			             ? pm. geneMutation
+	                 : print_fam 
 			                 ? famId
 			                 : (isLeft (method, "ALLELE") ? famId : nvl (getFam () -> genesymbol, na))
-			             : pm. geneMutation
 	              )
 	           <<   (pm. empty () ? proteinName : pm. name)
 	              + ifS (reportPseudo, ifS (frameShift, " " + frameShiftS));
