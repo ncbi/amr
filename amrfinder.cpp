@@ -111,6 +111,9 @@ struct ThisApplication : ShellApplication
     const Verbose vrb (qc_on);
     threads_max = 4;  // PAR
     
+    time_t start, end;  // For timing... 
+    start = time(NULL);
+
     string mode;
     StringVector includes;
     if (emptyArg (prot))
@@ -308,6 +311,11 @@ struct ThisApplication : ShellApplication
 		}
 		
 		// $tmp.amr-raw --> $tmp.amr
+    
+    // timing the run
+    end = time(NULL);
+    stderr << "AMRFinder took " << end - start << " seconds to complete\n";
+
     string sort_cols;
     if (   ! force_cds_report. empty ()
         || ! blastx_par. empty ()
