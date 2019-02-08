@@ -714,7 +714,7 @@ struct BlastAlignment
 	        TabDel td (2, false);
           td << targetName;
 	        if (cdsExist)
-	          td << (cds. contig. empty () ? targetName : cds. contig)
+	          td << (cds. contig. empty () ? targetName  : cds. contig)
 	             << (cds. contig. empty () ? targetStart : cds. start) + 1
 	             << (cds. contig. empty () ? targetStop  : cds. stop)
 	             << (cds. contig. empty () ? (targetStrand ? '+' : '-') : (cds. strand ? '+' : '-'));
@@ -741,8 +741,8 @@ struct BlastAlignment
 	           << (targetProt ? targetLen : targetAlign_aa);  
 	        if (gi)
 	          td << refLen
-	             << refCoverage () * 100  
-	             << pIdentity () * 100  // refIdentity
+	             << refCoverage () * 100.0  
+	             << pIdentity () * 100.0  // refIdentity
 	             << length
 	             << accessionProt
 	             << product
@@ -779,7 +779,15 @@ struct BlastAlignment
 		        }
 	        }
 	        if (pm. empty () || ! pm. additional)
+	        {
+  	        if (verbose ())
+  	          os         << refExactlyMatched ()
+  	             << '\t' << allele ()
+  	             << '\t' << alleleReported ()
+  	             << '\t' << targetProt
+  	             << '\t';
 	          os << td. str () << endl;
+	        }
 	        if (point_mut_all. get () && ! pm. empty ())
 	          *point_mut_all << td. str () << endl;
 	      }
@@ -980,7 +988,7 @@ private:
 	    	if (! targetProt && ! other. matchesCds (*this))
 	    	  return false;
 	      LESS_PART (other, *this, refExactlyMatched ());  
-	      LESS_PART (other, *this, allele ());  
+	    //LESS_PART (other, *this, allele ());  // PD-2352
 	      LESS_PART (other, *this, alleleReported ());  
 	      LESS_PART (other, *this, targetProt);
       /*
@@ -1258,7 +1266,16 @@ public:
 	      continue;	      
       for (Iter<BlastAls> goodIter (goodBlastAls); goodIter. next ();)
         if (blastAl. better (*goodIter))
+        {
+          if (verbose ())
+          {
+            cout << "Bad:  ";
+            goodIter->saveText (cout); 
+            cout << "Good:  ";
+            blastAl. saveText (cout); 
+          }
           goodIter. erase ();          
+        }
       goodBlastAls << blastAl;
     }
   	if (verbose ())
