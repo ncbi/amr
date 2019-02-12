@@ -2,8 +2,8 @@
 
 This software and the accompanying database are designed to find acquired antimicrobial resistance genes in protein or nucleotide sequences.
 
-See [the wiki for documentation](https://github.com/ncbi/amr/wiki).
-[Subscribe to our announce list](https://www.ncbi.nlm.nih.gov/mailman/listinfo/amrfinder-announce) for database and software updates.
+See [the wiki for documentation](https://github.com/ncbi/amr/wiki).  
+[Subscribe to our announce list](https://www.ncbi.nlm.nih.gov/mailman/listinfo/amrfinder-announce) for announcements of  database or software updates.
 
 ----
 # Licenses
