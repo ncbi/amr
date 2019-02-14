@@ -2,19 +2,11 @@
 
 This software and the accompanying database are designed to find acquired antimicrobial resistance genes in protein or nucleotide sequences.
 
-See [the wiki for documentation](https://github.com/ncbi/amr/wiki).  
+## See [the wiki for documentation](https://github.com/ncbi/amr/wiki)
 [Subscribe to our announce list](https://www.ncbi.nlm.nih.gov/mailman/listinfo/amrfinder-announce) for announcements of  database or software updates.
 
 ----
 # Licenses
-
-## HMMER
-
-This distribution includes HMMER (c) Sean Eddy and the Howard Hughes Medical
-Institue and licensed under the GNU General Public License version 3 (GPLv3)
-(https://www.gnu.org/licenses/)
-
-See http://hmmer.org for details.
 
 ## PUBLIC DOMAIN NOTICE
 
