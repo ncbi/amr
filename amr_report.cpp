@@ -1443,7 +1443,7 @@ public:
 	       // PD-1856
 	       << "Element type"
 	       << "Element subtype"
-	       << "class"
+	       << "Class"
 	       << "Subclass"
 	       //
 	       << "Method"
