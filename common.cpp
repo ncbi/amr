@@ -703,6 +703,19 @@ bool directoryExists (const string &dirName)
 
 
 
+streampos getFileSize (const string &fName)
+{
+  try 
+  {
+    ifstream f (fName, ios::ate | ios::binary);
+    return f. tellg (); 
+  }
+  catch (const exception &e)
+    { throw runtime_error ("Cannot open file " + strQuote (fName) + "\n" + e. what ()); }
+}
+
+
+
 //
 
 size_t strMonth2num (const string& month)
@@ -2374,13 +2387,6 @@ int Application::run (int argc,
 	  	seed_global = str2<ulong> (getArg ("seed"));
 	  	if (! seed_global)
 	  		throw runtime_error ("Seed cannot be 0");
-	
-	  	threads_max = str2<size_t> (getArg ("threads"));
-	  	if (! threads_max)
-	  		throw runtime_error ("Number of threads cannot be 0");
-	
-	  	if (threads_max > 1 && Chronometer::enabled)
-	  		throw runtime_error ("Cannot profile with threads");
 	  
 	  	jsonFName = getArg ("json");
 	  	ASSERT (! jRoot);
@@ -2393,6 +2399,14 @@ int Application::run (int argc,
 	  	sigpipe = getFlag ("sigpipe");
 	  }
   
+	
+  	threads_max = str2<size_t> (getArg ("threads"));
+  	if (! threads_max)
+  		throw runtime_error ("Number of threads cannot be 0");	
+  	if (threads_max > 1 && Chronometer::enabled)
+  		throw runtime_error ("Cannot profile with threads");
+
+
   	const Verbose vrb (gnu ? 0 : str2<int> (getArg ("verbose")));
 	  	
   
@@ -2432,7 +2446,7 @@ int Application::run (int argc,
 ShellApplication::~ShellApplication ()
 {
 	if (! qc_on && ! tmp. empty ())
-	  exec ("rm -f " + tmp + "*");  
+	  exec ("rm -fr " + tmp + "*");  
 }
 
 

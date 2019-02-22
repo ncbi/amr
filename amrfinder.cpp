@@ -49,6 +49,7 @@ namespace
   
 
 // PAR
+constexpr size_t threads_max_min = 4;
 // Cf. amr_report.cpp
 constexpr double ident_min_def = 0.9;
 constexpr double partial_coverage_min_def = 0.5;
@@ -89,6 +90,14 @@ struct ThisApplication : ShellApplication
 
 
 
+  void initEnvironment () final
+  {
+    ShellApplication::initEnvironment ();
+    var_cast (name2arg ["threads"] -> asKey ()) -> defaultValue = toString (threads_max_min);  
+  }
+
+
+
   void shellBody () const final
   {
     const string prot          = shellQuote (getArg ("protein"));
@@ -109,10 +118,12 @@ struct ThisApplication : ShellApplication
     Stderr stderr (quiet);
     stderr << "Running "<< getCommandLine () << '\n';
     const Verbose vrb (qc_on);
-    threads_max = 4;  // PAR
+    
+    if (threads_max < threads_max_min)
+      throw runtime_error ("Number of threads cannot be less than " + toString (threads_max_min));
     
     time_t start, end;  // For timing... 
-    start = time(NULL);
+    start = time (NULL);
 
     string mode;
     StringVector includes;
@@ -222,13 +233,15 @@ struct ThisApplication : ShellApplication
 		
 								  
     findProg ("fasta_check");
+    findProg ("fasta2parts");
     findProg ("amr_report");	
     
     
     string blastp_par;	
  		string blastx_par;
+ 		bool blastxChunks = false;
     {
-      Threads th (threads_max - 1, true);
+      Threads th (threads_max - 1, true);  
 
   		if ( ! emptyArg (prot))
   		{
@@ -273,14 +286,32 @@ struct ThisApplication : ShellApplication
   		
   		if (! emptyArg (dna))
   		{
+  			stderr << "Running blastx...\n";
   			findProg ("blastx");
   		  exec (fullProg ("fasta_check") + dna + " -hyphen  -len "+ tmp + ".len  -log " + logFName, logFName); 
-  			stderr << "Running blastx...\n";
-  			th << thread (exec, fullProg ("blastx") + "  -query " + dna + " -db " + db + "/AMRProt  "
-  			  "-show_gis  -word_size 3  -evalue 1e-20  -query_gencode " + toString (gencode) + "  "
-  			  "-seg no  -comp_based_stats 0  -max_target_seqs 10000  -num_threads 6 "
-  			  "-outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq sseq' "
-  			  "-out " + tmp + ".blastx &> /dev/null", string ());
+  		  const size_t threadsAvailable = th. getAvailable ();
+  		  ASSERT (threadsAvailable);
+  		  if (threadsAvailable >= 2)
+  		  {
+    		  exec ("mkdir " + tmp + ".chunk");
+    		  exec (fullProg ("fasta2parts") + dna + " " + toString (threadsAvailable) + " " + tmp + ".chunk  -log " + logFName, logFName);   // PAR
+    		  exec ("mkdir " + tmp + ".blastx_dir");
+    		  FileItemGenerator fig (false, true, tmp + ".chunk");
+    		  string item;
+    		  while (fig. next (item))
+      			th << thread (exec, fullProg ("blastx") + "  -query " + tmp + ".chunk/" + item + " -db " + db + "/AMRProt  "
+      			  "-show_gis  -word_size 3  -evalue 1e-20  -query_gencode " + toString (gencode) + "  "
+      			  "-seg no  -comp_based_stats 0  -max_target_seqs 10000  "
+      			  "-outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq sseq' "
+      			  "-out " + tmp + ".blastx_dir/" + item + " &> /dev/null", string ());
+    		  blastxChunks = true;
+  		  }
+  		  else
+    			th << thread (exec, fullProg ("blastx") + "  -query " + dna + " -db " + db + "/AMRProt  "
+    			  "-show_gis  -word_size 3  -evalue 1e-20  -query_gencode " + toString (gencode) + "  "
+    			  "-seg no  -comp_based_stats 0  -max_target_seqs 10000  -num_threads 6 "
+    			  "-outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq sseq' "
+    			  "-out " + tmp + ".blastx &> /dev/null", string ());
   		  blastx_par = "-blastx " + tmp + ".blastx  -dna_len " + tmp + ".len";
   		}
 
@@ -294,6 +325,10 @@ struct ThisApplication : ShellApplication
   			  "-outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq sseq' -out " + tmp + ".blastn &> /dev/null");
   		}
   	}
+  	
+  	
+  	if (blastxChunks)
+  	  exec ("cat " + tmp + ".blastx_dir/* > " + tmp + ".blastx");
 		
 
 		exec (fullProg ("amr_report") + " -fam " + db + "/fam.tab  " + blastp_par + "  " + blastx_par

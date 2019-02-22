@@ -72,6 +72,7 @@
 
 
 #define WHERE  "\"" __FILE__ "\", line " << __LINE__
+#define FUNC  string (__PRETTY_FUNCTION__) + ": "
 
 
 #define ERROR_MSG(msg)                       \
@@ -81,9 +82,9 @@
       throw std::logic_error (oss_. str ()); \
     } else {}                                \
   }
-#define ERROR            ERROR_MSG("")
-#define NOT_IMPLEMENTED  ERROR_MSG("Not implemented: ")
-#define NEVER_CALL       ERROR_MSG("Never call: ")
+#define ERROR            ERROR_MSG ("")
+#define NOT_IMPLEMENTED  ERROR_MSG ("Not implemented: ")
+#define NEVER_CALL       ERROR_MSG ("Never call: ")
 
 
 // Logic errors

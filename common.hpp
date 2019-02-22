@@ -515,7 +515,25 @@ template <typename Key, typename Value, typename KeyParent>
     { return m. find (key) != m. end (); }
 
 template <typename Key, typename Value, typename KeyParent>
+  inline bool contains (const unordered_map <Key, Value> &m,
+                        const KeyParent& key)
+    { return m. find (key) != m. end (); }
+
+template <typename Key, typename Value, typename KeyParent>
   bool find (const map <Key, Value> &m,
+             const KeyParent& key,
+             Value &value)
+    // Return: success
+    // Output: value, if Return
+    { const auto it = m. find (key);
+    	if (it == m. end ())
+    		return false;
+    	value = it->second; 
+    	return true;
+    }
+
+template <typename Key, typename Value, typename KeyParent>
+  bool find (const unordered_map <Key, Value> &m,
              const KeyParent& key,
              Value &value)
     // Return: success
@@ -537,7 +555,25 @@ template <typename Key, typename Value, typename KeyParent>
     }
 
 template <typename Key, typename Value, typename KeyParent>
+  const Value* findPtr (const unordered_map <Key, Value> &m,
+                        const KeyParent& key)
+    { const auto it = m. find (key);
+    	if (it == m. end ())
+    		return nullptr;
+    	return & it->second; 
+    }
+
+template <typename Key, typename Value, typename KeyParent>
   const Value* findPtr (const map <Key, const Value* /*!nullptr*/> &m,
+                        const KeyParent& key)
+    { const Value* value;
+      if (find (m, key, value))
+        return value;
+      return nullptr;
+    }
+
+template <typename Key, typename Value, typename KeyParent>
+  const Value* findPtr (const unordered_map <Key, const Value* /*!nullptr*/> &m,
                         const KeyParent& key)
     { const Value* value;
       if (find (m, key, value))
@@ -547,6 +583,14 @@ template <typename Key, typename Value, typename KeyParent>
 
 template <typename Key, typename Value>
   const Value& findMake (map <Key, const Value* /*!nullptr*/> &m,
+                         const Key& key)
+    { if (! contains (m, key))
+        m [key] = new Value ();
+      return * m [key];
+    }
+
+template <typename Key, typename Value>
+  const Value& findMake (unordered_map <Key, const Value* /*!nullptr*/> &m,
                          const Key& key)
     { if (! contains (m, key))
         m [key] = new Value ();
@@ -887,6 +931,8 @@ bool fileExists (const string &fName);
   bool directoryExists (const string &dirName);
 #endif
 
+streampos getFileSize (const string &fName);
+
 size_t strMonth2num (const string& month);
 // Input: month: "Jan", "Feb", ... (3 characters)
 
@@ -1007,9 +1053,13 @@ public:
 	Threads& operator<< (thread &&t)
 	  { if (threads. size () >= threadsToStart)
 	  	  throw logic_error ("Too many threads created");
-	  	threads. push_back (move (t)); 
+	  	try { threads. push_back (move (t)); }
+	  	  catch (const exception &e) 
+	  	    { throw runtime_error (string ("Cannot start thread\n") + e. what ()); }
 	  	return *this;
 	  }
+	size_t getAvailable () const
+	  { return threadsToStart - threads. size (); }
 };
 
 
@@ -1870,10 +1920,16 @@ public:
 	    { for (const auto& it : other)
 	        P::insert (it. first);
 	    }
+	template <typename U, typename V>
+	  Set (const unordered_map<U,V> &other)
+	    : universal (false)
+	    { for (const auto& it : other)
+	        P::insert (it. first);
+	    }
 	template <typename U>
 	  Set (const vector<U> &other)
 	    : universal (false)
-	    { for (const U u : other)
+	    { for (const U& u : other)
 	        P::insert (u);
 	    }
   bool operator== (const Set<T> &other) const
@@ -2909,7 +2965,9 @@ protected:
 private:
 	void addDefaultArgs ()
 	  { if (gnu)
+    	{ addKey ("threads", "Max. number of threads", "1", '\0', "THREADS");
     	  addFlag ("debug", "Integrity checks");
+      }
     	else
     	{ addFlag ("qc", "Integrity checks (quality control)");
 	      addKey ("verbose", "Level of verbosity", "0");
@@ -2952,7 +3010,7 @@ protected:
   string key2shortHelp (const string &name) const;
   string getProgramDirName () const
     { return getDirName (programArgs. front ()); }
-private:
+protected:
   virtual void initEnvironment ()
     {}
   string getInstruction () const;
@@ -2988,8 +3046,9 @@ struct ShellApplication : Application
  ~ShellApplication ();
 
 
-private:
+protected:
   void initEnvironment () override;
+private:
   void body () const final;
   virtual void shellBody () const = 0;
 protected:
@@ -3004,7 +3063,8 @@ protected:
   void findProg (const string &progName) const;
     // Output: prog2dir
   string fullProg (const string &progName) const;
-   // Requires: After findProg(progName)
+    // Return: directory + progName + ' '
+    // Requires: After findProg(progName)
 };
 
 

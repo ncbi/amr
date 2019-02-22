@@ -54,7 +54,7 @@ COMPILE.cpp= $(CXX) $(CPPFLAGS)  -c
 
 .PHONY: all clean install release
 
-BINARIES= amr_report amrfinder amrfinder_update fasta_check gff_check point_mut 
+BINARIES= amr_report amrfinder amrfinder_update fasta_check fasta2parts gff_check point_mut 
 
 all:	$(BINARIES)
 
@@ -84,6 +84,11 @@ fasta_check.o:	common.hpp common.inc
 fasta_checkOBJS=fasta_check.o common.o 
 fasta_check:	$(fasta_checkOBJS)
 	$(CXX) -o $@ $(fasta_checkOBJS)
+
+fasta2parts.o:	common.hpp common.inc
+fasta2partsOBJS=fasta2parts.o common.o
+fasta2parts:	$(fasta2partsOBJS)
+	$(CXX) -o $@ $(fasta2partsOBJS)
 
 gff_check.o:	common.hpp common.inc gff.hpp
 gff_checkOBJS=gff_check.o common.o gff.o
