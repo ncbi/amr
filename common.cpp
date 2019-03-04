@@ -321,6 +321,20 @@ bool goodName (const string &name)
 
 
 
+bool isIdentifier (const string& name)
+{
+  if (name. empty ())
+    return false;
+  if (isDigit (name [0]))
+    return false;
+  for (const char c : name)
+    if (! isLetter (c))
+      return false;
+  return true;
+}
+
+
+
 bool strBlank (const string &s)
 {
   for (const char c : s)
@@ -1309,45 +1323,85 @@ string CharInput::getLine ()
 
 void Token::readInput (CharInput &in)
 {
-	clear ();
+	ASSERT (empty ());
+
 
   // Skip spaces
 	char c = '\0';
 	do { c = in. get (); }
 	  while (! in. eof && isSpace (c));
 	if (in. eof)
-	{
-	  ASSERT (empty ());
 		return;  
-  }
 		
-  charNum = in. charNum;
-	if (c == quote)
+	charNum = in. charNum;
+
+	if (   c == '\'' 
+	    || c == '\"'
+	   )
 	{
 		type = eText;
+		quote = c;
 		for (;;)
 		{ 
 			c = in. get (); 
+			if (in. eof)
+		    throw CharInput::Error (in, "Text is not finished: end of file", false);
 			if (in. eol)
-		  //throw CharInput::Error (in, "ending quote");
+		  //throw CharInput::Error (in, "ending quote", false);
 		    continue;
 			if (c == quote)
 				break;
 			name += c;
 		}
 	}
-	else if (isDigit (c))
+	else if (isDigit (c) || c == '-')
 	{
-		type = eNumber;
-		while (! in. eof && isDigit (c))
+		while (   ! in. eof 
+		       && (   isDigit (c)
+		           || c == '.'
+		           || c == 'e'
+		           || c == 'E'
+		           || c == '-'
+		          )
+		      )
 		{ 
 			name += c;
 			c = in. get (); 
 		}
 		if (! in. eof)
 			in. unget ();
-		num = str2<uint> (name);
-		ASSERT (num != numeric_limits<uint>::max ());
+	  if (name == "-")
+	    type = eDelimiter;
+	  else
+	  {
+  	  strLower (name);
+  	  if (   contains (name, '.') 
+  	      || contains (name, 'e') 
+  	     )
+  	  {
+    		type = eDouble;
+  		  d = str2<double> (name);
+        decimals = 0;
+        size_t pos = name. find ('.');
+        if (pos != string::npos)
+        {
+          pos++;
+          while (   pos < name. size () 
+                 && isDigit (name [pos])
+                )
+          {
+            pos++;
+            decimals++;
+          }
+        }
+        scientific = contains (name, 'e');
+  	  }
+  	  else
+  	  {
+    		type = eInteger;
+  		  n = str2<int> (name);
+  		}
+  	}
 	}
 	else if (isLetter (c))
 	{
@@ -1360,12 +1414,22 @@ void Token::readInput (CharInput &in)
 		if (! in. eof)
 			in. unget ();
 	}
-	else 
+	else if (Common_sp::isDelimiter (c))
 	{
 	  type = eDelimiter;
 		name = c;
 	}	
+	else
+	  throw CharInput::Error (in, "Unknown token starting with ASCII " + toString ((int) c), false);
+	    
 	ASSERT (! empty ());
+	qc ();
+
+  if (verbose ())
+  {
+  	cout << type2str (type) << ' ';  
+  	cout << *this << endl;
+  }
 }
 
 
@@ -1376,26 +1440,48 @@ void Token::qc () const
     return;
   if (! empty ())
   {
-  	ASSERT (! name. empty ());
-    ASSERT (! contains (name, quote));
+  	IMPLY (type != eText, ! name. empty ());
   	IMPLY (type != eText, ! contains (name, ' '));
-  	IMPLY (type != eNumber, num == noNum);
-  	const char c = name [0];
+  	IMPLY (type != eText, quote == '\0');
+    ASSERT (! contains (name, quote));
+    IMPLY (type != eDouble, decimals == 0);
   	switch (type)
   	{ 
-  	  case eText:      break;
-  		case eNumber:    ASSERT (isDigit (c)); 
-  		                 ASSERT (num != noNum);
+  		case eName:      ASSERT (isIdentifier (name)); 
   		                 break;
-  		case eName:      ASSERT (isLetter (c) && ! isDigit (c)); 
+  	  case eText:      break;
+  		case eInteger:   
+  		case eDouble:    ASSERT (name [0] == '-' || isDigit (name [0])); 
   		                 break;
   		case eDelimiter: ASSERT (name. size () == 1); 
+  		                 ASSERT (Common_sp::isDelimiter (name [0]));
   		                 break;
-  		default: throw runtime_error ("Unknown type");
+  		default: throw runtime_error ("Token: Unknown type");
   	}
   }
 }
 
+
+
+void Token::saveText (ostream &os) const 
+{ 
+  if (empty ())
+    return;
+    
+  switch (type)
+	{ 
+	  case eName:      os          << name;          break;
+		case eText:      os << quote << name << quote; break;
+		case eInteger:   os          << n;             break;
+		case eDouble:    { 
+		                   const ONumber on (os, decimals, scientific); 
+		                   os << d; 
+		                 } 
+		                 break;
+		case eDelimiter: os          << name;          break;
+ 		default: throw runtime_error ("Token: Unknown type");
+	}
+}
 
 
 
@@ -1487,108 +1573,58 @@ Json::Json (JsonContainer* parent,
     ASSERT (! contains (jMap->data, name));
     var_cast (jMap) -> data [name] = this;
   }
+  // throw() in a child constructor will invoke terminate() if an ancestor is JsonArray or JsonMap
 }
 
 
 
-Token Json::readToken (istream &is)
-{
-  const string delim ("[]{},:");
-  
-  string s;
-  bool spaces = true;
-  bool isC = false;
-  while (is)
-  {
-    char c;
-    is. get (c);
-    const bool isDelim = charInSet (c, delim);
-    if (spaces)
-      if (isSpace (c))
-        continue;
-      else
-      {
-        if (isDelim)
-          return Token (string (1, c), Token::eDelimiter);
-        spaces = false;
-        isC = c == '\'';
-      }
-    else
-    {
-      // Opposite to toStr()
-      if (isC)
-      {
-        if (c == '\'')
-          break;
-        else
-        if (c == '\\')
-        {
-          is. get (c);
-          if (c == 'n')
-            c = '\n';
-        }
-      }
-      else
-        if (isSpace (c) || isDelim)
-        {
-          is. unget ();
-          break;
-        }
-    }
-      
-    s += c;
-  }
-  
-  if (isC)
-    s. erase (0, 1);
-  else
-    ASSERT (! s. empty ());
-  
-  return Token (s, isC ? Token::eText : Token::eNumber);
-}
-
-
-
-void Json::parse (istream& is,
+void Json::parse (CharInput& in,
                   const Token& firstToken,
                   JsonContainer* parent,
                   const string& name)
 {
-  string s (firstToken. name);
-  strLower (s);
-  
-  if (firstToken. type == Token::eDelimiter && s == "{")
-    new JsonMap (is, parent, name);
-  else if (firstToken. type == Token::eDelimiter && s == "[")
-    new JsonArray (is, parent, name);
-  else if (firstToken. type == Token::eText && s == "null")
-    new JsonNull (parent, name);
-  else if (firstToken. type == Token::eNumber)
+  switch (firstToken. type)
   {
-    if (   contains (s, '.')
-        || contains (s, 'e')
-       )
-    {
-      uint decimals = 0;
-      size_t pos = s. find ('.');
-      if (pos != string::npos)
+    case Token::eName:
       {
-        pos++;
-        while (   pos < s. size () 
-               && isDigit (s [pos])
-              )
-        {
-          pos++;
-          decimals++;
-        }
+        string tokenName (firstToken. name);
+        strLower (tokenName);
+        if (   tokenName == "null"
+            || tokenName == "nan"
+           )
+          new JsonNull (parent, name);
+        else if (tokenName == "true")
+          new JsonBoolean (true, parent, name);
+        else if (tokenName == "false")
+          new JsonBoolean (false, parent, name);
+        else
+          new JsonString (firstToken. name, parent, name);
       }
-      new JsonDouble (str2<double> (s), decimals, parent, name);
-    }
-    else
-      new JsonInt (str2<int> (s), parent, name); 
+      break;
+    case Token::eText: new JsonString (firstToken. name, parent, name); break;
+    case Token::eInteger: new JsonInt (firstToken. n, parent, name); break;
+    case Token::eDouble: new JsonDouble (firstToken. d, firstToken. decimals, parent, name); break;
+    case Token::eDelimiter:
+      switch (firstToken. name [0])
+      {
+        case '{': new JsonMap   (in, parent, name); break;
+        case '[': new JsonArray (in, parent, name); break;
+        default: throw CharInput::Error (in, "Bad delimiter", false);
+      }
+      break;
+    default: throw CharInput::Error (in, "Bad token", false);
   }
-  else
-    new JsonString (firstToken. name, parent, name);
+}
+
+
+
+string Json::getString () const
+{ 
+  if (! this || asJsonNull ())
+    throw runtime_error ("undefined");
+  if (const JsonString* j = asJsonString ())
+    return j->s;
+  throw runtime_error ("Not a JsonString");
 }
 
 
@@ -1617,13 +1653,13 @@ double Json::getDouble () const
 
 
 
-string Json::getString () const
+bool Json::getBoolean () const
 { 
   if (! this || asJsonNull ())
     throw runtime_error ("undefined");
-  if (const JsonString* j = asJsonString ())
-    return j->s;
-  throw runtime_error ("Not a JsonString");
+  if (const JsonBoolean* j = asJsonBoolean ())
+    return j->b;
+  throw runtime_error ("Not a JsonBoolean");
 }
 
 
@@ -1675,7 +1711,7 @@ size_t Json::getSize () const
 // JsonArray
 
 
-JsonArray::JsonArray (istream& is,
+JsonArray::JsonArray (CharInput& in,
                       JsonContainer* parent,
                       const string& name)
 : JsonContainer (parent, name)
@@ -1683,15 +1719,16 @@ JsonArray::JsonArray (istream& is,
   bool first = true;
   for (;;)
   {
-    Token token (readToken (is));
+    Token token (in);
     if (token. isDelimiter (']'))
       break;
     if (! first)
     {
-      ASSERT (token. isDelimiter (','));
-      token = readToken (is);
+      if (! token. isDelimiter (','))
+        throw CharInput::Error (in, "\',\'");
+      token = Token (in);
     }
-    parse (is, token, this, string());
+    parse (in, token, this, string());
     first = false;
   }
 }
@@ -1727,36 +1764,41 @@ JsonMap::JsonMap ()
 
 JsonMap::JsonMap (const string &fName)
 {
-  ifstream ifs (fName. c_str ());
-  if (! ifs. good ())
-    throw runtime_error ("Cannot open file " + strQuote (fName));
-  const Token token (readToken (ifs));
+  CharInput in (fName);
+  const Token token (in);
   if (! token. isDelimiter ('{'))
-    throw runtime_error ("Json file " + strQuote (fName) + ": text should start with '{'");
-  parse (ifs);
+    throw CharInput::Error (in, "Json file " + strQuote (fName) + ": text should start with '{'", false);
+  parse (in);
 }
 
 
 
-void JsonMap::parse (istream& is)
+void JsonMap::parse (CharInput& in)
 {
   ASSERT (data. empty ());
   
   bool first = true;
   for (;;)
   {
-    Token token (readToken (is));
+    Token token (in);
     if (token. isDelimiter ('}'))
       break;
     if (! first)
     {
-      ASSERT (token. isDelimiter (','));
-      token = readToken (is);
+      if (! token. isDelimiter (','))
+        throw CharInput::Error (in, "\',\'");
+      token = Token (in);
     }
-    ASSERT (! token. name. empty ());
-    const Token colon (readToken (is));
-    ASSERT (colon. isDelimiter (':'));
-    Json::parse (is, readToken (is), this, token. name);
+    if (   token. type != Token::eName
+        && token. type != Token::eText
+       )
+      throw CharInput::Error (in, "name or text");
+    string name (token. name);
+    const Token colon (in);
+    if (! colon. isDelimiter (':'))
+      throw CharInput::Error (in, "\':\'");
+    token = Token (in);
+    Json::parse (in, token, this, name);
     first = false;
   }
 }

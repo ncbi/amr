@@ -389,6 +389,12 @@ inline bool isLower (char c)
 
 inline bool printable (char c)
   { return between (c, ' ', (char) 127); }
+  
+inline bool isDelimiter (char c)
+  { return    c != ' '
+           && printable (c)
+           && ! isLetter (c);
+  }
  
 
 
@@ -406,7 +412,7 @@ public:
   typename T::iterator it;
     
 
-  Iter (T &t_arg)
+  explicit Iter (T &t_arg)
     : t (t_arg)
     , itNext (t_arg. begin ())
     {}
@@ -488,7 +494,7 @@ template <typename To, typename From>
   inline void insertIter (To &to,
                           const From &from)
     { for (const auto x : from)
-        to << x;
+        to << move (x);
     }
 
 template <typename T>
@@ -525,7 +531,7 @@ template <typename Key, typename Value, typename KeyParent>
              Value &value)
     // Return: success
     // Output: value, if Return
-    { const auto it = m. find (key);
+    { const auto& it = m. find (key);
     	if (it == m. end ())
     		return false;
     	value = it->second; 
@@ -538,7 +544,7 @@ template <typename Key, typename Value, typename KeyParent>
              Value &value)
     // Return: success
     // Output: value, if Return
-    { const auto it = m. find (key);
+    { const auto& it = m. find (key);
     	if (it == m. end ())
     		return false;
     	value = it->second; 
@@ -548,7 +554,7 @@ template <typename Key, typename Value, typename KeyParent>
 template <typename Key, typename Value, typename KeyParent>
   const Value* findPtr (const map <Key, Value> &m,
                         const KeyParent& key)
-    { const auto it = m. find (key);
+    { const auto& it = m. find (key);
     	if (it == m. end ())
     		return nullptr;
     	return & it->second; 
@@ -557,7 +563,7 @@ template <typename Key, typename Value, typename KeyParent>
 template <typename Key, typename Value, typename KeyParent>
   const Value* findPtr (const unordered_map <Key, Value> &m,
                         const KeyParent& key)
-    { const auto it = m. find (key);
+    { const auto& it = m. find (key);
     	if (it == m. end ())
     		return nullptr;
     	return & it->second; 
@@ -635,7 +641,7 @@ public:
 
 	List () = default;
   template <typename U/*:<T>*/>
-    explicit List (const list<U> &other)
+    List (const list<U> &other)
       { *this << other; }
   template <typename U/*:<T>*/>
     explicit List (const vector<U> &other)
@@ -751,6 +757,7 @@ template <typename T>
       iss >> i;
       if (   Common_sp::strBlank (s)
           || ! iss. eof ()
+          || iss. fail ()
          )
         throw runtime_error ("Converting " + strQuote (s));
       return i;
@@ -786,6 +793,8 @@ bool trimTailAt (string &s,
   // Update: s
 
 bool goodName (const string &name);
+
+bool isIdentifier (const string& name);
 
 void strUpper (string &s);
 
@@ -1191,7 +1200,7 @@ inline ostream& operator<< (ostream &os,
 
 
 template <typename T /*Root*/> 
-  struct AutoPtr : unique_ptr<T>
+  struct AutoPtr : unique_ptr<T>  // ??
   {
   private:
   	typedef  unique_ptr<T>  P;
@@ -1281,7 +1290,7 @@ public:
   explicit Vector (initializer_list<T> init)
     : P (init)
     {}
-	Vector (const vector<T> &other) 
+	explicit Vector (const vector<T> &other) 
     : P (other)
 	  {}
   Vector (const Vector<T> &other) 
@@ -1628,19 +1637,28 @@ public:
     : P (init)
     {}
 	template <typename U>
-  	VectorPtr (const vector<const U*> &other)
+  	explicit VectorPtr (const vector<const U*> &other)
   	  : P ()
   	  { P::reserve (other. size ());
   	    insertAll (*this, other);
   	  }	  
 	template <typename U>
-  	VectorPtr (const list<const U*> &other)
+  	explicit VectorPtr (const list<const U*> &other)
   	  : P ()
   	  { P::reserve (other. size ());
   	    insertAll (*this, other);
   	  }	  
 
 
+  VectorPtr<T>& operator<< (const T* value)
+    { P::operator<< (value); 
+    	return *this;
+    }
+  template <typename U/*:<T>*/>
+    VectorPtr<T>& operator<< (const VectorPtr<U> &other)
+      { P::operator<< (other); 
+        return *this;
+      }
 	void deleteData ()
 	  {	for (const T* t : *this)
 			  delete t;
@@ -1681,11 +1699,21 @@ public:
 	  	P::searchSorted = x. searchSorted;
 	  	return *this;
 	  }
-	VectorOwn (const VectorPtr<T> &x)
+	explicit VectorOwn (const VectorPtr<T> &x)
 	  : P ()
 	  { P::operator= (x); }
  ~VectorOwn ()
     { P::deleteData (); }
+
+  VectorOwn<T>& operator<< (const T* value)
+    { P::operator<< (value); 
+    	return *this;
+    }
+  template <typename U/*:<T>*/>
+    VectorOwn<T>& operator<< (const VectorPtr<U> &other)
+      { P::operator<< (other); 
+        return *this;
+      }
 };
 
 
@@ -1698,7 +1726,7 @@ public:
 	
 
   StringVector () = default;
-  StringVector (initializer_list<string> init)
+  explicit StringVector (initializer_list<string> init)
     : P (init)
     {}
   StringVector (const string &fName,
@@ -1910,28 +1938,41 @@ public:
 	Set (const Set<T> &other)
 	  : P ()
 	  { *this = other; }
+	template <typename U, typename V>
+	  explicit Set (const map<U,V> &other)
+	    { operator= (other); }
+	template <typename U, typename V>
+	  explicit Set (const unordered_map<U,V> &other)
+	    { operator= (other); }
+	template <typename U>
+	  explicit Set (const vector<U> &other)
+	    { operator= (other); }
 	Set<T>& operator= (const Set<T> &other)
 	  { universal = other. universal;
-	  	return static_cast <Set<T>&> (P::operator= (other)); 
+	  	P::operator= (other); 
+	  	return *this;
 	  }
 	template <typename U, typename V>
-	  Set (const map<U,V> &other)
-	    : universal (false)
-	    { for (const auto& it : other)
+  	Set<T>& operator= (const map<U,V> &other)
+  	  { universal = false;
+  	    for (const auto& it : other)
 	        P::insert (it. first);
-	    }
+	      return *this;
+  	  }
 	template <typename U, typename V>
-	  Set (const unordered_map<U,V> &other)
-	    : universal (false)
-	    { for (const auto& it : other)
+  	Set<T>& operator= (const unordered_map<U,V> &other)
+  	  { universal = false;
+  	    for (const auto& it : other)
 	        P::insert (it. first);
-	    }
+	      return *this;
+  	  }
 	template <typename U>
-	  Set (const vector<U> &other)
-	    : universal (false)
-	    { for (const U& u : other)
+  	Set<T>& operator= (const vector<U> &other)
+  	  { universal = false;
+  	    for (const U& u : other)
 	        P::insert (u);
-	    }
+	      return *this;
+  	  }
   bool operator== (const Set<T> &other) const
     { return universal
                ? other. universal ? true : false
@@ -2013,10 +2054,39 @@ public:
 			{ operator= (other);
 				return;
 			}
-      for (Iter <Set<T>> iter (*this); iter. next (); )
+      for (Iter<Set<T>> iter (*this); iter. next (); )
 				if (! other. contains (*iter))
 					iter. erase ();
 		}
+	void intersect (const Vector<T> &other) 
+		{ if (universal)
+			{ operator= (other);
+				return;
+			}
+      for (Iter<Set<T>> iter (*this); iter. next (); )
+				if (! other. containsFast (*iter))
+					iter. erase ();
+		}
+	template <typename U, typename V>
+  	void intersect (const map<U,V> &other) 
+  		{ if (universal)
+  			{ operator= (other);
+  				return;
+  			}
+        for (Iter<Set<T>> iter (*this); iter. next (); )
+  				if (! Common_sp::contains (other, *iter))
+  					iter. erase ();
+  		}
+	template <typename U, typename V>
+  	void intersect (const unordered_map<U,V> &other) 
+  		{ if (universal)
+  			{ operator= (other);
+  				return;
+  			}
+        for (Iter<Set<T>> iter (*this); iter. next (); )
+  				if (! Common_sp::contains (other, *iter))
+  					iter. erase ();
+  		}
 	size_t intersectSize (const Set<T> &other) const
 	  // Return: universal <=> SIZE_MAX
 		{ if (other. universal)
@@ -2271,11 +2341,12 @@ public:
 	  
 
   struct Error : runtime_error
-    { explicit Error (const CharInput &in,
-		                  const string &expected = string ()) 
+    { Error (const CharInput &in,
+		         const string &what_arg,
+		         bool expected = true) 
 			  : runtime_error ("Error at line " + toString (in. lineNum + 1) 
 		                     + ", pos. " + toString (in. charNum + 1)
-		                     + (expected. empty () ? string () : (": " + expected + " is expected"))
+		                     + (what_arg. empty () ? string () : (": " + what_arg + ifS (expected, " is expected")))
 		                    )
 	      {}
 	  };
@@ -2316,37 +2387,48 @@ public:
 
 struct Token : Root
 {
-	static constexpr char quote = '\"';
-	static constexpr uint noNum = (uint) -1;
-	enum Type { eText       // In quote's within one line
-	          , eNumber     // All characters: isDigit()
-	          , eName       // All characters: isLetter()
-	                        // Start: !isDigit()
-	          , eDelimiter  // Does not include ' '
+	enum Type { eName
+	          , eText
+	          , eInteger   
+	          , eDouble
+	          , eDelimiter  
 	          };
-	Type type {eText};
+	Type type {eDelimiter};
 	string name;
-	  // All characters: printable()
+	  // ename => !empty(), printable()
 	  // eText => embracing quote's are removed
-	  // May be: !goodName(name)
-	uint num {noNum};
-	  // Valid if type = eNumber
-	uint charNum {0};	
-	  // First CharInput::charNum of name
+	char quote {'\0'};
+	  // eText => '\'' or '\"'
+	int n {0};
+	double d {0.0};
+  // Valid if eDouble
+	streamsize decimals {0};
+	bool scientific {false};
+	  
+  uint charNum {(uint) -1};
+    // = CharInput::charNum
 
 	  
-	Token ()
-	  { clear (); }
-	Token (const string& name_arg,
-	       Type type_arg = eName)
-	  : type (type_arg)
+	Token () = default;
+	explicit Token (const string& name_arg)
+	  : type (eName)
 	  , name (name_arg)
 	  {}
-	Token (const uint num_arg)
-	  : type (eNumber)
-	  , num (num_arg)
+	Token (const string& name_arg,
+	       char quote_arg)
+	  : type (eText)
+	  , name (name_arg)
+	  , quote (quote_arg)
 	  {}
-	Token (char delimiter_arg)
+	explicit Token (const int n_arg)
+	  : type (eInteger)
+	  , n (n_arg)
+	  {}
+	explicit Token (const double d_arg)
+	  : type (eDouble)
+	  , d (d_arg)
+	  {}
+	explicit Token (char delimiter_arg)
 	  : type (eDelimiter)
 	  , name (1, delimiter_arg)
 	  {}
@@ -2356,21 +2438,27 @@ struct Token : Root
 	       Type expected)
     { readInput (in);
     	if (empty ())
- 			  throw CharInput::Error (in, "No token"); 
+ 			  throw CharInput::Error (in, "No token", false); 
     	if (type != expected)
  			  throw CharInput::Error (in, type2str (type)); 
     }
 	Token (CharInput &in,
-	       uint expected)
-    { readInput (in);
-    	if (! isNumber (expected))
- 			  throw CharInput::Error (in, type2str (eNumber) + " " + toString (expected)); 
-    }
-	Token (CharInput &in,
 	       const string &expected)
     { readInput (in);
-    	if (! isName (expected))
- 			  throw CharInput::Error (in, type2str (eName) + " " + expected); 
+    	if (! isNameText (expected))
+ 			  throw CharInput::Error (in, type2str (eName) + " or " + type2str (eName) + " " + strQuote (expected)); 
+    }
+	Token (CharInput &in,
+	       int expected)
+    { readInput (in);
+    	if (! isInteger (expected))
+ 			  throw CharInput::Error (in, type2str (eInteger) + " " + toString (expected)); 
+    }
+	Token (CharInput &in,
+	       double expected)
+    { readInput (in);
+    	if (! isDouble (expected))
+ 			  throw CharInput::Error (in, type2str (eDouble) + " " + toString (expected)); 
     }
 	Token (CharInput &in,
 	       char expected)
@@ -2382,38 +2470,29 @@ private:
 	void readInput (CharInput &in);
 public:
 	void qc () const override;
-	void saveText (ostream &os) const override
-	  { if (! empty ())
-  	    switch (type)
-  	  	{ case eText:      os << ' ' << quote << name << quote; break;
-  	  		case eNumber:    os << ' ' << num;                    break;
-  	  		case eName:      os << ' '          << name;          break;
-  	  		case eDelimiter: os                 << name;          break;
-  	  	}
-	  }
+	void saveText (ostream &os) const override;
 	bool empty () const override
 	  { return type == eDelimiter && name. empty (); }
-	void clear () override
-	  { type = eDelimiter;
-	    name. clear ();
-	  	num = noNum;
-	  	charNum = 0;
-	  }
 
 
 	static string type2str (Type type) 
 	  { switch (type)
-	  	{ case eText:      return "Text";
-	  		case eNumber:    return "Number";
-	  		case eName:      return "Name";
-	  		case eDelimiter: return "Delimiter";
+	  	{ case eName:      return "name";
+	  		case eText:      return "text";
+	  		case eInteger:   return "integer";
+	  		case eDouble:    return "double";
+	  		case eDelimiter: return "delimiter";
 	  	}
 	  	return "?";
 	  }
-	bool isNumber (uint n) const
-	  { return ! empty () && type == eNumber && num == n; }
 	bool isName (const string &s) const
 	  { return ! empty () && type == eName && name == s; }
+	bool isNameText (const string &s) const
+	  { return ! empty () && (type == eName || type == eText) && name == s; }
+	bool isInteger (int n_arg) const
+	  { return ! empty () && type == eInteger && n == n_arg; }
+	bool isDouble (double d_arg) const
+	  { return ! empty () && type == eDouble && d == d_arg; }
 	bool isDelimiter (char c) const
 	  { return ! empty () && type == eDelimiter && name [0] == c; }
 };
@@ -2503,8 +2582,8 @@ private:
   ONumber on;
 public:
   
-  TabDel (streamsize precision = 6,
-	        bool scientific = false)
+  explicit TabDel (streamsize precision = 6,
+	                 bool scientific = false)
 	  : on (tabDel, precision, scientific)
 	  {}
     
@@ -2544,11 +2623,11 @@ public:
   
   virtual const JsonNull* asJsonNull () const
     { return nullptr; }  
+  virtual const JsonString* asJsonString () const
+    { return nullptr; }  
   virtual const JsonInt* asJsonInt () const
     { return nullptr; }  
   virtual const JsonDouble* asJsonDouble () const
-    { return nullptr; }  
-  virtual const JsonString* asJsonString () const
     { return nullptr; }  
   virtual const JsonBoolean* asJsonBoolean () const
     { return nullptr; }  
@@ -2560,19 +2639,19 @@ public:
 protected:
   static string toStr (const string& s)
     { return "'" + to_c (s) + "'"; }    
-  static Token readToken (istream &is);
-  static void parse (istream& is,
+  static void parse (CharInput &in,
                      const Token& firstToken,
                      JsonContainer* parent,
                      const string& name);
-public:
-    
+public:    
+  string getString () const;
+    // Requires: JsonString
   int getInt () const;
     // Requires: JsonInt
   double getDouble () const;
     // Requires: JsonDouble
-  string getString () const;
-    // Requires: JsonString
+  bool getBoolean () const;
+    // Requires: JsonBoolean
   const Json* at (const string& name_arg) const;
     // Requires: JsonMap
   const Json* at (size_t index) const;
@@ -2596,51 +2675,6 @@ struct JsonNull : Json
 };
 
 
-struct JsonInt : Json
-{
-  int n;
-  
-  JsonInt (int n_arg,
-           JsonContainer* parent,
-           const string& name = noString)
-    : Json (parent, name)
-    , n (n_arg)
-    {}
-  void print (ostream& os) const final
-    { os << n; }
-
-  const JsonInt* asJsonInt () const final
-    { return this; }  
-};
-
-
-struct JsonDouble : Json
-{
-  double n;
-  streamsize decimals;
-
-  JsonDouble (double n_arg,
-              streamsize decimals_arg,
-              JsonContainer* parent,
-              const string& name = noString)
-    : Json (parent, name)
-    , n (n_arg)
-    , decimals (decimals_arg == numeric_limits<streamsize>::max() ? double2decimals (n_arg) : decimals_arg)
-    {}
-    // decimals_arg = -1: default
-  void print (ostream& os) const final
-    { const ONumber on (os, (streamsize) decimals, false);
-    	if (n == n)
-        os << n; 
-      else
-        os << "null";  // NaN
-    }      
-
-  const JsonDouble* asJsonDouble () const final
-    { return this; }  
-};
-
-
 struct JsonString : Json
 {
   string s;
@@ -2659,9 +2693,55 @@ struct JsonString : Json
 };
 
 
+struct JsonInt : Json
+{
+  int n {0};
+  
+  JsonInt (int n_arg,
+           JsonContainer* parent,
+           const string& name = noString)
+    : Json (parent, name)
+    , n (n_arg)
+    {}
+  void print (ostream& os) const final
+    { os << n; }
+
+  const JsonInt* asJsonInt () const final
+    { return this; }  
+};
+
+
+struct JsonDouble : Json
+{
+  double n {0.0};
+  streamsize decimals {0};
+  bool scientfiic {false};
+
+  JsonDouble (double n_arg,
+              streamsize decimals_arg,
+              JsonContainer* parent,
+              const string& name = noString)
+    : Json (parent, name)
+    , n (n_arg)
+    , decimals (decimals_arg == numeric_limits<streamsize>::max() ? double2decimals (n_arg) : decimals_arg)
+    {}
+    // decimals_arg = -1: default
+  void print (ostream& os) const final
+    { const ONumber on (os, (streamsize) decimals, scientific);
+    	if (n == n)
+        os << n; 
+      else
+        os << "null";  // NaN
+    }      
+
+  const JsonDouble* asJsonDouble () const final
+    { return this; }  
+};
+
+
 struct JsonBoolean : Json
 {
-  bool b;
+  bool b {false};
 
   JsonBoolean (bool b_arg,
                JsonContainer* parent,
@@ -2701,7 +2781,7 @@ public:
     : JsonContainer (parent, name)
     {}
 private:
-  JsonArray (istream& is,
+  JsonArray (CharInput& in,
              JsonContainer* parent,
              const string& name);
 public:
@@ -2728,12 +2808,12 @@ public:
     // Output: jRoot = this
   explicit JsonMap (const string &fName);
 private:
-  JsonMap (istream& is,
+  JsonMap (CharInput& in,
            JsonContainer* parent,
            const string& name)
     : JsonContainer (parent, name)
-    { parse (is); }
-  void parse (istream& is);
+    { parse (in); }
+  void parse (CharInput& in);
 public:
  ~JsonMap ();
   void print (ostream& os) const final;

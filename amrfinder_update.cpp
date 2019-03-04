@@ -216,6 +216,7 @@ struct ThisApplication : ShellApplication
       mainDir += "/";    
 
     findProg ("makeblastdb");
+    findProg ("hmmpress");
     
     Curl curl;    
     
@@ -246,7 +247,10 @@ struct ThisApplication : ShellApplication
     fetchAMRFile (curl, latestDir, "fam.tab");
     fetchAMRFile (curl, latestDir, "changes.txt");
     
+    stderr << "Indexing" << "\n";
+    exec (fullProg ("hmmpress") + " -f " + latestDir + "AMR.LIB &> /dev/null");
 	  exec (fullProg ("makeblastdb") + " -in " + latestDir + "AMRProt  -dbtype prot  -logfile /dev/null");  
+	  exec (fullProg ("makeblastdb") + " -in " + latestDir + "AMR_CDS  -dbtype nucl  -logfile /dev/null");  
   }
 };
 
