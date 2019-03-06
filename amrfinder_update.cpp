@@ -140,7 +140,7 @@ string Curl::read (const string &url)
 
 
 
-#define URL "https://ftp.ncbi.nlm.nih.gov/pathogen/Antimicrobial_resistance/AMRFinder/data/"
+#define URL "https://ftp.ncbi.nlm.nih.gov/pathogen/Technical/AMRFinder_technical/v2.data"
 
 
 

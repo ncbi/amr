@@ -37,6 +37,7 @@ datadir=$(prefix)/share
 BLAST_BIN=$(BIN)
 HMMER_BIN=$(BIN)
 INSTALL_DIR = $(datadir)/amrfinder
+INSTALL_PROGRAM=install
 
 CPPFLAGS = -std=gnu++11 -pthread \
   -malign-double -fno-math-errno \
@@ -106,7 +107,7 @@ clean:
 	rm -f $(BINARIES)
 
 install:
-	$(INSTALL) -D -t $(INSTALL_DIR) amr_report fasta_check gff_check amrfinder point_mut 
+	$(INSTALL_PROGRAM) --target-directory=$(INSTALL_DIR) $(BINARIES)
 
 # amrfinder binaries for github binary release
 GITHUB_FILE=amrfinder_binaries_v$(VERSION_STRING)
