@@ -140,7 +140,7 @@ string Curl::read (const string &url)
 
 
 
-#define URL "https://ftp.ncbi.nlm.nih.gov/pathogen/Technical/AMRFinder_technical/v2.data"
+#define URL "https://ftp.ncbi.nlm.nih.gov/pathogen/Technical/AMRFinder_technical/v2.data/"
 
 
 
@@ -149,6 +149,8 @@ string getLatestVersion (Curl &curl)
 {
   string prevLine;
   const StringVector dir (curl. read (URL), '\n');
+  if (verbose ())
+    cout << dir << endl;
   for (const string& line : dir)
   {
     if (contains (line, "<a href=\"latest/\">latest/</a>"))
@@ -203,15 +205,16 @@ struct ThisApplication : ShellApplication
 
   void shellBody () const final
   {
-          string mainDir = getArg ("database");
-    const bool   quiet   = getFlag ("quiet");
+          string mainDirOrig = getArg ("database");
+    const bool   quiet       = getFlag ("quiet");
     
-    
+        
     Stderr stderr (quiet);
     stderr << "Running "<< getCommandLine () << '\n';
     const Verbose vrb (qc_on);
     
     // mainDir
+    string mainDir (simplifyDir (mainDirOrig));
     if (! isRight (mainDir, "/"))
       mainDir += "/";    
 

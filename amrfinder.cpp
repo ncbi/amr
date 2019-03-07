@@ -69,6 +69,7 @@ struct ThisApplication : ShellApplication
     	addKey ("protein", "Protein FASTA file to search", "", 'p', "PROT_FASTA");
     	addKey ("nucleotide", "Nucleotide FASTA file to search", "", 'n', "NUC_FASTA");
     	addKey ("database", "Alternative directory with AMRFinder database. Default: $AMRFINDER_DB", "", 'd', "DATABASE_DIR");
+    	addFlag ("update", "Update the AMRFinder database", 'u');
     	addKey ("gff", "GFF file for protein locations. Protein id should be in the attribute 'Name=<id>' (9th field) of the rows with type 'CDS' or 'gene' (3rd field).", "", 'g', "GFF_FILE");
     	addKey ("ident_min", "Minimum identity for nucleotide hit (0..1). -1 means use a curated threshold if it exists and " + toString (ident_min_def) + " otherwise", "-1", 'i', "MIN_IDENT");
     	addKey ("coverage_min", "Minimum coverage of the reference protein (0..1)", toString (partial_coverage_min_def), 'c', "MIN_COV");
@@ -103,6 +104,7 @@ struct ThisApplication : ShellApplication
     const string prot          = shellQuote (getArg ("protein"));
     const string dna           = shellQuote (getArg ("nucleotide"));
           string db            =             getArg ("database");
+    const bool   update        =             getFlag ("update");
     const string gff           = shellQuote (getArg ("gff"));
     const double ident         =             arg2double ("ident_min");
     const double cov           =             arg2double ("coverage_min");
@@ -115,6 +117,9 @@ struct ThisApplication : ShellApplication
     const bool   quiet         =             getFlag ("quiet");
     
     
+		const string logFName (tmp + ".log");
+
+
     Stderr stderr (quiet);
     stderr << "Running "<< getCommandLine () << '\n';
     const Verbose vrb (qc_on);
@@ -168,6 +173,13 @@ struct ThisApplication : ShellApplication
 			  db = execDir + dbSuff;
 		}
 		ASSERT (! db. empty ());
+		  
+		if (update)
+    {
+      findProg ("amrfinder_update");	
+		  exec (fullProg ("amrfinder_update") + " -d " + db + "/.." + ifS (quiet, " -q") + ifS (qc_on, " --debug") + " > " + logFName, logFName);
+		}
+
 		if (! directoryExists (db))
 		  throw runtime_error ("Directory with data \"" + db + "\" does not exist");
 
@@ -229,7 +241,6 @@ struct ThisApplication : ShellApplication
     const string qcS (qc_on ? "-qc  -verbose 1" : "");
     const string point_mut_allS (point_mut_all. empty () ? "" : ("-point_mut_all " + point_mut_all));
 		const string force_cds_report (! emptyArg (dna) && ! emptyArg (organism) ? "-force_cds_report" : "");  // Needed for point_mut
-		const string logFName (tmp + ".log");
 		
 								  
     findProg ("fasta_check");

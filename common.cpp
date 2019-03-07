@@ -676,11 +676,13 @@ string list2str (const List<string> &strList,
                  const string &sep) 
 {
 	string s;
+	bool first = true;
 	for (const string& e : strList)
 	{
-		if (! s. empty ())
+    if (! first)
 			s += sep;
 	  s += e;
+	  first = false;
 	}
 	return s;
 }
@@ -714,6 +716,41 @@ bool directoryExists (const string &dirName)
   return yes;
 }
 #endif
+
+
+
+string simplifyDir (const string &dir)
+{
+  ASSERT (! dir. empty ());
+  
+  List<string> items (str2list (dir, fileSlash));
+
+  auto it = items. begin (); 
+  while (it != items. end ())
+    if (it->empty () && it != items. begin ())
+    {
+      auto it1 = items. erase (it);
+      it = it1;
+    }
+    else 
+      it++;
+      
+  it = items. begin (); 
+  while (it != items. end ())
+    if (*it == ".." && it != items. begin ())
+    {
+      auto it1 = items. erase (it);
+      it1--;
+      if (it1->empty ())
+        throw runtime_error ("Imposible directory: /..");
+      auto it2 = items. erase (it1);
+      it = it2;
+    }
+    else
+      it++;
+    
+  return nvl (list2str (items, string (1, fileSlash)), string (1, fileSlash));
+}
 
 
 
