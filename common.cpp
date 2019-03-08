@@ -727,7 +727,9 @@ string simplifyDir (const string &dir)
 
   auto it = items. begin (); 
   while (it != items. end ())
-    if (it->empty () && it != items. begin ())
+    if (   (it->empty () && it != items. begin ())
+        || *it == "."
+       )
     {
       auto it1 = items. erase (it);
       it = it1;
@@ -742,9 +744,16 @@ string simplifyDir (const string &dir)
       auto it1 = items. erase (it);
       it1--;
       if (it1->empty ())
-        throw runtime_error ("Imposible directory: /..");
-      auto it2 = items. erase (it1);
-      it = it2;
+      {
+        ASSERT (it1 == items. begin ());
+        *it1 = "..";
+        it = it1;
+      }
+      else
+      {
+        auto it2 = items. erase (it1);
+        it = it2;
+      }
     }
     else
       it++;

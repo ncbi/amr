@@ -130,36 +130,39 @@ struct ThisApplication : ShellApplication
     time_t start, end;  // For timing... 
     start = time (NULL);
 
-    string mode;
+    string searchMode;
     StringVector includes;
     if (emptyArg (prot))
       if (emptyArg (dna))
-  		  throw runtime_error ("Parameter --prot or --nucleotide must be present");
+      {
+        if (! update)
+  	  	  throw runtime_error ("Parameter --prot or --nucleotide must be present");
+  		}
       else
       {
     		if (! emptyArg (gff))
           throw runtime_error ("Parameter --gff is redundant");
-        mode = "translated nucleotide";
+        searchMode = "translated nucleotide";
       }
     else
     {
-      mode = "protein";
+      searchMode = "protein";
       if (emptyArg (dna))
       {
-        mode += "-only";
+        searchMode += "-only";
         includes << key2shortHelp ("nucleotide") + " and " + key2shortHelp ("gff") + " options to add translated searches";
       }
       else
       {
     		if (emptyArg (gff))
           throw runtime_error ("If parameters --prot and --nucleotide are present then parameter --gff must be present");
-        mode = "combined translated plus protein";
+        searchMode = "combined translated plus protein";
       }
     }
     if (emptyArg (organism))
       includes << key2shortHelp ("organism") + " option to add point-mutation searches";
     else
-      mode += " and point-mutation";
+      searchMode += " and point-mutation";
       
       
     const string dbSuff ("/data/latest");  // "/../data" 
@@ -184,7 +187,11 @@ struct ThisApplication : ShellApplication
 		  throw runtime_error ("Directory with data \"" + db + "\" does not exist");
 
 
-    stderr << "AMRFinder " << mode << " search with database " << db << "\n";
+    if (searchMode. empty ())
+      return;
+
+
+    stderr << "AMRFinder " << searchMode << " search with database " << db << "\n";
     for (const string& include : includes)
       stderr << "  - include " << include << '\n';
 
