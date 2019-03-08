@@ -176,11 +176,20 @@ struct ThisApplication : ShellApplication
 			  db = execDir + dbSuff;
 		}
 		ASSERT (! db. empty ());
+		const Dir dbDir (db);
 		  
 		if (update)
     {
-      findProg ("amrfinder_update");	
-		  exec (fullProg ("amrfinder_update") + " -d " + db + "/.." + ifS (quiet, " -q") + ifS (qc_on, " --debug") + " > " + logFName, logFName);
+      if (! dbDir. items. empty () && dbDir. items. back () == "latest")
+      {
+        findProg ("amrfinder_update");	
+  		  exec (fullProg ("amrfinder_update") + " -d " + dbDir. getParent () + ifS (quiet, " -q") + ifS (qc_on, " --debug") + " > " + logFName, logFName);
+      }
+      else
+        cout << "WARNING: Updating database directory works only for databases with the default data directory format." << endl
+             << "Please see https://github.com/ncbi/amr/wiki for details." << endl
+             << "Current database directory is: " << dbDir. getParent () << endl
+             << "New database directories will be craeted as subdirectories of " << dbDir. getParent () << endl;
 		}
 
 		if (! directoryExists (db))

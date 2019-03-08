@@ -719,11 +719,11 @@ bool directoryExists (const string &dirName)
 
 
 
-string simplifyDir (const string &dir)
+Dir::Dir (const string &name)
 {
-  ASSERT (! dir. empty ());
+  ASSERT (! name. empty ());
   
-  List<string> items (str2list (dir, fileSlash));
+  items = str2list (name, fileSlash);
 
   auto it = items. begin (); 
   while (it != items. end ())
@@ -757,8 +757,6 @@ string simplifyDir (const string &dir)
     }
     else
       it++;
-    
-  return nvl (list2str (items, string (1, fileSlash)), string (1, fileSlash));
 }
 
 

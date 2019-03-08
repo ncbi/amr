@@ -942,7 +942,30 @@ bool fileExists (const string &fName);
   bool directoryExists (const string &dirName);
 #endif
 
-string simplifyDir (const string &dir);
+
+struct Dir
+{
+  List<string> items;
+    // Simplified: contains no redundant "", ".", ".."
+    // items.front().empty (): root
+
+  explicit Dir (const string &name);
+    
+  string get () const
+    { return items. empty () 
+               ? string (1, '.') 
+               : nvl (list2str (items, string (1, fileSlash)), string (1, fileSlash)); 
+    }
+  string getParent () const
+    { if (items. empty ())
+        return "..";
+      if (items. size () == 1 && items. front (). empty ())
+        throw runtime_error ("Cannot get the parent directory of the root");
+      const Dir parent (get () + "/..");
+      return parent. get ();
+    }
+};
+
 
 streampos getFileSize (const string &fName);
 

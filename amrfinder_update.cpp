@@ -214,9 +214,10 @@ struct ThisApplication : ShellApplication
     const Verbose vrb (qc_on);
     
     // mainDir
-    string mainDir (simplifyDir (mainDirOrig));
-    if (! isRight (mainDir, "/"))
-      mainDir += "/";    
+    const Dir mainDir (mainDirOrig);
+    string mainDirS (mainDir. get ());
+    if (! isRight (mainDirS, "/"))
+      mainDirS += "/";    
 
     findProg ("makeblastdb");
     findProg ("hmmpress");
@@ -228,11 +229,11 @@ struct ThisApplication : ShellApplication
     if (latest_version. empty ())
       throw runtime_error ("Cannot get the latest version");
       
-    const string latestDir (mainDir + latest_version + "/");
-    const string latestLink (mainDir + "latest");
+    const string latestDir (mainDirS + latest_version + "/");
+    const string latestLink (mainDirS + "latest");
       
-    if (! directoryExists (mainDir))
-      exec ("mkdir " + mainDir);
+    if (! directoryExists (mainDirS))
+      exec ("mkdir " + mainDirS);
     
     if (directoryExists (latestDir))
       stderr << latestDir << " already exists, overwriting what was there\n";
