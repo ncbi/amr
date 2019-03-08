@@ -27,7 +27,7 @@ use File::Temp qw( tempdir );
 use File::Basename;
 use Net::FTP;
 use Cwd qw( getcwd abs_path );
-my $curr_version = '$Revision: 38913 $';
+my $curr_version = '$Revision: 39138 $';
 our $DEBUG = 0;
 
 # todo:
@@ -78,7 +78,7 @@ amrfinder [-options] -n <genomic sequence FASTA>
     -U/--update_data update AMRFinder database by downloading latest version
         from the NCBI ftp site
 Options used for either of the operating modes:
-    -d/--custom_directory <dir> Directory containing the AMR database
+    -d/--database <dir> Directory containing the AMR database
     -o/--output <file.tsv> tabfile output to this file instead of STDOUT
     -q/--quiet don't print status messages to STDERR
 Options relating to protein input (-p):
@@ -129,7 +129,7 @@ my $NUM_THREADS     = 4; # parameter to -num_threads or --cpu
 GetOptions(
     'protein=s'             => \$prot_file,
     'nucleotide=s'          => \$nuc_file,
-    'd|custom_database=s'   => \$database_dir,
+    'database=s'   => \$database_dir,
     'output=s'              => \$outfile,
     'fasta_out=s'           => \$out_fa,
     'gff=s'                 => \$gff,
@@ -140,7 +140,7 @@ GetOptions(
     'quiet'                 => \$quiet,
     'help|?'                => \$help,
     'version'               => \$version,
-    'D'                     => \$DEBUG,
+    #    'D'                     => \$DEBUG,
 );
 
 print $usage_long and exit() if ($help);
