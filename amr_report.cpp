@@ -137,8 +137,7 @@ struct Fam
   string subclass;
 
 
-  Fam (Fam* parent_arg,
-       const string &id_arg,
+  Fam (const string &id_arg,
        const string &genesymbol_arg,
        const string &hmm_arg,
        double tc1_arg,
@@ -151,8 +150,7 @@ struct Fam
        const string &subclass_arg,
        const string &familyName_arg,
        bool reportable_arg)
-    : parent (parent_arg)
-    , id (id_arg)
+    : id (id_arg)
     , genesymbol (genesymbol_arg)
     , familyName (familyName_arg)
     , reportable (reportable_arg)
@@ -205,6 +203,8 @@ struct Fam
 
 
 map<string/*famId*/,const Fam*> famId2fam;
+  // Value: !nullptr
+  //        Not delete'd
 
 
 
@@ -1094,8 +1094,6 @@ struct Batch
 {
   // Reference input
   map<string/*hmm*/,const Fam*> hmm2fam;
-  unique_ptr<Fam> root;
-    // Not delete'd in ~Batch()
   bool non_reportable {false};
 
   // Target input
@@ -1115,8 +1113,7 @@ struct Batch
          const string &organism, 
          const string &point_mut,
          bool non_reportable_arg)
-    : root (new Fam ())
-    , non_reportable (non_reportable_arg)
+    : non_reportable (non_reportable_arg)
 	  {
 	    if (famFName. empty ())
 	    	throw runtime_error ("fam (protein family hierarchy) file is missing");
@@ -1165,7 +1162,7 @@ struct Batch
   	  	    const string subclass (findSplit (f. line, '\t'));
   	  	    if (parentFamId == pointMutParent)
   	  	      continue;
-  	  	    const auto fam = new Fam (root. get (), famId, genesymbol, hmm, tc1, tc2, completeBR, partialBR, type, subtype, classS, subclass, f. line, reportable);
+  	  	    const auto fam = new Fam (famId, genesymbol, hmm, tc1, tc2, completeBR, partialBR, type, subtype, classS, subclass, f. line, reportable);
   	  	    if (famId2fam [famId])
   	  	      throw runtime_error ("Family " + famId + " is duplicated");
   	  	    famId2fam [famId] = fam;
@@ -1186,17 +1183,19 @@ struct Batch
 	  	  {
 	  	    trim (f. line);
 	  	  //cout << f. line << endl;  
-	  	    Fam* child = var_cast (famId2fam [findSplit (f. line, '\t')]);
+	  	    const Fam* child = famId2fam [findSplit (f. line, '\t')];
 	  	    const string parentFamId (findSplit (f. line, '\t'));
 	  	    if (parentFamId == pointMutParent)
 	  	      continue;
 	  	    ASSERT (child);
-	  	    Fam* parent = nullptr;
+	  	    const Fam* parent = nullptr;
 	  	    if (! parentFamId. empty ())
 	  	    { 
-	  	    	EXEC_ASSERT (parent = var_cast (famId2fam [parentFamId])); 
+	  	    	parent = famId2fam [parentFamId]; 
+	  	    	if (! parent)
+	  	    	  throw runtime_error ("parentFamId " + strQuote (parentFamId) + " is not found in famId2fam for child " + strQuote (child->id));
 	  	    }
-	  	    child->parent = parent;
+	  	    var_cast (child) -> parent = parent;
 	  	  }
 	  	}
 
@@ -1239,15 +1238,20 @@ public:
 	  	  
 
 	void process (bool skip_hmm_check) 
-  // Input: root, blastAls, domains, hmmAls
+  // Input: blastAls, domains, hmmAls
 	// Output: goodBlastAls
 	{
-		ASSERT (root. get ());
-		
     // Use BlastAlignment.cdss
     for (Iter<BlastAls> iter (blastAls); iter. next ();)
       if (! iter->good ())
+      {
+        if (verbose ())
+        {
+          cout << "Erased:" << endl;
+          iter->saveText (cout);
+        }
         iter. erase ();
+      }
         
     // Group by targetName and process each targetName separately for speed ??    
 
@@ -1682,9 +1686,6 @@ struct ThisApplication : Application
     Batch batch (famFName, organism, point_mut, non_reportable);  
   
   
-    // Fusion proteins, see PD-283 ??
-    
-    
     // Input 
 
     // batch.blastAls
@@ -1775,7 +1776,14 @@ struct ThisApplication : Application
   	      continue;
   	    HmmAlignment hmmAl (f. line, batch);
   	    if (! hmmAl. good ())
+  	    {
+  	      if (verbose ())
+  	      {
+  	        cout << "  Bad HMM: " << endl;
+  	        hmmAl. saveText (cout);
+  	      }
   	    	continue;
+  	    }
   	    auto al = new BlastAlignment (hmmAl);
 	  	  hmmAl. blastAl. reset (al);
 	  	  if (verbose ())

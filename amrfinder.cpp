@@ -69,7 +69,7 @@ struct ThisApplication : ShellApplication
     	addKey ("protein", "Protein FASTA file to search", "", 'p', "PROT_FASTA");
     	addKey ("nucleotide", "Nucleotide FASTA file to search", "", 'n', "NUC_FASTA");
     	addKey ("database", "Alternative directory with AMRFinder database. Default: $AMRFINDER_DB", "", 'd', "DATABASE_DIR");
-    	addFlag ("update", "Update the AMRFinder database", 'u');
+    	addFlag ("update", "Update the AMRFinder database", 'u');  // PD-2379
     	addKey ("gff", "GFF file for protein locations. Protein id should be in the attribute 'Name=<id>' (9th field) of the rows with type 'CDS' or 'gene' (3rd field).", "", 'g', "GFF_FILE");
     	addKey ("ident_min", "Minimum identity for nucleotide hit (0..1). -1 means use a curated threshold if it exists and " + toString (ident_min_def) + " otherwise", "-1", 'i', "MIN_IDENT");
     	addKey ("coverage_min", "Minimum coverage of the reference protein (0..1)", toString (partial_coverage_min_def), 'c', "MIN_COV");
@@ -127,8 +127,57 @@ struct ThisApplication : ShellApplication
     if (threads_max < threads_max_min)
       throw runtime_error ("Number of threads cannot be less than " + toString (threads_max_min));
     
+		if (ident != -1.0 && (ident < 0.0 || ident > 1.0))
+		  throw runtime_error ("ident_min must be between 0 and 1");
+		
+		if (cov < 0.0 || cov > 1.0)
+		  throw runtime_error ("coverage_min must be between 0 and 1");
+		  
+
+		if (! emptyArg (output))
+		  try { OFStream f (unQuote (output)); }
+		    catch (...) { throw runtime_error ("Cannot open output file " + output); }
+
+    
     time_t start, end;  // For timing... 
     start = time (NULL);
+
+
+		// db
+		if (db. empty ())
+		{
+    	if (const char* s = getenv ("AMRFINDER_DB"))
+    		db = string (s);
+    	else
+			  db = execDir + "/data/latest";
+		}
+		ASSERT (! db. empty ());		  
+		if (! directoryExists (db))  // PD-2447
+		  throw runtime_error ("No valid AMRFinder database found. To download the latest version to the default directory run amrfinder -u");
+
+
+		const Dir dbDir (db);
+		if (update)
+    {
+      // PD-2447
+      if (! emptyArg (prot) || ! emptyArg (dna))
+        throw runtime_error ("AMRFinder -u/--update option cannot be run with -n/--nucleotide or -p/--protein options");
+      if (! getArg ("database"). empty ())
+        throw runtime_error ("AMRFinder update option (-u/--update) only operates on the default database directory. The -d/--database option is not permitted");
+      if (getenv ("AMRFINDER_DB"))
+        cout << "WARNING: AMRFINDER_DB is set, but AMRFinder auto-update only downloads to the default database directory" << endl;
+      if (! dbDir. items. empty () && dbDir. items. back () == "latest")
+      {
+        findProg ("amrfinder_update");	
+  		  exec (fullProg ("amrfinder_update") + " -d " + dbDir. getParent () + ifS (quiet, " -q") + ifS (qc_on, " --debug") + " > " + logFName, logFName);
+      }
+      else
+        cout << "WARNING: Updating database directory works only for databases with the default data directory format." << endl
+             << "Please see https://github.com/ncbi/amr/wiki for details." << endl
+             << "Current database directory is: " << strQuote (dbDir. getParent ()) << endl
+             << "New database directories will be created as subdirectories of " << strQuote (dbDir. getParent ()) << endl;
+		}
+
 
     string searchMode;
     StringVector includes;
@@ -165,37 +214,6 @@ struct ThisApplication : ShellApplication
       searchMode += " and point-mutation";
       
       
-    const string dbSuff ("/data/latest");  // "/../data" 
-    
-		// db
-		if (db. empty ())
-		{
-    	if (const char* s = getenv ("AMRFINDER_DB"))
-    		db = string (s);
-    	else
-			  db = execDir + dbSuff;
-		}
-		ASSERT (! db. empty ());
-		const Dir dbDir (db);
-		  
-		if (update)
-    {
-      if (! dbDir. items. empty () && dbDir. items. back () == "latest")
-      {
-        findProg ("amrfinder_update");	
-  		  exec (fullProg ("amrfinder_update") + " -d " + dbDir. getParent () + ifS (quiet, " -q") + ifS (qc_on, " --debug") + " > " + logFName, logFName);
-      }
-      else
-        cout << "WARNING: Updating database directory works only for databases with the default data directory format." << endl
-             << "Please see https://github.com/ncbi/amr/wiki for details." << endl
-             << "Current database directory is: " << dbDir. getParent () << endl
-             << "New database directories will be craeted as subdirectories of " << dbDir. getParent () << endl;
-		}
-
-		if (! directoryExists (db))
-		  throw runtime_error ("Directory with data \"" + db + "\" does not exist");
-
-
     if (searchMode. empty ())
       return;
 
@@ -205,18 +223,6 @@ struct ThisApplication : ShellApplication
       stderr << "  - include " << include << '\n';
 
 
-		if (ident != -1 && (ident < 0 || ident > 1))
-		  throw runtime_error ("ident_min must be between 0 and 1");
-		
-		if (cov < 0 || cov > 1)
-		  throw runtime_error ("coverage_min must be between 0 and 1");
-		  
-
-		if (! emptyArg (output))
-		  try { OFStream f (unQuote (output)); }
-		    catch (...) { throw runtime_error ("Cannot open output file " + output); }
-
-    
     // blast_bin
     if (blast_bin. empty ())
     	if (const char* s = getenv ("BLAST_BIN"))

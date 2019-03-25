@@ -91,7 +91,9 @@ string getCommandLine ()
 
 ostream* logPtr = nullptr;
 
-bool qc_on = false;
+#ifndef NDEBUG
+  bool qc_on = false;
+#endif
 ulong seed_global = 1;
 bool sigpipe = false;
 
@@ -1073,17 +1075,6 @@ void Root::saveFile (const string &fName) const
 
 
 // Named
-
-Named::Named (const string& name_arg)
-: name (name_arg) 
-{
-#ifndef NDEBUG
-  if (! goodName (name))
-    ERROR_MSG ("Bad name: " + strQuote (name_arg));
-#endif
-}
-
-
 
 void Named::qc () const
 {
@@ -2461,9 +2452,11 @@ int Application::run (int argc,
 	  	ASSERT (! logPtr);
 	    if (! logFName. empty ())
 	  		logPtr = new ofstream (logFName, ios_base::app);
-	  
+
+    #ifndef NDEBUG	  
 	  	if (getFlag ("qc"))
 	  		qc_on = true;
+	  #endif
 	
 	  	if (getFlag ("noprogress"))
 	  		Progress::disable ();

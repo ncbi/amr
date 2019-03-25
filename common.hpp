@@ -66,6 +66,7 @@
 #include <stack>
 #include <set>
 #include <map>
+#include <unordered_set>
 #include <unordered_map>
 #include <iostream>
 #include <fstream>
@@ -108,7 +109,12 @@ string getCommandLine ();
 
 extern ostream* logPtr;
 
-extern bool qc_on;
+#ifdef NDEBUG
+  constexpr bool qc_on = false;
+#else
+  extern bool qc_on;
+#endif
+
 extern ulong seed_global;
   // >= 1
 
@@ -1184,13 +1190,13 @@ public:
     {}
     // A desrtructor should be virtual to be automatically invoked by a descendant class destructor
   virtual Root* copy () const
-    { NOT_IMPLEMENTED; return nullptr; }
+    { throw logic_error ("Root::copy() is not implemented"); }
     // Return: the same type    
   virtual void qc () const
     {}
     // Input: qc_on
   virtual void saveText (ostream& /*os*/) const 
-    { NOT_IMPLEMENTED; }
+    { throw logic_error ("Root::saveText() is not implemented"); }
     // Parsable output
   void saveFile (const string &fName) const;
     // if fName.empty() then do nothing
@@ -1205,14 +1211,14 @@ public:
     // Human-friendly
   virtual Json* toJson (JsonContainer* /*parent_arg*/,
                         const string& /*name_arg*/) const
-    { NOT_IMPLEMENTED; return nullptr; }
+    { throw logic_error ("Root::toJson() is not implemented"); }
 	virtual bool empty () const
-	  { NOT_IMPLEMENTED; return false; }
+	  { return true; }
   virtual void clear ()
-    { NOT_IMPLEMENTED; }
+    {}
     // Postcondition: empty()
   virtual void read (istream &/*is*/)
-	  { NOT_IMPLEMENTED; }
+    { throw logic_error ("Root::read() is not implemented"); }
 	  // Input: a line of is
 };
 
@@ -1227,7 +1233,7 @@ inline ostream& operator<< (ostream &os,
 
 
 template <typename T /*Root*/> 
-  struct AutoPtr : unique_ptr<T>  // ??
+  struct AutoPtr : unique_ptr<T>  
   {
   private:
   	typedef  unique_ptr<T>  P;
@@ -1239,7 +1245,7 @@ template <typename T /*Root*/>
   	AutoPtr (const AutoPtr<T> &t) 
   	  : P (t. copy ())
   	  {}
-  	AutoPtr (AutoPtr<T> &t) 
+  	AutoPtr (AutoPtr<T> &&t) 
   	  : P (t. release ())
   	  {}
   	AutoPtr<T>& operator= (T* t)
@@ -1250,7 +1256,7 @@ template <typename T /*Root*/>
   	  { P::reset (t. copy ());
   	  	return *this;
   	  }
-  	AutoPtr<T>& operator= (AutoPtr<T> &t)
+  	AutoPtr<T>& operator= (AutoPtr<T> &&t)
   	  { P::reset (t. release ());
   	  	return *this;
   	  }
@@ -1266,9 +1272,11 @@ struct Named : Root
     // !empty(), no spaces at the ends, printable ASCII characeters
 
   Named () = default;
-  explicit Named (const string &name_arg);   
+  explicit Named (const string &name_arg)
+    : name (name_arg) 
+    {}
   Named* copy () const override
-    { return new Named (*this); }    
+    { return new Named (*this); } 
   void qc () const override;
   void saveText (ostream& os) const override
     { os << name; }
@@ -1320,25 +1328,31 @@ public:
 	explicit Vector (const vector<T> &other) 
     : P (other)
 	  {}
-  Vector (const Vector<T> &other) 
-    : P (other)
-    , searchSorted (other. searchSorted)
-    {}
-	Vector<T>& operator= (const Vector<T> &other)
-	  { searchSorted = other. searchSorted;
-	    P::reserve (other. size ());
-	    P::operator= (other); 
-	    return *this;
+	
+	
+	typename P::reference operator[] (size_t index)
+	  {
+	  #ifndef NDEBUG
+	    if (index >= P::size ())
+	      throw range_error ("Vector assignment to index = " + toString (index) + ", but size = " + toString (P::size ()));
+	  #endif
+	    return P::operator[] (index);
 	  }
-	
-	
+	typename P::const_reference operator[] (size_t index) const
+	  {
+	  #ifndef NDEBUG
+	    if (index >= P::size ())
+	      throw range_error ("Vector reading of index = " + toString (index) + ", but size = " + toString (P::size ()));
+	  #endif
+	    return P::operator[] (index);
+	  }
   void reserveInc (size_t inc)
     { P::reserve (P::size () + inc); }
   bool find (const T &value,
              size_t &index) const
 	  // Output: index: valid if (bool)Return
 	  { for (index = 0; index < P::size (); index++)
-	      if (P::operator[] (index) == value)
+	      if ((*this) [index] == value)
 	        return true;
 	    return false;
 	  }
@@ -1415,20 +1429,22 @@ public:
     	{ const size_t j = P::size () - 1 - i;
     		if (i >= j)
     			break;
-    	  swap (P::operator[] (i), P::operator[] (j));
+    	  swap ((*this) [i], (*this) [j]);
     	}
     	searchSorted = false;
     }
   void randomOrder ()
 		{ Rand rand (seed_global);
 			for (T &t : *this)
-	      swap (t, P::operator[] ((size_t) rand. get ((ulong) P::size ())));
+	      swap (t, (*this) [(size_t) rand. get ((ulong) P::size ())]);
     	searchSorted = false;
 		}
   T pop (size_t n = 1)
     { T t = T ();
       while (n)
-      { t = P::operator[] (P::size () - 1);
+      { if (P::empty ())
+          throw runtime_error ("Cannot pop an empty vector");
+        t = (*this) [P::size () - 1];
     	  P::pop_back ();
         n--;
       }
@@ -1490,8 +1506,8 @@ public:
         return;
       FOR_START (size_t, i, 1, P::size ())
 		    FOR_REV (size_t, j, i)
-		      if (P::operator[] (j + 1) > P::operator[] (j))
-        	  swap (P::operator[] (j), P::operator[] (j + 1));
+		      if ((*this) [j + 1] > (*this) [j])
+        	  swap ((*this) [j], (*this) [j + 1]);
 		      else
 		      	break;
     	searchSorted = true;
@@ -1510,16 +1526,16 @@ public:
     	size_t lo = 0;  // vec.at(lo) <= value
     	size_t hi = P::size () - 1;  
     	// lo <= hi
-    	if (value < P::operator[] (lo))
+    	if (value < (*this) [lo])
     	  return exact ? NO_INDEX : lo;
-    	if (P::operator[] (hi) < value)
+    	if ((*this) [hi] < value)
     	  return NO_INDEX;
     	// at(lo) <= value <= at(hi)
     	for (;;)
     	{
 	    	const size_t m = (lo + hi) / 2;
-	    	if (   P::operator[] (m) == value
-	    		  || P::operator[] (m) <  value
+	    	if (   (*this) [m] == value
+	    		  || (*this) [m] <  value
 	    		 )
 	    		if (lo == m)  // hi in {lo, lo + 1}
 	    			break;
@@ -1528,9 +1544,9 @@ public:
 	      else
 	      	hi = m;
 	    }
-	    if (P::operator[] (lo) == value)
+	    if ((*this) [lo] == value)
 	    	return lo;
-	    if (! exact || P::operator[] (hi) == value)
+	    if (! exact || (*this) [hi] == value)
 	    	return hi;
 	    return NO_INDEX;
     }
@@ -1552,6 +1568,24 @@ public:
     	    return false;
         for (const U& u : other)
           if (! containsFast (u))
+            return false;
+        return true;
+      }
+  template <typename U /* : T */>
+    bool containsFastAll (const unordered_set<U> &other) const
+      { if (other. size () > P::size ())
+    	    return false;
+        for (const U& u : other)
+          if (! containsFast (u))
+            return false;
+        return true;
+      }
+  template <typename U /* : T */, typename V>
+    bool containsFastAll (const unordered_map<U,V> &other) const
+      { if (other. size () > P::size ())
+    	    return false;
+        for (const auto& it : other)
+          if (! containsFast (it. first))
             return false;
         return true;
       }
@@ -1641,8 +1675,8 @@ public:
   bool operator< (const Vector<T> &other) const
     // Lexicographic comparison
     { FFOR (size_t, i, std::min (P::size (), other. size ()))
-    	{ if (P::operator[] (i) < other [i]) return true;
-    		if (other [i] < P::operator[] (i)) return false;
+    	{ if ((*this) [i] < other [i]) return true;
+    		if (other [i] < (*this) [i]) return false;
       }
       return P::size () < other. size ();
     }
@@ -1663,7 +1697,6 @@ public:
 	                    const T* value = nullptr)
 	  : P (n, value)
 	  {}
-	VectorPtr (const VectorPtr<T> & /*other*/) = default;
   explicit VectorPtr (initializer_list<const T*> init)
     : P (init)
     {}
@@ -1696,14 +1729,14 @@ public:
 			P::clear ();  
 	  }
   void erasePtr (size_t index)
-    { delete P::operator[] (index);
+    { delete (*this) [index];
       P::eraseAt (index);
     }
   void sortBubblePtr ()
     { FOR_START (size_t, i, 1, P::size ())
 		    FOR_REV (size_t, j, i)
-		      if (* P::operator[] (j + 1) > * P::operator[] (j))
-        	  std::swap (P::operator[] (j), P::operator[] (j + 1));
+		      if (* (*this) [j + 1] > * (*this) [j])
+        	  std::swap ((*this) [j], (*this) [j + 1]);
 		      else
 		      	break;
     }
@@ -1719,20 +1752,22 @@ private:
 public:
 
   VectorOwn () = default;
-	VectorOwn (const VectorOwn<T> &x)
+	VectorOwn (const VectorOwn<T> &other) 
 	  : P ()
-	  { *this = x; }
-	VectorOwn<T>& operator= (const VectorOwn<T> &x)
+	  { *this = other; } 
+	VectorOwn<T>& operator= (const VectorOwn<T> &other) 
 	  { P::deleteData ();
-	  	P::reserve (x. size ());
-	  	for (const T* t : x)
+	  	P::reserve (other. size ());
+	  	for (const T* t : other)
 	  	  P::push_back (static_cast <const T*> (t->copy ()));
-	  	P::searchSorted = x. searchSorted;
+	  	P::searchSorted = other. searchSorted;
 	  	return *this;
 	  }
-	explicit VectorOwn (const VectorPtr<T> &x)
+	VectorOwn (VectorOwn<T>&&) = default;
+	VectorOwn<T>& operator= (VectorOwn<T>&&) = default;
+	explicit VectorOwn (const VectorPtr<T> &other)
 	  : P ()
-	  { P::operator= (x); }
+	  { P::operator= (other); }
  ~VectorOwn ()
     { P::deleteData (); }
 
@@ -1966,9 +2001,6 @@ public:
 	explicit Set (bool universal_arg)
 	  : universal (universal_arg)
 	  {}
-	Set (const Set<T> &other)
-	  : P ()
-	  { *this = other; }
 	template <typename U, typename V>
 	  explicit Set (const map<U,V> &other)
 	    { operator= (other); }
@@ -1978,11 +2010,6 @@ public:
 	template <typename U>
 	  explicit Set (const vector<U> &other)
 	    { operator= (other); }
-	Set<T>& operator= (const Set<T> &other)
-	  { universal = other. universal;
-	  	P::operator= (other); 
-	  	return *this;
-	  }
 	template <typename U, typename V>
   	Set<T>& operator= (const map<U,V> &other)
   	  { universal = false;
@@ -2245,7 +2272,7 @@ public:
 struct Input : Root, Nocopy
 {
 protected:
-	AutoPtr <char> buf;
+	unique_ptr<char> buf;
 	ifstream ifs;
   istream* is {nullptr};
     // !nullptr
@@ -3083,7 +3110,10 @@ private:
     	  addFlag ("debug", "Integrity checks");
       }
     	else
-    	{ addFlag ("qc", "Integrity checks (quality control)");
+    	{ 
+    	#ifndef NDEBUG
+    	  addFlag ("qc", "Integrity checks (quality control)");
+    	#endif
 	      addKey ("verbose", "Level of verbosity", "0");
 	      addFlag ("noprogress", "Turn off progress printout");
 	      addFlag ("profile", "Use chronometers to profile");
