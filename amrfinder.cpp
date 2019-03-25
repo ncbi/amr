@@ -143,20 +143,19 @@ struct ThisApplication : ShellApplication
     start = time (NULL);
 
 
+		const string defaultDb (execDir + "/data/latest");
+
 		// db
 		if (db. empty ())
 		{
     	if (const char* s = getenv ("AMRFINDER_DB"))
     		db = string (s);
     	else
-			  db = execDir + "/data/latest";
+			  db = defaultDb;
 		}
 		ASSERT (! db. empty ());		  
-		if (! directoryExists (db))  // PD-2447
-		  throw runtime_error ("No valid AMRFinder database found. To download the latest version to the default directory run amrfinder -u");
 
 
-		const Dir dbDir (db);
 		if (update)
     {
       // PD-2447
@@ -165,7 +164,11 @@ struct ThisApplication : ShellApplication
       if (! getArg ("database"). empty ())
         throw runtime_error ("AMRFinder update option (-u/--update) only operates on the default database directory. The -d/--database option is not permitted");
       if (getenv ("AMRFINDER_DB"))
+      {
         cout << "WARNING: AMRFINDER_DB is set, but AMRFinder auto-update only downloads to the default database directory" << endl;
+        db = defaultDb;
+      }
+  		const Dir dbDir (db);
       if (! dbDir. items. empty () && dbDir. items. back () == "latest")
       {
         findProg ("amrfinder_update");	
@@ -177,6 +180,10 @@ struct ThisApplication : ShellApplication
              << "Current database directory is: " << strQuote (dbDir. getParent ()) << endl
              << "New database directories will be created as subdirectories of " << strQuote (dbDir. getParent ()) << endl;
 		}
+
+
+		if (! directoryExists (db))  // PD-2447
+		  throw runtime_error ("No valid AMRFinder database found. To download the latest version to the default directory run amrfinder -u");
 
 
     string searchMode;
