@@ -721,6 +721,7 @@ bool directoryExists (const string &dirName)
 
 
 
+
 Dir::Dir (const string &name)
 {
   ASSERT (! name. empty ());
@@ -729,9 +730,17 @@ Dir::Dir (const string &name)
 
   auto it = items. begin (); 
   while (it != items. end ())
-    if (   (it->empty () && it != items. begin ())
-        || *it == "."
-       )
+    if (it->empty () && it != items. begin ())
+    {
+      auto it1 = items. erase (it);
+      it = it1;
+    }
+    else 
+      it++;
+      
+  it = items. begin (); 
+  while (it != items. end ())
+    if (*it == ".")
     {
       auto it1 = items. erase (it);
       it = it1;
@@ -760,6 +769,7 @@ Dir::Dir (const string &name)
     else
       it++;
 }
+
 
 
 
