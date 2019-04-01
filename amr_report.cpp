@@ -785,6 +785,7 @@ struct BlastAlignment
   	             << '\t' << allele ()
   	             << '\t' << alleleReported ()
   	             << '\t' << targetProt
+  	             << '\t' << nident
   	             << '\t';
 	          os << td. str () << endl;
 	        }
@@ -972,11 +973,13 @@ private:
 	    	if (targetName != other. targetName)
 	        return false;
 	      // PD-807
-	    //if (! targetProt && ! other. insideEq (*this))
-	      if (   ! other. insideEq (*this)
+	      if (   ! (targetProt && famId == other. famId)
+	          && ! other. insideEq (*this)
 	      	  && !        insideEq (other)
 	      	 )
 	        return false;
+	      if (targetProt)
+	        { LESS_PART (other, *this, isPointMut ()); }
 	      LESS_PART (other, *this, refExactlyMatched ());  // PD-1261, PD-1678
 	      LESS_PART (other, *this, nident);
 	      LESS_PART (*this, other, refEffectiveLen ());
@@ -1009,7 +1012,7 @@ public:
       if (! fam)
         fam = famId2fam [gene];
       if (! fam)
-      	throw runtime_error ("Cannot find hierarchy for " + famId + " / " + gene);
+      	throw runtime_error ("Cannot find hierarchy for: " + famId + " / " + gene);
       return fam;
     }
   bool better (const BlastAlignment &other) const
@@ -1089,6 +1092,8 @@ public:
 
 
 
+
+// Batch
 
 struct Batch
 {
@@ -1198,6 +1203,16 @@ struct Batch
 	  	    var_cast (child) -> parent = parent;
 	  	  }
 	  	}
+	  	
+	  	if (qc_on)
+	  	{
+	  	  size_t roots = 0;
+	  	  for (const auto& it : famId2fam)
+	  	    if (! it. second->parent)
+	  	      roots++;
+	  	  ASSERT (roots == 1);
+	  	}
+	  	
 
 	    if (! organism. empty ())
 	    {
@@ -1391,7 +1406,14 @@ public:
 	              break;
 	            }
 	          if (! found)   // BLAST is wrong
+	          {
+	            if (verbose ())
+	            {
+                cout << "HMM-wrong:  ";
+                iter->saveText (cout); 
+              }
 	            iter. erase ();
+	          }
 	        }
   	if (verbose ())
   	  cout << "# Best Blasts left: " << goodBlastAls. size () << endl;
@@ -1425,8 +1447,7 @@ public:
 		  }
 		}
 	}
-	
-	
+		
 	
 	void report (ostream &os) const
 	// Input: goodBlastAls

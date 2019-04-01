@@ -376,7 +376,7 @@ struct ThisApplication : ShellApplication
 		  + force_cds_report + " -pseudo"
 		  + (ident == -1 ? string () : "  -ident_min "    + toString (ident)) 
 		  + "  -coverage_min " + toString (cov)
-		  + " " + qcS + " " + parm + " -log " + logFName + "> " + tmp + ".amr-raw", logFName);
+		  + " " + qcS + " " + parm + " -log " + logFName + " > " + tmp + ".amr-raw", logFName);
 
 		if (! emptyArg (dna) && ! emptyArg (organism))
 		{
