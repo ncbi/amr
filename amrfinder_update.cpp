@@ -195,6 +195,7 @@ struct ThisApplication : ShellApplication
     : ShellApplication ("Identify AMR genes in proteins and/or contigs and print a report", false, true, true)
     {
     	addKey ("database", "Directory for all versions of AMRFinder databases", "$BASE/data", 'd', "DATABASE_DIR");
+    	  // Symbolic link ??
       addFlag ("quiet", "Suppress messages to STDERR", 'q');
 	  #ifdef SVN_REV
 	    version = SVN_REV;
