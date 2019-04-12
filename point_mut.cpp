@@ -331,8 +331,8 @@ struct BlastAlignment
         if (pm. empty ())
           continue;
         TabDel td (2, false);
-        td << targetName;
-        td << targetName 
+        td << na  // PD-2534
+           << targetName 
            << targetStart + 1
            << targetEnd
            << (targetStrand ? '+' : '-');
@@ -451,7 +451,7 @@ struct Batch
     {
     	// Cf. BlastAlignment::saveText()
 	    TabDel td;
-	    td << "Target identifier"   // targetName
+	    td << "Protein identifier"   // targetName  // PD-2534
          // Contig
          << "Contig id"
          << "Start"  // targetStart

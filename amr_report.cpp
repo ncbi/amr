@@ -973,7 +973,7 @@ private:
 	    	if (targetName != other. targetName)
 	        return false;
 	      // PD-807
-	      if (   ! (targetProt && famId == other. famId)
+	      if (   ! (targetProt && famId == other. famId)  // PD-2441
 	          && ! other. insideEq (*this)
 	      	  && !        insideEq (other)
 	      	 )
@@ -1456,7 +1456,7 @@ public:
     {
     	// Cf. BlastAlignment::saveText()
 	    TabDel td;
-	    td << "Target identifier";  // targetName
+	    td << "Protein identifier";  // targetName  // PD-2534
 	    if (cdsExist)  
 	      // Contig
 	      td << "Contig id"

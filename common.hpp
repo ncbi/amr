@@ -125,15 +125,14 @@ extern thread::id main_thread_id;
 bool isMainThread ();
 
 
-void errorExit (const char* msg,
-                bool segmFault = false);
+[[noreturn]] void errorExit (const char* msg,
+                             bool segmFault = false);
   // Input: programArgs, programName, logptr
 	// Update: *logPtr
 	// Invokes: if segmFault then abort() else exit(1)
 
-inline void errorExitStr (const string &msg)
+[[noreturn]] inline void errorExitStr (const string &msg)
   { errorExit (msg. c_str ()); }
-
 
 
 struct Nocopy
@@ -1072,6 +1071,8 @@ template <typename T>
 //
 
 bool verbose (int inc = 0);
+
+int getVerbosity ();
 
 
 

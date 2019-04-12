@@ -41,8 +41,18 @@
 #include <cstring>
 #ifndef _MSC_VER
   #include <dirent.h>
+//#include <execinfo.h>
 #endif
 #include <csignal>  
+
+
+
+
+[[noreturn]] void errorThrow (const string &msg)
+{ 
+  throw std::logic_error (msg); 
+}
+
 
 
 
@@ -124,7 +134,7 @@ void segmFaultHandler (int /*sig_num*/)
 }
 
 
-void sigpipe_handler (int /*sig_num*/) 
+[[noreturn]] void sigpipe_handler (int /*sig_num*/) 
 {
   signal (SIGPIPE, SIG_DFL);
   if (sigpipe)
@@ -165,8 +175,8 @@ namespace
 
 
 
-void errorExit (const char* msg,
-                bool segmFault)
+[[noreturn]] void errorExit (const char* msg,
+                             bool segmFault)
 // alloc() may not work
 { 
 	ostream* os = logPtr ? logPtr : & cerr; 
@@ -191,12 +201,35 @@ void errorExit (const char* msg,
   	    << "Command line: " << getCommandLine () << endl;
   //system (("env >> " + logFName). c_str ());
 
-  os->flush ();
+  os->flush ();           
 
   if (segmFault)
     abort ();
   exit (1);
 }
+
+
+
+#if 0
+#ifndef _MSC_VER
+string getStack ()
+{
+  string s;
+  constexpr size_t size = 100;  // PAR
+  void* buffer [size];
+  const int nptrs = backtrace (buffer, size);
+  char** strings = backtrace_symbols (buffer, nptrs);
+  if (strings) 
+    FOR (int, j, nptrs)
+      s += string (strings [j]) + "\n";  // No function names ??
+  else
+    s = "Cannot get stack trace";
+//free (strings);
+
+  return s;
+}
+#endif
+#endif
 
 
 
@@ -979,6 +1012,12 @@ size_t Threads::threadsToStart = 0;
 namespace
 {
 	int verbose_ = 0;
+}
+
+
+int getVerbosity ()
+{
+  return verbose_;
 }
 
 

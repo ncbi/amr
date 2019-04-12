@@ -67,20 +67,23 @@
 
 // Exceptions
 
+#include <string>
 #include <stdexcept>
 #include <sstream>
 
 
 #define WHERE  "\"" __FILE__ "\", line " << __LINE__
-#define FUNC  string (__PRETTY_FUNCTION__) + ": "
+#define FUNC  std::string (__PRETTY_FUNCTION__) + ": "
 
 
-#define ERROR_MSG(msg)                       \
-  { if (! uncaught_exception ())             \
-    { std::ostringstream oss_;               \
-      oss_ << WHERE << ": " << (msg);        \
-      throw std::logic_error (oss_. str ()); \
-    } else {}                                \
+[[noreturn]] void errorThrow (const std::string &msg);
+
+#define ERROR_MSG(msg)                \
+  { if (! std::uncaught_exception ()) \
+    { std::ostringstream oss_;        \
+      oss_ << WHERE << ": " << (msg); \
+      errorThrow (oss_. str ());      \
+    } else {}                         \
   }
 #define ERROR            ERROR_MSG ("")
 #define NOT_IMPLEMENTED  ERROR_MSG ("Not implemented: ")
@@ -103,7 +106,7 @@
 
 
 #define IMPLY(a,b)  { if (a) { ASSERT (b) }}
-#define ASSERT_EQ(x,y,delta)  ASSERT (fabs((x) - (y)) <= (delta))
+#define ASSERT_EQ(x,y,delta)  ASSERT (std::fabs((x) - (y)) <= (delta))
 
 
 
@@ -116,6 +119,9 @@
 #define LESS_PART(x,y,part)  { if ((x).part < (y).part) return true; \
                                if ((y).part < (x).part) return false; }
 
+
+
+#define PRINT(x)  cout << #x << " = " << (x) << endl;
 
 
 
