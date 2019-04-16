@@ -107,7 +107,7 @@ dist:
 # amrfinder binaries for github binary release
 GITHUB_FILE=amrfinder_binaries_v$(VERSION_STRING)
 GITHUB_FILES = test_* amrfinder.pl fasta_check gff_check amr_report
-github_binaries:
+github_binaries: all
 	@if [ ! -e version.txt ]; \
 	then \
 		echo >&2 "version.txt required to make a distribution file"; \

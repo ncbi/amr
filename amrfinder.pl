@@ -129,7 +129,7 @@ my $NUM_THREADS     = 4; # parameter to -num_threads or --cpu
 GetOptions(
     'protein=s'             => \$prot_file,
     'nucleotide=s'          => \$nuc_file,
-    'database=s'   => \$database_dir,
+    'database=s'            => \$database_dir,
     'output=s'              => \$outfile,
     'fasta_out=s'           => \$out_fa,
     'gff=s'                 => \$gff,
