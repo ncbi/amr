@@ -41,8 +41,18 @@
 #include <cstring>
 #ifndef _MSC_VER
   #include <dirent.h>
+//#include <execinfo.h>
 #endif
-#include <signal.h>  
+#include <csignal>  
+
+
+
+
+[[noreturn]] void errorThrow (const string &msg)
+{ 
+  throw std::logic_error (msg); 
+}
+
 
 
 
@@ -53,11 +63,62 @@ namespace Common_sp
 
 vector<string> programArgs;
 string programName;
+
+
+
+string getCommandLine ()
+{
+  string commandLine;
+  for (const string& s : programArgs)
+  {
+    const bool bad =    s. empty () 
+                     || contains (s, ' ')
+                     || contains (s, '|')
+                     || contains (s, ';')
+                     || contains (s, '#')
+                     || contains (s, '*')
+                     || contains (s, '?')
+                     || contains (s, '$')
+                     || contains (s, '(')
+                     || contains (s, ')')
+                     || contains (s, '<')
+                     || contains (s, '>')
+                     || contains (s, '~')
+                      || contains (s, '\'')
+                     || contains (s, '"')
+                     || contains (s, '\\');
+    if (! commandLine. empty ())
+      commandLine += ' ';
+    if (bad)
+      commandLine += strQuote (s, '\'');
+    else
+      commandLine += s;
+  }
+  return commandLine;
+}
+
+
+
 ostream* logPtr = nullptr;
 
-bool qc_on = false;
-size_t threads_max = 1;
+#ifndef NDEBUG
+  bool qc_on = false;
+#endif
 ulong seed_global = 1;
+bool sigpipe = false;
+
+
+// thread
+size_t threads_max = 1;
+
+inline thread::id get_thread_id ()
+  { return this_thread::get_id (); }
+
+thread::id main_thread_id = get_thread_id ();
+  
+bool isMainThread ()
+  { return get_thread_id () == main_thread_id; }
+
 
 bool Chronometer::enabled = false;
 
@@ -72,6 +133,15 @@ void segmFaultHandler (int /*sig_num*/)
   errorExit ("Segmentation fault", true); 
 }
 
+
+[[noreturn]] void sigpipe_handler (int /*sig_num*/) 
+{
+  signal (SIGPIPE, SIG_DFL);
+  if (sigpipe)
+    exit (0);
+  exit (1);
+}
+
 }
 
 
@@ -81,6 +151,7 @@ bool initCommon ()
   MODULE_INIT
 
   signal (SIGSEGV, segmFaultHandler);  
+  signal (SIGPIPE, sigpipe_handler);
         
 #ifdef _MSC_VER
   #pragma warning (disable : 4127)
@@ -104,37 +175,61 @@ namespace
 
 
 
-void errorExit (const char* msg,
-                bool segmFault)
+[[noreturn]] void errorExit (const char* msg,
+                             bool segmFault)
 // alloc() may not work
 { 
-	ostream* os = logPtr ? logPtr : & cout; 
+	ostream* os = logPtr ? logPtr : & cerr; 
 	
 	// time ??
 #ifndef _MSC_VER
 	const char* hostname = getenv ("HOSTNAME");
 	const char* pwd = getenv ("PWD");
 #endif
-	*os << endl
-      << "*** ERROR ***" << endl
-      << msg << endl
-    #ifndef _MSC_VER
-	    << "HOSTNAME: " << (hostname ? hostname : "?") << endl
-	    << "PWD: " << (pwd ? pwd : "?") << endl
-    #endif
-	    << "Progam name: " << programName << endl
-	    << "Command line:";
-	 for (const string& s : programArgs)
-	   *os << " " << s;
-	 *os << endl;
-//system (("env >> " + logFName). c_str ());
+  const string errorS ("*** ERROR ***");
+  if (isLeft (msg, errorS))  // msg already is the result of errorExit()
+    *os << endl << msg << endl;
+  else
+  	*os << endl
+        << errorS << endl
+        << msg << endl << endl
+      #ifndef _MSC_VER
+  	    << "HOSTNAME: " << (hostname ? hostname : "?") << endl
+  	    << "PWD: " << (pwd ? pwd : "?") << endl
+      #endif
+  	    << "Progam name:  " << programName << endl
+  	    << "Command line: " << getCommandLine () << endl;
+  //system (("env >> " + logFName). c_str ());
 
-  os->flush ();
+  os->flush ();           
 
   if (segmFault)
     abort ();
   exit (1);
 }
+
+
+
+#if 0
+#ifndef _MSC_VER
+string getStack ()
+{
+  string s;
+  constexpr size_t size = 100;  // PAR
+  void* buffer [size];
+  const int nptrs = backtrace (buffer, size);
+  char** strings = backtrace_symbols (buffer, nptrs);
+  if (strings) 
+    FOR (int, j, nptrs)
+      s += string (strings [j]) + "\n";  // No function names ??
+  else
+    s = "Cannot get stack trace";
+//free (strings);
+
+  return s;
+}
+#endif
+#endif
 
 
 
@@ -261,6 +356,20 @@ bool goodName (const string &name)
 
 
 
+bool isIdentifier (const string& name)
+{
+  if (name. empty ())
+    return false;
+  if (isDigit (name [0]))
+    return false;
+  for (const char c : name)
+    if (! isLetter (c))
+      return false;
+  return true;
+}
+
+
+
 bool strBlank (const string &s)
 {
   for (const char c : s)
@@ -364,6 +473,31 @@ void trimTrailing (string &s)
 
 
 
+void trimLeading (string &s,
+                  char c)
+{
+  size_t i = 0;
+  for (; i < s. size () && s [i] == c; i++)
+    ;
+  s. erase (0, i);
+}
+
+
+
+void trimTrailing (string &s,
+                   char c)
+{
+	size_t i = s. size ();
+	while (i)
+		if (s [i - 1] == c)
+			i--;
+		else
+			break;
+  s. erase (i);
+}
+
+
+
 size_t containsWord (const string& hay,
                      const string& needle)
 {
@@ -410,24 +544,38 @@ void replaceStr (string &s,
                  const string &from,
                  const string &to)
 {
+  ASSERT (! from. empty ());
+  
   if (from == to)
     return;
-    
+  
+  const bool inside = contains (to, from);
+
+  size_t start = 0;    
   for (;;)
   {
-    const size_t pos = s. find (from);
+    const size_t pos = s. find (from, start);
     if (pos == string::npos)
       break;
-  #if 0
-    s = s. substr (0, pos) + to + s. substr (pos + from. size ());
-  #else
     s. replace (pos, from. size (), to);
-  #endif
+    start = pos + (inside ? to. size () : 0);
   }
 }
   
   
   
+string strQuote (const string &s,
+                 char quote)
+{ 
+	string s1 (s);
+	replaceStr (s1, "\\", "\\\\");
+	const char slashQuote [] = {'\\', quote, '\0'};
+	replaceStr (s1, string (1, quote), slashQuote);
+	return quote + s1 + quote; 
+}
+
+
+
 string to_c (const string &s)
 {
   string r;
@@ -539,13 +687,21 @@ string rfindSplit (string &s,
 
 
 
+void reverse (string &s)
+{
+  FFOR (size_t, i, s. size () / 2)
+    swap (s [i], s [s. size () - 1 - i]);
+}
+
+
+
 List<string> str2list (const string &s,
                        char c) 
 {
 	List<string> res;
 	string s1 (s);
 	while (! s1. empty ())
-	  res << findSplit (s1, c);
+	  res << move (findSplit (s1, c));
 	return res;
 }
 
@@ -555,11 +711,13 @@ string list2str (const List<string> &strList,
                  const string &sep) 
 {
 	string s;
+	bool first = true;
 	for (const string& e : strList)
 	{
-		if (! s. empty ())
+    if (! first)
 			s += sep;
 	  s += e;
+	  first = false;
 	}
 	return s;
 }
@@ -593,6 +751,71 @@ bool directoryExists (const string &dirName)
   return yes;
 }
 #endif
+
+
+
+
+Dir::Dir (const string &name)
+{
+  ASSERT (! name. empty ());
+  
+  items = str2list (name, fileSlash);
+
+  auto it = items. begin (); 
+  while (it != items. end ())
+    if (it->empty () && it != items. begin ())
+    {
+      auto it1 = items. erase (it);
+      it = it1;
+    }
+    else 
+      it++;
+      
+  it = items. begin (); 
+  while (it != items. end ())
+    if (*it == ".")
+    {
+      auto it1 = items. erase (it);
+      it = it1;
+    }
+    else 
+      it++;
+      
+  it = items. begin (); 
+  while (it != items. end ())
+    if (*it == ".." && it != items. begin ())
+    {
+      auto it1 = items. erase (it);
+      it1--;
+      if (it1->empty ())
+      {
+        ASSERT (it1 == items. begin ());
+        *it1 = "..";
+        it = it1;
+      }
+      else
+      {
+        auto it2 = items. erase (it1);
+        it = it2;
+      }
+    }
+    else
+      it++;
+}
+
+
+
+
+streampos getFileSize (const string &fName)
+{
+  try 
+  {
+    ifstream f (fName, ios::ate | ios::binary);
+    return f. tellg (); 
+  }
+  catch (const exception &e)
+    { throw runtime_error ("Cannot open file " + strQuote (fName) + "\n" + e. what ()); }
+}
 
 
 
@@ -792,6 +1015,12 @@ namespace
 }
 
 
+int getVerbosity ()
+{
+  return verbose_;
+}
+
+
 bool verbose (int inc)
 { 
 	return Verbose::enabled () ? (verbose_ + inc > 0) : false;
@@ -821,7 +1050,6 @@ Verbose::~Verbose ()
 }
 
 
-
 Unverbose::Unverbose ()
 {
 	if (Verbose::enabled ())
@@ -833,6 +1061,49 @@ Unverbose::~Unverbose ()
 {
 	if (Verbose::enabled ())
 	  verbose_++;
+}
+
+
+
+
+// Threads
+
+Threads::Threads (size_t threadsToStart_arg, 
+                  bool quiet_arg)
+: quiet (quiet_arg)
+{ 
+  if (! isMainThread ())
+	  throw logic_error ("Threads are started not from the main thread");
+  if (! empty ())
+	  throw logic_error ("Previous threads have not finished");
+
+	threadsToStart = threadsToStart_arg;
+	if (threadsToStart >= threads_max)
+		throw logic_error ("Too many threads to start");
+		
+	threads. reserve (threadsToStart);
+	
+	if (! quiet && verbose (1))
+    cerr << "# Threads started: " << threadsToStart + 1 << endl;
+}	
+
+
+
+Threads::~Threads ()
+{ 
+  {
+    Progress prog (threads. size () + 1, ! quiet);
+    const string step ("consecutive threads finished");
+    prog (step);  // Main thread
+    for (auto& t : threads) 
+    { 
+      t. join ();
+      prog (step);
+  	}
+  }
+	  
+	threads. clear ();
+	threadsToStart = 0;
 }
 
 
@@ -853,17 +1124,6 @@ void Root::saveFile (const string &fName) const
 
 
 // Named
-
-Named::Named (const string& name_arg)
-: name (name_arg) 
-{
-#ifndef NDEBUG
-  if (! goodName (name))
-    ERROR_MSG ("Bad name: \"" + name_arg + "\"");
-#endif
-}
-
-
 
 void Named::qc () const
 {
@@ -895,6 +1155,18 @@ StringVector::StringVector (const string &fName,
 	  prev = s;
 	}
 }
+
+
+
+StringVector::StringVector (const string &s,
+                            char c)
+{
+	StringVector res;
+	string s1 (s);
+	while (! s1. empty ())
+	  *this << move (findSplit (s1, c));
+}
+
 
 
 
@@ -938,6 +1210,24 @@ size_t Progress::beingUsed = 0;
 
 
 
+void Progress::report () const
+{ 
+  cerr << '\r';
+#ifndef _MSC_VER
+  cerr << "\033[2K";
+#endif
+  cerr << n; 
+	if (n_max)
+		cerr << " / " << n_max;
+	if (! step. empty ())
+		cerr << ' ' << step;
+	cerr << ' ';
+	if (! Threads::empty () && ! contains (step, "thread"))
+	  cerr << "(main thread) ";
+}
+
+
+
 
 // Input
 
@@ -946,14 +1236,38 @@ Input::Input (const string &fName,
 	            uint displayPeriod)
 : buf (new char [bufSize])
 , ifs (fName)
+, is (& ifs)
 , prog (0, displayPeriod)  
 { 
   if (! ifs. good ())
-    throw runtime_error ("Bad file: '" + fName  + "'");
+    throw runtime_error ("Cannot open file " + strQuote (fName));
   if (! ifs. rdbuf () -> pubsetbuf (buf. get (), (long) bufSize))
-  	throw runtime_error ("Cannot allocate buffer to '" + fName + "'");
+  	throw runtime_error ("Cannot allocate buffer to file " + strQuote (fName));
 }
  
+
+
+Input::Input (istream &is_arg,
+	            uint displayPeriod)
+: is (& is_arg)
+, prog (0, displayPeriod)  
+{ 
+  ASSERT (is);
+  if (! is->good ())
+    throw runtime_error ("Bad input stream");
+}
+ 
+
+
+void Input::reset ()
+{ 
+  ASSERT (is == & ifs);
+
+  ifs. seekg (0); 
+  ASSERT (ifs. good ());
+  prog. reset ();
+}
+
 
 
 
@@ -961,6 +1275,8 @@ Input::Input (const string &fName,
 
 bool LineInput::nextLine ()
 { 
+  ASSERT (is);
+
 	if (eof)  
 	{ 
 		line. clear ();
@@ -969,12 +1285,20 @@ bool LineInput::nextLine ()
 	
 	try 
 	{
-  	readLine (ifs, line);
+  	readLine (*is, line);
+  	const bool end = line. empty () && is->eof ();
+
+    if (! commentStart. empty ())
+    {
+      const size_t pos = line. find (commentStart);
+      if (pos != string::npos)
+        line. erase (pos);
+    }
     trimTrailing (line); 
-  	eof = ifs. eof ();
+
+  	eof = is->eof ();
   	lineNum++;
   
-  	const bool end = line. empty () && eof;
   	if (! end)
   		prog ();
   		
@@ -993,15 +1317,17 @@ bool LineInput::nextLine ()
 
 bool ObjectInput::next (Root &row)
 { 
+  ASSERT (is);
+
 	row. clear ();
 
 	if (eof)
 	  return false;
 
-	row. read (ifs);
+	row. read (*is);
 	lineNum++;
 
- 	eof = ifs. eof ();
+ 	eof = is->eof ();
   if (eof)
   {
   	ASSERT (row. empty ());
@@ -1010,10 +1336,10 @@ bool ObjectInput::next (Root &row)
 
 	prog ();
 	
-  ASSERT (ifs. peek () == '\n');
+  ASSERT (is->peek () == '\n');
 	row. qc ();
 
-  skipLine (ifs);
+  skipLine (*is);
 
 	return true;
 }
@@ -1024,11 +1350,13 @@ bool ObjectInput::next (Root &row)
 
 char CharInput::get ()
 { 
+  ASSERT (is);
+
   ungot = false;
   
-	const char c = (char) ifs. get ();
+	const char c = (char) is->get ();
 
-	eof = ifs. eof ();
+	eof = is->eof ();
 	ASSERT (eof == (c == (char) EOF));
 
 	if (eol)
@@ -1049,9 +1377,10 @@ char CharInput::get ()
 
 void CharInput::unget ()
 { 
+  ASSERT (is);
 	ASSERT (! ungot);
 	
-	ifs. unget (); 
+	is->unget (); 
 	charNum--;
 	ungot = true;
 }
@@ -1078,44 +1407,85 @@ string CharInput::getLine ()
 
 void Token::readInput (CharInput &in)
 {
-	clear ();
+	ASSERT (empty ());
+
 
   // Skip spaces
 	char c = '\0';
 	do { c = in. get (); }
 	  while (! in. eof && isSpace (c));
 	if (in. eof)
-	{
-	  ASSERT (empty ());
 		return;  
-  }
 		
-  charNum = in. charNum;
-	if (c == quote)
+	charNum = in. charNum;
+
+	if (   c == '\'' 
+	    || c == '\"'
+	   )
 	{
 		type = eText;
+		quote = c;
 		for (;;)
 		{ 
 			c = in. get (); 
+			if (in. eof)
+		    throw CharInput::Error (in, "Text is not finished: end of file", false);
 			if (in. eol)
-				throw CharInput::Error (in, "ending quote");
+		  //throw CharInput::Error (in, "ending quote", false);
+		    continue;
 			if (c == quote)
 				break;
 			name += c;
 		}
 	}
-	else if (isDigit (c))
+	else if (isDigit (c) || c == '-')
 	{
-		type = eNumber;
-		while (! in. eof && isDigit (c))
+		while (   ! in. eof 
+		       && (   isDigit (c)
+		           || c == '.'
+		           || c == 'e'
+		           || c == 'E'
+		           || c == '-'
+		          )
+		      )
 		{ 
 			name += c;
 			c = in. get (); 
 		}
 		if (! in. eof)
 			in. unget ();
-		num = str2<uint> (name);
-		ASSERT (num != numeric_limits<uint>::max ());
+	  if (name == "-")
+	    type = eDelimiter;
+	  else
+	  {
+  	  strLower (name);
+  	  if (   contains (name, '.') 
+  	      || contains (name, 'e') 
+  	     )
+  	  {
+    		type = eDouble;
+  		  d = str2<double> (name);
+        decimals = 0;
+        size_t pos = name. find ('.');
+        if (pos != string::npos)
+        {
+          pos++;
+          while (   pos < name. size () 
+                 && isDigit (name [pos])
+                )
+          {
+            pos++;
+            decimals++;
+          }
+        }
+        scientific = contains (name, 'e');
+  	  }
+  	  else
+  	  {
+    		type = eInteger;
+  		  n = str2<int> (name);
+  		}
+  	}
 	}
 	else if (isLetter (c))
 	{
@@ -1128,12 +1498,22 @@ void Token::readInput (CharInput &in)
 		if (! in. eof)
 			in. unget ();
 	}
-	else 
+	else if (Common_sp::isDelimiter (c))
 	{
-	  ASSERT (type == eDelimiter);
+	  type = eDelimiter;
 		name = c;
 	}	
+	else
+	  throw CharInput::Error (in, "Unknown token starting with ASCII " + toString ((int) c), false);
+	    
 	ASSERT (! empty ());
+	qc ();
+
+  if (verbose ())
+  {
+  	cout << type2str (type) << ' ';  
+  	cout << *this << endl;
+  }
 }
 
 
@@ -1144,26 +1524,48 @@ void Token::qc () const
     return;
   if (! empty ())
   {
-  	ASSERT (! name. empty ());
-    ASSERT (! contains (name, quote));
+  	IMPLY (type != eText, ! name. empty ());
   	IMPLY (type != eText, ! contains (name, ' '));
-  	IMPLY (type != eNumber, num == noNum);
-  	const char c = name [0];
+  	IMPLY (type != eText, quote == '\0');
+    ASSERT (! contains (name, quote));
+    IMPLY (type != eDouble, decimals == 0);
   	switch (type)
   	{ 
-  	  case eText:      break;
-  		case eNumber:    ASSERT (isDigit (c)); 
-  		                 ASSERT (num != noNum);
+  		case eName:      ASSERT (isIdentifier (name)); 
   		                 break;
-  		case eName:      ASSERT (isLetter (c) && ! isDigit (c)); 
+  	  case eText:      break;
+  		case eInteger:   
+  		case eDouble:    ASSERT (name [0] == '-' || isDigit (name [0])); 
   		                 break;
   		case eDelimiter: ASSERT (name. size () == 1); 
+  		                 ASSERT (Common_sp::isDelimiter (name [0]));
   		                 break;
-  		default: throw runtime_error ("Unknown type");
+  		default: throw runtime_error ("Token: Unknown type");
   	}
   }
 }
 
+
+
+void Token::saveText (ostream &os) const 
+{ 
+  if (empty ())
+    return;
+    
+  switch (type)
+	{ 
+	  case eName:      os          << name;          break;
+		case eText:      os << quote << name << quote; break;
+		case eInteger:   os          << n;             break;
+		case eDouble:    { 
+		                   const ONumber on (os, decimals, scientific); 
+		                   os << d; 
+		                 } 
+		                 break;
+		case eDelimiter: os          << name;          break;
+ 		default: throw runtime_error ("Token: Unknown type");
+	}
+}
 
 
 
@@ -1186,7 +1588,7 @@ void OFStream::open (const string &dirName,
 	ofstream::open (pathName);
 
 	if (! good ())
-	  throw runtime_error ("Cannot create file \"" + pathName + "\"");
+	  throw runtime_error ("Cannot create file " + strQuote (pathName));
 }
 
 
@@ -1247,116 +1649,66 @@ Json::Json (JsonContainer* parent,
   if (const JsonArray* jArray = parent->asJsonArray ())
   {
     ASSERT (name. empty ());  
-    const_cast <JsonArray*> (jArray) -> data << this;
+    var_cast (jArray) -> data << this;
   }
   else if (const JsonMap* jMap = parent->asJsonMap ())
   {
     ASSERT (! name. empty ());  
     ASSERT (! contains (jMap->data, name));
-    const_cast <JsonMap*> (jMap) -> data [name] = this;
+    var_cast (jMap) -> data [name] = this;
   }
+  // throw() in a child constructor will invoke terminate() if an ancestor is JsonArray or JsonMap
 }
 
 
 
-Token Json::readToken (istream &is)
-{
-  const string delim ("[]{},:");
-  
-  string s;
-  bool spaces = true;
-  bool isC = false;
-  while (is)
-  {
-    char c;
-    is. get (c);
-    const bool isDelim = charInSet (c, delim);
-    if (spaces)
-      if (isSpace (c))
-        continue;
-      else
-      {
-        if (isDelim)
-          return Token (string (1, c), Token::eDelimiter);
-        spaces = false;
-        isC = c == '\'';
-      }
-    else
-    {
-      // Opposite to toStr()
-      if (isC)
-      {
-        if (c == '\'')
-          break;
-        else
-        if (c == '\\')
-        {
-          is. get (c);
-          if (c == 'n')
-            c = '\n';
-        }
-      }
-      else
-        if (isSpace (c) || isDelim)
-        {
-          is. unget ();
-          break;
-        }
-    }
-      
-    s += c;
-  }
-  
-  if (isC)
-    s. erase (0, 1);
-  else
-    ASSERT (! s. empty ());
-  
-  return Token (s, isC ? Token::eText : Token::eNumber);
-}
-
-
-
-void Json::parse (istream& is,
+void Json::parse (CharInput& in,
                   const Token& firstToken,
                   JsonContainer* parent,
                   const string& name)
 {
-  string s (firstToken. name);
-  strLower (s);
-  
-  if (firstToken. type == Token::eDelimiter && s == "{")
-    new JsonMap (is, parent, name);
-  else if (firstToken. type == Token::eDelimiter && s == "[")
-    new JsonArray (is, parent, name);
-  else if (firstToken. type == Token::eText && s == "null")
-    new JsonNull (parent, name);
-  else if (firstToken. type == Token::eNumber)
+  switch (firstToken. type)
   {
-    if (   contains (s, '.')
-        || contains (s, 'e')
-       )
-    {
-      uint decimals = 0;
-      size_t pos = s. find ('.');
-      if (pos != string::npos)
+    case Token::eName:
       {
-        pos++;
-        while (   pos < s. size () 
-               && isDigit (s [pos])
-              )
-        {
-          pos++;
-          decimals++;
-        }
+        string tokenName (firstToken. name);
+        strLower (tokenName);
+        if (   tokenName == "null"
+            || tokenName == "nan"
+           )
+          new JsonNull (parent, name);
+        else if (tokenName == "true")
+          new JsonBoolean (true, parent, name);
+        else if (tokenName == "false")
+          new JsonBoolean (false, parent, name);
+        else
+          new JsonString (firstToken. name, parent, name);
       }
-      new JsonDouble (str2<double> (s), decimals, parent, name);
-    }
-    else
-      new JsonInt (str2<int> (s), parent, name); 
+      break;
+    case Token::eText: new JsonString (firstToken. name, parent, name); break;
+    case Token::eInteger: new JsonInt (firstToken. n, parent, name); break;
+    case Token::eDouble: new JsonDouble (firstToken. d, firstToken. decimals, parent, name); break;
+    case Token::eDelimiter:
+      switch (firstToken. name [0])
+      {
+        case '{': new JsonMap   (in, parent, name); break;
+        case '[': new JsonArray (in, parent, name); break;
+        default: throw CharInput::Error (in, "Bad delimiter", false);
+      }
+      break;
+    default: throw CharInput::Error (in, "Bad token", false);
   }
-  else
-    new JsonString (firstToken. name, parent, name);
+}
+
+
+
+string Json::getString () const
+{ 
+  if (! this || asJsonNull ())
+    throw runtime_error ("undefined");
+  if (const JsonString* j = asJsonString ())
+    return j->s;
+  throw runtime_error ("Not a JsonString");
 }
 
 
@@ -1377,7 +1729,7 @@ double Json::getDouble () const
   if (! this)
     throw runtime_error ("undefined");
   if (asJsonNull ())
-    return NAN;
+    return numeric_limits<double>::quiet_NaN ();
   if (const JsonDouble* j = asJsonDouble ())
     return j->n;
   throw runtime_error ("Not a JsonDouble");
@@ -1385,13 +1737,13 @@ double Json::getDouble () const
 
 
 
-string Json::getString () const
+bool Json::getBoolean () const
 { 
   if (! this || asJsonNull ())
     throw runtime_error ("undefined");
-  if (const JsonString* j = asJsonString ())
-    return j->s;
-  throw runtime_error ("Not a JsonString");
+  if (const JsonBoolean* j = asJsonBoolean ())
+    return j->b;
+  throw runtime_error ("Not a JsonBoolean");
 }
 
 
@@ -1443,7 +1795,7 @@ size_t Json::getSize () const
 // JsonArray
 
 
-JsonArray::JsonArray (istream& is,
+JsonArray::JsonArray (CharInput& in,
                       JsonContainer* parent,
                       const string& name)
 : JsonContainer (parent, name)
@@ -1451,15 +1803,16 @@ JsonArray::JsonArray (istream& is,
   bool first = true;
   for (;;)
   {
-    Token token (readToken (is));
+    Token token (in);
     if (token. isDelimiter (']'))
       break;
     if (! first)
     {
-      ASSERT (token. isDelimiter (','));
-      token = readToken (is);
+      if (! token. isDelimiter (','))
+        throw CharInput::Error (in, "\',\'");
+      token = Token (in);
     }
-    parse (is, token, this, string());
+    parse (in, token, this, string());
     first = false;
   }
 }
@@ -1495,36 +1848,41 @@ JsonMap::JsonMap ()
 
 JsonMap::JsonMap (const string &fName)
 {
-  ifstream ifs (fName. c_str ());
-  if (! ifs. good ())
-    throw runtime_error ("Bad file: '" + fName + "'");
-  const Token token (readToken (ifs));
+  CharInput in (fName);
+  const Token token (in);
   if (! token. isDelimiter ('{'))
-    throw runtime_error ("Json file: '" + fName + "': should start with '{'");
-  parse (ifs);
+    throw CharInput::Error (in, "Json file " + strQuote (fName) + ": text should start with '{'", false);
+  parse (in);
 }
 
 
 
-void JsonMap::parse (istream& is)
+void JsonMap::parse (CharInput& in)
 {
   ASSERT (data. empty ());
   
   bool first = true;
   for (;;)
   {
-    Token token (readToken (is));
+    Token token (in);
     if (token. isDelimiter ('}'))
       break;
     if (! first)
     {
-      ASSERT (token. isDelimiter (','));
-      token = readToken (is);
+      if (! token. isDelimiter (','))
+        throw CharInput::Error (in, "\',\'");
+      token = Token (in);
     }
-    ASSERT (! token. name. empty ());
-    const Token colon (readToken (is));
-    ASSERT (colon. isDelimiter (':'));
-    Json::parse (is, readToken (is), this, token. name);
+    if (   token. type != Token::eName
+        && token. type != Token::eText
+       )
+      throw CharInput::Error (in, "name or text");
+    string name (token. name);
+    const Token colon (in);
+    if (! colon. isDelimiter (':'))
+      throw CharInput::Error (in, "\':\'");
+    token = Token (in);
+    Json::parse (in, token, this, name);
     first = false;
   }
 }
@@ -1533,7 +1891,7 @@ void JsonMap::parse (istream& is)
 
 JsonMap::~JsonMap ()
 { 
-  for (auto it : data)
+  for (auto& it : data)
     delete it. second;
 }
 
@@ -1543,7 +1901,7 @@ void JsonMap::print (ostream& os) const
 { 
   os << "{";
   bool first = true;
-  for (const auto it : data)
+  for (const auto& it : data)
   {
     if (! first)
       os << ",";
@@ -1573,10 +1931,25 @@ size_t Offset::size = 0;
 
 //
 
-void exec (const string &cmd)
+void exec (const string &cmd,
+           const string &logFName)
 {
   ASSERT (! cmd. empty ());
-  EXEC_ASSERT (system (cmd. c_str ()) == 0);
+  
+//Chronometer_OnePass cop (cmd);  
+  if (verbose ())
+  	cout << cmd << endl;
+  	
+	const int status = system (cmd. c_str ());
+	if (status)
+	{
+	  if (! logFName. empty ())
+	  {
+	    LineInput f (logFName);
+	    throw runtime_error (f. getString ());
+	  }
+		throw runtime_error ("Command failed:\n" + cmd + "\nstatus = " + toString (status));		
+	}
 }
 
 
@@ -1646,48 +2019,114 @@ Application::Arg::Arg (const string &name_arg,
 {
   trim (name);
   ASSERT (! name. empty ());
-  ASSERT (! contains (name, ' '));
-  
+  ASSERT (! contains (name, ' '));  
+  ASSERT (! contains (name, '='));
+  ASSERT (! isLeft (name, "-"));
   ASSERT (! description. empty ());
+  ASSERT (name != Application::helpS);
+  ASSERT (name != Application::versionS);
+}
+
+
+
+void Application::Arg::qc () const
+{
+  if (! qc_on)
+  	return;
+  	
+  ASSERT (! name. empty ());
+  ASSERT (! description. empty ());
+}
+
+
+
+void Application::Key::qc () const
+{
+  if (! qc_on)
+  	return;
+  Arg::qc ();
+  
+  IMPLY (app. gnu, name. size () > 1);
+  IMPLY (acronym, app. gnu);
+  ASSERT (isUpper (var));
+  ASSERT (! var. empty () == (app. gnu && ! flag));
+  IMPLY (! requiredGroup. empty (), defaultValue. empty ());
 }
 
 
 
 void Application::Key::saveText (ostream &os) const
 {
-  os << "[-" << name; 
-  if (! flag)
-  {
-    os << " ";
-    const bool quoted = value. empty () || contains (value, ' ');
-    if (quoted)
-      os << "\"";
-    os << value;
-    if (quoted)
-      os << "\"";
-  }
-  os << "]";
+  os << '-';
+	if (app. gnu)
+	{
+		os << "-" << name;
+		if (! flag)
+			os << ' ' << var;
+	}
+	else
+	{
+	  os << name; 
+	  if (! flag)
+	  {
+	    os << ' ';
+	    const bool quoted = defaultValue. empty () || contains (defaultValue, ' ');
+	    if (quoted)
+	      os << '\"';
+	    os << defaultValue;
+	    if (quoted)
+	      os << '\"';
+	  }
+	}
+}
+
+
+
+string Application::Key::getShortHelp () const
+{
+	string acronymS;
+	if (acronym)
+	{
+		acronymS = string ("-") + acronym;
+		if (! flag)
+			acronymS += " " + var;
+		acronymS += ", ";
+	}
+  return acronymS + str ();
 }
 
 
 
 void Application::addKey (const string &name, 
                           const string &argDescription,
-                          const string &defaultValue)
+                          const string &defaultValue,
+                          char acronym,
+                          const string &var)
 {
-  ASSERT (! contains (args, name));
-  keys << Key (name, argDescription, defaultValue);
-  args [name] = & keys. back ();
+  ASSERT (! name. empty ());
+  ASSERT (! contains (name2arg, name));
+  if (acronym && contains (char2arg, acronym))
+  	throw logic_error ("Duplicate option " + strQuote (string (1, acronym)));
+  keys << Key (*this, name, argDescription, defaultValue, acronym, var);
+  name2arg [name] = & keys. back ();
+  if (acronym)
+  	char2arg [acronym] = & keys. back ();
 }
 
 
 
 void Application::addFlag (const string &name,
-                           const string &argDescription)
+                           const string &argDescription,
+                           char acronym)
 {
-  ASSERT (! contains (args, name));
-  keys << Key (name, argDescription);
-  args [name] = & keys. back ();
+  ASSERT (! name. empty ());
+  ASSERT (! contains (name2arg, name));
+  if (acronym && contains (char2arg, acronym))
+  	throw logic_error ("Duplicate option " + strQuote (string (1, acronym)));
+  keys << Key (*this, name, argDescription, acronym);
+  name2arg [name] = & keys. back ();
+  if (acronym)
+  	char2arg [acronym] = & keys. back ();
 }
 
 
@@ -1695,18 +2134,90 @@ void Application::addFlag (const string &name,
 void Application::addPositional (const string &name,
                                  const string &argDescription)
 {
-  ASSERT (! contains (args, name));
+  ASSERT (! contains (name2arg, name));
+  IMPLY (gnu, isUpper (name));
   positionals << Positional (name, argDescription);
-  args [name] = & positionals. back ();
+  name2arg [name] = & positionals. back ();
 }
 
 
 
+Application::Key* Application::getKey (const string &keyName) const
+{
+  if (! contains (name2arg, keyName))
+    errorExitStr ("Unknown key: " + strQuote (keyName) + "\n\n" + getInstruction ());
+    
+  Key* key = nullptr;
+  if (const Arg* arg = findPtr (name2arg, keyName))  	
+    key = var_cast (arg->asKey ());
+  if (! key)
+    errorExitStr (strQuote (keyName) + " is not a key\n\n" + getInstruction ());
+    
+  return key;
+}
+
+
+
+void Application::setPositional (List<Positional>::iterator &posIt,
+	                               const string &value)
+{
+  if (posIt == positionals. end ())
+  {
+  	if (isLeft (value, "-"))
+      errorExitStr (strQuote (value) + " is not a valid option\n\n" + getInstruction ());
+  	else
+      errorExitStr (strQuote (value) + " cannot be a positional parameter\n\n" + getInstruction ());
+  }
+  (*posIt). value = value;
+  posIt++;
+}
+
+
+
+void Application::setRequiredGroup (const string &keyName,
+                                    const string &requiredGroup)
+{ 
+  ASSERT (! requiredGroup. empty ());
+	getKey (keyName) -> requiredGroup = requiredGroup; 
+}
+
+
+
+void Application::qc () const
+{
+  if (! qc_on)
+    return;
+  
+  ASSERT (! description. empty ());
+  ASSERT (! version. empty ());
+  IMPLY (! needsArg, positionals. empty ());
+  
+  for (const Positional& p : positionals)
+  	p. qc ();
+  	
+  map<string,size_t> requiredGroups;
+  string requiredGroup_prev;
+  for (const Key& key : keys)
+  {
+  	key. qc ();
+  	if (! key. requiredGroup. empty () && key. requiredGroup != requiredGroup_prev)
+  	{
+  		ASSERT (! contains (requiredGroups, key. requiredGroup));
+  		requiredGroups [key. requiredGroup] ++;
+  	}
+  	requiredGroup_prev = key. requiredGroup;
+  }
+  for (const auto& it : requiredGroups)
+  	ASSERT (it. second > 1);
+}
+	
+
+
 string Application::getArg (const string &name) const
 {
-  if (contains (args, name))  
-    return args. at (name) -> value;
-  throw runtime_error ("Parameter \"" + name + "\" is not found");
+  if (contains (name2arg, name))  
+    return name2arg. at (name) -> value;
+  throw logic_error ("Parameter " + strQuote (name) + " is not found");
 }
 
 
@@ -1714,10 +2225,23 @@ string Application::getArg (const string &name) const
 bool Application::getFlag (const string &name) const
 {
   const string value (getArg (name));
-  const Key* key = args. at (name) -> asKey ();
+  const Key* key = name2arg. at (name) -> asKey ();
   if (! key || ! key->flag)
-    throw runtime_error ("Parameter \"" + name + "\" is not a flag");
+    throw logic_error ("Parameter " + strQuote (name) + " is not a flag");
   return value == "true";
+}
+
+
+
+string Application::key2shortHelp (const string &name) const
+{
+  if (! contains (name2arg, name))  
+    throw logic_error ("Parameter " + strQuote (name) + " is not found");
+  const Arg* arg = name2arg. at (name);
+  ASSERT (arg);
+  if (const Key* key = arg->asKey ())
+    return key->getShortHelp ();
+  throw logic_error ("Parameter " + strQuote (name) + " is not a key");
 }
 
 
@@ -1725,13 +2249,42 @@ bool Application::getFlag (const string &name) const
 string Application::getInstruction () const
 {
   string instr (description);
-  instr += "\nUsage: " + programName;
+  instr += "\n\nUSAGE:   " + programName;
+
   for (const Positional& p : positionals)
     instr += " " + p. str ();
+
+  string requiredGroup_prev;
   for (const Key& key : keys)
-    instr += " " + key. str ();
+  {
+ 		if (key. requiredGroup == requiredGroup_prev)
+	  	if (key. requiredGroup. empty ())
+		    instr += " ";
+	  	else
+  		  instr += " | ";
+  	else
+  		if (requiredGroup_prev. empty ())
+  			instr += " (";
+  		else 
+  		{
+ 			  instr += ") ";
+  			if (! key. requiredGroup. empty ())
+  				instr += "(";
+  		}
+	  if (key. requiredGroup. empty ())
+	  	instr += "[";
+    instr += key. str ();
+	  if (key. requiredGroup. empty ())
+	  	instr += "]";
+  	requiredGroup_prev = key. requiredGroup;
+  }
+	if (! requiredGroup_prev. empty ())
+		instr += ")";
   
-  instr += string ("\n") + "Help:  " + programName + " -help|-h";
+//if (! contains (name2arg, "help"))
+    instr += "\nHELP:    " + programName + " " + ifS (gnu, "-") + "-" + helpS;
+//if (! contains (name2arg, "version"))
+	  instr += "\nVERSION: " + programName + " " + ifS (gnu, "-") + "-" + versionS;
 
   return instr;
 }
@@ -1741,12 +2294,26 @@ string Application::getInstruction () const
 string Application::getHelp () const
 {
   string instr (getInstruction ());
-  instr += "\nParameters:";
-  const string par ("\n  ");
-  for (const Positional& p : positionals)
-    instr += par + p. str () + ": " + p. description;
-  for (const Key& key : keys)
-    instr += par + key. str () + ": " + key. description;;
+
+  const string par ("\n    ");
+
+  if (! positionals. empty ())
+  {
+	  instr += "\n\nOBLIGATORY PARAMETERS:";
+	  for (const Positional& p : positionals)
+	    instr += "\n" + p. str () + par + p. description;
+	}
+
+  if (! keys. empty ())
+  {
+	  instr += "\n\nOPTIONAL PARAMETERS:";
+	  for (const Key& key : keys)
+	  {
+	    instr += "\n" + key. getShortHelp () + par + key. description;
+	    if (gnu && ! key. defaultValue. empty ())
+	    	instr += par + "Default: " + key. defaultValue;
+	  }
+	}
   
   return instr;
 }
@@ -1757,118 +2324,221 @@ int Application::run (int argc,
                       const char* argv []) 
 {
   ASSERT (programArgs. empty ());
+  
+
+  addDefaultArgs ();
+    
+  
 	try
   { 
+  	// programArgs
     for (int i = 0; i < argc; i++)  
-      programArgs. push_back (argv [i]);
-    ASSERT (! programArgs. empty ());
-  
-      
-    // positionals, keys
-    bool first = true;
-    posIt = positionals. begin ();
-    Key* key = nullptr;
-    Set<string> keysRead;
-    for (string s : programArgs)
     {
-      if (first)
-      {
-        programName = rfindSplit (s, fileSlash);
-        ASSERT (! programName. empty ());
-      }
-      else
-      {
-        if (! s. empty () && s [0] == '-')
+    	// gnu: -abc --> -a -b -c ??
+    	string key (argv [i]);
+    	string value;
+    	bool valueP = false;
+    	if (   i 
+    		  && ! key. empty () 
+    		  && key [0] == '-'
+    		 )
+    	{
+	    	const size_t eqPos = key. find ('=');
+	    	if (eqPos != string::npos)
+	    	{
+	    		value = key. substr (eqPos + 1);
+	    		key = key. substr (0, eqPos);
+	    		valueP = true;
+	    	}
+	    }
+      programArgs. push_back (key);
+      if (valueP)
+	      programArgs. push_back (value);
+    }
+    ASSERT (! programArgs. empty ());
+	  
+      
+		initEnvironment ();
+
+
+    // positionals, keys
+    Set<Key*> keysRead;
+    {
+	    bool first = true;
+		  List<Positional>::iterator posIt = positionals. begin ();
+	    Key* key = nullptr;
+	    for (string s : programArgs)
+	    {
+	      if (first)
+	      {
+	        programName = rfindSplit (s, fileSlash);
+	        ASSERT (! programName. empty ());
+	      }
+	      else if (key)
+      	{
+          ASSERT (! key->flag);
+          key->value = s;
+          key = nullptr;
+        }
+        else if (! s. empty () && s [0] == '-')
         {
-          if (key)
-            errorExitStr ("Key with no value: " + key->name + "\n" + getInstruction ());
-          const string name (s. substr (1));
-          if (   name == "help"
-          	  || name == "h"
-          	 )
+
+          const string s1 (s. substr (1));
+          if (s1. empty ())
+            errorExitStr ("Dash with no key\n\n" + getInstruction ());
+
+          string name;
+          const char c = s1 [0];  // Valid if name.empty()
+          if (gnu)
+          	if (c == '-')
+          	{
+          		name = s1. substr (1);
+		          if (name. empty ())
+		            errorExitStr ("Dashes with no key\n\n" + getInstruction ());
+          	}
+          	else
+          	{
+          		if (s1. size () != 1) 
+                errorExitStr ("Single character expected: " + strQuote (s1) + "\n\n" + getInstruction ());
+            }
+          else
+          	name = s1;
+
+          if (name == helpS /*&& ! contains (name2arg, helpS)*/)
           {
             cout << getHelp () << endl;
             return 0;
           }
-          if (! contains (args, name))
-            errorExitStr ("Unknown key: " + name + "\n" + getInstruction ());
-          key = const_cast <Key*> (args [name] -> asKey ());
-          if (! key)
-            errorExitStr (name + " is not a key\n" + getInstruction ());
-          if (keysRead. contains (name))
-            errorExitStr ("Parameter \"" + name + "\" is used more than once");
-          else
-            keysRead << name;
-          if (key->flag)
+          if (name == versionS /*&& ! contains (name2arg, versionS)*/)
           {
-            key->value = "true";
-            key = nullptr;
+            cout << version << endl;
+            return 0;
           }
+          
+          // key
+          if (name. empty ())
+          {
+          	ASSERT (gnu);
+	          key = var_cast (findPtr (char2arg, c));
+	        }
+          else
+          	if (const Arg* arg = findPtr (name2arg, name))					    
+					    key = var_cast (arg->asKey ());
+					    
+					if (key)
+          {
+	          if (keysRead. contains (key))
+	            errorExitStr ("Parameter " + strQuote (key->name) + " is used more than once");
+	          else
+	            keysRead << key;
+	            
+	          if (key->flag)
+	          {
+	            key->value = "true";
+	            key = nullptr;
+	          }
+	        }
+	        else
+	        	setPositional (posIt, s);
         }
         else
-          if (key)
-          {
-            ASSERT (! key->flag);
-            key->value = s;
-            key = nullptr;
-          }
-          else
-          {
-            if (posIt == positionals. end ())
-              errorExitStr ("Too many positional arguments\n" + getInstruction ());
-            (*posIt). value = s;
-            posIt++;
-          }
-      }
-      first = false;
+        	setPositional (posIt, s);
+
+	      first = false;
+	    }
+      if (key)
+        errorExitStr ("Key with no value: " + key->name + "\n\n" + getInstruction ());
+
+
+	    if (programArgs. size () == 1 && (! positionals. empty () || needsArg))
+	    {
+	      cout << getInstruction () << endl;
+	      return 1;
+	    }
+	    
+
+	    if (posIt != positionals. end ())
+	      errorExitStr ("Too few positional parameters\n\n" + getInstruction ());
+	  }
+    
+    
+    for (Key& key : keys)
+      if (! keysRead. contains (& key))
+        key. value = key. defaultValue;
+
+
+    {
+	    map<string,StringVector> requiredGroup2names;
+	    map<string,StringVector> requiredGroup2given;
+	    for (const Key& key : keys)
+	    	if (! key. requiredGroup. empty ())
+	    	{
+	    		if (! key. value. empty ())
+	    		{
+	    			const StringVector& given = requiredGroup2given [key. requiredGroup];
+		    		if (! given. empty ())
+		    			throw runtime_error ("Parameter " + strQuote (key. name) + " is conflicting with " + given. toString (", "));
+		    		requiredGroup2given [key. requiredGroup] << strQuote (key. name);
+		    	}
+		    	requiredGroup2names [key. requiredGroup] << strQuote (key. name);
+	    	}
+	    for (const auto& it : requiredGroup2names)
+	    	if (requiredGroup2given [it. first]. empty ())
+	    		throw runtime_error ("One of required parameters is missing: " + it. second. toString (", "));
+	  }
+  
+  
+    string logFName;
+    string jsonFName;
+    if (gnu)
+    {
+	  	if (getFlag ("debug"))
+	  		qc_on = true;
     }
-  
-  
-    const string logFName = getArg ("log");
-  	ASSERT (! logPtr);
-    if (! logFName. empty ())
-  		logPtr = new ofstream (logFName, ios_base::app);
-  
-  	if (getFlag ("qc"))
-  		qc_on = true;
+    else
+    {
+	    logFName = getArg ("log");
+	  	ASSERT (! logPtr);
+	    if (! logFName. empty ())
+	  		logPtr = new ofstream (logFName, ios_base::app);
 
-  	Verbose vrb (str2<int> (getArg ("verbose")));
-  	
-  	if (getFlag ("noprogress"))
-  		Progress::disable ();
-  	if (getFlag ("profile"))
-  		Chronometer::enabled = true;
-  			
-  	seed_global = str2<ulong> (getArg ("seed"));
-  	if (! seed_global)
-  		throw runtime_error ("Seed cannot be 0");
-
+    #ifndef NDEBUG	  
+	  	if (getFlag ("qc"))
+	  		qc_on = true;
+	  #endif
+	
+	  	if (getFlag ("noprogress"))
+	  		Progress::disable ();
+	  	if (getFlag ("profile"))
+	  		Chronometer::enabled = true;
+	  			
+	  	seed_global = str2<ulong> (getArg ("seed"));
+	  	if (! seed_global)
+	  		throw runtime_error ("Seed cannot be 0");
+	  
+	  	jsonFName = getArg ("json");
+	  	ASSERT (! jRoot);
+	  	if (! jsonFName. empty ())
+	  	{
+	  		new JsonMap ();
+	  	  ASSERT (jRoot);
+	  	}
+	  	
+	  	sigpipe = getFlag ("sigpipe");
+	  }
+  
+	
   	threads_max = str2<size_t> (getArg ("threads"));
   	if (! threads_max)
-  		throw runtime_error ("Number of threads cannot be 0");
-
+  		throw runtime_error ("Number of threads cannot be 0");	
   	if (threads_max > 1 && Chronometer::enabled)
   		throw runtime_error ("Cannot profile with threads");
-  
-  	const string jsonFName = getArg ("json");
-  	ASSERT (! jRoot);
-  	if (! jsonFName. empty ())
-  	{
-  		new JsonMap ();
-  	  ASSERT (jRoot);
-  	}
-  
-  
-    if (programArgs. size () == 1 && (! positionals. empty () || needsArg))
-    {
-      cout << getInstruction () << endl;
-      return 1;
-    }
-    
-    if (posIt != positionals. end ())
-      errorExitStr ("Too few positional arguments\n" + getInstruction ());
 
 
+  	const Verbose vrb (gnu ? 0 : str2<int> (getArg ("verbose")));
+	  	
+  
+		qc ();
   	body ();
 
   
@@ -1895,6 +2565,110 @@ int Application::run (int argc,
 
   return 0;
 }
+
+
+
+
+// ShellApplication
+
+ShellApplication::~ShellApplication ()
+{
+	if (! qc_on && ! tmp. empty ())
+	  exec ("rm -fr " + tmp + "*");  
+}
+
+
+
+void ShellApplication::initEnvironment () 
+{
+  ASSERT (tmp. empty ());
+  ASSERT (! programArgs. empty ());
+  
+  // tmp
+  if (useTmp)
+  {
+    char templateS [] = {'/', 't', 'm', 'p', '/', 'X', 'X', 'X', 'X', 'X', 'X', '\0'}; 
+  #if 0
+    tmp = tmpnam (NULL);
+  #else
+    mkstemp (templateS);
+    tmp = templateS;
+  #endif
+  	if (tmp. empty ())
+  		throw runtime_error ("Cannot create a temporary file");
+  }
+
+  // execDir
+	execDir = getProgramDirName ();
+	if (execDir. empty ())
+		execDir = which (programArgs. front ());
+	ASSERT (isRight (execDir, "/"));
+
+
+  string execDir_ (execDir);
+  trimSuffix (execDir_, "/");
+  for (Key& key : keys)
+    if (! key. flag)
+      replaceStr (key. defaultValue, "$BASE", execDir_);
+}
+
+
+
+void ShellApplication::body () const
+{
+  if (useTmp && qc_on)
+    cout << tmp << endl;  
+  shellBody ();
+}
+
+
+
+string ShellApplication::which (const string &progName) const
+{
+	if (tmp. empty ())
+	  throw runtime_error ("Temporary file is needed");
+	
+	try { exec ("which " + progName + " 1> " + tmp + ".src 2> /dev/null"); }
+	  catch (const runtime_error &)
+	    { return string (); }
+	LineInput li (tmp + ".src");
+	const string s (li. getString ());
+	return getDirName (s);
+}
+
+	
+
+void ShellApplication::findProg (const string &progName) const
+{
+	ASSERT (! progName. empty ());
+	ASSERT (! contains (progName, '/'));
+	ASSERT (isRight (execDir, "/"));
+	
+	string dir;
+	if (! find (prog2dir, progName, dir))
+	{
+		dir = fileExists (execDir + progName)
+		        ? execDir
+		        : which (progName);
+	  if (dir. empty ())
+	    throw runtime_error ("AMRFinder binary " + shellQuote (progName) + " is not found.\nPlease make sure that " 
+	                         + shellQuote (progName) + " is in the same directory as " + shellQuote (Common_sp::programName) + " or is in your $PATH.");;
+	  prog2dir [progName] = dir;
+	}
+	  
+	ASSERT (isRight (dir, "/"));
+}
+
+
+
+string ShellApplication::fullProg (const string &progName) const
+{
+	string dir;
+	EXEC_ASSERT (find (prog2dir, progName, dir));
+	ASSERT (isRight (dir, "/"));
+	return dir + progName + " ";
+}
+
 
 
 

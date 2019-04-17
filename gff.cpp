@@ -45,38 +45,49 @@ namespace GFF_sp
 
 
 
-// Cds
+// Locus
 
-Cds::Cds (const string &contig_arg,
-				  size_t start_arg,
-				  size_t stop_arg,
-				  bool strand_arg,
-          size_t crossOriginSeqLen_arg)
-: contig (contig_arg)
+Locus::Locus (size_t lineNum_arg,
+              const string &contig_arg,
+    				  size_t start_arg,
+    				  size_t stop_arg,
+    				  bool strand_arg,
+              bool partial_arg,
+              size_t crossOriginSeqLen_arg)
+: lineNum (lineNum_arg)
+, contig (contig_arg)
 , start (start_arg)
 , stop (stop_arg)
 , strand (strand_arg)
-, crossOriginSeqLen (crossOriginSeqLen_arg)
+, partial (partial_arg)
+, contigLen (crossOriginSeqLen_arg)
+, crossOrigin (bool (crossOriginSeqLen_arg))
 { 
-	ASSERT (! contig. empty ());
-	if (crossOriginSeqLen)
+  ASSERT (lineNum >= 1);
+	trim (contig, '_');
+	if (contig. empty ())
+		throw runtime_error ("Empty contig name");
+	if (crossOrigin)
 	{
 		swap (start, stop);
 		start--;
 		stop++;
+	  ASSERT (contigLen);
+		ASSERT (stop <= contigLen);
 	}
   ASSERT (start < stop); 
 }
   
   
     
-bool Cds::operator< (const Cds& other) const
+bool Locus::operator< (const Locus& other) const
 { 
 	LESS_PART (*this, other, contig)
   LESS_PART (*this, other, start)
   LESS_PART (*this, other, stop)
   LESS_PART (*this, other, strand)
-  LESS_PART (*this, other, crossOriginSeqLen);
+  LESS_PART (*this, other, contigLen);
+  LESS_PART (*this, other, crossOrigin);
   return false;
 }
 
@@ -85,8 +96,9 @@ bool Cds::operator< (const Cds& other) const
 
 // Gff
 
-Gff::Gff (const string &fName,
-	        bool locus_tag)
+Annot::Annot (Gff,
+	            const string &fName,
+	            bool locus_tag)
 {
 	if (fName. empty ())
 		throw runtime_error ("Empty GFF file name");
@@ -100,24 +112,33 @@ Gff::Gff (const string &fName,
        )
       continue;
 
-    replace (f. line, ' ', '_');  // to use '\t' as delimiter
+    constexpr char tmpSpace {'_'};
+    replace (f. line, ' ', tmpSpace);  // to use '\t' as delimiter
 
    	const string errorS ("File " + fName + ", line " + toString (f. lineNum) + ": ");
 
-    string seqid, source, type, startS, stopS, score /*real number*/, strand, phase /*frame*/, attributes;
-    {
-	    istringstream iss (f. line);
-	    iss >> seqid >> source >> type >> startS >> stopS >> score >> strand >> phase >> attributes;
-	  }
+    string contig, source, type, startS, stopS, score /*real number*/, strand, phase /*frame*/, attributes;
+    static Istringstream iss;
+    iss. reset (f. line);
+    iss >> contig >> source >> type >> startS >> stopS >> score >> strand >> phase >> attributes;
+    trim (contig, tmpSpace);
+    trim (source, tmpSpace);
+    trim (type, tmpSpace);
+    trim (startS, tmpSpace);
+    trim (stopS, tmpSpace);
+    trim (score, tmpSpace);
+    trim (strand, tmpSpace);
+    trim (phase, tmpSpace);
+    trim (attributes, tmpSpace);
 
     if (attributes. empty ())
     	throw runtime_error (errorS + "9 fields are expected in each line");
 
-    if (contains (seqid, ":"))
-      findSplit (seqid, ':');  // = project_id
-    if (seqid. empty ())
+    if (contains (contig, ":"))
+      findSplit (contig, ':');  // = project_id
+    if (contig. empty ())
     	throw runtime_error (errorS + "empty sequence indentifier");
-	  for (const char c : seqid)
+	  for (const char c : contig)
 	  	if (! printable (c))
 	  		throw runtime_error (errorS + "Non-printable character in the sequence identifier: " + c);
 
@@ -160,6 +181,8 @@ Gff::Gff (const string &fName,
                         || type == "pseudogene";
   //if (pseudo && type == "CDS")  
     //continue;
+    
+    const bool partial = contains (attributes, "partial=true");
 
     string locusTag;
     const string locusTagName (locus_tag || pseudo ? "locus_tag=" : "Name=");
@@ -179,8 +202,71 @@ Gff::Gff (const string &fName,
 	    findSplit (locusTag, '='); 
 	  trimPrefix (locusTag, "\"");
 	  trimSuffix (locusTag, "\"");
+	  trim (locusTag, tmpSpace);
+	  ASSERT (! locusTag. empty ());
 	  
-    seqid2cdss [locusTag] << Cds (seqid, (size_t) start, (size_t) stop, strand == "+", 0);
+	  const Locus locus (f. lineNum, contig, (size_t) start, (size_t) stop, strand == "+", partial, 0);
+	#if 0
+	  // DNA may be truncated
+    if (type == "CDS" && ! pseudo && locus. size () % 3 != 0)
+    {
+      cout << "Locus tag: " << locusTag << endl;
+      locus. print (cout);
+      ERROR;
+    }
+  #endif
+
+    prot2cdss [locusTag] << locus;
+  }
+}
+  
+  
+
+Annot::Annot (Bed,
+	            const string &fName)
+{
+	if (fName. empty ())
+		throw runtime_error ("Empty BED file name");
+	
+  LineInput f (fName /*, 100 * 1024, 1*/);
+  while (f. nextLine ())
+  {
+    trim (f. line);
+    if (   f. line. empty () 
+        || f. line [0] == '#'
+       )
+      continue;
+
+    replace (f. line, ' ', '_');  // to use '\t' as delimiter
+
+   	const string errorS ("File " + fName + ", line " + toString (f. lineNum) + ": ");
+
+    string contig, locusTag;
+    size_t start, stop;
+    double score;
+    char strand = ' ';
+    static Istringstream iss;
+    iss. reset (f. line);
+    iss >> contig >> start >> stop >> locusTag >> score >> strand;
+
+    if (strand == ' ')
+    	throw runtime_error (errorS + "at least 5 fields are expected in each line");
+
+	  for (const char c : contig)
+	  	if (! printable (c))
+	  		throw runtime_error (errorS + "Non-printable character in the sequence identifier: " + c);
+
+    if (start >= stop)
+    	throw runtime_error (errorS + "start should be less than stop");
+
+    if (   strand != '+'
+        && strand != '-'
+       )
+    	throw runtime_error (errorS + "strand should be '+' or '-'");
+           
+	  trim (locusTag, '_');
+	  ASSERT (! locusTag. empty ());
+    prot2cdss [locusTag] << Locus (f. lineNum, contig, start, stop, strand == '+', false/*partial*/, 0);
   }
 }
   
