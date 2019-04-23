@@ -1975,7 +1975,7 @@ FileItemGenerator::FileItemGenerator (size_t progress_displayPeriod,
     strcat (lsfName, "/XXXXXX");
     EXEC_ASSERT (mkstemp (lsfName) != -1);
     ASSERT (lsfName [0]);
-    const int res = system (("ls " + fName + " > " + lsfName). c_str ());
+    const int res = system (("ls -a " + fName + " > " + lsfName). c_str ());
   //printf ("res = %d\n", res);
     ASSERT (! res);
     fName = lsfName;
@@ -1983,6 +1983,14 @@ FileItemGenerator::FileItemGenerator (size_t progress_displayPeriod,
   }      
   f. open (fName);
   ASSERT (f. good ()); 
+  if (isDir)
+  {
+    string s;
+    readLine (f, s);
+    ASSERT (s == ".");
+    readLine (f, s);
+    ASSERT (s == "..");
+  }
 }
 
 

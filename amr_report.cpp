@@ -712,7 +712,7 @@ struct BlastAlignment
 	      {
           const string method (getMethod (cds));
 	        TabDel td (2, false);
-          td << targetName;
+          td << (targetProt ? targetName : na);  // PD-2534
 	        if (cdsExist)
 	          td << (cds. contig. empty () ? targetName  : cds. contig)
 	             << (cds. contig. empty () ? targetStart : cds. start) + 1
