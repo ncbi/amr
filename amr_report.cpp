@@ -797,6 +797,12 @@ struct BlastAlignment
 
   bool isPointMut () const
     { return resistance == "point_mutation"; }
+  Set<string> getMutations () const
+    { Set<string> mutations;
+      for (const PointMut& pointMut : pointMuts)
+        mutations << pointMut. geneMutation;
+      return mutations;
+    }        
   bool allele () const
     { return famId != gene && parts == 1; }
   size_t targetTail (bool upstream) const
@@ -978,8 +984,8 @@ private:
 	      	  && !        insideEq (other)
 	      	 )
 	        return false;
-	      if (targetProt)
-	        { LESS_PART (other, *this, isPointMut ()); }
+	    //if (targetProt)
+	      //{ LESS_PART (other, *this, isPointMut ()); }
 	      LESS_PART (other, *this, refExactlyMatched ());  // PD-1261, PD-1678
 	      LESS_PART (other, *this, nident);
 	      LESS_PART (*this, other, refEffectiveLen ());
@@ -990,18 +996,26 @@ private:
 	    	  return false;
 	    	if (! targetProt && ! other. matchesCds (*this))
 	    	  return false;
-	      LESS_PART (other, *this, refExactlyMatched ());  
-	    //LESS_PART (other, *this, allele ());  // PD-2352
-	      LESS_PART (other, *this, alleleReported ());  
-	      LESS_PART (other, *this, targetProt);
-      /*
-	    	if (targetProt)
-	    		return matchesCds (other) && ! other. refExactlyMatched ();
-    		return    other. matchesCds (*this) 
-    		       && refExactlyMatched () 
-    		       && allele () 
-    		       && ! (other. refExactlyMatched () && other. refLen == other. targetLen);
-      */
+				if (isPointMut ())
+				{
+				  if (! other. isPointMut ())
+				    return true;
+				  const Set<string> mutations      (       getMutations ());
+				  const Set<string> otherMutations (other. getMutations ());
+				  if (mutations == otherMutations)
+				    return targetProt;
+				  if (mutations. containsAll (otherMutations))
+				    return true;
+				  if (otherMutations. containsAll (mutations))
+				    return false;
+				}
+				else
+				{
+  	      LESS_PART (other, *this, refExactlyMatched ());  
+  	    //LESS_PART (other, *this, allele ());  // PD-2352
+  	      LESS_PART (other, *this, alleleReported ());  
+  	      LESS_PART (other, *this, targetProt);
+  	    }
 	    }
       return true;
     }
@@ -1495,9 +1509,12 @@ public:
   	for (const auto& blastAl : goodBlastAls)
   	{
    	  blastAl. qc ();
-  	  if (   (non_reportable || (! blastAl. isPointMut () && blastAl. getFam () -> reportable))
-  	  	  || ! blastAl. pointMuts. empty ()
-  	  	 )
+   	  if (blastAl. isPointMut ())
+  	  	if (blastAl. pointMuts. empty ())
+  	  	  ;
+  	  	else
+      	  blastAl. saveText (os);
+   	  else if (non_reportable || blastAl. getFam () -> reportable)
     	  blastAl. saveText (os);
     }
 	}

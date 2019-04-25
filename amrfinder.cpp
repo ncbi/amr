@@ -87,6 +87,7 @@ struct ThisApplication : ShellApplication
 	    setRequiredGroup ("protein",    "Input");
 	    setRequiredGroup ("nucleotide", "Input");
 	  #endif
+	    // threads_max: do not include blast/hmmsearch's threads ??
     }
 
 
