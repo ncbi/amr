@@ -73,6 +73,7 @@
 #include <iomanip>
 #include <memory>
 #include <algorithm>
+#include <math.h>
 
 #include <thread>
 #ifdef _MSC_VER
@@ -2325,21 +2326,24 @@ struct LineInput : Input
     // Invokes: trimTrailing()
 	bool expectPrefix (const string &prefix,
 	                   bool eofAllowed)
-		{ if (nextLine () && trimPrefix (line, prefix))
-		  	return true;  
-			if (eof && eofAllowed)
-				return false;
-		  throw runtime_error ("No " + strQuote (prefix));
-		}
+	{ 
+		if (nextLine () && trimPrefix (line, prefix))
+			return true;  
+		if (eof && eofAllowed)
+			return false;
+		throw runtime_error ("No " + strQuote (prefix));
+	}
 	string getString ()
-	  { string s; 
-	  	while (nextLine ())
-	  	{ if (! s. empty ())
-	  			s += "\n";
-	  	  s += line;
-	  	}
-	  	return s;
-	  }
+	{
+		string s; 
+		while (nextLine ())
+		{ 
+			if (! s. empty ())
+				s += "\n";
+			s += line;
+		}
+		return s;
+	}
 	StringVector getVector ()
 	  { StringVector vec;
 	    while (nextLine ())

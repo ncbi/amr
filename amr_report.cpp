@@ -780,14 +780,14 @@ struct BlastAlignment
 	        }
 	        if (pm. empty () || ! pm. additional)
 	        {
-  	        if (verbose ())
-  	          os         << refExactlyMatched ()
-  	             << '\t' << allele ()
-  	             << '\t' << alleleReported ()
-  	             << '\t' << targetProt
-  	             << '\t' << nident
-  	             << '\t';
-	          os << td. str () << endl;
+				if (verbose ())
+					os         << refExactlyMatched ()
+					<< '\t' << allele ()
+					<< '\t' << alleleReported ()
+					<< '\t' << targetProt
+					<< '\t' << nident
+					<< '\t';
+				os << td. str () << endl;
 	        }
 	        if (point_mut_all. get () && ! pm. empty ())
 	          *point_mut_all << td. str () << endl;
