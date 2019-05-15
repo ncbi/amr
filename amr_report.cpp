@@ -505,7 +505,7 @@ struct BlastAlignment
   		  }
   		    
 		    completeBR. ref_coverage = complete_coverage_min_def;
-		    partialBR.  ref_coverage = partial_coverage_min_def;
+		    partialBR.  ref_coverage = defaultPartialBR. ref_coverage;
 		    
 		    if (completeBR. empty ())
 		      completeBR = defaultCompleteBR;
@@ -562,6 +562,9 @@ struct BlastAlignment
 		    mismatchTailTarget = mismatchTail_aa;
 		    if (! targetProt)
 		      mismatchTailTarget *= 3;
+		      
+		    if (! targetProt)
+		      cdss << move (Locus (0, targetName, targetStart, targetStop, targetStrand, partialDna, 0));
 	
 	      strUpper (targetSeq);
 	      strUpper (refSeq);
@@ -654,42 +657,42 @@ struct BlastAlignment
     {
       if (! qc_on)
         return;
-	    ASSERT (! famId. empty ());
-	    ASSERT (! gene. empty ());
-	    ASSERT (part >= 1);
-	    ASSERT (part <= parts);
-	    ASSERT (! product. empty ());
-	    IMPLY (targetProt, targetStrand);  
-	    ASSERT (targetStart < targetStop);
-	    ASSERT (targetStop <= targetLen);
-	    ASSERT ((bool) gi == (bool) length);
-	    ASSERT ((bool) gi == (bool) refLen);
-	    ASSERT ((bool) gi == (bool) nident);
-	    ASSERT ((bool) gi == ! accessionProt. empty ());
-	    IMPLY (! gi && ! isPointMut (), getFam () -> getHmmFam ());
-	    IMPLY (targetProt, ! partialDna);
-	  //IMPLY (! targetProt, (targetStop - targetStart) % 3 == 0);
-	    ASSERT (targetAlign);
-	    IMPLY (targetProt, targetAlign == targetAlign_aa);
-	    IMPLY (! targetProt, targetAlign == 3 * targetAlign_aa);
-	    ASSERT (nident <= targetAlign_aa);
-	    IMPLY (! targetProt, cdss. empty ());
+	    QC_ASSERT (! famId. empty ());
+	    QC_ASSERT (! gene. empty ());
+	    QC_ASSERT (part >= 1);
+	    QC_ASSERT (part <= parts);
+	    QC_ASSERT (! product. empty ());
+	    QC_IMPLY (targetProt, targetStrand);  
+	    QC_ASSERT (targetStart < targetStop);
+	    QC_ASSERT (targetStop <= targetLen);
+	    QC_ASSERT ((bool) gi == (bool) length);
+	    QC_ASSERT ((bool) gi == (bool) refLen);
+	    QC_ASSERT ((bool) gi == (bool) nident);
+	    QC_ASSERT ((bool) gi == ! accessionProt. empty ());
+	    QC_IMPLY (! gi && ! isPointMut (), getFam () -> getHmmFam ());
+	    QC_IMPLY (targetProt, ! partialDna);
+	  //QC_IMPLY (! targetProt, (targetStop - targetStart) % 3 == 0);
+	    QC_ASSERT (targetAlign);
+	    QC_IMPLY (targetProt, targetAlign == targetAlign_aa);
+	    QC_IMPLY (! targetProt, targetAlign == 3 * targetAlign_aa);
+	    QC_ASSERT (nident <= targetAlign_aa);
+	  //QC_IMPLY (! targetProt, cdss. empty ());
 	    if (gi)
 	    {
-	      ASSERT (refStart < refStop);
-  	    ASSERT (nident <= refStop - refStart);
-  	    ASSERT (refStop <= refLen);
-  	    ASSERT (refStop - refStart <= length);	    
-  	    ASSERT (targetAlign_aa <= length);
+	      QC_ASSERT (refStart < refStop);
+  	    QC_ASSERT (nident <= refStop - refStart);
+  	    QC_ASSERT (refStop <= refLen);
+  	    QC_ASSERT (refStop - refStart <= length);	    
+  	    QC_ASSERT (targetAlign_aa <= length);
 	    }
 	  #if 0
 	    if (targetProt)
     	  for (const Locus& cds : cdss)
-    	    ASSERT (   cds. size () == 3 * targetLen + 3
+    	    QC_ASSERT (   cds. size () == 3 * targetLen + 3
     	            || cds. size () == 3 * targetLen 
     	           );
     #endif
-	    IMPLY (! pointMuts. empty (), isPointMut ());
+	    QC_IMPLY (! pointMuts. empty (), isPointMut ());
     }
   void saveText (ostream& os) const 
     { // PD-736, PD-774, PD-780, PD-799
@@ -780,14 +783,14 @@ struct BlastAlignment
 	        }
 	        if (pm. empty () || ! pm. additional)
 	        {
-				if (verbose ())
-					os         << refExactlyMatched ()
-					<< '\t' << allele ()
-					<< '\t' << alleleReported ()
-					<< '\t' << targetProt
-					<< '\t' << nident
-					<< '\t';
-				os << td. str () << endl;
+  	        if (verbose ())
+  	          os         << refExactlyMatched ()
+  	             << '\t' << allele ()
+  	             << '\t' << alleleReported ()
+  	             << '\t' << targetProt
+  	             << '\t' << nident
+  	             << '\t';
+	          os << td. str () << endl;
 	        }
 	        if (point_mut_all. get () && ! pm. empty ())
 	          *point_mut_all << td. str () << endl;
@@ -827,7 +830,7 @@ struct BlastAlignment
 	  }
   bool partial () const
     // Requires: good()
-    { return refCoverage () < 0.9 /*complete_cover_min*/ - frac_delta; }  // PAR
+    { return refCoverage () < complete_coverage_min_def - frac_delta; }  
   bool getTargetStrand (const Locus &cds) const
     { return targetProt
                ? cds. empty ()
@@ -914,6 +917,16 @@ struct BlastAlignment
 	      return passBlastRule (completeBR);
     }
 private:
+#if 0
+  bool sameTarget (const BlastAlignment &other) const
+    // Symmetric
+    { ASSERT (targetProt == other. targetProt);
+    	return    targetStrand == other. targetStrand
+             && difference (targetStart, other. targetStart) <= mismatchTailTarget 
+             && difference (targetStop,  other. targetStop)  <= mismatchTailTarget;	    
+    }
+    // Requires: same targetName
+#endif
   bool insideEq (const BlastAlignment &other) const
     { ASSERT (targetProt == other. targetProt);
     	return    targetStrand                     == other. targetStrand
@@ -974,12 +987,14 @@ private:
     }
   bool betterEq (const BlastAlignment &other) const
     // Reflexive
+    // No cycles longer than 2 arcs
     { if (targetProt == other. targetProt)  
       {
 	    	if (targetName != other. targetName)
 	        return false;
 	      // PD-807
 	      if (   ! (targetProt && famId == other. famId)  // PD-2441
+	      	//&& ! sameTarget (other)
 	          && ! other. insideEq (*this)
 	      	  && !        insideEq (other)
 	      	 )
@@ -1032,7 +1047,7 @@ public:
   bool better (const BlastAlignment &other) const
     { return    betterEq (other) 
     	       && (   ! other. betterEq (*this) 
-    	           || accessionProt < other. accessionProt  // Tie resolution; PD-1245
+    	           || accessionProt < other. accessionProt  // Tie resolution: PD-1245
     	          );
     }
   bool better (const HmmAlignment& other) const
@@ -1193,7 +1208,6 @@ struct Batch
   	  	    throw runtime_error ("Cannot read " + famFName +", line " + toString (f. lineNum) + "\n" + e. what ());
   	  	  }
 	  	}
-	  	// Pass 2
 	    {
 	    	if (verbose ())
 	    		cout << "Reading " << famFName << " Pass 2 ..." << endl;
@@ -1224,7 +1238,7 @@ struct Batch
 	  	  for (const auto& it : famId2fam)
 	  	    if (! it. second->parent)
 	  	      roots++;
-	  	  ASSERT (roots == 1);
+	  	  QC_ASSERT (roots == 1);
 	  	}
 	  	
 
@@ -1645,7 +1659,7 @@ struct ThisApplication : Application
       addKey ("point_mut", "Point mutation table");
       addKey ("point_mut_all", "File to report all target positions of reference point mutations");
       addKey ("ident_min", "Min. identity to the reference protein (0..1). -1 means use a curated threshold if it exists and " + toString (ident_min_def) + " otherwise", "-1");
-      addKey ("coverage_min", "Min. coverage of the reference protein (0..1)", toString (partial_coverage_min_def));
+      addKey ("coverage_min", "Min. coverage of the reference protein (0..1) for partial hits", toString (partial_coverage_min_def));
       addFlag ("skip_hmm_check", "Skip checking HMM for a BLAST hit");
       // Output
       addKey ("out", "Identifiers of the reported input proteins");
@@ -1697,19 +1711,22 @@ struct ThisApplication : Application
     	throw runtime_error ("If BLASTP and BLASTX files are present then a GFF file must be present");
        	
     
-    if (ident_min == -1)
+    if (ident_min == -1.0)
       ident_min = ident_min_def;
     else
       ident_min_user = true;
       
-    if (! (ident_min >= 0 && ident_min <= 1))
-    	throw runtime_error ("ident_min must be -1 or between 0 and 1");
-    if (! (partial_coverage_min >= 0 && partial_coverage_min <= 1))
-    	throw runtime_error ("coverage_min must be -1 or between 0 and 1");
+    if (! (ident_min >= 0.0 && ident_min <= 1.0))
+    	throw runtime_error ("-ident_min must be -1 or between 0 and 1");
+    if (! (partial_coverage_min >= 0.0 && partial_coverage_min <= 1.0))
+    	throw runtime_error ("-coverage_min must be -1 or between 0 and 1");
+    	
+    if (partial_coverage_min > complete_coverage_min_def)
+      throw runtime_error ("-coverage_min must be less than " + toString (complete_coverage_min_def) + " - threshod for complete matches");
 
 
-    defaultCompleteBR = BlastRule (ident_min, /*complete_coverage_min,*/ 0.9);  // PAR
-    defaultPartialBR  = BlastRule (ident_min, /*complete_coverage_min,*/ partial_coverage_min);
+    defaultCompleteBR = BlastRule (ident_min, complete_coverage_min_def);  
+    defaultPartialBR  = BlastRule (ident_min, partial_coverage_min);
     
     
     cdsExist =    force_cds_report

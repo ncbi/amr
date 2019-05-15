@@ -51,6 +51,7 @@ struct Locus
   static constexpr size_t end_delta = 3;  // PAR
   size_t lineNum {0};
     // >= 1
+    // 0 - unknown
   string contig;
   size_t start {0};
   size_t stop {0};

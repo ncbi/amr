@@ -977,8 +977,8 @@ void Rand::qc () const
 {
   if (! qc_on)
     return;
-  ASSERT (seed > 0);
-  ASSERT (seed < max_);
+  QC_ASSERT (seed > 0);
+  QC_ASSERT (seed < max_);
 }
 
 
@@ -1131,7 +1131,7 @@ void Named::qc () const
     return;
   Root::qc ();
     
-  ASSERT (goodName (name));
+  QC_ASSERT (goodName (name));
 }
 
 
@@ -1524,21 +1524,21 @@ void Token::qc () const
     return;
   if (! empty ())
   {
-  	IMPLY (type != eText, ! name. empty ());
-  	IMPLY (type != eText, ! contains (name, ' '));
-  	IMPLY (type != eText, quote == '\0');
-    ASSERT (! contains (name, quote));
-    IMPLY (type != eDouble, decimals == 0);
+  	QC_IMPLY (type != eText, ! name. empty ());
+  	QC_IMPLY (type != eText, ! contains (name, ' '));
+  	QC_IMPLY (type != eText, quote == '\0');
+    QC_ASSERT (! contains (name, quote));
+    QC_IMPLY (type != eDouble, decimals == 0);
   	switch (type)
   	{ 
-  		case eName:      ASSERT (isIdentifier (name)); 
+  		case eName:      QC_ASSERT (isIdentifier (name)); 
   		                 break;
   	  case eText:      break;
   		case eInteger:   
-  		case eDouble:    ASSERT (name [0] == '-' || isDigit (name [0])); 
+  		case eDouble:    QC_ASSERT (name [0] == '-' || isDigit (name [0])); 
   		                 break;
-  		case eDelimiter: ASSERT (name. size () == 1); 
-  		                 ASSERT (Common_sp::isDelimiter (name [0]));
+  		case eDelimiter: QC_ASSERT (name. size () == 1); 
+  		                 QC_ASSERT (Common_sp::isDelimiter (name [0]));
   		                 break;
   		default: throw runtime_error ("Token: Unknown type");
   	}
@@ -1704,7 +1704,8 @@ void Json::parse (CharInput& in,
 
 string Json::getString () const
 { 
-  if (! this || asJsonNull ())
+  const auto* this_ = this;
+  if (! this_ || asJsonNull ())
     throw runtime_error ("undefined");
   if (const JsonString* j = asJsonString ())
     return j->s;
@@ -1715,7 +1716,8 @@ string Json::getString () const
 
 int Json::getInt () const
 { 
-  if (! this || asJsonNull ())
+  const auto* this_ = this;
+  if (! this_ || asJsonNull ())
     throw runtime_error ("undefined");
   if (const JsonInt* j = asJsonInt ())
     return j->n;
@@ -1726,7 +1728,8 @@ int Json::getInt () const
 
 double Json::getDouble () const
 { 
-  if (! this)
+  const auto* this_ = this;
+  if (! this_)
     throw runtime_error ("undefined");
   if (asJsonNull ())
     return numeric_limits<double>::quiet_NaN ();
@@ -1739,7 +1742,8 @@ double Json::getDouble () const
 
 bool Json::getBoolean () const
 { 
-  if (! this || asJsonNull ())
+  const auto* this_ = this;
+  if (! this_ || asJsonNull ())
     throw runtime_error ("undefined");
   if (const JsonBoolean* j = asJsonBoolean ())
     return j->b;
@@ -1750,7 +1754,8 @@ bool Json::getBoolean () const
 
 const Json* Json::at (const string& name_arg) const
 { 
-  if (! this)
+  const auto* this_ = this;
+  if (! this_)
     throw runtime_error ("undefined");
   if (asJsonNull ())
     return nullptr;
@@ -1763,7 +1768,8 @@ const Json* Json::at (const string& name_arg) const
 
 const Json* Json::at (size_t index) const
 { 
-  if (! this)
+  const auto* this_ = this;
+  if (! this_)
     throw runtime_error ("undefined");
   if (asJsonNull ())
     return nullptr;
@@ -1781,7 +1787,8 @@ const Json* Json::at (size_t index) const
 
 size_t Json::getSize () const
 { 
-  if (! this)
+  const auto* this_ = this;
+  if (! this_)
     throw runtime_error ("undefined");
   if (asJsonNull ())
     return 0;
@@ -2042,8 +2049,8 @@ void Application::Arg::qc () const
   if (! qc_on)
   	return;
   	
-  ASSERT (! name. empty ());
-  ASSERT (! description. empty ());
+  QC_ASSERT (! name. empty ());
+  QC_ASSERT (! description. empty ());
 }
 
 
@@ -2054,11 +2061,11 @@ void Application::Key::qc () const
   	return;
   Arg::qc ();
   
-  IMPLY (app. gnu, name. size () > 1);
-  IMPLY (acronym, app. gnu);
-  ASSERT (isUpper (var));
-  ASSERT (! var. empty () == (app. gnu && ! flag));
-  IMPLY (! requiredGroup. empty (), defaultValue. empty ());
+  QC_IMPLY (app. gnu, name. size () > 1);
+  QC_IMPLY (acronym, app. gnu);
+  QC_ASSERT (isUpper (var));
+  QC_ASSERT (! var. empty () == (app. gnu && ! flag));
+  QC_IMPLY (! requiredGroup. empty (), defaultValue. empty ());
 }
 
 
@@ -2196,9 +2203,9 @@ void Application::qc () const
   if (! qc_on)
     return;
   
-  ASSERT (! description. empty ());
-  ASSERT (! version. empty ());
-  IMPLY (! needsArg, positionals. empty ());
+  QC_ASSERT (! description. empty ());
+  QC_ASSERT (! version. empty ());
+  QC_IMPLY (! needsArg, positionals. empty ());
   
   for (const Positional& p : positionals)
   	p. qc ();
@@ -2210,13 +2217,13 @@ void Application::qc () const
   	key. qc ();
   	if (! key. requiredGroup. empty () && key. requiredGroup != requiredGroup_prev)
   	{
-  		ASSERT (! contains (requiredGroups, key. requiredGroup));
+  		QC_ASSERT (! contains (requiredGroups, key. requiredGroup));
   		requiredGroups [key. requiredGroup] ++;
   	}
   	requiredGroup_prev = key. requiredGroup;
   }
   for (const auto& it : requiredGroups)
-  	ASSERT (it. second > 1);
+  	QC_ASSERT (it. second > 1);
 }
 	
 

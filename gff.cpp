@@ -63,7 +63,7 @@ Locus::Locus (size_t lineNum_arg,
 , contigLen (crossOriginSeqLen_arg)
 , crossOrigin (bool (crossOriginSeqLen_arg))
 { 
-  ASSERT (lineNum >= 1);
+//ASSERT (lineNum >= 1);
 	trim (contig, '_');
 	if (contig. empty ())
 		throw runtime_error ("Empty contig name");

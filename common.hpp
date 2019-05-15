@@ -57,6 +57,7 @@
 
 #include <ctime>
 #include <cstring>
+#include <cmath>
 #include <string>
 #include <stdexcept>
 #include <limits>
@@ -73,7 +74,6 @@
 #include <iomanip>
 #include <memory>
 #include <algorithm>
-#include <math.h>
 
 #include <thread>
 #ifdef _MSC_VER
@@ -548,6 +548,19 @@ template <typename Key, typename Value, typename KeyParent>
 
 template <typename Key, typename Value, typename KeyParent>
   bool find (const unordered_map <Key, Value> &m,
+             const KeyParent& key,
+             Value &value)
+    // Return: success
+    // Output: value, if Return
+    { const auto& it = m. find (key);
+    	if (it == m. end ())
+    		return false;
+    	value = it->second; 
+    	return true;
+    }
+
+template <typename Key, typename Value, typename Hash, typename KeyParent>
+  bool find (const unordered_map <Key, Value, Hash> &m,
              const KeyParent& key,
              Value &value)
     // Return: success
@@ -1378,6 +1391,15 @@ public:
 	  }
   bool contains (const T &value) const
     { return constFind (value) != P::end (); }
+  size_t indexOf (const T &value) const
+    { size_t n = 0;
+      for (const T& t : *this)
+        if (value == t)
+          return n;
+        else
+          n++;
+      return NO_INDEX;
+    }
   size_t countValue (const T &value) const
     { size_t n = 0;
       for (const T& t : *this)
@@ -2326,24 +2348,21 @@ struct LineInput : Input
     // Invokes: trimTrailing()
 	bool expectPrefix (const string &prefix,
 	                   bool eofAllowed)
-	{ 
-		if (nextLine () && trimPrefix (line, prefix))
-			return true;  
-		if (eof && eofAllowed)
-			return false;
-		throw runtime_error ("No " + strQuote (prefix));
-	}
-	string getString ()
-	{
-		string s; 
-		while (nextLine ())
-		{ 
-			if (! s. empty ())
-				s += "\n";
-			s += line;
+		{ if (nextLine () && trimPrefix (line, prefix))
+		  	return true;  
+			if (eof && eofAllowed)
+				return false;
+		  throw runtime_error ("No " + strQuote (prefix));
 		}
-		return s;
-	}
+	string getString ()
+	  { string s; 
+	  	while (nextLine ())
+	  	{ if (! s. empty ())
+	  			s += "\n";
+	  	  s += line;
+	  	}
+	  	return s;
+	  }
 	StringVector getVector ()
 	  { StringVector vec;
 	    while (nextLine ())
@@ -3145,13 +3164,13 @@ protected:
   uint arg2uint (const string &name) const
     { uint n = 0;
     	try { n = str2<uint> (getArg (name)); }
-    	  catch (...) { throw runtime_error ("Cannot convert -" + name + " to non-negative number"); }
+    	  catch (...) { throw runtime_error ("Cannot convert " + strQuote (name) + " to non-negative number"); }
     	return n;
     }
   double arg2double (const string &name) const
     { double d = numeric_limits<double>::quiet_NaN ();
     	try { d = str2<double> (getArg (name)); }
-    	  catch (...) { throw runtime_error ("Cannot convert -" + name + " to number"); }
+    	  catch (...) { throw runtime_error ("Cannot convert " + strQuote (name) + " to number"); }
     	return d;
     }
   bool getFlag (const string &name) const;
