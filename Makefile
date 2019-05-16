@@ -20,8 +20,8 @@ CPPFLAGS = -std=gnu++11 \
   -Woverloaded-virtual -pedantic -Wparentheses -Wpointer-arith -Wsequence-point -Wshadow -Wunused \
   -Wsuggest-attribute=format -Wswitch -Wuninitialized -Wsign-conversion -Wuseless-cast \
   -O3 \
-  $(SVNREV)
-#  -Wno-error=misleading-indentation -Wno-nonnull-compare \
+  $(SVNREV) \
+  -Wno-error=misleading-indentation -Wno-nonnull-compare \
 
 CXX=g++
 COMPILE.cpp= $(CXX) $(CPPFLAGS)  -c
