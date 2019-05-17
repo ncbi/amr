@@ -314,7 +314,7 @@ struct ThisApplication : ShellApplication
   			stderr << "Running blastp...\n";
   			// " -task blastp-fast -word_size 6  -threshold 21 "  // PD-2303
   			th << thread (exec, fullProg ("blastp") + " -query " + prot + " -db " + db + "/AMRProt  -show_gis  -evalue 1e-20  -comp_based_stats 0  "
-  			  "-num_threads 6  "
+  			  "-num_threads 4  "
   			  "-outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq sseq' "
   			  "-out " + tmp + ".blastp >& /dev/null", string ());
   			stderr << "Running hmmsearch...\n";
@@ -350,7 +350,7 @@ struct ThisApplication : ShellApplication
   		  else
     			th << thread (exec, fullProg ("blastx") + "  -query " + dna + " -db " + db + "/AMRProt  "
     			  "-show_gis  -word_size 3  -evalue 1e-20  -query_gencode " + toString (gencode) + "  "
-    			  "-seg no  -comp_based_stats 0  -max_target_seqs 10000  -num_threads 6 "
+    			  "-seg no  -comp_based_stats 0  -max_target_seqs 10000  -num_threads 4 "
     			  "-outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq sseq' "
     			  "-out " + tmp + ".blastx >& /dev/null", string ());
   		  blastx_par = "-blastx " + tmp + ".blastx  -dna_len " + tmp + ".len";
