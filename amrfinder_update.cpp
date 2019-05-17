@@ -253,7 +253,7 @@ struct ThisApplication : ShellApplication
     fetchAMRFile (curl, latestDir, "changes.txt");
     
     stderr << "Indexing" << "\n";
-    exec (fullProg ("hmmpress") + " -f " + latestDir + "AMR.LIB >& /dev/null");
+    exec (fullProg ("hmmpress") + " -f " + latestDir + "AMR.LIB > /dev/null 2> /dev/null");
 	  exec (fullProg ("makeblastdb") + " -in " + latestDir + "AMRProt  -dbtype prot  -logfile /dev/null");  
 	  exec (fullProg ("makeblastdb") + " -in " + latestDir + "AMR_CDS  -dbtype nucl  -logfile /dev/null");  
   }
