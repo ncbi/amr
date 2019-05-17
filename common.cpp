@@ -2666,7 +2666,7 @@ void ShellApplication::findProg (const string &progName) const
 		        ? execDir
 		        : which (progName);
 	  if (dir. empty ())
-	    throw runtime_error ("AMRFinder binary " + shellQuote (progName) + " is not found.\nPlease make sure that " 
+	    throw runtime_error ("Binary " + shellQuote (progName) + " is not found.\nPlease make sure that " 
 	                         + shellQuote (progName) + " is in the same directory as " + shellQuote (Common_sp::programName) + " or is in your $PATH.");;
 	  prog2dir [progName] = dir;
 	}
