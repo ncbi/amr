@@ -255,7 +255,7 @@ struct ThisApplication : ShellApplication
 	  if (! emptyArg (organism))
 	  {
  	  	string errMsg;
-			try { exec ("grep -w ^" + organism1 + " " + db + "/AMRProt-point_mut.tab &> /dev/null"); }
+			try { exec ("grep -w ^" + organism1 + " " + db + "/AMRProt-point_mut.tab >& /dev/null"); }
 			  catch (const runtime_error &)
 			  { 
 			  	errMsg = "No protein point mutations for organism " + organism;
@@ -316,9 +316,9 @@ struct ThisApplication : ShellApplication
   			th << thread (exec, fullProg ("blastp") + " -query " + prot + " -db " + db + "/AMRProt  -show_gis  -evalue 1e-20  -comp_based_stats 0  "
   			  "-num_threads 6  "
   			  "-outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq sseq' "
-  			  "-out " + tmp + ".blastp &> /dev/null", string ());
+  			  "-out " + tmp + ".blastp >& /dev/null", string ());
   			stderr << "Running hmmsearch...\n";
-  			th << thread (exec, fullProg ("hmmsearch") + " --tblout " + tmp + ".hmmsearch  --noali  --domtblout " + tmp + ".dom  --cut_tc  -Z 10000  --cpu 8  " + db + "/AMR.LIB " + prot + "&> " + tmp + ".out", string ());
+  			th << thread (exec, fullProg ("hmmsearch") + " --tblout " + tmp + ".hmmsearch  --noali  --domtblout " + tmp + ".dom  --cut_tc  -Z 10000  --cpu 8  " + db + "/AMR.LIB " + prot + " >& " + tmp + ".out", string ());
 
   		  blastp_par = "-blastp " + tmp + ".blastp  -hmmsearch " + tmp + ".hmmsearch  -hmmdom " + tmp + ".dom";
   			if (! emptyArg (gff))
@@ -344,7 +344,7 @@ struct ThisApplication : ShellApplication
       			  "-show_gis  -word_size 3  -evalue 1e-20  -query_gencode " + toString (gencode) + "  "
       			  "-seg no  -comp_based_stats 0  -max_target_seqs 10000  "
       			  "-outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq sseq' "
-      			  "-out " + tmp + ".blastx_dir/" + item + " &> /dev/null", string ());
+      			  "-out " + tmp + ".blastx_dir/" + item + " >& /dev/null", string ());
     		  blastxChunks = true;
   		  }
   		  else
@@ -352,7 +352,7 @@ struct ThisApplication : ShellApplication
     			  "-show_gis  -word_size 3  -evalue 1e-20  -query_gencode " + toString (gencode) + "  "
     			  "-seg no  -comp_based_stats 0  -max_target_seqs 10000  -num_threads 6 "
     			  "-outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq sseq' "
-    			  "-out " + tmp + ".blastx &> /dev/null", string ());
+    			  "-out " + tmp + ".blastx >& /dev/null", string ());
   		  blastx_par = "-blastx " + tmp + ".blastx  -dna_len " + tmp + ".len";
   		}
 
@@ -363,7 +363,7 @@ struct ThisApplication : ShellApplication
   			findProg ("point_mut");
   			stderr << "Running blastn...\n";
   			exec (fullProg ("blastn") + " -query " +dna + " -db " + db + "/AMR_DNA-" + organism1 + " -evalue 1e-20  -dust no  "
-  			  "-outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq sseq' -out " + tmp + ".blastn &> /dev/null");
+  			  "-outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq sseq' -out " + tmp + ".blastn >& /dev/null");
   		}
   	}
   	
