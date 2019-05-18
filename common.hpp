@@ -1091,6 +1091,11 @@ int getVerbosity ();
 
 
 
+void exec (const string &cmd,
+           const string &logFName = string());
+
+
+
 // Threads
 
 struct Threads : Singleton<Threads>
@@ -1108,16 +1113,26 @@ public:
   	
 	static bool empty () 
 	  { return ! threadsToStart; }
+	size_t getAvailable () const
+	  { return threadsToStart < threads. size () ? 0 : (threadsToStart - threads. size ()); }
 	Threads& operator<< (thread &&t)
-	  { if (threads. size () >= threadsToStart)
+	  { if (! getAvailable ())
 	  	  throw logic_error ("Too many threads created");
 	  	try { threads. push_back (move (t)); }
 	  	  catch (const exception &e) 
 	  	    { throw runtime_error (string ("Cannot start thread\n") + e. what ()); }
 	  	return *this;
 	  }
-	size_t getAvailable () const
-	  { return threadsToStart - threads. size (); }
+	bool exec (const string cmd,
+	           size_t cmdThreads = 1)
+	  { if (cmdThreads && getAvailable () >= cmdThreads)
+	    { *this << thread (Common_sp::exec, cmd, string ());
+	      threadsToStart -= cmdThreads - 1;
+	      return true;
+	    }
+      Common_sp::exec (cmd);
+	    return false;
+	  }
 };
 
 
@@ -2934,10 +2949,6 @@ public:
     { os << endl << string (size, ' '); }
 };
 
-
-
-void exec (const string &cmd,
-           const string &logFName = string());
 
 
 

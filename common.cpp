@@ -1066,6 +1066,32 @@ Unverbose::~Unverbose ()
 
 
 
+//
+
+void exec (const string &cmd,
+           const string &logFName)
+{
+  ASSERT (! cmd. empty ());
+  
+//Chronometer_OnePass cop (cmd);  
+  if (verbose ())
+  	cout << cmd << endl;
+  	
+	const int status = system (cmd. c_str ());
+	if (status)
+	{
+	  if (! logFName. empty ())
+	  {
+	    LineInput f (logFName);
+	    throw runtime_error (f. getString ());
+	  }
+		throw runtime_error ("Command failed:\n" + cmd + "\nstatus = " + toString (status));		
+	}
+}
+
+
+
+
 // Threads
 
 Threads::Threads (size_t threadsToStart_arg, 
@@ -1936,32 +1962,6 @@ size_t Offset::size = 0;
 
 
 
-//
-
-void exec (const string &cmd,
-           const string &logFName)
-{
-  ASSERT (! cmd. empty ());
-  
-//Chronometer_OnePass cop (cmd);  
-  if (verbose ())
-  	cout << cmd << endl;
-  	
-	const int status = system (cmd. c_str ());
-	if (status)
-	{
-	  if (! logFName. empty ())
-	  {
-	    LineInput f (logFName);
-	    throw runtime_error (f. getString ());
-	  }
-		throw runtime_error ("Command failed:\n" + cmd + "\nstatus = " + toString (status));		
-	}
-}
-
-
-
-
 // FileItemGenerator
 
 FileItemGenerator::FileItemGenerator (size_t progress_displayPeriod,
@@ -2679,7 +2679,8 @@ void ShellApplication::findProg (const string &progName) const
 string ShellApplication::fullProg (const string &progName) const
 {
 	string dir;
-	EXEC_ASSERT (find (prog2dir, progName, dir));
+	if (! find (prog2dir, progName, dir))
+	  throw runtime_error ("Program " + strQuote (progName) + " is not found");
 	ASSERT (isRight (dir, "/"));
 	return dir + progName + " ";
 }

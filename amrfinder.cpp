@@ -49,7 +49,7 @@ namespace
   
 
 // PAR
-constexpr size_t threads_max_min = 4;
+constexpr size_t threads_max_min = 1;  // was: 4
 // Cf. amr_report.cpp
 constexpr double ident_min_def = 0.9;
 constexpr double partial_coverage_min_def = 0.5;
@@ -97,6 +97,26 @@ struct ThisApplication : ShellApplication
     ShellApplication::initEnvironment ();
     var_cast (name2arg ["threads"] -> asKey ()) -> defaultValue = toString (threads_max_min);  
   }
+  
+  
+  
+  bool blastThreadable (const string &blast,
+                        const string &logFName) const
+  {
+    try { exec (fullProg (blast) + " -help | grep '^ *\\-num_threads' > /dev/null 2> /dev/null", logFName); }
+      catch (const runtime_error &) 
+        { return false; }
+    return true;        
+  }
+  
+  
+  
+  size_t get_threads_max_max (const string &logFName) const
+  {
+    exec ("nproc --all > " + tmp + ".nproc", logFName);
+    LineInput f (tmp + ".nproc");
+	  return str2<size_t> (f. getString ());
+  }
 
 
 
@@ -142,6 +162,11 @@ struct ThisApplication : ShellApplication
     
     time_t start, end;  // For timing... 
     start = time (NULL);
+    
+    
+    const size_t threads_max_max = get_threads_max_max (logFName);
+    if (threads_max > threads_max_max)
+      throw runtime_error ("Number of threads cannot be greater than " + toString (threads_max_max) + " on this computer");
 
 
 		const string defaultDb (execDir + "/data/latest");
@@ -255,7 +280,7 @@ struct ThisApplication : ShellApplication
 	  if (! emptyArg (organism))
 	  {
  	  	string errMsg;
-			try { exec ("grep -w ^" + organism1 + " " + db + "/AMRProt-point_mut.tab 2> /dev/null > /dev/null"); }
+			try { exec ("grep -w ^" + organism1 + " " + db + "/AMRProt-point_mut.tab > /dev/null 2> /dev/null"); }
 			  catch (const runtime_error &)
 			  { 
 			  	errMsg = "No protein point mutations for organism " + organism;
@@ -283,12 +308,20 @@ struct ThisApplication : ShellApplication
  		bool blastxChunks = false;
     {
       Threads th (threads_max - 1, true);  
+      
+      double prot_share = 0.0;
+      double dna_share  = 0.0;
+  		if ( ! emptyArg (prot))
+  		  prot_share = 1.0;  // PAR
+  		if (! emptyArg (dna))
+  		  dna_share = 1.0;   // PAR
+  		const double total_share = prot_share + dna_share;
 
   		if ( ! emptyArg (prot))
   		{
-  			findProg ("blastp");
+  			findProg ("blastp");  			
   			findProg ("hmmsearch");
-
+  			
   		  exec (fullProg ("fasta_check") + prot + " -aa -hyphen  -log " + logFName, logFName);  
   			
   			string gff_match;
@@ -311,14 +344,23 @@ struct ThisApplication : ShellApplication
   			if (! fileExists (db + "/AMRProt.phr"))
   				throw runtime_error ("BLAST database " + shellQuote (db + "/AMRProt") + " does not exist");
   			
+  			const size_t prot_threads = (size_t) floor ((double) th. getAvailable () * (prot_share / total_share) / 2.0);
+
   			stderr << "Running blastp...\n";
   			// " -task blastp-fast -word_size 6  -threshold 21 "  // PD-2303
-  			th << thread (exec, fullProg ("blastp") + " -query " + prot + " -db " + db + "/AMRProt  -show_gis  -evalue 1e-20  -comp_based_stats 0  "
-  			  "-num_threads 4  "
+  			string num_threads;
+  			if (blastThreadable ("blastp", logFName) && prot_threads > 1)
+  			  num_threads = "-num_threads " + to_string (prot_threads);
+  			th. exec (fullProg ("blastp") + " -query " + prot + " -db " + db + "/AMRProt  -show_gis  -evalue 1e-20  -comp_based_stats 0  "
+  			  + num_threads + " "
   			  "-outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq sseq' "
-  			  "-out " + tmp + ".blastp > /dev/null 2> /dev/null", string ());
+  			  "-out " + tmp + ".blastp > /dev/null 2> /dev/null", prot_threads);
+  			  
   			stderr << "Running hmmsearch...\n";
-  			th << thread (exec, fullProg ("hmmsearch") + " --tblout " + tmp + ".hmmsearch  --noali  --domtblout " + tmp + ".dom  --cut_tc  -Z 10000  --cpu 8  " + db + "/AMR.LIB " + prot + " > " + tmp + ".out 2> /dev/null", string ());
+  			string cpu;
+  			if (prot_threads > 1)
+  			  cpu = "--cpu " + to_string (prot_threads);
+  			th. exec (fullProg ("hmmsearch") + " --tblout " + tmp + ".hmmsearch  --noali  --domtblout " + tmp + ".dom  --cut_tc  -Z 10000  " + cpu + " " + db + "/AMR.LIB " + prot + " > /dev/null 2> /dev/null", prot_threads);
 
   		  blastp_par = "-blastp " + tmp + ".blastp  -hmmsearch " + tmp + ".hmmsearch  -hmmdom " + tmp + ".dom";
   			if (! emptyArg (gff))
@@ -329,6 +371,7 @@ struct ThisApplication : ShellApplication
   		{
   			stderr << "Running blastx...\n";
   			findProg ("blastx");
+
   		  exec (fullProg ("fasta_check") + dna + " -hyphen  -len "+ tmp + ".len  -log " + logFName, logFName); 
   		  const size_t threadsAvailable = th. getAvailable ();
   		  ASSERT (threadsAvailable);
@@ -350,7 +393,7 @@ struct ThisApplication : ShellApplication
   		  else
     			th << thread (exec, fullProg ("blastx") + "  -query " + dna + " -db " + db + "/AMRProt  "
     			  "-show_gis  -word_size 3  -evalue 1e-20  -query_gencode " + toString (gencode) + "  "
-    			  "-seg no  -comp_based_stats 0  -max_target_seqs 10000  -num_threads 4 "
+    			  "-seg no  -comp_based_stats 0  -max_target_seqs 10000  " 
     			  "-outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq sseq' "
     			  "-out " + tmp + ".blastx > /dev/null 2> /dev/null", string ());
   		  blastx_par = "-blastx " + tmp + ".blastx  -dna_len " + tmp + ".len";
