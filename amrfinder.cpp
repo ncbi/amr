@@ -374,7 +374,7 @@ struct ThisApplication : ShellApplication
 
   		  exec (fullProg ("fasta_check") + dna + " -hyphen  -len "+ tmp + ".len  -log " + logFName, logFName); 
   		  const size_t threadsAvailable = th. getAvailable ();
-  		  ASSERT (threadsAvailable);
+  		//ASSERT (threadsAvailable);
   		  if (threadsAvailable >= 2)
   		  {
     		  exec ("mkdir " + tmp + ".chunk");
@@ -391,11 +391,11 @@ struct ThisApplication : ShellApplication
     		  blastxChunks = true;
   		  }
   		  else
-    			th << thread (exec, fullProg ("blastx") + "  -query " + dna + " -db " + db + "/AMRProt  "
+    			th. exec (fullProg ("blastx") + "  -query " + dna + " -db " + db + "/AMRProt  "
     			  "-show_gis  -word_size 3  -evalue 1e-20  -query_gencode " + toString (gencode) + "  "
     			  "-seg no  -comp_based_stats 0  -max_target_seqs 10000  " 
     			  "-outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq sseq' "
-    			  "-out " + tmp + ".blastx > /dev/null 2> /dev/null", string ());
+    			  "-out " + tmp + ".blastx > /dev/null 2> /dev/null", threadsAvailable);
   		  blastx_par = "-blastx " + tmp + ".blastx  -dna_len " + tmp + ".len";
   		}
 

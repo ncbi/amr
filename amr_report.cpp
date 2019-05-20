@@ -987,7 +987,6 @@ private:
     }
   bool betterEq (const BlastAlignment &other) const
     // Reflexive
-    // No cycles longer than 2 arcs
     { if (targetProt == other. targetProt)  
       {
 	    	if (targetName != other. targetName)
@@ -1045,6 +1044,7 @@ public:
       return fam;
     }
   bool better (const BlastAlignment &other) const
+    // Requires: all SCCs of betterEq() are complete subgraphs ??
     { return    betterEq (other) 
     	       && (   ! other. betterEq (*this) 
     	           || accessionProt < other. accessionProt  // Tie resolution: PD-1245

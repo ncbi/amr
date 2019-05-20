@@ -2606,7 +2606,7 @@ void ShellApplication::initEnvironment ()
   #if 0
     tmp = tmpnam (NULL);
   #else
-    mkstemp (templateS);
+    EXEC_ASSERT (mkstemp (templateS) != -1);
     tmp = templateS;
   #endif
   	if (tmp. empty ())
