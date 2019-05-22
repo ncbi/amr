@@ -95,7 +95,7 @@ struct ThisApplication : ShellApplication
   void initEnvironment () final
   {
     ShellApplication::initEnvironment ();
-    var_cast (name2arg ["threads"] -> asKey ()) -> defaultValue = toString (threads_max_min);  
+    var_cast (name2arg ["threads"] -> asKey ()) -> defaultValue = "4" /*toString (threads_max_min)*/;  
   }
   
   
