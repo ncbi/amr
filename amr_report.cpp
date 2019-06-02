@@ -119,7 +119,8 @@ struct Fam
   string id; 
   string genesymbol;
   string familyName; 
-  bool reportable {false}; 
+  uchar reportable {0}; 
+    // 0,1,2
 
   // HMM
   string hmm; 
@@ -149,7 +150,7 @@ struct Fam
        const string &class_arg,
        const string &subclass_arg,
        const string &familyName_arg,
-       bool reportable_arg)
+       uchar reportable_arg)
     : id (id_arg)
     , genesymbol (genesymbol_arg)
     , familyName (familyName_arg)
@@ -180,7 +181,7 @@ struct Fam
     }
   Fam () = default;
   void saveText (ostream &os) const 
-    { os << hmm << " " << tc1 << " " << tc2 << " " << familyName << " " << reportable; }
+    { os << hmm << " " << tc1 << " " << tc2 << " " << familyName << " " << (int) reportable; }
 
 
 	bool descendantOf (const Fam* ancestor) const
@@ -275,6 +276,7 @@ public:
   bool better (const HmmAlignment &other,
                unsigned char criterion) const
     { return betterEq (other, criterion) && ! other. betterEq (*this, criterion); }
+  bool better (const BlastAlignment &other) const;
 
 
   typedef  pair<string/*sseqid*/,string/*FAM.id*/>  Pair;
@@ -891,7 +893,9 @@ struct BlastAlignment
   	         ;
 	  }
   bool good () const
-    { if (! reportPseudo)
+    { if (! gi)
+        return true;
+      if (! reportPseudo)
       {
         if (stopCodon)
           return false; 
@@ -1122,6 +1126,22 @@ public:
 
 
 
+bool HmmAlignment::better (const BlastAlignment& other) const
+{ 
+  ASSERT (good ());
+  ASSERT (other. good ());
+	if (other. isPointMut ())
+	  return false;
+	if (! other. targetProt)
+	  return false;
+	if (sseqid != other. targetName)
+    return false;
+  return    fam != other. getFam ()
+         && fam->descendantOf (other. getFam ());
+}
+
+
+
 // Batch
 
 struct Batch
@@ -1186,10 +1206,8 @@ struct Batch
     		    toProb (partialBR.  target_coverage);
     		    toProb (partialBR.  ref_coverage);
           #endif
-  	  	    const int reportable = str2<int> (findSplit (f. line, '\t'));
-  	  	    ASSERT (   reportable == 0 
-  	  	            || reportable == 1
-  	  	           );
+  	  	    const uchar reportable = (uchar) str2<int> (findSplit (f. line, '\t'));
+  	  	    QC_ASSERT (reportable <= 2);
   	  	    const string type     (findSplit (f. line, '\t'));
   	  	    const string subtype  (findSplit (f. line, '\t'));
   	  	    const string classS   (findSplit (f. line, '\t'));
@@ -1273,32 +1291,19 @@ struct Batch
 	  }
 private:
   static void toProb (double &x)
-    { ASSERT (x >= 0.0);
-      ASSERT (x <= 100.0);
-      x /= 100.0;
-    }
-public:
-	  	  
-
-	void process (bool skip_hmm_check) 
-  // Input: blastAls, domains, hmmAls
-	// Output: goodBlastAls
-	{
-    // Use BlastAlignment.cdss
-    for (Iter<BlastAls> iter (blastAls); iter. next ();)
-      if (! iter->good ())
-      {
-        if (verbose ())
-        {
-          cout << "Erased:" << endl;
-          iter->saveText (cout);
-        }
-        iter. erase ();
-      }
-        
-    // Group by targetName and process each targetName separately for speed ??    
-
-    // BLAST: Pareto-better()  
+  { 
+    ASSERT (x >= 0.0);
+    ASSERT (x <= 100.0);
+    x /= 100.0;
+  }
+    
+    
+  void blastParetoBetter ()
+  // BLAST: Pareto-better()  
+  // Input: blastAls
+  // Output: goodBlastAls
+  {
+    goodBlastAls. clear ();
 	  for (const auto& blastAl : blastAls)
     {
     	ASSERT (blastAl. good ());
@@ -1343,6 +1348,29 @@ public:
 		  	     << endl;
 		  }
 	#endif
+  }
+public:
+	  	  
+
+	void process (bool skip_hmm_check) 
+  // Input: blastAls, domains, hmmAls
+	// Output: goodBlastAls
+	{
+    // Use BlastAlignment.cdss
+    for (Iter<BlastAls> iter (blastAls); iter. next ();)
+      if (! iter->good ())
+      {
+        if (verbose ())
+        {
+          cout << "Erased:" << endl;
+          iter->saveText (cout);
+        }
+        iter. erase ();
+      }
+        
+    // Group by targetName and process each targetName separately for speed ??    
+
+    blastParetoBetter ();
 
   #if 0
     ??
@@ -1454,6 +1482,14 @@ public:
 	        break;
 	      }
 
+    for (Iter<BlastAls> blastIt (goodBlastAls); blastIt. next ();)
+  	  for (const auto& hmmAl : goodHmmAls)
+  	    if (hmmAl. better (*blastIt))
+	      {
+          blastIt. erase ();
+	        break;
+	      }
+
     // Output 
     
     // goodHmmAls --> goodBlastAls
@@ -1462,6 +1498,9 @@ public:
   	  ASSERT (hmmAl. blastAl. get ());
   	  goodBlastAls << * hmmAl. blastAl. get ();
   	}
+  
+  //blastAls = move (goodBlastAls);
+  //blastParetoBetter ();  
   
     goodBlastAls. sort ();
 

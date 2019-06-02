@@ -101,9 +101,7 @@ string getCommandLine ()
 
 ostream* logPtr = nullptr;
 
-#ifndef NDEBUG
-  bool qc_on = false;
-#endif
+bool qc_on = false;
 ulong seed_global = 1;
 bool sigpipe = false;
 
@@ -1429,6 +1427,31 @@ string CharInput::getLine ()
 
 
 
+// PairFile
+
+bool PairFile::next ()
+{ 
+  if (! f. nextLine ())
+	  return false;
+	  
+  iss. reset (f. line);
+  name2. clear ();
+  iss >> name1 >> name2;
+  
+  if (name2. empty ())
+  	throw runtime_error ("No pair: " + strQuote (name1) + " - " + strQuote (name2));
+  if (! sameAllowed && name1 == name2)
+  	throw runtime_error ("Same name: " + name1);
+  	
+  if (orderNames && name1 > name2)
+  	swap (name1, name2);
+  	
+  return true;
+}
+
+
+
+
 // Token
 
 void Token::readInput (CharInput &in)
@@ -2517,10 +2540,8 @@ int Application::run (int argc,
 	    if (! logFName. empty ())
 	  		logPtr = new ofstream (logFName, ios_base::app);
 
-    #ifndef NDEBUG	  
 	  	if (getFlag ("qc"))
 	  		qc_on = true;
-	  #endif
 	
 	  	if (getFlag ("noprogress"))
 	  		Progress::disable ();
