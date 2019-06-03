@@ -51,7 +51,7 @@ CPPFLAGS = -std=gnu++11 -pthread \
   -Wmissing-braces -Wmissing-field-initializers -Wmissing-format-attribute -Wmissing-include-dirs \
   -Woverloaded-virtual -pedantic -Wparentheses -Wpointer-arith -Wsequence-point -Wshadow -Wunused \
   -Wsuggest-attribute=format -Wswitch -Wuninitialized -Wsign-conversion -Wuseless-cast \
-  -Werror -O3 \
+  -O3 \
   $(SVNREV)
 
 CXX=g++
