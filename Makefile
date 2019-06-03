@@ -39,20 +39,7 @@ HMMER_BIN=$(BIN)
 INSTALL_DIR = $(datadir)/amrfinder
 INSTALL_PROGRAM=install
 
-CPPFLAGS = -std=gnu++11 -pthread \
-  -malign-double -fno-math-errno \
-  -Waddress -Warray-bounds=1 -Wbool-compare -Wbool-operation -Wc++11-compat  -Wc++14-compat -Wchar-subscripts -Wcomment \
-  -Wformat -Wint-in-bool-context -Winit-self -Wlogical-not-parentheses -Wmaybe-uninitialized -Wmemset-elt-size -Wmemset-transposed-args \
-  -Wnarrowing -Wnonnull -Wnonnull-compare -Wopenmp-simd -Wparentheses  -Wreorder -Wreturn-type \
-  -Wsequence-point -Wsign-compare -Wsizeof-pointer-memaccess -Wstrict-aliasing -Wstrict-overflow=1 -Wswitch -Wtautological-compare \
-  -Wtrigraphs -Wuninitialized -Wunknown-pragmas -Wunused-function -Wunused-label -Wunused-value -Wunused-variable -Wvolatile-register-var \
-  -Wextra \
-  -Wcast-align -Wconversion -Wdeprecated-declarations -Wformat -Winit-self -Wlogical-op \
-  -Wmissing-braces -Wmissing-field-initializers -Wmissing-format-attribute -Wmissing-include-dirs \
-  -Woverloaded-virtual -pedantic -Wparentheses -Wpointer-arith -Wsequence-point -Wshadow -Wunused \
-  -Wsuggest-attribute=format -Wswitch -Wuninitialized -Wsign-conversion -Wuseless-cast \
-  -Werror -O3 \
-  $(SVNREV)
+CPPFLAGS = -std=gnu++11 -pthread -malign-double -fno-math-errno -O3 $(SVNREV)
 
 CXX=g++
 COMPILE.cpp= $(CXX) $(CPPFLAGS)  -c 
