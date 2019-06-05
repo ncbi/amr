@@ -75,9 +75,10 @@ struct ThisApplication : ShellApplication
     	addKey ("coverage_min", "Minimum coverage of the reference protein (0..1)", toString (partial_coverage_min_def), 'c', "MIN_COV");
       addKey ("organism", "Taxonomy group for point mutation assessment\n    " ORGANISMS, "", 'O', "ORGANISM");
     	addKey ("translation_table", "NCBI genetic code for translated blast", "11", 't', "TRANSLATION_TABLE");
-    	addKey ("parm", "amr_report parameters for testing: -nosame -noblast -skip_hmm_check -bed", "", '\0', "PARM");
+    	addFlag ("core", "Report only core AMR families");  // PD-2789
     	addKey ("point_mut_all", "File to report all target positions of reference point mutations", "", '\0', "POINT_MUT_ALL_FILE");
     	addKey ("blast_bin", "Directory for BLAST. Deafult: $BLAST_BIN", "", '\0', "BLAST_DIR");
+    	addKey ("parm", "amr_report parameters for testing: -nosame -noblast -skip_hmm_check -bed", "", '\0', "PARM");
       addKey ("output", "Write output to OUTPUT_FILE instead of STDOUT", "", 'o', "OUTPUT_FILE");
       addFlag ("quiet", "Suppress messages to STDERR", 'q');
 	  #ifdef SVN_REV
@@ -131,9 +132,10 @@ struct ThisApplication : ShellApplication
     const double cov           =             arg2double ("coverage_min");
     const string organism      = shellQuote (getArg ("organism"));   
     const uint   gencode       =             arg2uint ("translation_table"); 
-    const string parm          =             getArg ("parm");  
+    const bool   core_only     =             getFlag ("core");
     const string point_mut_all =             getArg ("point_mut_all");  
           string blast_bin     =             getArg ("blast_bin");
+    const string parm          =             getArg ("parm");  
     const string output        = shellQuote (getArg ("output"));
     const bool   quiet         =             getFlag ("quiet");
     
@@ -294,7 +296,6 @@ struct ThisApplication : ShellApplication
         
 
     const string qcS (qc_on ? "-qc  -verbose 1" : "");
-    const string point_mut_allS (point_mut_all. empty () ? "" : ("-point_mut_all " + point_mut_all));
 		const string force_cds_report (! emptyArg (dna) && ! emptyArg (organism) ? "-force_cds_report" : "");  // Needed for point_mut
 		
 								  
@@ -415,9 +416,11 @@ struct ThisApplication : ShellApplication
   	  exec ("cat " + tmp + ".blastx_dir/* > " + tmp + ".blastx");
 		
 
+    const string point_mut_allS (point_mut_all. empty () ? "" : ("-point_mut_all " + point_mut_all));
+    const string coreS (core_only ? " -core" : "");
 		exec (fullProg ("amr_report") + " -fam " + db + "/fam.tab  " + blastp_par + "  " + blastx_par
 		  + "  -organism " + organism + "  -point_mut " + db + "/AMRProt-point_mut.tab " + point_mut_allS + " "
-		  + force_cds_report + " -pseudo"
+		  + force_cds_report + " -pseudo" + coreS
 		  + (ident == -1 ? string () : "  -ident_min "    + toString (ident)) 
 		  + "  -coverage_min " + toString (cov)
 		  + " " + qcS + " " + parm + " -log " + logFName + " > " + tmp + ".amr-raw", logFName);
