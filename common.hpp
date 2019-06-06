@@ -1040,6 +1040,7 @@ public:
     {	seed = (long) (seed_arg % (ulong) max_);
 	    qc ();
     }
+    // Input: seed_arg > 0
 	  
 	ulong get (ulong max);
     // Return: in 0 .. max - 1

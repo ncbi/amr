@@ -39,10 +39,7 @@ HMMER_BIN=$(BIN)
 INSTALL_DIR = $(datadir)/amrfinder
 INSTALL_PROGRAM=install
 
-CPPFLAGS = -std=gnu++11 -pthread \
-  -malign-double -fno-math-errno \
-  -O3 \
-  $(SVNREV)
+CPPFLAGS = -std=gnu++11 -pthread -malign-double -fno-math-errno -O3 $(SVNREV)
 
 CXX=g++
 COMPILE.cpp= $(CXX) $(CPPFLAGS)  -c 
