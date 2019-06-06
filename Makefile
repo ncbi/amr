@@ -113,6 +113,9 @@ github_binaries:
 		echo >&2 "version.txt required to make a distribution file"; \
 		false; \
 	fi
+	# first recompile amrfinder.o to pick up the new version info
+	rm amrfinder.o amrfinder
+	make
 	mkdir $(GITHUB_FILE)
 	echo $(VERSION_STRING) > $(GITHUB_FILE)/version.txt
 	cp $(GITHUB_FILES) $(GITHUB_FILE)
