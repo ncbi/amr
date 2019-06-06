@@ -50,6 +50,7 @@ namespace
 
 // PAR
 constexpr size_t threads_max_min = 1;  // was: 4
+constexpr size_t threads_def = 4;
 // Cf. amr_report.cpp
 constexpr double ident_min_def = 0.9;
 constexpr double partial_coverage_min_def = 0.5;
@@ -96,7 +97,7 @@ struct ThisApplication : ShellApplication
   void initEnvironment () final
   {
     ShellApplication::initEnvironment ();
-    var_cast (name2arg ["threads"] -> asKey ()) -> defaultValue = "4" /*toString (threads_max_min)*/;  
+    var_cast (name2arg ["threads"] -> asKey ()) -> defaultValue = to_string (threads_def);  
   }
   
   
@@ -148,7 +149,7 @@ struct ThisApplication : ShellApplication
     const Verbose vrb (qc_on);
     
     if (threads_max < threads_max_min)
-      throw runtime_error ("Number of threads cannot be less than " + toString (threads_max_min));
+      throw runtime_error ("Number of threads cannot be less than " + to_string (threads_max_min));
     
 		if (ident != -1.0 && (ident < 0.0 || ident > 1.0))
 		  throw runtime_error ("ident_min must be between 0 and 1");
@@ -168,7 +169,7 @@ struct ThisApplication : ShellApplication
     
     const size_t threads_max_max = get_threads_max_max (logFName);
     if (threads_max > threads_max_max)
-      throw runtime_error ("Number of threads cannot be greater than " + toString (threads_max_max) + " on this computer");
+      throw runtime_error ("Number of threads cannot be greater than " + to_string (threads_max_max) + " on this computer\nThe current number of threads is " + to_string (threads_def));
 
 
 		const string defaultDb (execDir + "/data/latest");
@@ -379,13 +380,13 @@ struct ThisApplication : ShellApplication
   		  if (threadsAvailable >= 2)
   		  {
     		  exec ("mkdir " + tmp + ".chunk");
-    		  exec (fullProg ("fasta2parts") + dna + " " + toString (threadsAvailable) + " " + tmp + ".chunk  -log " + logFName, logFName);   // PAR
+    		  exec (fullProg ("fasta2parts") + dna + " " + to_string (threadsAvailable) + " " + tmp + ".chunk  -log " + logFName, logFName);   // PAR
     		  exec ("mkdir " + tmp + ".blastx_dir");
     		  FileItemGenerator fig (false, true, tmp + ".chunk");
     		  string item;
     		  while (fig. next (item))
       			th << thread (exec, fullProg ("blastx") + "  -query " + tmp + ".chunk/" + item + " -db " + db + "/AMRProt  "
-      			  "-show_gis  -word_size 3  -evalue 1e-20  -query_gencode " + toString (gencode) + "  "
+      			  "-show_gis  -word_size 3  -evalue 1e-20  -query_gencode " + to_string (gencode) + "  "
       			  "-seg no  -comp_based_stats 0  -max_target_seqs 10000  "
       			  "-outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq sseq' "
       			  "-out " + tmp + ".blastx_dir/" + item + " > /dev/null 2> /dev/null", string ());
@@ -393,7 +394,7 @@ struct ThisApplication : ShellApplication
   		  }
   		  else
     			th. exec (fullProg ("blastx") + "  -query " + dna + " -db " + db + "/AMRProt  "
-    			  "-show_gis  -word_size 3  -evalue 1e-20  -query_gencode " + toString (gencode) + "  "
+    			  "-show_gis  -word_size 3  -evalue 1e-20  -query_gencode " + to_string (gencode) + "  "
     			  "-seg no  -comp_based_stats 0  -max_target_seqs 10000  " 
     			  "-outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq sseq' "
     			  "-out " + tmp + ".blastx > /dev/null 2> /dev/null", threadsAvailable);
