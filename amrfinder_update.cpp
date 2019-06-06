@@ -248,7 +248,14 @@ struct ThisApplication : ShellApplication
     stderr << "Dowloading AMRFinder database version " << latest_version << " into " << latestDir << "\n";
     fetchAMRFile (curl, latestDir, "AMR.LIB");
     fetchAMRFile (curl, latestDir, "AMRProt");
+    fetchAMRFile (curl, latestDir, "AMRProt-point_mut.tab");
     fetchAMRFile (curl, latestDir, "AMR_CDS");
+    fetchAMRFile (curl, latestDir, "AMR_DNA-Campylobacter");
+    fetchAMRFile (curl, latestDir, "AMR_DNA-Campylobacter.tab");
+    fetchAMRFile (curl, latestDir, "AMR_DNA-Escherichia");
+    fetchAMRFile (curl, latestDir, "AMR_DNA-Escherichia.tab");
+    fetchAMRFile (curl, latestDir, "AMR_DNA-Salmonella");
+    fetchAMRFile (curl, latestDir, "AMR_DNA-Salmonella.tab");
     fetchAMRFile (curl, latestDir, "fam.tab");
     fetchAMRFile (curl, latestDir, "changes.txt");
     
