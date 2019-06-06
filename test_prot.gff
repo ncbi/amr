@@ -6,4 +6,8 @@ contig2	.	gene	1	1191	.	+	.	ID=gene3;Name=blaPDC-114_blast
 contig3	.	gene	101	802	.	+	.	ID=gene4;Name=blaOXA-436_partial
 contig4	.	gene	101	1147	.	+	.	ID=gene5;Name=vanG
 contig6	.	gene	31	2616	.	+	.	ID=gene6;Name=gyrA
-contig7	.	gene	100	525		.	+	.	ID=gene7;Name=50S_L22
+contig7	.	gene	101	526	.	+	.	ID=gene7;Name=50S_L22
+contig9	.	gene	1	675	.	-	.	Name=aph3pp-Ib_partial_5p_neg
+contig9	.	gene	715	1377	.	-	.	Name=sul2_partial_3p_neg
+contig11	.	gene	113	547	.	+	.	Name=blaTEM-internal_stop
+contig12	.	gene	71	637	.	+	.	Name=qacR-curated_blast
