@@ -169,7 +169,11 @@ struct ThisApplication : ShellApplication
     
     const size_t threads_max_max = get_threads_max_max (logFName);
     if (threads_max > threads_max_max)
-      throw runtime_error ("Number of threads cannot be greater than " + to_string (threads_max_max) + " on this computer\nThe current number of threads is " + to_string (threads_def));
+    {
+      cout << "The number of threads cannot be greater than " << threads_max_max << " on this computer" << endl
+           << "The current number of threads is " << threads_max << ", reducing to " << threads_max_max << endl;
+      threads_max = threads_max_max;
+    }
 
 
 		const string defaultDb (execDir + "/data/latest");
