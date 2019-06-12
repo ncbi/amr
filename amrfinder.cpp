@@ -105,7 +105,7 @@ struct ThisApplication : ShellApplication
   bool blastThreadable (const string &blast,
                         const string &logFName) const
   {
-    try { exec (fullProg (blast) + " -help | grep '^ *\\-num_threads' > /dev/null 2> /dev/null", logFName); }
+    try { exec (fullProg (blast) + " -help | grep '^ *\\-num_threads' > " + logFName + " 2> " + logFName, logFName); }
       catch (const runtime_error &) 
         { return false; }
     return true;        
@@ -169,7 +169,11 @@ struct ThisApplication : ShellApplication
     
     const size_t threads_max_max = get_threads_max_max (logFName);
     if (threads_max > threads_max_max)
-      throw runtime_error ("Number of threads cannot be greater than " + to_string (threads_max_max) + " on this computer\nThe current number of threads is " + to_string (threads_def));
+    {
+      cout << "The number of threads cannot be greater than " << threads_max_max << " on this computer" << endl
+           << "The current number of threads is " << threads_max << ", reducing to " << threads_max_max << endl;
+      threads_max = threads_max_max;
+    }
 
 
 		const string defaultDb (execDir + "/data/latest");
@@ -408,7 +412,7 @@ struct ThisApplication : ShellApplication
   			findProg ("point_mut");
   			stderr << "Running blastn...\n";
   			exec (fullProg ("blastn") + " -query " +dna + " -db " + db + "/AMR_DNA-" + organism1 + " -evalue 1e-20  -dust no  "
-  			  "-outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq sseq' -out " + tmp + ".blastn > /dev/null 2> /dev/null");
+  			  "-outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq sseq' -out " + tmp + ".blastn > " + logFName + " 2> " + logFName, logFName);
   		}
   	}
   	
