@@ -105,7 +105,7 @@ struct ThisApplication : ShellApplication
   bool blastThreadable (const string &blast,
                         const string &logFName) const
   {
-    try { exec (fullProg (blast) + " -help | grep '^ *\\-num_threads' > /dev/null 2> /dev/null", logFName); }
+    try { exec (fullProg (blast) + " -help | grep '^ *\\-num_threads' > " + logFName + " 2> " + logFName, logFName); }
       catch (const runtime_error &) 
         { return false; }
     return true;        
@@ -412,7 +412,7 @@ struct ThisApplication : ShellApplication
   			findProg ("point_mut");
   			stderr << "Running blastn...\n";
   			exec (fullProg ("blastn") + " -query " +dna + " -db " + db + "/AMR_DNA-" + organism1 + " -evalue 1e-20  -dust no  "
-  			  "-outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq sseq' -out " + tmp + ".blastn > /dev/null 2> /dev/null");
+  			  "-outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq sseq' -out " + tmp + ".blastn > " + logFName + " 2> " + logFName, logFName);
   		}
   	}
   	
