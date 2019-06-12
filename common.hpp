@@ -2667,9 +2667,7 @@ private:
 
   
   
-void csvLine2vec (const string &line,
-                  StringVector &words);
-  // Output: words
+StringVector csvLine2vec (const string &line);
   // Invokes: Csv
 
 

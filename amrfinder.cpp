@@ -170,8 +170,8 @@ struct ThisApplication : ShellApplication
     const size_t threads_max_max = get_threads_max_max (logFName);
     if (threads_max > threads_max_max)
     {
-      cout << "The number of threads cannot be greater than " << threads_max_max << " on this computer" << endl
-           << "The current number of threads is " << threads_max << ", reducing to " << threads_max_max << endl;
+      stderr << "The number of threads cannot be greater than " << threads_max_max << " on this computer" << '\n'
+             << "The current number of threads is " << threads_max << ", reducing to " << threads_max_max << '\n';
       threads_max = threads_max_max;
     }
 
