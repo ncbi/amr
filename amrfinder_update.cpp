@@ -245,17 +245,19 @@ struct ThisApplication : ShellApplication
       exec ("rm " + latestLink);
     exec ("ln -s " + latest_version + " " + latestLink);
     
+    StringVector dnaPointMuts;
+    dnaPointMuts << "Campylobacter" << "Escherichia" << "Salmonella";
+    
     stderr << "Dowloading AMRFinder database version " << latest_version << " into " << latestDir << "\n";
     fetchAMRFile (curl, latestDir, "AMR.LIB");
     fetchAMRFile (curl, latestDir, "AMRProt");
     fetchAMRFile (curl, latestDir, "AMRProt-point_mut.tab");
     fetchAMRFile (curl, latestDir, "AMR_CDS");
-    fetchAMRFile (curl, latestDir, "AMR_DNA-Campylobacter");
-    fetchAMRFile (curl, latestDir, "AMR_DNA-Campylobacter.tab");
-    fetchAMRFile (curl, latestDir, "AMR_DNA-Escherichia");
-    fetchAMRFile (curl, latestDir, "AMR_DNA-Escherichia.tab");
-    fetchAMRFile (curl, latestDir, "AMR_DNA-Salmonella");
-    fetchAMRFile (curl, latestDir, "AMR_DNA-Salmonella.tab");
+    for (const string& dnaPointMut : dnaPointMuts)
+    {
+      fetchAMRFile (curl, latestDir, "AMR_DNA-" + dnaPointMut);
+      fetchAMRFile (curl, latestDir, "AMR_DNA-" + dnaPointMut + ".tab");
+    }
     fetchAMRFile (curl, latestDir, "fam.tab");
     fetchAMRFile (curl, latestDir, "changes.txt");
     
@@ -263,6 +265,8 @@ struct ThisApplication : ShellApplication
     exec (fullProg ("hmmpress") + " -f " + latestDir + "AMR.LIB > /dev/null 2> /dev/null");
 	  exec (fullProg ("makeblastdb") + " -in " + latestDir + "AMRProt  -dbtype prot  -logfile /dev/null");  
 	  exec (fullProg ("makeblastdb") + " -in " + latestDir + "AMR_CDS  -dbtype nucl  -logfile /dev/null");  
+    for (const string& dnaPointMut : dnaPointMuts)
+  	  exec (fullProg ("makeblastdb") + " -in " + latestDir + "AMR_DNA-" + dnaPointMut + "  -dbtype nucl  -logfile /dev/null");  
   }
 };
 
