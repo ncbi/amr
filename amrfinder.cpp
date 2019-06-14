@@ -42,6 +42,8 @@
 #include "common.hpp"
 using namespace Common_sp;
 
+#include "amrfinder.inc"
+
 
 
 namespace 
@@ -55,9 +57,7 @@ constexpr size_t threads_def = 4;
 constexpr double ident_min_def = 0.9;
 constexpr double partial_coverage_min_def = 0.5;
   
-
-#define ORGANISMS "Campylobacter|Escherichia|Salmonella"
-  
+    
 		
 
 // ThisApplication
@@ -407,7 +407,7 @@ struct ThisApplication : ShellApplication
 
   		if (! emptyArg (dna) && ! emptyArg (organism))
   		{
-  			ASSERT (fileExists (db + "/AMR_DNA-" + organism1));
+  			QC_ASSERT (fileExists (db + "/AMR_DNA-" + organism1));
   			findProg ("blastn");
   			findProg ("point_mut");
   			stderr << "Running blastn...\n";
@@ -432,7 +432,7 @@ struct ThisApplication : ShellApplication
 
 		if (! emptyArg (dna) && ! emptyArg (organism))
 		{
-			ASSERT (fileExists (db + "/AMR_DNA-" + organism1));
+			QC_ASSERT (fileExists (db + "/AMR_DNA-" + organism1));
 			exec (fullProg ("point_mut") + tmp + ".blastn " + db + "/AMR_DNA-" + organism1 + ".tab " + qcS + " -log " + logFName + " > " + tmp + ".amr-snp", logFName);
 			exec ("tail -n +2 " + tmp + ".amr-snp >> " + tmp + ".amr-raw");
 		}
