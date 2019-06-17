@@ -338,6 +338,7 @@ struct BlastAlignment
            << (targetStrand ? '+' : '-');
         td << pm. geneMutationGen  // was: pm.geneMutation
            << pm. name
+           << "core"  // PD-2825
            // PD-1856
            << "AMR"
            << "POINT"
@@ -459,6 +460,7 @@ struct Batch
          << "Strand"   // targetStrand
 	       << "Gene symbol"
 	       << "Mutation name"
+	       << "Scope"  // PD-2825
 	       // PD-1856
 	       << "Element type"
 	       << "Element subtype"
