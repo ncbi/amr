@@ -154,13 +154,13 @@ bool initCommon ()
 #ifdef _MSC_VER
   #pragma warning (disable : 4127)
 #endif
-  ASSERT (numeric_limits<char>::is_signed);
-  ASSERT (sizeof (long) >= 4);
+  static_assert (numeric_limits<char>::is_signed, "char is signed");
+  static_assert (sizeof (long) >= 4, "long size >= 4");
 #ifdef _MSC_VER
   #pragma warning (default : 4127)
 #endif
 
-  ASSERT (SIZE_MAX == std::numeric_limits<size_t>::max ());
+  static_assert (SIZE_MAX == std::numeric_limits<size_t>::max (), "SIZE_MAX is correct");
 
   return true;
 }
@@ -856,7 +856,7 @@ size_t strMonth2num (const string& month)
 bool getChar (istream &is,
               char &c)
 {
-  ASSERT (is. good ());
+  QC_ASSERT (is. good ());
 
   const int i = is. get ();
   c = EOF;
@@ -883,7 +883,7 @@ void skipLine (istream &is)
 	char c = '\0';
 	while (! is. eof () && c != '\n')  // UNIX
   {	
-  	ASSERT (is. good ());
+  	QC_ASSERT (is. good ());
 	  c = (char) is. get ();
 	}
 #endif
@@ -1276,7 +1276,7 @@ Input::Input (istream &is_arg,
 : is (& is_arg)
 , prog (0, displayPeriod)  
 { 
-  ASSERT (is);
+  QC_ASSERT (is);
   if (! is->good ())
     throw runtime_error ("Bad input stream");
 }
@@ -1288,7 +1288,7 @@ void Input::reset ()
   ASSERT (is == & ifs);
 
   ifs. seekg (0); 
-  ASSERT (ifs. good ());
+  QC_ASSERT (ifs. good ());
   prog. reset ();
 }
 
@@ -1624,8 +1624,8 @@ void OFStream::open (const string &dirName,
 	                   const string &fileName,
 	                   const string &extension)
 { 
-	ASSERT (! fileName. empty ());
-	ASSERT (! is_open ());
+	QC_ASSERT (! fileName. empty ());
+	QC_ASSERT (! is_open ());
 	
 	string pathName;
 	if (! dirName. empty () && ! isDirName (dirName))
@@ -1647,7 +1647,7 @@ void OFStream::open (const string &dirName,
  
 string Csv::getWord ()
 { 
-  ASSERT (goodPos ());
+  QC_ASSERT (goodPos ());
   
   size_t start = pos;
   size_t stop = NO_INDEX;
@@ -1671,18 +1671,18 @@ string Csv::getWord ()
 
   
   
-void csvLine2vec (const string &line,
-                  StringVector &words)
+StringVector csvLine2vec (const string &line)
 {
-  words. clear ();
+  StringVector words;  words. reserve (256);  // PAR
   Csv csv (line);
   string s;
   while (csv. goodPos ())
   {
     s = csv. getWord ();
     trim (s);
-    words << s;
+    words << move (s);
   }
+  return words;
 }
 
 
@@ -2012,7 +2012,7 @@ FileItemGenerator::FileItemGenerator (size_t progress_displayPeriod,
   #endif
   }      
   f. open (fName);
-  ASSERT (f. good ()); 
+  QC_ASSERT (f. good ()); 
   if (isDir)
   {
     string s;

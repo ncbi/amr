@@ -44,6 +44,8 @@
 #include "common.hpp"
 using namespace Common_sp;
 
+#include "amrfinder.inc"
+
 
 
 namespace 
@@ -140,9 +142,8 @@ string Curl::read (const string &url)
 
 
 
-#define URL "https://ftp.ncbi.nlm.nih.gov/pathogen/Technical/AMRFinder_technical/v2.data/"
-
-
+// #define URL "https://ftp.ncbi.nlm.nih.gov/pathogen/Technical/AMRFinder_technical/v2.data/"
+#define URL "https://ftp.ncbi.nlm.nih.gov/pathogen/Antimicrobial_resistance/AMRFinder/plus.data/"
 
 string getLatestVersion (Curl &curl)
 // Return: empty() <=> failure
@@ -245,8 +246,7 @@ struct ThisApplication : ShellApplication
       exec ("rm " + latestLink);
     exec ("ln -s " + latest_version + " " + latestLink);
     
-    StringVector dnaPointMuts;
-    dnaPointMuts << "Campylobacter" << "Escherichia" << "Salmonella";
+    StringVector dnaPointMuts (ORGANISMS, '|');
     
     stderr << "Dowloading AMRFinder database version " << latest_version << " into " << latestDir << "\n";
     fetchAMRFile (curl, latestDir, "AMR.LIB");
