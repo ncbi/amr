@@ -2006,8 +2006,8 @@ FileItemGenerator::FileItemGenerator (size_t progress_displayPeriod,
     EXEC_ASSERT (mkstemp (lsfName) != -1);
     ASSERT (lsfName [0]);
     const int res = system (("ls -a " + fName + " > " + lsfName). c_str ());
-  //printf ("res = %d\n", res);
-    ASSERT (! res);
+    if (res)
+      throw runtime_error ("Command ls failed: status = " + to_string (res));
     fName = lsfName;
   #endif
   }      

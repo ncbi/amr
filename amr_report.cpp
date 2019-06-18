@@ -730,7 +730,8 @@ struct BlastAlignment
 			                 : (isLeft (method, "ALLELE") ? famId : nvl (getFam () -> genesymbol, na))
 	              )
 	           <<   (pm. empty () ? proteinName : pm. name)
-	              + ifS (reportPseudo, ifS (frameShift, " " + frameShiftS));
+	              + ifS (reportPseudo, ifS (frameShift, " " + frameShiftS))
+	           << (isPointMut () || getFam () -> reportable >= 2 ? "core" : "plus");  // PD-2825
           // PD-1856
 	        if (isPointMut ())
 	          td << "AMR"
@@ -1539,6 +1540,7 @@ public:
 	         << "Strand";  // targetStrand
 	    td << (print_fam ? "FAM.id" : "Gene symbol")
 	       << "Sequence name"
+	       << "Scope"  // PD-2825
 	       // PD-1856
 	       << "Element type"
 	       << "Element subtype"
