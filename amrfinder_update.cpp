@@ -143,7 +143,7 @@ string Curl::read (const string &url)
 
 
 // #define URL "https://ftp.ncbi.nlm.nih.gov/pathogen/Technical/AMRFinder_technical/v2.data/"
-#define URL "https://ftp.ncbi.nlm.nih.gov/pathogen/Antimicrobial_resistance/AMRFinder/plus.data/"
+#define URL "https://ftp.ncbi.nlm.nih.gov/pathogen/Antimicrobial_resistance/AMRFinderPlus/data/"
 
 string getLatestVersion (Curl &curl)
 // Return: empty() <=> failure
