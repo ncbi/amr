@@ -31,13 +31,8 @@ endif
 SVNREV := -D'SVN_REV="$(VERSION_STRING)"'
 
 # Define default paths
-prefix=/usr/local
-bindir = $(prefix)/bin
-datadir=$(prefix)/share
-BLAST_BIN=$(BIN)
-HMMER_BIN=$(BIN)
-INSTALL_DIR = $(datadir)/amrfinder
-INSTALL_PROGRAM=install
+PREFIX=/usr/local
+INSTALL=install
 
 CPPFLAGS = -std=gnu++11 -pthread -malign-double -fno-math-errno -O3 $(SVNREV)
 
@@ -99,7 +94,7 @@ clean:
 	rm -f $(BINARIES)
 
 install:
-	$(INSTALL_PROGRAM) --target-directory=$(INSTALL_DIR) $(BINARIES)
+	$(INSTALL) --target-directory=$(PREFIX)/bin $(BINARIES)
 
 # amrfinder binaries for github binary release
 GITHUB_FILE=amrfinder_binaries_v$(VERSION_STRING)
@@ -110,7 +105,7 @@ github_binaries:
 		echo >&2 "version.txt required to make a distribution file"; \
 		false; \
 	fi
-	# first recompile amrfinder.o to pick up the new version info
+#   first recompile amrfinder.o to pick up the new version info
 	rm amrfinder.o amrfinder
 	make
 	mkdir $(GITHUB_FILE)
