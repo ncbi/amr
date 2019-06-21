@@ -31,7 +31,7 @@ endif
 SVNREV := -D'SVN_REV="$(VERSION_STRING)"'
 
 # Define default paths
-PREFIX=/usr/local
+PREFIX ?= /usr/local
 INSTALL=install
 
 CPPFLAGS = -std=gnu++11 -pthread -malign-double -fno-math-errno -O3 $(SVNREV)
