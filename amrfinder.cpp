@@ -115,9 +115,17 @@ struct ThisApplication : ShellApplication
   
   size_t get_threads_max_max (const string &logFName) const
   {
+#if __APPLE__
+    int count;
+    size_t count_len = sizeof(count);
+    sysctlbyname("hw.logicalcpu", &count, &count_len, NULL, 0);
+    // fprintf(stderr,"you have %i cpu cores", count);
+    return count;
+#else
     exec ("nproc --all > " + tmp + ".nproc", logFName);
     LineInput f (tmp + ".nproc");
 	  return str2<size_t> (f. getString ());
+#endif
   }
 
 
