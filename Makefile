@@ -24,7 +24,7 @@
 # make all SVNREV=-D\'SVN_REV=\"$VERSION\"\' or use
 # a version.txt file
 ifeq ($(wildcard version.txt),)
-	VERSION_STRING := $(shell svnversion -n .)
+	VERSION_STRING := $(shell git describe --tags)
 else
 	VERSION_STRING := $(shell cat version.txt)
 endif
