@@ -34,10 +34,10 @@ SVNREV := -D'SVN_REV="$(VERSION_STRING)"'
 PREFIX ?= /usr/local
 INSTALL=install
 
-CPPFLAGS = -std=gnu++11 -pthread -malign-double -fno-math-errno -O3 $(SVNREV) \
+CPPFLAGS = -std=gnu++11 -pthread -malign-double -fno-math-errno -O3 \
 
 CXX=g++
-COMPILE.cpp= $(CXX) $(CPPFLAGS)  -c 
+COMPILE.cpp= $(CXX) $(CPPFLAGS) $(SVNREV) -c 
 
 
 .PHONY: all clean install release
