@@ -1099,7 +1099,8 @@ public:
   	  if (! seqId2locusTag. empty ())
   	  {
   	  	string s;
-  	  	EXEC_ASSERT (find (seqId2locusTag, locusTag, s));
+  	  	if (! find (seqId2locusTag, locusTag, s))
+  	  	  throw runtime_error ("Target " + strQuote (locusTag) + " is not found in GFF-match file");
   	  	locusTag = s;
   	  }
   	  if (const Set<Locus>* cdss_ = findPtr (annot. prot2cdss, locusTag))

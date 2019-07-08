@@ -82,6 +82,7 @@ struct ThisApplication : ShellApplication
     	addKey ("parm", "amr_report parameters for testing: -nosame -noblast -skip_hmm_check -bed", "", '\0', "PARM");
       addKey ("output", "Write output to OUTPUT_FILE instead of STDOUT", "", 'o', "OUTPUT_FILE");
       addFlag ("quiet", "Suppress messages to STDERR", 'q');
+      addFlag ("gpipe", "Protein identifiers in the protein FASTA file have format 'gnl|<project>|<accession>'");
 	  #ifdef SVN_REV
 	    version = SVN_REV;
 	  #endif
@@ -147,6 +148,7 @@ struct ThisApplication : ShellApplication
     const string parm          =             getArg ("parm");  
     const string output        = shellQuote (getArg ("output"));
     const bool   quiet         =             getFlag ("quiet");
+    const bool   gpipe         =             getFlag ("gpipe");
     
     
 		const string logFName (tmp + ".log");
@@ -330,8 +332,16 @@ struct ThisApplication : ShellApplication
   		if (! emptyArg (dna))
   		  dna_share = 1.0;   // PAR
   		const double total_share = prot_share + dna_share;
+  		
+  		string dna_ = dna;
+  		if (! emptyArg (dna) && gpipe)
+  		{
+  		  dna_ = tmp + ".dna";
+  		  if (system (("sed 's/^>gnl|[^|]*|/>/1' " + dna + " > " + dna_). c_str ()))
+  		    throw runtime_error ("Cannot remove 'gnl' from " + dna);
+  		}
 
-  		if ( ! emptyArg (prot))
+  		if (! emptyArg (prot))
   		{
   			findProg ("blastp");  			
   			findProg ("hmmsearch");
@@ -343,16 +353,18 @@ struct ThisApplication : ShellApplication
   			{
   			  string locus_tag;
   			  const int status = system (("grep '^>.*\\[locus_tag=' " + prot + " > /dev/null"). c_str ());
-  			  if (status == 0)
+  			  const bool locus_tagP = (status == 0);
+  			  if (locus_tagP || gpipe)
   			  {
-  			    locus_tag = "-locus_tag " + tmp + ".match";
-  			    gff_match = "-gff_match " + tmp + ".match";
+  			    locus_tag = " -locus_tag " + tmp + ".match";
+  			    gff_match = " -gff_match " + tmp + ".match";
   			  }
   			  findProg ("gff_check");		
   			  string dnaPar;
   			  if (! emptyArg (dna))
-  			    dnaPar = " -dna " + dna;
-  			  exec (fullProg ("gff_check") + gff + " -prot " + prot + dnaPar + " " + locus_tag + " -log " + logFName, logFName);
+  			    dnaPar = " -dna " + dna_;
+  			  const string gpipeS (ifS (gpipe, " -gpipe"));
+  			  exec (fullProg ("gff_check") + gff + " -prot " + prot + dnaPar + gpipeS + locus_tag + " -log " + logFName, logFName);
   			}
   			
   			if (! fileExists (db + "/AMRProt.phr"))
@@ -378,7 +390,7 @@ struct ThisApplication : ShellApplication
 
   		  blastp_par = "-blastp " + tmp + ".blastp  -hmmsearch " + tmp + ".hmmsearch  -hmmdom " + tmp + ".dom";
   			if (! emptyArg (gff))
-  			  blastp_par += "  -gff " + gff + " " + gff_match;
+  			  blastp_par += "  -gff " + gff + gff_match;
   		}  		
   		
   		if (! emptyArg (dna))
@@ -386,13 +398,13 @@ struct ThisApplication : ShellApplication
   			stderr << "Running blastx...\n";
   			findProg ("blastx");
 
-  		  exec (fullProg ("fasta_check") + dna + " -hyphen  -len "+ tmp + ".len  -log " + logFName, logFName); 
+  		  exec (fullProg ("fasta_check") + dna_ + " -hyphen  -len "+ tmp + ".len  -log " + logFName, logFName); 
   		  const size_t threadsAvailable = th. getAvailable ();
   		//ASSERT (threadsAvailable);
   		  if (threadsAvailable >= 2)
   		  {
     		  exec ("mkdir " + tmp + ".chunk");
-    		  exec (fullProg ("fasta2parts") + dna + " " + to_string (threadsAvailable) + " " + tmp + ".chunk  -log " + logFName, logFName);   // PAR
+    		  exec (fullProg ("fasta2parts") + dna_ + " " + to_string (threadsAvailable) + " " + tmp + ".chunk  -log " + logFName, logFName);   // PAR
     		  exec ("mkdir " + tmp + ".blastx_dir");
     		  FileItemGenerator fig (false, true, tmp + ".chunk");
     		  string item;
@@ -405,7 +417,7 @@ struct ThisApplication : ShellApplication
     		  blastxChunks = true;
   		  }
   		  else
-    			th. exec (fullProg ("blastx") + "  -query " + dna + " -db " + db + "/AMRProt  "
+    			th. exec (fullProg ("blastx") + "  -query " + dna_ + " -db " + db + "/AMRProt  "
     			  "-show_gis  -word_size 3  -evalue 1e-20  -query_gencode " + to_string (gencode) + "  "
     			  "-seg no  -comp_based_stats 0  -max_target_seqs 10000  " 
     			  "-outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq sseq' "
@@ -419,7 +431,7 @@ struct ThisApplication : ShellApplication
   			findProg ("blastn");
   			findProg ("point_mut");
   			stderr << "Running blastn...\n";
-  			exec (fullProg ("blastn") + " -query " +dna + " -db " + db + "/AMR_DNA-" + organism1 + " -evalue 1e-20  -dust no  "
+  			exec (fullProg ("blastn") + " -query " + dna_ + " -db " + db + "/AMR_DNA-" + organism1 + " -evalue 1e-20  -dust no  "
   			  "-outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq sseq' -out " + tmp + ".blastn > " + logFName + " 2> " + logFName, logFName);
   		}
   	}
