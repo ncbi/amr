@@ -72,7 +72,7 @@
 #include <memory>
 #include <algorithm>
 #include <thread>
-
+#include <math.h>
 
 
 namespace Common_sp
