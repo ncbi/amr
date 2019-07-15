@@ -94,7 +94,7 @@ clean:
 	rm -f $(BINARIES)
 
 install:
-	$(INSTALL) --target-directory=$(PREFIX)/bin $(BINARIES)
+	$(INSTALL) -D --target-directory=$(PREFIX)/bin $(BINARIES)
 
 # amrfinder binaries for github binary release
 GITHUB_FILE=amrfinder_binaries_v$(VERSION_STRING)
