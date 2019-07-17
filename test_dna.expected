@@ -1,5 +1,4 @@
 Protein identifier	Contig id	Start	Stop	Strand	Gene symbol	Sequence name	Scope	Element type	Element subtype	Class	Subclass	Method	Target length	Reference sequence length	% Coverage of reference sequence	% Identity to reference sequence	Alignment length	Accession of closest sequence	Name of closest sequence	HMM id	HMM description
-NA	Contig5	260	2021	-	23S_A2075G	Campylobacter macrolide resistant 23S	core	AMR	POINT	MACROLIDE	MACROLIDE	POINTN	2021	2912	60.51	99.83	1762	NC_022347.1:1040292-1037381	23S	NA	NA
 NA	contig1	101	958	+	blaTEM-156	class A beta-lactamase TEM-156	core	AMR	AMR	BETA-LACTAM	BETA-LACTAM	ALLELEX	286	286	100.00	100.00	286	WP_061158039.1	class A beta-lactamase TEM-156	NF000531.2	TEM family class A beta-lactamase
 NA	contig10	486	1307	+	blaOXA	class D beta-lactamase	core	AMR	AMR	BETA-LACTAM	BETA-LACTAM	INTERNAL_STOP	274	274	100.00	99.64	274	WP_000722315.1	oxacillin-hydrolyzing class D beta-lactamase OXA-9	NF000270.1	class D beta-lactamase
 NA	contig11	101	958	+	blaTEM	TEM family class A beta-lactamase	core	AMR	AMR	BETA-LACTAM	BETA-LACTAM	INTERNAL_STOP	286	286	100.00	93.01	286	WP_061158039.1	class A beta-lactamase TEM-156	NF000531.2	TEM family class A beta-lactamase
@@ -7,6 +6,7 @@ NA	contig12	71	634	+	qacR	multidrug-binding transcriptional regulator QacR	plus	
 NA	contig2	1	1191	+	blaPDC	PDC family class C beta-lactamase	core	AMR	AMR	BETA-LACTAM	CEPHALOSPORIN	BLASTX	397	397	100.00	99.75	397	WP_061189306.1	class C beta-lactamase PDC-114	NF000422.6	PDC family class C beta-lactamase
 NA	contig3	101	802	+	blaOXA	OXA-48 family class D beta-lactamase	core	AMR	AMR	BETA-LACTAM	BETA-LACTAM	PARTIALX	234	265	88.30	100.00	234	WP_058842180.1	OXA-48 family carbapenem-hydrolyzing class D beta-lactamase OXA-436	NF000387.2	OXA-48 family class D beta-lactamase
 NA	contig4	101	1147	+	vanG	D-alanine--D-serine ligase VanG	core	AMR	AMR	GLYCOPEPTIDE	VANCOMYCIN	EXACTX	349	349	100.00	100.00	349	WP_063856695.1	D-alanine--D-serine ligase VanG	NF000091.3	D-alanine--D-serine ligase VanG
+NA	contig5	260	2021	-	23S_A2075G	Campylobacter macrolide resistant 23S	core	AMR	POINT	MACROLIDE	MACROLIDE	POINTN	2021	2912	60.51	99.83	1762	NC_022347.1:1040292-1037381	23S	NA	NA
 NA	contig6	2680	3102	+	50S_L22_A103V	Campylobacter macrolide resistant 50S L22	core	AMR	POINT	MACROLIDE	MACROLIDE	POINTX	141	141	100.00	97.16	141	WP_002851214.1	50S L22	NA	NA
 NA	contig6	31	2616	+	gyrA_T86I	Campylobacter quinolone resistant GyrA	core	AMR	POINT	QUINOLONE	QUINOLONE	POINTX	862	863	99.88	99.54	862	WP_002857904.1	gyrA	NA	NA
 NA	contig7	101	523	+	50S_L22_A103V	Campylobacter macrolide resistant 50S L22	core	AMR	POINT	MACROLIDE	MACROLIDE	POINTX	141	141	100.00	97.16	141	WP_002851214.1	50S L22	NA	NA
