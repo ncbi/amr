@@ -79,7 +79,7 @@ struct ThisApplication : ShellApplication
       addKey ("organism", "Taxonomy group\n    " ORGANISMS, "", 'O', "ORGANISM");
     	addKey ("translation_table", "NCBI genetic code for translated BLAST", "11", 't', "TRANSLATION_TABLE");
     	addFlag ("plus", "Add the plus genes to the report");  // PD-2789
-      addFlag ("suppress_common", "Suppress proteins common to a taxonomy group");  // PD-2756
+      addFlag ("report_common", "Suppress proteins common to a taxonomy group");  // PD-2756
     	addKey ("point_mut_all", "File to report all target positions of reference point mutations", "", '\0', "POINT_MUT_ALL_FILE");
     	addKey ("blast_bin", "Directory for BLAST. Deafult: $BLAST_BIN", "", '\0', "BLAST_DIR");
     	addKey ("parm", "amr_report parameters for testing: -nosame -noblast -skip_hmm_check -bed", "", '\0', "PARM");
@@ -146,7 +146,7 @@ struct ThisApplication : ShellApplication
     const string organism        = shellQuote (getArg ("organism"));   
     const uint   gencode         =             arg2uint ("translation_table"); 
     const bool   add_plus        =             getFlag ("plus");
-    const bool   suppress_common =             getFlag ("suppress_common");
+    const bool   report_common   =             getFlag ("report_common");
     const string point_mut_all   =             getArg ("point_mut_all");  
           string blast_bin       =             getArg ("blast_bin");
     const string parm            =             getArg ("parm");  
@@ -171,8 +171,8 @@ struct ThisApplication : ShellApplication
 		if (cov < 0.0 || cov > 1.0)
 		  throw runtime_error ("coverage_min must be between 0 and 1");
 		  
-	  if (suppress_common && emptyArg (organism))
-		  throw runtime_error ("--suppress_common requires --organism");
+	  if (report_common && emptyArg (organism))
+		  throw runtime_error ("--report_common requires --organism");
 		  
 
 		if (! emptyArg (output))
@@ -294,6 +294,7 @@ struct ThisApplication : ShellApplication
 	  }
 	  
 	  string organism1;
+	  bool suppress_common = false;	  
 	  if (! emptyArg (organism))
 	  {
 	  	organism1 = unQuote (organism);
@@ -301,6 +302,9 @@ struct ThisApplication : ShellApplication
       if (! organisms. contains (organism1))
         throw runtime_error ("Possible organisms: " + organisms. toString (", "));
  	  	replace (organism1, ' ', '_');
+ 	  	ASSERT (! organism1. empty ());
+ 	  	if (! report_common)
+ 	  	  suppress_common = true;
  	  }
 
 
@@ -456,10 +460,7 @@ struct ThisApplication : ShellApplication
   	  
   	
   	if (suppress_common)
-  	{
-  	  ASSERT (! organism1. empty ());
 			exec ("grep -w ^" + organism1 + " " + db + "/AMRProt-suppress | cut -f 2 > " + tmp + ".suppress_prot"); 
-  	}
 		
 
     const string point_mut_allS (point_mut_all. empty () ? "" : ("-point_mut_all " + point_mut_all));
