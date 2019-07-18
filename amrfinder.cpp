@@ -266,7 +266,7 @@ struct ThisApplication : ShellApplication
       }
     }
     if (emptyArg (organism))
-      includes << key2shortHelp ("organism") + " option to add point-mutation searches or suppress common proteins";
+      includes << key2shortHelp ("organism") + " option to add point-mutation searches and suppress common proteins";
     else
       searchMode += " and point-mutation";
       
