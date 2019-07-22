@@ -67,30 +67,37 @@
 
 // Exceptions
 
+#include <string>
 #include <stdexcept>
 #include <sstream>
 
 
 #define WHERE  "\"" __FILE__ "\", line " << __LINE__
+#define FUNC  std::string (__PRETTY_FUNCTION__) + ": "
 
 
-#define ERROR_MSG(msg)                       \
-  { if (! uncaught_exception ())             \
-    { std::ostringstream oss_;               \
-      oss_ << WHERE << ": " << (msg);        \
-      throw std::logic_error (oss_. str ()); \
-    } else {}                                \
+[[noreturn]] void errorThrow (const std::string &msg);
+
+#define ERROR_MSG(msg)                \
+  { if (! std::uncaught_exception ()) \
+    { std::ostringstream oss_;        \
+      oss_ << WHERE << ": " << (msg); \
+      errorThrow (oss_. str ());      \
+    } else {}                         \
   }
-#define ERROR            ERROR_MSG("")
-#define NOT_IMPLEMENTED  ERROR_MSG("Not implemented: ")
-#define NEVER_CALL       ERROR_MSG("Never call: ")
+#define ERROR            ERROR_MSG ("")
+#define NOT_IMPLEMENTED  ERROR_MSG ("Not implemented: ")
+#define NEVER_CALL       ERROR_MSG ("Never call: ")
+
+
+#define QC_ASSERT(cond)  if (! (cond)) ERROR_MSG (#cond) else {}
 
 
 // Logic errors
 #ifdef NDEBUG                                       
   #define ASSERT(cond)
 #else
-  #define ASSERT(cond)  if (! (cond)) ERROR_MSG (#cond) else {}
+  #define ASSERT(cond)  QC_ASSERT (cond)
 #endif
 
 
@@ -101,8 +108,11 @@
 #endif
 
 
-#define IMPLY(a,b)  { if (a) { ASSERT (b) }}
-#define ASSERT_EQ(x,y,delta)  ASSERT (abs((x) - (y)) <= (delta))
+#define IMPLY(a,b)     { if (a) { ASSERT (b) }}
+#define QC_IMPLY(a,b)  { if (a) { QC_ASSERT (b) }}
+
+#define ASSERT_EQ(x,y,delta)     ASSERT    (std::fabs((x) - (y)) <= (delta))
+#define QC_ASSERT_EQ(x,y,delta)  QC_ASSERT (std::fabs((x) - (y)) <= (delta))
 
 
 
@@ -115,6 +125,9 @@
 #define LESS_PART(x,y,part)  { if ((x).part < (y).part) return true; \
                                if ((y).part < (x).part) return false; }
 
+
+
+#define PRINT(x)  cout << #x << " = " << (x) << endl;
 
 
 

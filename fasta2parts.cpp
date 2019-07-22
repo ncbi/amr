@@ -1,4 +1,4 @@
-// gff.hpp
+// fasta2parts.cpp
 
 /*===========================================================================
 *
@@ -27,91 +27,89 @@
 * Author: Vyacheslav Brover
 *
 * File Description:
-*   .gff file reader
+*   Split the sequences a FASTA file into chunks without breaking sequences
 *
 */
    
-
-#ifndef GFF_HPP
-#define GFF_HPP
-
+   
+#undef NDEBUG 
+#include "common.inc"
 
 #include "common.hpp"
 using namespace Common_sp;
 
 
 
-namespace GFF_sp
+namespace 
 {
 
 
 
-struct Locus 
+struct ThisApplication : Application
 {
-  static constexpr size_t end_delta = 3;  // PAR
-  size_t lineNum {0};
-    // >= 1
-    // 0 - unknown
-  string contig;
-  size_t start {0};
-  size_t stop {0};
-    // start <= stop
-  bool strand {false};
-  bool partial {false};
-  size_t contigLen {0};
-    // 0 <=> unknown
-  bool crossOrigin {false};
-  
-  Locus (size_t lineNum_arg,
-         const string &contig_arg,
-         size_t start_arg,
-         size_t stop_arg,
-         bool strand_arg,
-         bool partial_arg,
-         size_t crossOriginSeqLen);
-  Locus () = default;
-    
-  bool empty () const
-    { return contig. empty (); }
-  void print (ostream &os) const
-    { os << contig << ' ' << start << ' ' << stop << ' ' << strand << ' ' << contigLen << ' ' << crossOrigin << endl; }
-  bool operator< (const Locus& other) const;
-  size_t size () const
-    { return crossOrigin
-               ? contigLen - stop + start
-               : stop - start;            
+  ThisApplication ()
+    : Application ("Split the sequences a FASTA file into parts without breaking sequences")
+    {
+      addPositional ("in", "FASTA file");
+      addPositional ("parts_max", "Max. number of parts (>= 2)");
+      addPositional ("dir", "Output directory where chunks are saved named by integers starting with 1");
     }
-  bool atContigStart () const
-    { return start <= end_delta; }
-  bool atContigStop () const
-    { return contigLen && contigLen - stop <= end_delta;}
+
+
+
+  void body () const final
+  {
+    const string fName     =               getArg ("in");
+    const size_t parts_max = str2<size_t> (getArg ("parts_max"));
+    const string dirName   =               getArg ("dir");
+    
+    if (parts_max <= 1)
+      throw runtime_error ("Number of parts must be >= 2");
+      
+
+    const size_t chunk_min = (size_t) getFileSize (fName) / parts_max + 1;
+
+    size_t part = 0;
+    OFStream* out = nullptr;
+    size_t seqSize = 0;
+    LineInput f (fName); 
+    while (f. nextLine ())
+    {
+      if (f. line. empty ())
+      	continue;
+    	if (   f. line [0] == '>'
+    	    && seqSize >= chunk_min
+    	   )
+    	{
+    	  delete out;
+    	  out = nullptr;
+    	  seqSize = 0;
+    	}
+    	if (! out)
+    	{
+    	  part++;
+    	  ASSERT (part <= parts_max);
+    	  out = new OFStream (dirName, toString (part), "");
+    	}
+   		*out << f. line << endl;
+   		seqSize += f. line. size ();
+	  }
+	  delete out;
+  }
 };
 
 
 
-struct Annot : Root
-{	
-  map<string, Set<Locus>> prot2cdss; 
-
-
-  class Gff {};
-  Annot (Gff,
-         const string &fName,
-         bool locus_tag);
-		// https://github.com/The-Sequence-Ontology/Specifications/blob/master/gff3.md
-		// Requirement: the protein id should be in the attribute "Name=<id>" (9th field) of the rows with type "CDS" or "gene" (3rd field)
-    // Input: fName may be empty
-  class Bed {};
-  Annot (Bed,
-         const string &fName);
-		// https://genome.ucsc.edu/FAQ/FAQformat.html#format1
-};
+}  // namespace
 
 
 
-
+int main (int argc, 
+          const char* argv[])
+{
+  ThisApplication app;
+  return app. run (argc, argv);  
 }
 
 
 
-#endif

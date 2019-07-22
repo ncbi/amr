@@ -59,27 +59,35 @@ struct ThisApplication : Application
   ThisApplication ()
     : Application ("Check the correctness of a .gff-file. Exit with an error if it is incorrect.")
     {
-      addPositional ("gff", ".gff-file, if \"" + noFile + "\" then exit 0");
-      addKey ("fasta", "Protein FASTA file");
-      addKey ("locus_tag", "File with matches: \"<FASTA id> <GFF id>\", where <id> is from \"" + locus_tagS + "<id>]\" in the FASTA comment and from the .gff-file");
+      // Input
+      addPositional ("gff", ".gff-file, if " + strQuote (noFile) + " then exit 0");
+      addKey ("prot", "Protein FASTA file");
+      addKey ("dna", "DNA FASTA file");
+      addFlag ("gpipe", "Protein identifiers in the protein FASTA file have format 'gnl|<project>|<accession>'");
+      // Output
+      addKey ("locus_tag", "Output file with matches: \"<FASTA id> <GFF id>\", where <id> is from " + strQuote (locus_tagS + "<id>") + " in the FASTA comment and from the .gff-file");
     }
 
 
 
   void body () const final
   {
-    const string gffName   = getArg ("gff");
-    const string fastaName = getArg ("fasta");
-    const string locus_tagFName  = getArg ("locus_tag");
+    const string gffName        = getArg ("gff");
+    const string protFName      = getArg ("prot");
+    const string dnaFName       = getArg ("dna");
+    const string locus_tagFName = getArg ("locus_tag");
+    const bool   gpipe          = getFlag ("gpipe");
     
     
     if (isRight (gffName, noFile))
     	return;
     
 
-    const Gff gff (gffName, ! locus_tagFName. empty ());
+    Annot::Gff gff;
+    const Annot annot (gff, gffName, ! locus_tagFName. empty ());
     
-    if (! fastaName. empty ())
+    
+    if (! protFName. empty ())
     {
 	    StringVector gffIds;  gffIds. reserve (10000);  // PAR
     	{
@@ -87,32 +95,47 @@ struct ThisApplication : Application
 	    	if (! locus_tagFName. empty ())
 	    		outF. open ("", locus_tagFName, "");
 	    	StringVector fastaIds;  fastaIds. reserve (gffIds. capacity ());
-			  LineInput f (fastaName /*, 100 * 1024, 1*/);
+			  LineInput f (protFName /*, 100 * 1024, 1*/);
+    		Istringstream iss;
+    		string line_orig;
 			  while (f. nextLine ())
 			    if (! f. line. empty ())
 			    	if (f. line [0] == '>')
 			    	{
+			    		line_orig = f. line;
 			    		string fastaId, gffId;
-			    		istringstream iss (f. line. substr (1));
+			    		iss. reset (f. line. substr (1));
 		    		  iss >> fastaId;
-			    		if (locus_tagFName. empty ())
-			    			gffId = fastaId;
-			    		else
+		    		  // gffId
+		    			gffId = fastaId;
+			    		if (! locus_tagFName. empty ())
 			    		{
-			    			const size_t pos = f. line. find (locus_tagS);
-			    			if (pos == string::npos)
-			    				throw runtime_error ("\"" + locus_tagS + "\" is not found in: " + f. line);
-			    			gffId = f. line. substr (pos + locus_tagS. size ());
-			    			const size_t end = gffId. find (']');
-			    			if (end == string::npos)
-			    				throw runtime_error ("']' is not found after \"" + locus_tagS + "\" in: " + f. line);
-			    		  gffId. erase (end);
+			    		  if (gpipe)
+			    		  {
+			    		    if (! trimPrefix (gffId, "gnl|"))
+			    		      throw runtime_error (__FILE__ ": Protein name should start with \"gnl|\" in: " + line_orig);
+  			    			const size_t pos = gffId. find ("|");
+  			    			if (pos == string::npos)
+  			    				throw runtime_error (__FILE__ ": " + strQuote ("|") + " is not found in: " + line_orig);
+  			    			gffId. erase (0, pos + 1);
+			    		  }
+			    		  else
+			    		  {
+  			    			const size_t pos = f. line. find (locus_tagS);
+  			    			if (pos == string::npos)
+  			    				throw runtime_error (__FILE__ ": " + strQuote (locus_tagS) + " is not found in: " + line_orig);
+  			    			gffId = f. line. substr (pos + locus_tagS. size ());
+  			    			const size_t end = gffId. find (']');
+  			    			if (end == string::npos)
+  			    				throw runtime_error (__FILE__ ": ']' is not found after " + strQuote (locus_tagS) + " in: " + line_orig);
+  			    		  gffId. erase (end);
+  			    		}
 			    		}
 			    		ASSERT (! contains (fastaId, ' '));
 			    		if (contains (gffId, ' '))
-			    			throw runtime_error ("\"" + gffId + "\" contains space");
+			    			throw runtime_error (__FILE__ ": " + strQuote (gffId) + " contains space");
 			    		if (gffId. empty ())
-			    			throw runtime_error ("No identifier in: " + f. line);
+			    			throw runtime_error (__FILE__ ": No protein identifier in: " + line_orig);
 		    			gffIds << gffId;
 		    			fastaIds << fastaId;
 		    			if (outF. is_open ())
@@ -122,15 +145,62 @@ struct ThisApplication : Application
 			  fastaIds. sort ();
 			  fastaIds. uniq ();
 			  if (fastaIds. size () != n)
-			  	throw runtime_error ("Duplicate FASTA ids");
+			  	throw runtime_error (__FILE__ ": Duplicate FASTA ids");
 			  gffIds. sort ();
-			  gffIds. uniq ();
-			  if (gffIds. size () != fastaIds. size ())
-			  	throw runtime_error ("GFF identifiers are not unique");
+			  {
+  			  const string* s_prev = nullptr;
+  			  for (const string& s : gffIds)
+  			  {
+  			    if (s_prev && *s_prev == s)
+    			  	throw runtime_error (__FILE__ ": GFF identifier " + strQuote (s) + " is not unique");
+  			    s_prev = & s;
+  			  }
+  			}
+			//gffIds. uniq ();
+			  ASSERT (gffIds. size () == fastaIds. size ());
 			}
+			if (verbose ())
+			  cout << "# Proteins in GFF: " << annot. prot2cdss. size () << endl;
 		  for (const string& seqid : gffIds)
-		  	if (! contains (gff. seqid2cdss, seqid))
-		  		throw runtime_error ("Protein id '" + seqid + "' is not in the .gff-file");
+		  	if (! contains (annot. prot2cdss, seqid))
+		  		throw runtime_error (__FILE__ ": Protein id " + strQuote (seqid) + " is not in the .gff-file");
+    }   
+
+
+    if (! dnaFName. empty ())
+    {
+    	StringVector contigIds;  contigIds. reserve (10000);  // PAR
+    	{
+			  LineInput f (dnaFName /*, 100 * 1024, 1*/);
+    		Istringstream iss;
+			  while (f. nextLine ())
+			    if (! f. line. empty ())
+			    	if (f. line [0] == '>')
+			    	{
+			    		string contigId;
+			    		iss. reset (f. line. substr (1));
+		    		  iss >> contigId;
+			    		ASSERT (! contains (contigId, ' '));
+			    		if (contigId. empty ())
+			    			throw runtime_error (__FILE__ ": No contig identifier in: " + f. line);
+		    			contigIds << move (contigId);
+			    	}
+			  contigIds. sort ();
+			  {
+  			  const string* s_prev = nullptr;
+  			  for (const string& s : contigIds)
+  			  {
+  			    if (s_prev && *s_prev == s)
+    			  	throw runtime_error (__FILE__ ": Contig identifier " + strQuote (s) + " is not unique");
+  			    s_prev = & s;
+  			  }
+  			}
+			//contigIds. uniq ();
+			}
+			for (const auto& it : annot. prot2cdss)
+			  for (const Locus& cds : it. second)
+			    if (! contigIds. contains (cds. contig))
+  		  		throw runtime_error (__FILE__ ": Contig id " + strQuote (cds. contig) + " is not in the file " + dnaFName);
     }   
   }
 };
