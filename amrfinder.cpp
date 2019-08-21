@@ -192,8 +192,11 @@ struct ThisApplication : ShellApplication
       threads_max = threads_max_max;
     }
 
-
-		const string defaultDb (execDir + "/data/latest");
+        #ifdef DEFAULT_DB_DIR
+            const string defaultDb ((string) DEFAULT_DB_DIR + "/latest");
+        #else
+		    const string defaultDb (execDir + "/data/latest");
+        #endif
 
 		// db
 		if (db. empty ())
