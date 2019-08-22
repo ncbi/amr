@@ -11,3 +11,6 @@ contig09	.	gene	1	675	.	-	.	Name=aph3pp-Ib_partial_5p_neg
 contig09	.	gene	715	1377	.	-	.	Name=sul2_partial_3p_neg
 contig11	.	gene	113	547	.	+	.	Name=blaTEM-internal_stop
 contig12	.	gene	71	637	.	+	.	Name=qacR-curated_blast
+contig13	.	gene	1	1137	.	+	.	Name=emrD3-suppressed-in-vibrio
+contig13	.	gene	1141	1491	.	+	.	Name=arsR-suppressed-in-escherichia
+contig14	.	gene	1093	2181	.	+	.	Name=pmrB_C84R
