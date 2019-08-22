@@ -238,12 +238,12 @@ struct ThisApplication : ShellApplication
     const string latestLink (mainDirS + "latest");
       
     if (! directoryExists (mainDirS))
-      exec ("mkdir " + mainDirS);
+      exec ("mkdir -p " + mainDirS);
     
     if (directoryExists (latestDir))
       stderr << latestDir << " already exists, overwriting what was there\n";
     else
-      exec ("mkdir " + latestDir);
+      exec ("mkdir -p " + latestDir);
     
     if (directoryExists (latestLink))
       exec ("rm " + latestLink);
