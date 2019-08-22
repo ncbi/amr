@@ -58,6 +58,8 @@ constexpr double ident_min_def = 0.9;
 constexpr double partial_coverage_min_def = 0.5;
   
     
+#define ORGANISMS "Campylobacter|Escherichia|Klebsiella|Salmonella|Staphylococcus|Vibrio"  // from table Taxgroup
+
 		
 
 // ThisApplication
@@ -69,14 +71,15 @@ struct ThisApplication : ShellApplication
     {
     	addKey ("protein", "Protein FASTA file to search", "", 'p', "PROT_FASTA");
     	addKey ("nucleotide", "Nucleotide FASTA file to search", "", 'n', "NUC_FASTA");
+    	addKey ("gff", "GFF file for protein locations. Protein id should be in the attribute 'Name=<id>' (9th field) of the rows with type 'CDS' or 'gene' (3rd field).", "", 'g', "GFF_FILE");
     	addKey ("database", "Alternative directory with AMRFinder database. Default: $AMRFINDER_DB", "", 'd', "DATABASE_DIR");
     	addFlag ("update", "Update the AMRFinder database", 'u');  // PD-2379
-    	addKey ("gff", "GFF file for protein locations. Protein id should be in the attribute 'Name=<id>' (9th field) of the rows with type 'CDS' or 'gene' (3rd field).", "", 'g', "GFF_FILE");
     	addKey ("ident_min", "Minimum identity for nucleotide hit (0..1). -1 means use a curated threshold if it exists and " + toString (ident_min_def) + " otherwise", "-1", 'i', "MIN_IDENT");
     	addKey ("coverage_min", "Minimum coverage of the reference protein (0..1)", toString (partial_coverage_min_def), 'c', "MIN_COV");
-      addKey ("organism", "Taxonomy group for point mutation assessment\n    " ORGANISMS, "", 'O', "ORGANISM");
-    	addKey ("translation_table", "NCBI genetic code for translated blast", "11", 't', "TRANSLATION_TABLE");
+      addKey ("organism", "Taxonomy group\n    " ORGANISMS, "", 'O', "ORGANISM");
+    	addKey ("translation_table", "NCBI genetic code for translated BLAST", "11", 't', "TRANSLATION_TABLE");
     	addFlag ("plus", "Add the plus genes to the report");  // PD-2789
+      addFlag ("report_common", "Suppress proteins common to a taxonomy group");  // PD-2756
     	addKey ("point_mut_all", "File to report all target positions of reference point mutations", "", '\0', "POINT_MUT_ALL_FILE");
     	addKey ("blast_bin", "Directory for BLAST. Deafult: $BLAST_BIN", "", '\0', "BLAST_DIR");
     	addKey ("parm", "amr_report parameters for testing: -nosame -noblast -skip_hmm_check -bed", "", '\0', "PARM");
@@ -133,22 +136,23 @@ struct ThisApplication : ShellApplication
 
   void shellBody () const final
   {
-    const string prot          = shellQuote (getArg ("protein"));
-    const string dna           = shellQuote (getArg ("nucleotide"));
-          string db            =             getArg ("database");
-    const bool   update        =             getFlag ("update");
-    const string gff           = shellQuote (getArg ("gff"));
-    const double ident         =             arg2double ("ident_min");
-    const double cov           =             arg2double ("coverage_min");
-    const string organism      = shellQuote (getArg ("organism"));   
-    const uint   gencode       =             arg2uint ("translation_table"); 
-    const bool   add_plus      =             getFlag ("plus");
-    const string point_mut_all =             getArg ("point_mut_all");  
-          string blast_bin     =             getArg ("blast_bin");
-    const string parm          =             getArg ("parm");  
-    const string output        = shellQuote (getArg ("output"));
-    const bool   quiet         =             getFlag ("quiet");
-    const bool   gpipe         =             getFlag ("gpipe");
+    const string prot            = shellQuote (getArg ("protein"));
+    const string dna             = shellQuote (getArg ("nucleotide"));
+          string db              =             getArg ("database");
+    const bool   update          =             getFlag ("update");
+    const string gff             = shellQuote (getArg ("gff"));
+    const double ident           =             arg2double ("ident_min");
+    const double cov             =             arg2double ("coverage_min");
+    const string organism        = shellQuote (getArg ("organism"));   
+    const uint   gencode         =             arg2uint ("translation_table"); 
+    const bool   add_plus        =             getFlag ("plus");
+    const bool   report_common   =             getFlag ("report_common");
+    const string point_mut_all   =             getArg ("point_mut_all");  
+          string blast_bin       =             getArg ("blast_bin");
+    const string parm            =             getArg ("parm");  
+    const string output          = shellQuote (getArg ("output"));
+    const bool   quiet           =             getFlag ("quiet");
+    const bool   gpipe           =             getFlag ("gpipe");
     
     
 		const string logFName (tmp + ".log");
@@ -166,6 +170,9 @@ struct ThisApplication : ShellApplication
 		
 		if (cov < 0.0 || cov > 1.0)
 		  throw runtime_error ("coverage_min must be between 0 and 1");
+		  
+	  if (report_common && emptyArg (organism))
+		  throw runtime_error ("--report_common requires --organism");
 		  
 
 		if (! emptyArg (output))
@@ -185,8 +192,11 @@ struct ThisApplication : ShellApplication
       threads_max = threads_max_max;
     }
 
-
-		const string defaultDb (execDir + "/data/latest");
+        #ifdef DEFAULT_DB_DIR
+            const string defaultDb ((string) DEFAULT_DB_DIR + "/latest");
+        #else
+		    const string defaultDb (execDir + "/data/latest");
+        #endif
 
 		// db
 		if (db. empty ())
@@ -259,7 +269,7 @@ struct ThisApplication : ShellApplication
       }
     }
     if (emptyArg (organism))
-      includes << key2shortHelp ("organism") + " option to add point-mutation searches";
+      includes << key2shortHelp ("organism") + " option to add point-mutation searches and suppress common proteins";
     else
       searchMode += " and point-mutation";
       
@@ -287,13 +297,21 @@ struct ThisApplication : ShellApplication
 	  }
 	  
 	  string organism1;
+	  bool suppress_common = false;	  
 	  if (! emptyArg (organism))
 	  {
 	  	organism1 = unQuote (organism);
+      const StringVector organisms (ORGANISMS, '|');
+      if (! organisms. contains (organism1))
+        throw runtime_error ("Possible organisms: " + organisms. toString (", "));
  	  	replace (organism1, ' ', '_');
+ 	  	ASSERT (! organism1. empty ());
+ 	  	if (! report_common)
+ 	  	  suppress_common = true;
  	  }
 
 
+  #if 0
 	  if (! emptyArg (organism))
 	  {
  	  	string errMsg;
@@ -308,9 +326,10 @@ struct ThisApplication : ShellApplication
   		if (! errMsg. empty ())
   		  throw runtime_error (errMsg + "\nPossible organisms: " ORGANISMS);
 	  }
+	#endif
         
 
-    const string qcS (qc_on ? "-qc  -verbose 1" : "");
+    const string qcS (qc_on ? " -qc  -verbose 1" : "");
 		const string force_cds_report (! emptyArg (dna) && ! emptyArg (organism) ? "-force_cds_report" : "");  // Needed for point_mut
 		
 								  
@@ -403,9 +422,9 @@ struct ThisApplication : ShellApplication
   		//ASSERT (threadsAvailable);
   		  if (threadsAvailable >= 2)
   		  {
-    		  exec ("mkdir " + tmp + ".chunk");
+    		  exec ("mkdir " + tmp + ".chunk", logFName);
     		  exec (fullProg ("fasta2parts") + dna_ + " " + to_string (threadsAvailable) + " " + tmp + ".chunk  -log " + logFName, logFName);   // PAR
-    		  exec ("mkdir " + tmp + ".blastx_dir");
+    		  exec ("mkdir " + tmp + ".blastx_dir", logFName);
     		  FileItemGenerator fig (false, true, tmp + ".chunk");
     		  string item;
     		  while (fig. next (item))
@@ -425,9 +444,11 @@ struct ThisApplication : ShellApplication
   		  blastx_par = "-blastx " + tmp + ".blastx  -dna_len " + tmp + ".len";
   		}
 
-  		if (! emptyArg (dna) && ! emptyArg (organism))
+  		if (   ! emptyArg (dna) 
+  		    && ! emptyArg (organism)
+  		    && fileExists (db + "/AMR_DNA-" + organism1)
+  		   )
   		{
-  			QC_ASSERT (fileExists (db + "/AMR_DNA-" + organism1));
   			findProg ("blastn");
   			findProg ("point_mut");
   			stderr << "Running blastn...\n";
@@ -438,7 +459,11 @@ struct ThisApplication : ShellApplication
   	
   	
   	if (blastxChunks)
-  	  exec ("cat " + tmp + ".blastx_dir/* > " + tmp + ".blastx");
+  	  exec ("cat " + tmp + ".blastx_dir/* > " + tmp + ".blastx", logFName);
+  	  
+  	
+  	if (suppress_common)
+			exec ("grep -w ^" + organism1 + " " + db + "/AMRProt-suppress | cut -f 2 > " + tmp + ".suppress_prot"); 
 		
 
     const string point_mut_allS (point_mut_all. empty () ? "" : ("-point_mut_all " + point_mut_all));
@@ -448,13 +473,16 @@ struct ThisApplication : ShellApplication
 		  + force_cds_report + " -pseudo" + coreS
 		  + (ident == -1 ? string () : "  -ident_min "    + toString (ident)) 
 		  + "  -coverage_min " + toString (cov)
-		  + " " + qcS + " " + parm + " -log " + logFName + " > " + tmp + ".amr-raw", logFName);
+		  + ifS (suppress_common, " -suppress_prot " + tmp + ".suppress_prot")
+		  + qcS + " " + parm + " -log " + logFName + " > " + tmp + ".amr-raw", logFName);
 
-		if (! emptyArg (dna) && ! emptyArg (organism))
+		if (   ! emptyArg (dna) 
+		    && ! emptyArg (organism)
+		    && fileExists (db + "/AMR_DNA-" + organism1)
+		   )
 		{
-			QC_ASSERT (fileExists (db + "/AMR_DNA-" + organism1));
-			exec (fullProg ("point_mut") + tmp + ".blastn " + db + "/AMR_DNA-" + organism1 + ".tab " + qcS + " -log " + logFName + " > " + tmp + ".amr-snp", logFName);
-			exec ("tail -n +2 " + tmp + ".amr-snp >> " + tmp + ".amr-raw");
+			exec (fullProg ("point_mut") + tmp + ".blastn " + db + "/AMR_DNA-" + organism1 + ".tab" + qcS + " -log " + logFName + " > " + tmp + ".amr-snp", logFName);
+			exec ("tail -n +2 " + tmp + ".amr-snp >> " + tmp + ".amr-raw", logFName);
 		}
 		
 		// $tmp.amr-raw --> $tmp.amr
@@ -469,14 +497,14 @@ struct ThisApplication : ShellApplication
         || ! emptyArg (gff)
        )
       sort_cols = " -k2 -k3n -k4n -k5";
-		exec ("head -1 " + tmp + ".amr-raw > " + tmp + ".amr");
-		exec ("tail -n +2 " + tmp + ".amr-raw | sort" + sort_cols + " -k1 >> " + tmp + ".amr");
+		exec ("head -1 " + tmp + ".amr-raw > " + tmp + ".amr", logFName);
+		exec ("tail -n +2 " + tmp + ".amr-raw | sort" + sort_cols + " -k1 >> " + tmp + ".amr", logFName);
 
 
 		if (emptyArg (output))
-		  exec ("cat " + tmp + ".amr");
+		  exec ("cat " + tmp + ".amr", logFName);
 		else
-		  exec ("cp " + tmp + ".amr " + output);
+		  exec ("cp " + tmp + ".amr " + output, logFName);
   }
 };
 

@@ -30,14 +30,19 @@ else
 endif
 SVNREV := -D'SVN_REV="$(VERSION_STRING)"'
 
+# make it possible to hard define a database directory
+
 # Define default paths
 PREFIX ?= /usr/local
 INSTALL=install
+ifneq '$(DEFAULT_DB_DIR)' ''
+	DBDIR := -D'DEFAULT_DB_DIR="$(DEFAULT_DB_DIR)"'
+endif
 
-CPPFLAGS = -std=gnu++11 -pthread -malign-double -fno-math-errno -O3 \
+CPPFLAGS = -std=gnu++11 -pthread -malign-double -fno-math-errno -O3 
 
 CXX=g++
-COMPILE.cpp= $(CXX) $(CPPFLAGS) $(SVNREV) -c 
+COMPILE.cpp= $(CXX) $(CPPFLAGS) $(SVNREV) $(DBDIR) -c 
 
 
 .PHONY: all clean install release
@@ -61,7 +66,7 @@ amr_report:	$(amr_reportOBJS)
 amrfinder.o:  common.hpp common.inc amrfinder.inc
 amrfinderOBJS=amrfinder.o common.o
 amrfinder:	$(amrfinderOBJS)
-	$(CXX) -o $@ $(amrfinderOBJS) -pthread 
+	$(CXX) -o $@ $(amrfinderOBJS) -pthread $(DBDIR)
 
 amrfinder_update.o:  common.hpp common.inc amrfinder.inc
 amrfinder_updateOBJS=amrfinder_update.o common.o
