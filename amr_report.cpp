@@ -688,8 +688,8 @@ struct BlastAlignment
 	    if (targetProt)
     	  for (const Locus& cds : cdss)
     	    QC_ASSERT (   cds. size () == 3 * targetLen + 3
-    	            || cds. size () == 3 * targetLen 
-    	           );
+        	           || cds. size () == 3 * targetLen 
+        	          );
     #endif
 	    QC_IMPLY (! pointMuts. empty (), isPointMut ());
     }
@@ -1069,10 +1069,16 @@ public:
              || getFam () -> descendantOf (other. fam)
              ;
     }
+  size_t getCdsStart () const
+    { return cdss. empty () 
+               ? 0
+               : cdss. front (). start;
+    }
   bool operator< (const BlastAlignment &other) const
     { 
       LESS_PART (*this, other, targetName);
       LESS_PART (*this, other, targetStart);
+      LESS_PART (*this, other, getCdsStart ());
       LESS_PART (*this, other, famId);
       LESS_PART (*this, other, accessionProt);
       return false;

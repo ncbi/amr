@@ -1045,6 +1045,8 @@ public:
 	ulong get (ulong max);
     // Return: in 0 .. max - 1
     // Input: 0 < max <= max_
+	ulong get ()
+	  { return get ((ulong) max_); }
   double getProb ()
     { return (double) get ((ulong) max_) / ((double) max_ - 1); }
     // Return: [0,1]
@@ -1085,6 +1087,8 @@ template <typename T>
       {}
    ~Keep () 
       { *ptr = t; }
+    const T& get () const
+      { return t; }
   };
 
 
@@ -1479,6 +1483,8 @@ public:
     	}
     	searchSorted = false;
     }
+  const T& getRandom (Rand &rand) const
+    { return (*this) [rand. get (P::size ())]; }
   void randomOrder ()
 		{ Rand rand (seed_global);
 			for (T &t : *this)
@@ -2249,6 +2255,59 @@ template <typename T, typename U /* : T */>
           return false;
       return true;
     }
+
+
+
+template <typename T>  
+struct RandomSet
+{
+private:
+  Vector<T> vec;
+  unordered_map<T,size_t/*index in vec*/> um;
+  // Same elements
+public:
+  
+  RandomSet () = default;
+  void reset (size_t num)
+    { vec. clear ();  vec. reserve (num);
+      um.  clear ();  um. rehash (num);
+    }
+  void qc () const
+    { if (! qc_on)
+        return;
+      if (vec. size () != um. size ())
+        throw logic_error ("RandomSet: qc");
+    }
+    
+  // Time: O(1)
+  bool empty () const
+    { return vec. empty (); }
+  size_t size () const
+    { return vec. size (); }
+  bool insert (const T &t)
+    { if (contains (um, t))
+        return false;
+      um [t] = vec. size ();;
+      vec << t;
+      return true;
+    }
+  bool erase (const T &t)
+    { if (vec. empty ())
+        return false;
+      const auto it = um. find (t);
+      if (it == um. end ())
+        return false;
+      um [vec. back ()] = it->second;
+      vec [it->second] = vec. back ();
+      vec. pop_back ();
+      um. erase (t);
+      return true;
+    }
+  const Vector<T>& getVec () const
+    { return vec; }
+    // For a random access
+};
+  
 
 
 

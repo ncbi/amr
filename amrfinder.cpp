@@ -192,11 +192,12 @@ struct ThisApplication : ShellApplication
       threads_max = threads_max_max;
     }
 
-        #ifdef DEFAULT_DB_DIR
-            const string defaultDb ((string) DEFAULT_DB_DIR + "/latest");
-        #else
-		    const string defaultDb (execDir + "/data/latest");
-        #endif
+
+  #ifdef DEFAULT_DB_DIR
+    const string defaultDb ((string) DEFAULT_DB_DIR + "/latest");
+  #else
+    const string defaultDb (execDir + "/data/latest");
+  #endif
 
 		// db
 		if (db. empty ())
@@ -466,6 +467,7 @@ struct ThisApplication : ShellApplication
 			exec ("grep -w ^" + organism1 + " " + db + "/AMRProt-suppress | cut -f 2 > " + tmp + ".suppress_prot"); 
 		
 
+    // ".amr"
     const string point_mut_allS (point_mut_all. empty () ? "" : ("-point_mut_all " + point_mut_all));
     const string coreS (add_plus ? "" : " -core");
 		exec (fullProg ("amr_report") + " -fam " + db + "/fam.tab  " + blastp_par + "  " + blastx_par
@@ -474,31 +476,27 @@ struct ThisApplication : ShellApplication
 		  + (ident == -1 ? string () : "  -ident_min "    + toString (ident)) 
 		  + "  -coverage_min " + toString (cov)
 		  + ifS (suppress_common, " -suppress_prot " + tmp + ".suppress_prot")
-		  + qcS + " " + parm + " -log " + logFName + " > " + tmp + ".amr-raw", logFName);
-
+		  + qcS + " " + parm + " -log " + logFName + " > " + tmp + ".amr", logFName);
 		if (   ! emptyArg (dna) 
 		    && ! emptyArg (organism)
 		    && fileExists (db + "/AMR_DNA-" + organism1)
 		   )
 		{
 			exec (fullProg ("point_mut") + tmp + ".blastn " + db + "/AMR_DNA-" + organism1 + ".tab" + qcS + " -log " + logFName + " > " + tmp + ".amr-snp", logFName);
-			exec ("tail -n +2 " + tmp + ".amr-snp >> " + tmp + ".amr-raw", logFName);
+			// merging, sorting
+			exec ("tail -n +2 " + tmp + ".amr     >  " + tmp + ".mrg", logFName);
+			exec ("tail -n +2 " + tmp + ".amr-snp >> " + tmp + ".mrg", logFName);
+			exec ("sort -k2 -k3n -k4n -k5 -k1 " + tmp + ".mrg > " + tmp + ".sorted", logFName);
+			// ".amr-out"
+  		exec ("head -1 " + tmp + ".amr    >  " + tmp + ".amr-out", logFName);
+			exec ("cat "     + tmp + ".sorted >> " + tmp + ".amr-out", logFName);
+			// ".amr"
+			exec ("mv " + tmp + ".amr-out " + tmp + ".amr", logFName);			
 		}
 		
-		// $tmp.amr-raw --> $tmp.amr
-    
     // timing the run
     end = time(NULL);
     stderr << "AMRFinder took " << end - start << " seconds to complete\n";
-
-    string sort_cols;
-    if (   ! force_cds_report. empty ()
-        || ! blastx_par. empty ()
-        || ! emptyArg (gff)
-       )
-      sort_cols = " -k2 -k3n -k4n -k5";
-		exec ("head -1 " + tmp + ".amr-raw > " + tmp + ".amr", logFName);
-		exec ("tail -n +2 " + tmp + ".amr-raw | sort" + sort_cols + " -k1 >> " + tmp + ".amr", logFName);
 
 
 		if (emptyArg (output))

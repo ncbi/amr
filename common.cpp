@@ -2638,11 +2638,10 @@ void ShellApplication::initEnvironment ()
 	execDir = getProgramDirName ();
 	if (execDir. empty ())
 		execDir = which (programArgs. front ());
-	ASSERT (isRight (execDir, "/"));
-
+  ASSERT (isRight (execDir, "/"));
 
   string execDir_ (execDir);
-  trimSuffix (execDir_, "/");
+  trimSuffix (execDir_, "/");				
   for (Key& key : keys)
     if (! key. flag)
       replaceStr (key. defaultValue, "$BASE", execDir_);

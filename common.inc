@@ -130,5 +130,9 @@
 #define PRINT(x)  cout << #x << " = " << (x) << endl;
 
 
+#define XSTR(s) STR(s)
+#define STR(s)  #s
+
+
 
 #endif
