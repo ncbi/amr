@@ -193,11 +193,14 @@ struct ThisApplication : ShellApplication
     }
 
 
-  #ifdef DEFAULT_DB_DIR
-    const string defaultDb ((string) DEFAULT_DB_DIR + "/latest");
-  #else
-    const string defaultDb (execDir + "/data/latest");
-  #endif
+    const string defaultDb (
+      #ifdef DEFAULT_DB_DIR
+        DEFAULT_DB_DIR "/latest"
+      #else
+        execDir + "/data/latest"
+      #endif
+      );
+      
 
 		// db
 		if (db. empty ())
@@ -397,7 +400,7 @@ struct ThisApplication : ShellApplication
   			string num_threads;
   			if (blastThreadable ("blastp", logFName) && prot_threads > 1)
   			  num_threads = "-num_threads " + to_string (prot_threads);
-  			th. exec (fullProg ("blastp") + " -query " + prot + " -db " + db + "/AMRProt  -show_gis  -evalue 1e-20  -comp_based_stats 0  "
+  			th. exec (fullProg ("blastp") + " -query " + prot + " -db " + db + "/AMRProt  -show_gis  -comp_based_stats 0  "
   			  + num_threads + " "
   			  "-outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq sseq' "
   			  "-out " + tmp + ".blastp > /dev/null 2> /dev/null", prot_threads);
@@ -430,7 +433,7 @@ struct ThisApplication : ShellApplication
     		  string item;
     		  while (fig. next (item))
       			th << thread (exec, fullProg ("blastx") + "  -query " + tmp + ".chunk/" + item + " -db " + db + "/AMRProt  "
-      			  "-show_gis  -word_size 3  -evalue 1e-20  -query_gencode " + to_string (gencode) + "  "
+      			  "-show_gis  -word_size 3  -query_gencode " + to_string (gencode) + "  "
       			  "-seg no  -comp_based_stats 0  -max_target_seqs 10000  "
       			  "-outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq sseq' "
       			  "-out " + tmp + ".blastx_dir/" + item + " > /dev/null 2> /dev/null", string ());
@@ -438,7 +441,7 @@ struct ThisApplication : ShellApplication
   		  }
   		  else
     			th. exec (fullProg ("blastx") + "  -query " + dna_ + " -db " + db + "/AMRProt  "
-    			  "-show_gis  -word_size 3  -evalue 1e-20  -query_gencode " + to_string (gencode) + "  "
+    			  "-show_gis  -word_size 3  -query_gencode " + to_string (gencode) + "  "
     			  "-seg no  -comp_based_stats 0  -max_target_seqs 10000  " 
     			  "-outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq sseq' "
     			  "-out " + tmp + ".blastx > /dev/null 2> /dev/null", threadsAvailable);
