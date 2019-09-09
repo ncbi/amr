@@ -366,7 +366,7 @@ struct ThisApplication : ShellApplication
   		
   		
   		// PD-2967
-  		const string blastp_par ("-show_gis  -comp_based_stats 0  -evalue 1e-10  -culling_limit 20");  		
+  		const string blastp_par ("-show_gis  -comp_based_stats 0  -evalue 1e-10  -culling_limit 20");
   		const string blastx_par (blastp_par + "  -word_size 3  -seg no  -max_target_seqs 10000  -query_gencode ");
   		if (! emptyArg (prot))
   		{

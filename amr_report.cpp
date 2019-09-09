@@ -1196,6 +1196,10 @@ struct Batch
 	  	    try
   	  	  {
   	  	    trim (f. line);
+  	  	    if (   f. line. empty () 
+  	  	        || f. line [0] == '#'
+  	  	       )
+  	  	      continue;
   	      //cout << f. line << endl; 
   	  	    const string famId               (findSplit (f. line, '\t'));
   	  	    const string parentFamId         (findSplit (f. line, '\t'));
@@ -1247,6 +1251,10 @@ struct Batch
 	  	  {
 	  	    trim (f. line);
 	  	  //cout << f. line << endl;  
+	  	    if (   f. line. empty () 
+	  	        || f. line [0] == '#'
+	  	       )
+	  	      continue;
 	  	    const Fam* child = famId2fam [findSplit (f. line, '\t')];
 	  	    const string parentFamId (findSplit (f. line, '\t'));
 	  	    if (parentFamId == pointMutParent)
