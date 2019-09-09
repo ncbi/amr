@@ -342,8 +342,8 @@ struct ThisApplication : ShellApplication
     findProg ("amr_report");	
     
     
-    string blastp_par;	
- 		string blastx_par;
+    string amr_report_blastp;	
+ 		string amr_report_blastx;
  		bool blastxChunks = false;
     {
       Threads th (threads_max - 1, true);  
@@ -363,7 +363,10 @@ struct ThisApplication : ShellApplication
   		  if (system (("sed 's/^>gnl|[^|]*|/>/1' " + dna + " > " + dna_). c_str ()))
   		    throw runtime_error ("Cannot remove 'gnl' from " + dna);
   		}
-
+  		
+  		
+  		const string blastp_par ("-show_gis  -comp_based_stats 0  -evalue 1e-10  -culling_limit 20");  		
+  		const string blastx_par (blastp_par + "  -word_size 3  -seg no  -max_target_seqs 10000  -query_gencode ");
   		if (! emptyArg (prot))
   		{
   			findProg ("blastp");  			
@@ -399,10 +402,10 @@ struct ThisApplication : ShellApplication
   			// " -task blastp-fast -word_size 6  -threshold 21 "  // PD-2303
   			string num_threads;
   			if (blastThreadable ("blastp", logFName) && prot_threads > 1)
-  			  num_threads = "-num_threads " + to_string (prot_threads);
-  			th. exec (fullProg ("blastp") + " -query " + prot + " -db " + db + "/AMRProt  -show_gis  -comp_based_stats 0  "
-  			  + num_threads + " "
-  			  "-outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq sseq' "
+  			  num_threads = " -num_threads " + to_string (prot_threads);
+  			th. exec (fullProg ("blastp") + " -query " + prot + " -db " + db + "/AMRProt  " 
+  			  + blastp_par + num_threads + " "
+  			  " -outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq sseq' "
   			  "-out " + tmp + ".blastp > /dev/null 2> /dev/null", prot_threads);
   			  
   			stderr << "Running hmmsearch...\n";
@@ -411,9 +414,9 @@ struct ThisApplication : ShellApplication
   			  cpu = "--cpu " + to_string (prot_threads);
   			th. exec (fullProg ("hmmsearch") + " --tblout " + tmp + ".hmmsearch  --noali  --domtblout " + tmp + ".dom  --cut_tc  -Z 10000  " + cpu + " " + db + "/AMR.LIB " + prot + " > /dev/null 2> /dev/null", prot_threads);
 
-  		  blastp_par = "-blastp " + tmp + ".blastp  -hmmsearch " + tmp + ".hmmsearch  -hmmdom " + tmp + ".dom";
+  		  amr_report_blastp = "-blastp " + tmp + ".blastp  -hmmsearch " + tmp + ".hmmsearch  -hmmdom " + tmp + ".dom";
   			if (! emptyArg (gff))
-  			  blastp_par += "  -gff " + gff + gff_match;
+  			  amr_report_blastp += "  -gff " + gff + gff_match;
   		}  		
   		
   		if (! emptyArg (dna))
@@ -433,19 +436,17 @@ struct ThisApplication : ShellApplication
     		  string item;
     		  while (fig. next (item))
       			th << thread (exec, fullProg ("blastx") + "  -query " + tmp + ".chunk/" + item + " -db " + db + "/AMRProt  "
-      			  "-show_gis  -word_size 3  -query_gencode " + to_string (gencode) + "  "
-      			  "-seg no  -comp_based_stats 0  -max_target_seqs 10000  "
-      			  "-outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq sseq' "
+      			  + blastx_par + to_string (gencode) 
+      			  + "  -outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq sseq' "
       			  "-out " + tmp + ".blastx_dir/" + item + " > /dev/null 2> /dev/null", string ());
     		  blastxChunks = true;
   		  }
   		  else
     			th. exec (fullProg ("blastx") + "  -query " + dna_ + " -db " + db + "/AMRProt  "
-    			  "-show_gis  -word_size 3  -query_gencode " + to_string (gencode) + "  "
-    			  "-seg no  -comp_based_stats 0  -max_target_seqs 10000  " 
-    			  "-outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq sseq' "
+    			  + blastx_par + to_string (gencode) 
+    			  + "  -outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq sseq' "
     			  "-out " + tmp + ".blastx > /dev/null 2> /dev/null", threadsAvailable);
-  		  blastx_par = "-blastx " + tmp + ".blastx  -dna_len " + tmp + ".len";
+  		  amr_report_blastx = "-blastx " + tmp + ".blastx  -dna_len " + tmp + ".len";
   		}
 
   		if (   ! emptyArg (dna) 
@@ -473,7 +474,7 @@ struct ThisApplication : ShellApplication
     // ".amr"
     const string point_mut_allS (point_mut_all. empty () ? "" : ("-point_mut_all " + point_mut_all));
     const string coreS (add_plus ? "" : " -core");
-		exec (fullProg ("amr_report") + " -fam " + db + "/fam.tab  " + blastp_par + "  " + blastx_par
+		exec (fullProg ("amr_report") + " -fam " + db + "/fam.tab  " + amr_report_blastp + "  " + amr_report_blastx
 		  + "  -organism " + organism + "  -point_mut " + db + "/AMRProt-point_mut.tab " + point_mut_allS + " "
 		  + force_cds_report + " -pseudo" + coreS
 		  + (ident == -1 ? string () : "  -ident_min "    + toString (ident)) 
