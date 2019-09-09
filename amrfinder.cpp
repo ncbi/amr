@@ -400,7 +400,7 @@ struct ThisApplication : ShellApplication
   			string num_threads;
   			if (blastThreadable ("blastp", logFName) && prot_threads > 1)
   			  num_threads = "-num_threads " + to_string (prot_threads);
-  			th. exec (fullProg ("blastp") + " -query " + prot + " -db " + db + "/AMRProt  -show_gis  -comp_based_stats 0  "
+  			th. exec (fullProg ("blastp") + " -query " + prot + " -db " + db + "/AMRProt  -show_gis  -comp_based_stats 0  -evalue 1e-10  "
   			  + num_threads + " "
   			  "-outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq sseq' "
   			  "-out " + tmp + ".blastp > /dev/null 2> /dev/null", prot_threads);
@@ -433,16 +433,16 @@ struct ThisApplication : ShellApplication
     		  string item;
     		  while (fig. next (item))
       			th << thread (exec, fullProg ("blastx") + "  -query " + tmp + ".chunk/" + item + " -db " + db + "/AMRProt  "
-      			  "-show_gis  -word_size 3  -query_gencode " + to_string (gencode) + "  "
-      			  "-seg no  -comp_based_stats 0  -max_target_seqs 10000  "
+      			  "-show_gis  -word_size 3  -query_gencode " + to_string (gencode) + "  -evalue 1e-10 "
+      			  "-seg no  -comp_based_stats 0  -max_target_seqs 10000  -culling_limit 20 "
       			  "-outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq sseq' "
       			  "-out " + tmp + ".blastx_dir/" + item + " > /dev/null 2> /dev/null", string ());
     		  blastxChunks = true;
   		  }
   		  else
     			th. exec (fullProg ("blastx") + "  -query " + dna_ + " -db " + db + "/AMRProt  "
-    			  "-show_gis  -word_size 3  -query_gencode " + to_string (gencode) + "  "
-    			  "-seg no  -comp_based_stats 0  -max_target_seqs 10000  " 
+    			  "-show_gis  -word_size 3  -query_gencode " + to_string (gencode) + "  -evalue 1e-10 "
+    			  "-seg no  -comp_based_stats 0  -max_target_seqs 10000  -culling_limit 20 " 
     			  "-outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq sseq' "
     			  "-out " + tmp + ".blastx > /dev/null 2> /dev/null", threadsAvailable);
   		  blastx_par = "-blastx " + tmp + ".blastx  -dna_len " + tmp + ".len";

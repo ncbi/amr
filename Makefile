@@ -151,12 +151,10 @@ test:
 		-O https://raw.githubusercontent.com/ncbi/amr/v3b/test_both.expected \
 		-O https://raw.githubusercontent.com/ncbi/amr/v3b/test_dna.expected \
 		-O https://raw.githubusercontent.com/ncbi/amr/v3b/test_prot.expected
-	amrfinder --plus -p test_prot.fa -g test_prot.gff -O Campylobacter > test_prot.got
+	./amrfinder --plus -p test_prot.fa -g test_prot.gff -O Campylobacter > test_prot.got
 	diff test_prot.expected test_prot.got
-	amrfinder --plus -n test_dna.fa -O Campylobacter > test_dna.got
+	./amrfinder --plus -n test_dna.fa -O Campylobacter > test_dna.got
 	diff test_dna.expected test_dna.got
-	amrfinder --plus -n test_dna.fa -p test_prot.fa -g test_prot.gff -O Campylobacter > test_both.got
+	./amrfinder --plus -n test_dna.fa -p test_prot.fa -g test_prot.gff -O Campylobacter > test_both.got
 	diff test_both.got test_both.expected
 
-
-     -O https://raw.githubusercontent.com/ncbi/amr/v3b/test_prot.expected
