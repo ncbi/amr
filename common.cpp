@@ -122,6 +122,7 @@ bool Chronometer::enabled = false;
 
 
 
+#ifndef _MSC_VER
 namespace 
 {
 
@@ -141,6 +142,7 @@ void segmFaultHandler (int /*sig_num*/)
 }
 
 }
+#endif
 
 
 
@@ -148,8 +150,10 @@ bool initCommon ()
 {
   MODULE_INIT
 
+#ifndef _MSC_VER
   signal (SIGSEGV, segmFaultHandler);  
   signal (SIGPIPE, sigpipe_handler);
+#endif
         
 #ifdef _MSC_VER
   #pragma warning (disable : 4127)
@@ -2560,7 +2564,9 @@ int Application::run (int argc,
 	  	  ASSERT (jRoot);
 	  	}
 	  	
+    #ifndef _MSC_VER
 	  	sigpipe = getFlag ("sigpipe");
+    #endif
 	  }
   
 	
@@ -2604,7 +2610,7 @@ int Application::run (int argc,
 
 
 
-
+#ifndef _MSC_VER
 // ShellApplication
 
 ShellApplication::~ShellApplication ()
@@ -2704,7 +2710,7 @@ string ShellApplication::fullProg (const string &progName) const
 	ASSERT (isRight (dir, "/"));
 	return dir + progName + " ";
 }
-
+#endif
 
 
 

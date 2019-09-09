@@ -37,7 +37,10 @@
 
 
 #ifdef _MSC_VER
+  #pragma warning (disable : 4061)  // enumerator ... in switch of enum ... is not explicitly handled by a case label
   #pragma warning (disable : 4290)  // C++ exception specification ignored except to indicate a function is not __declspec(nothrow)
+  #pragma warning (disable : 4365)  // conversion from 'type_1' to 'type_2', signed/unsigned mismatch (bool -> size_t)
+  #pragma warning (disable : 4503)  // decorated name length exceeded, name was truncated
   #pragma warning (disable : 4514)  // '...': unreferenced inline function has been removed
   #pragma warning (disable : 4521)  // multiple copy constructors specified
   #pragma warning (disable : 4522)  // multiple assignment operators specified
@@ -1479,7 +1482,7 @@ public:
     	{ const size_t j = P::size () - 1 - i;
     		if (i >= j)
     			break;
-    	  swap ((*this) [i], (*this) [j]);
+    	  std::swap ((*this) [i], (*this) [j]);
     	}
     	searchSorted = false;
     }
@@ -1488,7 +1491,7 @@ public:
   void randomOrder ()
 		{ Rand rand (seed_global);
 			for (T &t : *this)
-	      swap (t, (*this) [(size_t) rand. get ((ulong) P::size ())]);
+	      std::swap (t, (*this) [(size_t) rand. get ((ulong) P::size ())]);
     	searchSorted = false;
 		}
   T pop (size_t n = 1)
@@ -1559,7 +1562,7 @@ public:
       FOR_START (size_t, i, 1, P::size ())
 		    FOR_REV (size_t, j, i)
 		      if ((*this) [j + 1] > (*this) [j])
-        	  swap ((*this) [j], (*this) [j + 1]);
+        	  std::swap ((*this) [j], (*this) [j + 1]);
 		      else
 		      	break;
     	searchSorted = true;
@@ -2659,6 +2662,42 @@ public:
 
 
 
+struct TokenInput : Root
+{
+  CharInput ci;
+  const char commentStart {'\0'};
+  Token last;
+
+
+  TokenInput (const string &fName,
+              char commentStart_arg,
+      	      size_t bufSize = 100 * 1024,
+              uint displayPeriod = 0)
+    : ci (fName, bufSize, displayPeriod)
+    , commentStart (commentStart_arg)
+    {}
+
+
+  Token get ()
+    // Return: empty() <=> EOF
+    { const Token last_ (last);
+      last = Token ();
+      if (! last_. empty ())
+        return last_;
+      for (;;)
+      { Token t (ci);
+        if (t. empty ())
+          break;
+        if (! t. isDelimiter (commentStart))
+          return t;
+        ci. getLine ();
+      }
+      return Token ();
+    }
+};
+
+
+
 
 struct OFStream : ofstream
 {
@@ -2873,7 +2912,7 @@ struct JsonDouble : Json
 {
   double n {0.0};
   streamsize decimals {0};
-  bool scientfiic {false};
+  bool scientific {false};
 
   JsonDouble (double n_arg,
               streamsize decimals_arg,
@@ -3211,7 +3250,9 @@ private:
 	      addKey ("threads", "Max. number of threads", "1");
 	      addKey ("json", "Output file in Json format");
 	      addKey ("log", "Error log file, appended");
+      #ifndef _MSC_VER
 	      addFlag ("sigpipe", "Exit normally on SIGPIPE");
+      #endif
 	    }
 	  }
 	void qc () const final;
@@ -3260,6 +3301,7 @@ private:
 
 
 
+#ifndef _MSC_VER
 struct ShellApplication : Application
 // Requires: SHELL=bash
 {
@@ -3300,6 +3342,7 @@ protected:
     // Return: directory + progName + ' '
     // Requires: After findProg(progName)
 };
+#endif
 
 
 
