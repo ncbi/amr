@@ -2609,7 +2609,7 @@ struct Token : Root
 	       const string &expected)
     { readInput (in);
     	if (! isNameText (expected))
- 			  throw CharInput::Error (in, type2str (eName) + " or " + type2str (eName) + " " + strQuote (expected)); 
+ 			  throw CharInput::Error (in, type2str (eName) + " " + strQuote (expected)); 
     }
 	Token (CharInput &in,
 	       int expected)
@@ -2627,7 +2627,7 @@ struct Token : Root
 	       char expected)
     { readInput (in);
     	if (! isDelimiter (expected))
- 			  throw CharInput::Error (in, type2str (eDelimiter) + " " + expected); 
+ 			  throw CharInput::Error (in, type2str (eDelimiter) + " " + strQuote (toString (expected))); 
     }
 private:
 	void readInput (CharInput &in);

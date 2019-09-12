@@ -58,7 +58,7 @@ constexpr double ident_min_def = 0.9;
 constexpr double partial_coverage_min_def = 0.5;
   
     
-#define ORGANISMS "Campylobacter|Escherichia|Klebsiella|Salmonella|Staphylococcus|Vibrio"  // from table Taxgroup
+#define ORGANISMS "Campylobacter|Escherichia|Klebsiella|Salmonella|Staphylococcus|Vibrio_cholerae"  // from table Taxgroup
 
 		
 
