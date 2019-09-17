@@ -1386,7 +1386,8 @@ private:
 public:
 	  	  
 
-	void process (bool skip_hmm_check) 
+	void process (bool retainBlasts,
+	              bool skip_hmm_check) 
   // Input: blastAls, domains, hmmAls
 	// Output: goodBlastAls
 	{
@@ -1404,7 +1405,10 @@ public:
         
     // Group by targetName and process each targetName separately for speed ??    
 
-    blastParetoBetter ();
+    if (retainBlasts)
+      goodBlastAls = blastAls;
+    else
+      blastParetoBetter ();
 
   #if 0
     ??
@@ -1533,9 +1537,6 @@ public:
   	  ASSERT (hmmAl. blastAl. get ());
   	  goodBlastAls << * hmmAl. blastAl. get ();
   	}
-  
-  //blastAls = move (goodBlastAls);
-  //blastParetoBetter ();  
   
     goodBlastAls. sort ();
 
@@ -1750,6 +1751,8 @@ struct ThisApplication : Application
       // Testing
       addFlag ("nosame", "Exclude the same reference ptotein from the BLAST output (for testing)"); 
       addFlag ("noblast", "Exclude the BLAST output (for testing)"); 
+      addFlag ("nohmm", "Exclude the HMMer output (for testing)"); 
+      addFlag ("retain_blasts", "Retain all blast hits (for testing)");
     #ifdef SVN_REV
       version = SVN_REV;
     #endif
@@ -1785,6 +1788,8 @@ struct ThisApplication : Application
     const bool   report_core_only     = getFlag ("core");
     const bool   nosame               = getFlag ("nosame");
     const bool   noblast              = getFlag ("noblast");
+    const bool   nohmm                = getFlag ("nohmm");
+    const bool   retainBlasts         = getFlag ("retain_blasts");
     
     QC_ASSERT (hmmsearch. empty () == hmmDom. empty ());
     QC_IMPLY (! outFName. empty (), ! blastpFName. empty ());
@@ -1883,65 +1888,67 @@ struct ThisApplication : Application
   	  cout << "# Good Blasts: " << batch. blastAls. size () << endl;
   	
   
-    // batch.domains
-    if (! hmmDom. empty ())
+    if (! nohmm)
     {
-    	batch. hmmExist = true;
-      LineInput f (hmmDom);
-  	  while (f. nextLine ())
-  	  {
-  	    trim (f. line);
-  	    if (   f. line. empty () 
-  	        || f. line [0] == '#'
-  	       )
-  	      continue;
-  	    const HmmAlignment::Domain domain (f. line, batch);
-  	  }
+      // batch.domains
+      if (! hmmDom. empty ())
+      {
+      	batch. hmmExist = true;
+        LineInput f (hmmDom);
+    	  while (f. nextLine ())
+    	  {
+    	    trim (f. line);
+    	    if (   f. line. empty () 
+    	        || f. line [0] == '#'
+    	       )
+    	      continue;
+    	    const HmmAlignment::Domain domain (f. line, batch);
+    	  }
+      }
+
+      // batch.hmmAls 
+    	// HmmAlignment::good()
+    	if (! hmmsearch. empty ())  // redundant file ??
+    	{
+        LineInput f (hmmsearch);
+    	  while (f. nextLine ())
+    	  {
+    	    if (verbose ())
+    	      cout << f. line << endl;  
+    	    if (f. line. empty () || f. line [0] == '#')
+    	      continue;
+    	    HmmAlignment hmmAl (f. line, batch);
+    	    if (! hmmAl. good ())
+    	    {
+    	      if (verbose ())
+    	      {
+    	        cout << "  Bad HMM: " << endl;
+    	        hmmAl. saveText (cout);
+    	      }
+    	    	continue;
+    	    }
+    	    auto al = new BlastAlignment (hmmAl);
+  	  	  hmmAl. blastAl. reset (al);
+  	  	  if (verbose ())
+  	  	    cout << al->targetName << " " << al->gene << endl;  
+  	  	  const HmmAlignment::Domain domain = batch. domains [HmmAlignment::Pair (al->targetName, al->gene)];
+  	  	  if (! domain. hmmLen)  
+  	  	    continue;  // domain does not exist
+  	  	/*al->refLen      = domain. hmmLen;
+  	  	  al->refStart    = domain. hmmStart;
+  	  	  al->refStop     = domain. hmmStop; */
+  	  	  al->targetLen   = domain. seqLen;
+  	  	  al->targetStart = domain. seqStart;
+  	  	  al->targetStop  = domain. seqStop;
+  	  	  al->setTargetAlign ();
+  	  	  ASSERT (! al->refExactlyMatched ());
+  	  	  al->qc ();
+  	      batch. hmmAls << move (hmmAl);
+    	  }
+    	}
     }
-
-
-    // batch.hmmAls 
-  	// HmmAlignment::good()
-  	if (! hmmsearch. empty ())  // redundant file ??
-  	{
-      LineInput f (hmmsearch);
-  	  while (f. nextLine ())
-  	  {
-  	    if (verbose ())
-  	      cout << f. line << endl;  
-  	    if (f. line. empty () || f. line [0] == '#')
-  	      continue;
-  	    HmmAlignment hmmAl (f. line, batch);
-  	    if (! hmmAl. good ())
-  	    {
-  	      if (verbose ())
-  	      {
-  	        cout << "  Bad HMM: " << endl;
-  	        hmmAl. saveText (cout);
-  	      }
-  	    	continue;
-  	    }
-  	    auto al = new BlastAlignment (hmmAl);
-	  	  hmmAl. blastAl. reset (al);
-	  	  if (verbose ())
-	  	    cout << al->targetName << " " << al->gene << endl;  
-	  	  const HmmAlignment::Domain domain = batch. domains [HmmAlignment::Pair (al->targetName, al->gene)];
-	  	  if (! domain. hmmLen)  
-	  	    continue;  // domain does not exist
-	  	/*al->refLen      = domain. hmmLen;
-	  	  al->refStart    = domain. hmmStart;
-	  	  al->refStop     = domain. hmmStop; */
-	  	  al->targetLen   = domain. seqLen;
-	  	  al->targetStart = domain. seqStart;
-	  	  al->targetStop  = domain. seqStop;
-	  	  al->setTargetAlign ();
-	  	  ASSERT (! al->refExactlyMatched ());
-	  	  al->qc ();
-	      batch. hmmAls << move (hmmAl);
-  	  }
-  	}
-  	if (verbose ())
-  	  cout << "# Good HMMs: " << batch. hmmAls. size () << endl;
+   	if (verbose ())
+   	  cout << "# Good HMMs: " << batch. hmmAls. size () << endl;
   
   
     // For Batch::report()
@@ -2007,7 +2014,7 @@ struct ThisApplication : Application
     
     
     // Output
-    batch. process (skip_hmm_check);    
+    batch. process (retainBlasts, skip_hmm_check);    
     batch. report (cout);
     if (! outFName. empty ())
     {
