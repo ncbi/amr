@@ -168,10 +168,7 @@ struct Fam
         genesymbol. clear ();
       if (hmm == "-")
         hmm. clear ();
-      if (hmm. empty () != ! tc1)
-      { cout << id << ' ' << hmm << ' ' << tc1 << endl;
-        ERROR;
-      }
+      ASSERT (hmm. empty () == ! tc1);
       ASSERT (hmm. empty () == ! tc2); 
     //IMPLY (! hmm. empty (), tc2 > 0);
       if (familyName == "NULL")
