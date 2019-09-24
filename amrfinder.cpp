@@ -67,7 +67,15 @@ constexpr double partial_coverage_min_def = 0.5;
 struct ThisApplication : ShellApplication
 {
   ThisApplication ()
-    : ShellApplication ("Identify AMR genes in proteins and/or contigs and print a report", true, true, true)
+    : ShellApplication ("Identify AMR genes in proteins and/or contigs and print a report\n\n"
+"DOCUMENTATION\n"
+"    See https://github.com/ncbi/amr/wiki for full documentation\n"
+"\n"
+"UPDATES\n"
+"    Subscribe to the amrfinder-announce mailing list for database and software update notifications:\n"
+"    https://www.ncbi.nlm.nih.gov/mailman/listinfo/amrfinder-announce"
+                       , true, true, true
+                       )
     {
     	addKey ("protein", "Protein FASTA file to search", "", 'p', "PROT_FASTA");
     	addKey ("nucleotide", "Nucleotide FASTA file to search", "", 'n', "NUC_FASTA");
@@ -79,7 +87,7 @@ struct ThisApplication : ShellApplication
       addKey ("organism", "Taxonomy group\n    " ORGANISMS, "", 'O', "ORGANISM");
     	addKey ("translation_table", "NCBI genetic code for translated BLAST", "11", 't', "TRANSLATION_TABLE");
     	addFlag ("plus", "Add the plus genes to the report");  // PD-2789
-      addFlag ("report_common", "Suppress proteins common to a taxonomy group");  // PD-2756
+      addFlag ("report_common", "Report proteins common to a taxonomy group");  // PD-2756
     	addKey ("point_mut_all", "File to report all target positions of reference point mutations", "", '\0', "POINT_MUT_ALL_FILE");
     	addKey ("blast_bin", "Directory for BLAST. Deafult: $BLAST_BIN", "", '\0', "BLAST_DIR");
     	addKey ("parm", "amr_report parameters for testing: -nosame -noblast -skip_hmm_check -bed", "", '\0', "PARM");
@@ -308,7 +316,7 @@ struct ThisApplication : ShellApplication
     
     for (const string& include : includes)
       stderr << "  - include " << include << '\n';
-
+      
 
     // blast_bin
     if (blast_bin. empty ())
