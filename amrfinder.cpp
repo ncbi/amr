@@ -119,17 +119,33 @@ struct ThisApplication : ShellApplication
   
   size_t get_threads_max_max (const string &logFName) const
   {
-#if __APPLE__
+  #if __APPLE__
     int count;
     size_t count_len = sizeof(count);
     sysctlbyname("hw.logicalcpu", &count, &count_len, NULL, 0);
     // fprintf(stderr,"you have %i cpu cores", count);
     return count;
-#else
+  #else
     exec ("nproc --all > " + tmp + ".nproc", logFName);
     LineInput f (tmp + ".nproc");
 	  return str2<size_t> (f. getString ());
-#endif
+  #endif
+  }
+  
+  
+  
+  string file2link (const string &fName,
+                    const string &logFName) const
+  {
+    exec ("file " + fName + " > " + tmp + ".file", logFName);
+    
+    LineInput f (tmp + ".file");
+	  string s (f. getString ());
+	  
+	  trimPrefix (s, fName + ": ");
+	  if (isLeft (s, "symbolic link to "))
+	    return s;
+	  return string ();
   }
 
 
@@ -197,7 +213,7 @@ struct ThisApplication : ShellApplication
       #ifdef DEFAULT_DB_DIR
         DEFAULT_DB_DIR "/latest"
       #else
-        execDir + "/data/latest"
+        execDir + "data/latest"
       #endif
       );
       
@@ -282,7 +298,14 @@ struct ThisApplication : ShellApplication
       return;
 
 
-    stderr << "AMRFinder " << searchMode << " search with database " << db << "\n";
+    stderr << "AMRFinder " << searchMode << " search with database " << db;
+    {
+      const string link (file2link (db, logFName));
+      if (! link. empty ())
+        stderr << ": " << link;
+    }
+    stderr << "\n";
+    
     for (const string& include : includes)
       stderr << "  - include " << include << '\n';
 
