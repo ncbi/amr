@@ -166,6 +166,8 @@ bool initCommon ()
 
   static_assert (SIZE_MAX == std::numeric_limits<size_t>::max (), "SIZE_MAX is correct");
 
+  static_assert (sizeof (size_t) == 8, "Size of size_t must be 8 bytes");
+    
   return true;
 }
 
@@ -912,9 +914,9 @@ void readLine (istream &is,
 
 
 
-string getToken (istream &is,
-                 const string &skip,
-                 const string &delimeters)
+string getColumn (istream &is,
+                  const string &skip,
+                  const string &delimeters)
 {
   // Skipping skip
   for (;;)
@@ -954,6 +956,11 @@ string getToken (istream &is,
 }
 
  
+
+
+hash<string> str_hash;
+
+
 
 
 // Rand
@@ -1087,7 +1094,7 @@ void exec (const string &cmd,
 	    LineInput f (logFName);
 	    throw runtime_error (f. getString ());
 	  }
-		throw runtime_error ("Command failed:\n" + cmd + "\nstatus = " + toString (status));		
+		throw runtime_error ("Command failed:\n" + cmd + "\nstatus = " + to_string (status));		
 	}
 }
 
@@ -1334,7 +1341,7 @@ bool LineInput::nextLine ()
   }
   catch (const exception &e)
   {
-    throw runtime_error ("Reading line " + toString (lineNum) + ":\n" + line + "\n" + e. what ());
+    throw runtime_error ("Reading line " + to_string (lineNum) + ":\n" + line + "\n" + e. what ());
   }
 }
 
@@ -1380,24 +1387,25 @@ char CharInput::get ()
 { 
   ASSERT (is);
 
-  ungot = false;
-  
 	const char c = (char) is->get ();
 
 	eof = is->eof ();
 	ASSERT (eof == (c == (char) EOF));
 
-	if (eol)
-	{ 
-	  lineNum++;
-		charNum = 0;
-		prog ();
-  }
+  if (ungot)
+    ungot = false;
   else
-	  charNum++;
+  	if (eol)
+  	{ 
+  	  lineNum++;
+  		charNum = 0;
+  		prog ();
+    }
+    else
+  	  charNum++;
 
 	eol = (eof || c == '\n');
-
+	
 	return /*eof ? (char) EOF :*/ c;
 }
 
@@ -1557,7 +1565,7 @@ void Token::readInput (CharInput &in)
 		name = c;
 	}	
 	else
-	  throw CharInput::Error (in, "Unknown token starting with ASCII " + toString ((int) c), false);
+	  throw CharInput::Error (in, "Unknown token starting with ASCII " + to_string ((int) c), false);
 	    
 	ASSERT (! empty ());
 	qc ();

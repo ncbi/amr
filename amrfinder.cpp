@@ -67,7 +67,15 @@ constexpr double partial_coverage_min_def = 0.5;
 struct ThisApplication : ShellApplication
 {
   ThisApplication ()
-    : ShellApplication ("Identify AMR genes in proteins and/or contigs and print a report", true, true, true)
+    : ShellApplication ("Identify AMR genes in proteins and/or contigs and print a report\n\n"
+"DOCUMENTATION\n"
+"    See https://github.com/ncbi/amr/wiki for full documentation\n"
+"\n"
+"UPDATES\n"
+"    Subscribe to the amrfinder-announce mailing list for database and software update notifications:\n"
+"    https://www.ncbi.nlm.nih.gov/mailman/listinfo/amrfinder-announce"
+                       , true, true, true
+                       )
     {
     	addKey ("protein", "Protein FASTA file to search", "", 'p', "PROT_FASTA");
     	addKey ("nucleotide", "Nucleotide FASTA file to search", "", 'n', "NUC_FASTA");
@@ -79,7 +87,7 @@ struct ThisApplication : ShellApplication
       addKey ("organism", "Taxonomy group\n    " ORGANISMS, "", 'O', "ORGANISM");
     	addKey ("translation_table", "NCBI genetic code for translated BLAST", "11", 't', "TRANSLATION_TABLE");
     	addFlag ("plus", "Add the plus genes to the report");  // PD-2789
-      addFlag ("report_common", "Suppress proteins common to a taxonomy group");  // PD-2756
+      addFlag ("report_common", "Report proteins common to a taxonomy group");  // PD-2756
     	addKey ("point_mut_all", "File to report all target positions of reference point mutations", "", '\0', "POINT_MUT_ALL_FILE");
     	addKey ("blast_bin", "Directory for BLAST. Deafult: $BLAST_BIN", "", '\0', "BLAST_DIR");
     	addKey ("parm", "amr_report parameters for testing: -nosame -noblast -skip_hmm_check -bed", "", '\0', "PARM");
@@ -119,17 +127,33 @@ struct ThisApplication : ShellApplication
   
   size_t get_threads_max_max (const string &logFName) const
   {
-#if __APPLE__
+  #if __APPLE__
     int count;
     size_t count_len = sizeof(count);
     sysctlbyname("hw.logicalcpu", &count, &count_len, NULL, 0);
     // fprintf(stderr,"you have %i cpu cores", count);
     return count;
-#else
+  #else
     exec ("nproc --all > " + tmp + ".nproc", logFName);
     LineInput f (tmp + ".nproc");
 	  return str2<size_t> (f. getString ());
-#endif
+  #endif
+  }
+  
+  
+  
+  string file2link (const string &fName,
+                    const string &logFName) const
+  {
+    exec ("file " + fName + " > " + tmp + ".file", logFName);
+    
+    LineInput f (tmp + ".file");
+	  string s (f. getString ());
+	  
+	  trimPrefix (s, fName + ": ");
+	  if (isLeft (s, "symbolic link to "))
+	    return s;
+	  return string ();
   }
 
 
@@ -197,7 +221,7 @@ struct ThisApplication : ShellApplication
       #ifdef DEFAULT_DB_DIR
         DEFAULT_DB_DIR "/latest"
       #else
-        execDir + "/data/latest"
+        execDir + "data/latest"
       #endif
       );
       
@@ -282,10 +306,17 @@ struct ThisApplication : ShellApplication
       return;
 
 
-    stderr << "AMRFinder " << searchMode << " search with database " << db << "\n";
+    stderr << "AMRFinder " << searchMode << " search with database " << db;
+    {
+      const string link (file2link (db, logFName));
+      if (! link. empty ())
+        stderr << ": " << link;
+    }
+    stderr << "\n";
+    
     for (const string& include : includes)
       stderr << "  - include " << include << '\n';
-
+      
 
     // blast_bin
     if (blast_bin. empty ())

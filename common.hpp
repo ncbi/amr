@@ -1013,9 +1013,9 @@ void readLine (istream &is,
                string &s);
   // Output: s
 
-string getToken (istream &is,
-                 const string &skip,
-                 const string &delimeters);
+string getColumn (istream &is,
+                  const string &skip,
+                  const string &delimeters);
   // Return: empty() <=> eof
 
 inline void pressAnyKey ()
@@ -1025,6 +1025,15 @@ inline void pressAnyKey ()
 
 inline streamsize double2decimals (double r)
   { return r ? (streamsize) max<long> (0, (long) (ceil (- log10 (fabs (r)) + 1))) : 0; }
+
+
+
+// hash
+extern hash<string> str_hash;
+constexpr size_t hash_class_max = 1000;  // PAR
+inline size_t str2hash_class (const string &s)
+  { return str_hash (s) % hash_class_max; }
+ 
 
 
 
@@ -1378,7 +1387,7 @@ public:
 	  {
 	  #ifndef NDEBUG
 	    if (index >= P::size ())
-	      throw range_error ("Vector assignment to index = " + toString (index) + ", but size = " + toString (P::size ()));
+	      throw range_error ("Vector assignment to index = " + to_string (index) + ", but size = " + to_string (P::size ()));
 	  #endif
 	    return P::operator[] (index);
 	  }
@@ -1386,7 +1395,7 @@ public:
 	  {
 	  #ifndef NDEBUG
 	    if (index >= P::size ())
-	      throw range_error ("Vector reading of index = " + toString (index) + ", but size = " + toString (P::size ()));
+	      throw range_error ("Vector reading of index = " + to_string (index) + ", but size = " + to_string (P::size ()));
 	  #endif
 	    return P::operator[] (index);
 	  }
@@ -2513,8 +2522,8 @@ public:
     { Error (const CharInput &in,
 		         const string &what_arg,
 		         bool expected = true) 
-			  : runtime_error ("Error at line " + toString (in. lineNum + 1) 
-		                     + ", pos. " + toString (in. charNum + 1)
+			  : runtime_error ("Error at line " + to_string (in. lineNum + 1) 
+		                     + ", pos. " + to_string (in. charNum + 1)
 		                     + (what_arg. empty () ? string () : (": " + what_arg + ifS (expected, " is expected")))
 		                    )
 	      {}
@@ -2615,7 +2624,7 @@ struct Token : Root
 	       int expected)
     { readInput (in);
     	if (! isInteger (expected))
- 			  throw CharInput::Error (in, type2str (eInteger) + " " + toString (expected)); 
+ 			  throw CharInput::Error (in, type2str (eInteger) + " " + to_string (expected)); 
     }
 	Token (CharInput &in,
 	       double expected)
@@ -3108,7 +3117,7 @@ public:
     { if (i == n)
         return false;
       i++;
-      item = toString (i);
+      item = to_string (i);
       prog (item);
       return true;
     }
@@ -3309,6 +3318,7 @@ struct ShellApplication : Application
   const bool useTmp;
   string tmp;
   string execDir;
+    // Ends with '/'
   mutable map<string,string> prog2dir;
   
 
