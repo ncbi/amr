@@ -63,12 +63,12 @@ amr_reportOBJS=amr_report.o common.o gff.o
 amr_report:	$(amr_reportOBJS)
 	$(CXX) -o $@ $(amr_reportOBJS)
 
-amrfinder.o:  common.hpp common.inc amrfinder.inc
+amrfinder.o:  common.hpp common.inc 
 amrfinderOBJS=amrfinder.o common.o
 amrfinder:	$(amrfinderOBJS)
 	$(CXX) -o $@ $(amrfinderOBJS) -pthread $(DBDIR)
 
-amrfinder_update.o:  common.hpp common.inc amrfinder.inc
+amrfinder_update.o:  common.hpp common.inc 
 amrfinder_updateOBJS=amrfinder_update.o common.o
 amrfinder_update:      $(amrfinder_updateOBJS)
 	$(CXX) -o $@ $(amrfinder_updateOBJS) -lcurl

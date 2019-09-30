@@ -58,6 +58,11 @@
   #pragma warning (default : 4005)  
 #endif
 
+#ifdef __APPLE__
+  #include <sys/types.h>
+  #include <sys/sysctl.h>
+#endif
+
 #include <ctime>
 #include <cstring>
 #include <cmath>
@@ -374,9 +379,11 @@ const size_t NO_INDEX = SIZE_MAX;
 
 inline bool isAlpha (char c)
   { return strchr ("abcdefghijklmnopqrstuvwxyz", tolower (c)); }
+  // isalpha() is locale-specific
 
 inline bool isDigit (char c)
   { return strchr ("0123456789", c); }
+  // isdigit() is locale-specific
   
 inline bool isLetter (char c)
   { return isAlpha (c) || isDigit (c) || c == '_'; }
@@ -414,8 +421,8 @@ struct Iter : Nocopy
 private:
   T& t;
   typename T::iterator itNext;
-public:
   typename T::iterator it;
+public:
     
 
   explicit Iter (T &t_arg)
@@ -439,7 +446,7 @@ public:
   typename T::value_type* operator-> () const
     { return & const_cast <typename T::value_type&> (*it); }  // *set::iterator = const set::value_type
   typename T::value_type erase ()
-    { typename T::value_type val = *it;
+    { typename T::value_type val = move (*it);
       itNext = t. erase (it); 
       return val;
     }
@@ -2532,31 +2539,6 @@ public:
 	
 
 
-struct PairFile : Root
-{
-private:
-	LineInput f;
-	Istringstream iss;
-public:
-  bool sameAllowed {false};
-	bool orderNames {false};
-  	// true => name1 < name2
-	string name1;
-	string name2;
-	
-	PairFile (const string &fName,
-	          bool sameAllowed_arg,
-	          bool orderNames_arg)
-	  : f (fName, 100 * 1024, 1000)  // PAR
-	  , sameAllowed (sameAllowed_arg)
-	  , orderNames (orderNames_arg)
-	  {}
-	  
-	bool next ();
-};
-
-
-
 struct Token : Root
 {
 	enum Type { eName
@@ -2678,11 +2660,17 @@ struct TokenInput : Root
   Token last;
 
 
-  TokenInput (const string &fName,
-              char commentStart_arg,
-      	      size_t bufSize = 100 * 1024,
-              uint displayPeriod = 0)
+  explicit TokenInput (const string &fName,
+                       char commentStart_arg = '\0',
+                	     size_t bufSize = 100 * 1024,
+                       uint displayPeriod = 0)
     : ci (fName, bufSize, displayPeriod)
+    , commentStart (commentStart_arg)
+    {}
+  explicit TokenInput (istream &is_arg,
+                       char commentStart_arg = '\0',
+                       uint displayPeriod = 0)
+    : ci (is_arg, displayPeriod)
     , commentStart (commentStart_arg)
     {}
 
@@ -2705,6 +2693,33 @@ struct TokenInput : Root
     }
 };
 
+
+
+struct PairFile : Root
+{
+private:
+	LineInput f;
+	Istringstream iss;
+public:
+  bool sameAllowed {false};
+	bool orderNames {false};
+  	// true => name1 < name2
+	string name1;
+	string name2;
+	
+
+	PairFile (const string &fName,
+	          bool sameAllowed_arg,
+	          bool orderNames_arg,
+	          uint displayPeriod = 1000)
+	  : f (fName, 100 * 1024, displayPeriod) 
+	  , sameAllowed (sameAllowed_arg)
+	  , orderNames (orderNames_arg)
+	  {}
+
+	  
+	bool next ();
+};
 
 
 
@@ -2730,10 +2745,12 @@ struct OFStream : ofstream
 struct Stderr : Singleton<Stderr>
 {
   bool quiet {false};
+
   
   explicit Stderr (bool quiet_arg)
     : quiet (quiet_arg)
     {}
+
     
   template <typename T>
     Stderr& operator<< (const T& t) 

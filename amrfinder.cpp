@@ -42,12 +42,121 @@
 #include "common.hpp"
 using namespace Common_sp;
 
-#include "amrfinder.inc"
+
+
+// PAR
+// PD-3051
+#ifdef SVN_REV
+  #define SOFTWARE_VER SVN_REV
+#else
+  #define SOFTWARE_VER "3.2.1"
+#endif
+
+#define DATA_VER_MIN "2019-9-6.1"  // "2019-09-24.1"
 
 
 
 namespace 
 {
+  
+  
+  
+struct SoftwareVersion : Root
+{
+  uint major {0};
+  uint minor {0};
+  uint patch {0};
+  
+
+  explicit SoftwareVersion (const string &fName)
+    { if (fileExists (fName))
+      { LineInput f (fName);
+        string s (f. getString ());
+        init (move (s));
+      }
+    }
+  explicit SoftwareVersion (istream &is)
+    { string s;
+      is >> s;
+      init (move (s));
+    }
+private:
+  void init (string &&s)
+    { major = str2<uint> (findSplit (s, '.'));
+      minor = str2<uint> (findSplit (s, '.'));
+      patch = str2<uint> (s);
+    }
+public:
+  void saveText (ostream &os) const override
+    { os << major << '.' << minor << '.' << patch; }   
+    
+    
+  bool operator< (const SoftwareVersion &other) const
+    { LESS_PART (*this, other, major);
+      LESS_PART (*this, other, minor);
+      LESS_PART (*this, other, patch);
+      return false;
+    }
+  bool operator== (const SoftwareVersion &other) const
+    { return    major == other. major
+             && minor == other. minor
+             && patch == other. patch;
+    }
+  bool operator<= (const SoftwareVersion &other) const
+    { return operator< (other) || operator== (other); }
+};
+  
+  
+
+struct DataVersion : Root
+{
+  uint year {0};
+  uint month {0};
+  uint day {0};
+  uint num {0};
+  
+
+  explicit DataVersion (const string &fName)
+    { if (fileExists (fName))
+      { LineInput f (fName);
+        string s (f. getString ());
+        init (move (s));
+      }
+    }
+  explicit DataVersion (istream &is)
+    { string s;
+      is >> s;
+      init (move (s));
+    }
+private:
+  void init (string &&s)
+    { year  = str2<uint> (findSplit (s, '-'));
+      month = str2<uint> (findSplit (s, '-'));
+      day   = str2<uint> (findSplit (s, '.'));
+      num   = str2<uint> (s);
+    }
+public:
+  void saveText (ostream &os) const override
+    { os << year << '-' << month << '-' << day << '.' << num; }   
+    
+    
+  bool operator< (const DataVersion &other) const
+    { LESS_PART (*this, other, year);
+      LESS_PART (*this, other, month);
+      LESS_PART (*this, other, day);
+      LESS_PART (*this, other, num);
+      return false;
+    }
+  bool operator== (const DataVersion &other) const
+    { return    year  == other. year
+             && month == other. month
+             && day   == other. day
+             && num   == other. num;
+    }
+  bool operator<= (const DataVersion &other) const
+    { return operator< (other) || operator== (other); }
+};
+  
   
 
 // PAR
@@ -60,6 +169,17 @@ constexpr double partial_coverage_min_def = 0.5;
     
 #define ORGANISMS "Campylobacter|Escherichia|Klebsiella|Salmonella|Staphylococcus|Vibrio_cholerae"  // from table Taxgroup
 
+#define HELP  \
+"Identify AMR genes in proteins and/or contigs and print a report\n" \
+"\n" \
+"DOCUMENTATION\n" \
+"    See https://github.com/ncbi/amr/wiki for full documentation\n" \
+"\n" \
+"UPDATES\n" \
+"    Subscribe to the amrfinder-announce mailing list for database and software update notifications:\n" \
+"    https://www.ncbi.nlm.nih.gov/mailman/listinfo/amrfinder-announce"
+
+
 		
 
 // ThisApplication
@@ -67,15 +187,7 @@ constexpr double partial_coverage_min_def = 0.5;
 struct ThisApplication : ShellApplication
 {
   ThisApplication ()
-    : ShellApplication ("Identify AMR genes in proteins and/or contigs and print a report\n\n"
-"DOCUMENTATION\n"
-"    See https://github.com/ncbi/amr/wiki for full documentation\n"
-"\n"
-"UPDATES\n"
-"    Subscribe to the amrfinder-announce mailing list for database and software update notifications:\n"
-"    https://www.ncbi.nlm.nih.gov/mailman/listinfo/amrfinder-announce"
-                       , true, true, true
-                       )
+    : ShellApplication (HELP, true, true, true)
     {
     	addKey ("protein", "Protein FASTA file to search", "", 'p', "PROT_FASTA");
     	addKey ("nucleotide", "Nucleotide FASTA file to search", "", 'n', "NUC_FASTA");
@@ -94,9 +206,7 @@ struct ThisApplication : ShellApplication
       addKey ("output", "Write output to OUTPUT_FILE instead of STDOUT", "", 'o', "OUTPUT_FILE");
       addFlag ("quiet", "Suppress messages to STDERR", 'q');
       addFlag ("gpipe", "Protein identifiers in the protein FASTA file have format 'gnl|<project>|<accession>'");
-	  #ifdef SVN_REV
-	    version = SVN_REV;
-	  #endif
+	    version = SOFTWARE_VER;  
 	  #if 0
 	    setRequiredGroup ("protein",    "Input");
 	    setRequiredGroup ("nucleotide", "Input");
@@ -265,6 +375,23 @@ struct ThisApplication : ShellApplication
 
 		if (! directoryExists (db))  // PD-2447
 		  throw runtime_error ("No valid AMRFinder database found. To download the latest version to the default directory run amrfinder -u");
+		  
+		  
+		// PD-3051
+		{
+  	  istringstream versionIss (version);
+  		const SoftwareVersion softwareVersion (versionIss);
+  		const SoftwareVersion softwareVersion_min (db + "/min_software_version.txt");
+  	  stderr << "Software version: " << softwareVersion. str () << '\n'; 
+  		const DataVersion dataVersion (db + "/version.txt");
+  		istringstream dataVersionIss (DATA_VER_MIN); 
+  		const DataVersion dataVersion_min (dataVersionIss);  
+      stderr << "Data version: " << dataVersion. str () << '\n';
+      if (softwareVersion < softwareVersion_min)
+        throw runtime_error ("Data requires sofware version " + softwareVersion_min. str ());
+      if (dataVersion < dataVersion_min)
+        throw runtime_error ("Software requires data version " + dataVersion_min. str ());
+    }
 
 
     string searchMode;

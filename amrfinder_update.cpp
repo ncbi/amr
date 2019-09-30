@@ -44,7 +44,6 @@
 #include "common.hpp"
 using namespace Common_sp;
 
-#include "amrfinder.inc"
 
 
 #define ORGANISMS "Campylobacter|Escherichia|Salmonella"  // from table GENE3P
@@ -257,6 +256,8 @@ struct ThisApplication : ShellApplication
     fetchAMRFile (curl, latestDir, "AMRProt-point_mut.tab");
     fetchAMRFile (curl, latestDir, "AMRProt-suppress");
     fetchAMRFile (curl, latestDir, "AMR_CDS");
+    fetchAMRFile (curl, latestDir, "version.txt");
+  //fetchAMRFile (curl, latestDir, "min_software_version.txt");  ??
     for (const string& dnaPointMut : dnaPointMuts)
     {
       fetchAMRFile (curl, latestDir, "AMR_DNA-" + dnaPointMut);

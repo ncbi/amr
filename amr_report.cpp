@@ -32,16 +32,6 @@
 */
    
    
-// PAR ??
-//#define VER 1  
-//#define VER 2  // PD-2074
-#define VER 3  // PD-2109
-//
-#if VER <= 0
-  #error "Negative version " VER
-#endif
-
-
 
 #undef NDEBUG 
 #include "common.inc"
@@ -478,9 +468,6 @@ struct BlastAlignment
 			    famId                       =                     rfindSplit (refName, '|');  // Reportable_vw.fam
 			    parts                       = (size_t) str2<int> (rfindSplit (refName, '|'));
 			    part                        = (size_t) str2<int> (rfindSplit (refName, '|'));
-			  #if VER == 1
-			                                                      rfindSplit (refName, '|');  // nucl_accession
-			  #endif
 			    accessionProt               =                     rfindSplit (refName, '|');
 			    gi = str2<long> (refName);
 			  }
@@ -1206,7 +1193,6 @@ struct Batch
   	  	    const double tc2 = str2<double>  (findSplit (f. line, '\t'));
   	  	    BlastRule completeBR;
   	  	    BlastRule partialBR;
-  			  #if VER >= 3			    
             completeBR. ident           = str2<double> (findSplit (f. line, '\t')); 
             completeBR. target_coverage = str2<double> (findSplit (f. line, '\t')); 
             completeBR. ref_coverage    = str2<double> (findSplit (f. line, '\t')); 
@@ -1219,7 +1205,6 @@ struct Batch
     		    toProb (partialBR.  ident);
     		    toProb (partialBR.  target_coverage);
     		    toProb (partialBR.  ref_coverage);
-          #endif
   	  	    const uchar reportable = (uchar) str2<int> (findSplit (f. line, '\t'));
   	  	    QC_ASSERT (reportable <= 2);
   	  	    const string type     (findSplit (f. line, '\t'));
