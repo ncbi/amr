@@ -167,7 +167,8 @@ constexpr double ident_min_def = 0.9;
 constexpr double partial_coverage_min_def = 0.5;
   
     
-#define ORGANISMS "Campylobacter|Escherichia|Klebsiella|Salmonella|Staphylococcus|Vibrio_cholerae"  // from table Taxgroup
+#define ORGANISMS "Campylobacter|Escherichia|Klebsiella|Salmonella|Staphylococcus|Vibrio"  // Table Taxgroup
+// Vibrio_cholerae  ??
 
 #define HELP  \
 "Identify AMR genes in proteins and/or contigs and print a report\n" \
