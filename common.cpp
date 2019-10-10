@@ -1490,9 +1490,9 @@ void Token::readInput (CharInput &in)
 		{ 
 			c = in. get (); 
 			if (in. eof)
-		    throw CharInput::Error (in, "Text is not finished: end of file", false);
+		    in. error ("Text is not finished: end of file", false);
 			if (in. eol)
-		  //throw CharInput::Error (in, "ending quote", false);
+		  //in. error ("ending quote", false);
 		    continue;
 			if (c == quote)
 				break;
@@ -1565,7 +1565,7 @@ void Token::readInput (CharInput &in)
 		name = c;
 	}	
 	else
-	  throw CharInput::Error (in, "Unknown token starting with ASCII " + to_string ((int) c), false);
+	  in. error ("Unknown token starting with ASCII " + to_string ((int) c), false);
 	    
 	ASSERT (! empty ());
 	qc ();
@@ -1754,10 +1754,10 @@ void Json::parse (CharInput& in,
       {
         case '{': new JsonMap   (in, parent, name); break;
         case '[': new JsonArray (in, parent, name); break;
-        default: throw CharInput::Error (in, "Bad delimiter", false);
+        default: in. error ("Bad delimiter", false);
       }
       break;
-    default: throw CharInput::Error (in, "Bad token", false);
+    default: in. error ("Bad token", false);
   }
 }
 
@@ -1877,7 +1877,7 @@ JsonArray::JsonArray (CharInput& in,
     if (! first)
     {
       if (! token. isDelimiter (','))
-        throw CharInput::Error (in, "\',\'");
+        in. error ("\',\'");
       token = Token (in);
     }
     parse (in, token, this, string());
@@ -1919,7 +1919,7 @@ JsonMap::JsonMap (const string &fName)
   CharInput in (fName);
   const Token token (in);
   if (! token. isDelimiter ('{'))
-    throw CharInput::Error (in, "Json file " + strQuote (fName) + ": text should start with '{'", false);
+    in. error ("Json file " + strQuote (fName) + ": text should start with '{'", false);
   parse (in);
 }
 
@@ -1938,17 +1938,17 @@ void JsonMap::parse (CharInput& in)
     if (! first)
     {
       if (! token. isDelimiter (','))
-        throw CharInput::Error (in, "\',\'");
+        in. error ("\',\'");
       token = Token (in);
     }
     if (   token. type != Token::eName
         && token. type != Token::eText
        )
-      throw CharInput::Error (in, "name or text");
+      in. error ("name or text");
     string name (token. name);
     const Token colon (in);
     if (! colon. isDelimiter (':'))
-      throw CharInput::Error (in, "\':\'");
+      in. error ("\':\'");
     token = Token (in);
     Json::parse (in, token, this, name);
     first = false;
@@ -2056,6 +2056,33 @@ bool FileItemGenerator::next (string &item)
   
 	return true;
 }    
+
+
+
+
+// SoftwareVersion
+
+bool SoftwareVersion::operator< (const SoftwareVersion &other) const
+{ 
+  LESS_PART (*this, other, major);
+  LESS_PART (*this, other, minor);
+  LESS_PART (*this, other, patch);
+  return false;
+}
+
+
+
+
+// DataVersion
+
+bool DataVersion::operator< (const DataVersion &other) const
+{ 
+  LESS_PART (*this, other, year);
+  LESS_PART (*this, other, month);
+  LESS_PART (*this, other, day);
+  LESS_PART (*this, other, num);
+  return false;
+}
 
 
 

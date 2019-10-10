@@ -60,105 +60,6 @@ namespace
 {
   
   
-  
-struct SoftwareVersion : Root
-{
-  uint major {0};
-  uint minor {0};
-  uint patch {0};
-  
-
-  explicit SoftwareVersion (const string &fName)
-    { if (fileExists (fName))
-      { LineInput f (fName);
-        string s (f. getString ());
-        init (move (s));
-      }
-    }
-  explicit SoftwareVersion (istream &is)
-    { string s;
-      is >> s;
-      init (move (s));
-    }
-private:
-  void init (string &&s)
-    { major = str2<uint> (findSplit (s, '.'));
-      minor = str2<uint> (findSplit (s, '.'));
-      patch = str2<uint> (s);
-    }
-public:
-  void saveText (ostream &os) const override
-    { os << major << '.' << minor << '.' << patch; }   
-    
-    
-  bool operator< (const SoftwareVersion &other) const
-    { LESS_PART (*this, other, major);
-      LESS_PART (*this, other, minor);
-      LESS_PART (*this, other, patch);
-      return false;
-    }
-  bool operator== (const SoftwareVersion &other) const
-    { return    major == other. major
-             && minor == other. minor
-             && patch == other. patch;
-    }
-  bool operator<= (const SoftwareVersion &other) const
-    { return operator< (other) || operator== (other); }
-};
-  
-  
-
-struct DataVersion : Root
-{
-  uint year {0};
-  uint month {0};
-  uint day {0};
-  uint num {0};
-  
-
-  explicit DataVersion (const string &fName)
-    { if (fileExists (fName))
-      { LineInput f (fName);
-        string s (f. getString ());
-        init (move (s));
-      }
-    }
-  explicit DataVersion (istream &is)
-    { string s;
-      is >> s;
-      init (move (s));
-    }
-private:
-  void init (string &&s)
-    { year  = str2<uint> (findSplit (s, '-'));
-      month = str2<uint> (findSplit (s, '-'));
-      day   = str2<uint> (findSplit (s, '.'));
-      num   = str2<uint> (s);
-    }
-public:
-  void saveText (ostream &os) const override
-    { os << year << '-' << month << '-' << day << '.' << num; }   
-    
-    
-  bool operator< (const DataVersion &other) const
-    { LESS_PART (*this, other, year);
-      LESS_PART (*this, other, month);
-      LESS_PART (*this, other, day);
-      LESS_PART (*this, other, num);
-      return false;
-    }
-  bool operator== (const DataVersion &other) const
-    { return    year  == other. year
-             && month == other. month
-             && day   == other. day
-             && num   == other. num;
-    }
-  bool operator<= (const DataVersion &other) const
-    { return operator< (other) || operator== (other); }
-};
-  
-  
-
 // PAR
 constexpr size_t threads_max_min = 1;  // was: 4
 constexpr size_t threads_def = 4;
@@ -168,7 +69,7 @@ constexpr double partial_coverage_min_def = 0.5;
   
     
 #define ORGANISMS "Campylobacter|Escherichia|Klebsiella|Salmonella|Staphylococcus|Vibrio"  // Table Taxgroup
-// Vibrio_cholerae  ??
+// Vibrio_cholerae  PD-3051 ??
 
 #define HELP  \
 "Identify AMR genes in proteins and/or contigs and print a report\n" \

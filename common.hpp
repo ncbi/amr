@@ -2525,16 +2525,12 @@ public:
     // Postcondition: eol
 	  
 
-  struct Error : runtime_error
-    { Error (const CharInput &in,
-		         const string &what_arg,
-		         bool expected = true) 
-			  : runtime_error ("Error at line " + to_string (in. lineNum + 1) 
-		                     + ", pos. " + to_string (in. charNum + 1)
-		                     + (what_arg. empty () ? string () : (": " + what_arg + ifS (expected, " is expected")))
-		                    )
-	      {}
-	  };
+  [[noreturn]] void error (const string &what,
+		                       bool expected = true) const
+		{ throw runtime_error ("Error at line " + to_string (lineNum + 1) + ", pos. " + to_string (charNum + 1)
+		                       + (what. empty () ? string () : (": " + what + ifS (expected, " is expected")))
+		                      );
+		}
 };
 	
 
@@ -2592,36 +2588,12 @@ struct Token : Root
 	       Type expected)
     { readInput (in);
     	if (empty ())
- 			  throw CharInput::Error (in, "No token", false); 
+ 			  in. error ("No token", false); 
     	if (type != expected)
- 			  throw CharInput::Error (in, type2str (type)); 
-    }
-	Token (CharInput &in,
-	       const string &expected)
-    { readInput (in);
-    	if (! isNameText (expected))
- 			  throw CharInput::Error (in, type2str (eName) + " " + strQuote (expected)); 
-    }
-	Token (CharInput &in,
-	       int expected)
-    { readInput (in);
-    	if (! isInteger (expected))
- 			  throw CharInput::Error (in, type2str (eInteger) + " " + to_string (expected)); 
-    }
-	Token (CharInput &in,
-	       double expected)
-    { readInput (in);
-    	if (! isDouble (expected))
- 			  throw CharInput::Error (in, type2str (eDouble) + " " + toString (expected)); 
-    }
-	Token (CharInput &in,
-	       char expected)
-    { readInput (in);
-    	if (! isDelimiter (expected))
- 			  throw CharInput::Error (in, type2str (eDelimiter) + " " + strQuote (toString (expected))); 
+ 			  in. error (type2str (type)); 
     }
 private:
-	void readInput (CharInput &in);
+	void readInput (CharInput &in);  
 public:
 	void qc () const override;
 	void saveText (ostream &os) const override;
@@ -2655,8 +2627,10 @@ public:
 
 struct TokenInput : Root
 {
+private:
   CharInput ci;
   const char commentStart {'\0'};
+public:
   Token last;
 
 
@@ -2675,6 +2649,9 @@ struct TokenInput : Root
     {}
 
 
+  [[noreturn]] void error (const string &what,
+		                       bool expected = true) const
+		{ ci. error (what, expected); }
   Token get ()
     // Return: empty() <=> EOF
     { const Token last_ (last);
@@ -2690,6 +2667,26 @@ struct TokenInput : Root
         ci. getLine ();
       }
       return Token ();
+    }
+	void get (const string &expected)
+    { const Token t (get ());
+    	if (! t. isNameText (expected))
+   			ci. error (Token::type2str (Token::eName) + " " + strQuote (expected)); 
+    }
+	void get (int expected)
+    { const Token t (get ());
+    	if (! t. isInteger (expected))
+  			ci. error (Token::type2str (Token::eInteger) + " " + to_string (expected)); 
+    }
+	void get (double expected)
+    { const Token t (get ());
+    	if (! t. isDouble (expected))
+   			ci. error (Token::type2str (Token::eDouble) + " " + toString (expected)); 
+    }
+	void get (char expected)
+    { const Token t (get ());
+    	if (! t. isDelimiter (expected))
+   			ci. error (Token::type2str (Token::eDelimiter) + " " + strQuote (toString (expected))); 
     }
 };
 
@@ -3144,6 +3141,106 @@ public:
 
 
 ///////////////////////////////////////////////////////////////////////////
+
+struct SoftwareVersion : Root
+{
+  uint major {0};
+  uint minor {0};
+  uint patch {0};
+  
+
+  explicit SoftwareVersion (const string &fName)
+    { if (fileExists (fName))
+      { LineInput f (fName);
+        string s (f. getString ());
+        init (move (s), false);
+      }
+    }
+  explicit SoftwareVersion (istream &is,
+                            bool minorOnly = false)
+    { string s;
+      is >> s;
+      init (move (s), minorOnly);
+    }
+private:
+  void init (string &&s,
+             bool minorOnly)
+    { try 
+      { major = str2<uint> (findSplit (s, '.'));
+        if (minorOnly)
+          minor = str2<uint> (s);
+        else
+        { minor = str2<uint> (findSplit (s, '.'));
+          patch = str2<uint> (s);
+        }
+      } catch (...) { throw runtime_error ("Cannot read software version"); }
+    }
+public:
+  void saveText (ostream &os) const override
+    { os << major << '.' << minor << '.' << patch; }   
+    
+    
+  bool operator< (const SoftwareVersion &other) const;
+  bool operator== (const SoftwareVersion &other) const
+    { return    major == other. major
+             && minor == other. minor
+             && patch == other. patch;
+    }
+  bool operator<= (const SoftwareVersion &other) const
+    { return operator< (other) || operator== (other); }
+    
+  string getMinor () const
+    { return to_string (major) + "." + to_string (minor); }
+};
+  
+  
+
+struct DataVersion : Root
+{
+  uint year {0};
+  uint month {0};
+  uint day {0};
+  uint num {0};
+  
+
+  explicit DataVersion (const string &fName)
+    { if (fileExists (fName))
+      { LineInput f (fName);
+        string s (f. getString ());
+        init (move (s));
+      }
+    }
+  explicit DataVersion (istream &is)
+    { string s;
+      is >> s;
+      init (move (s));
+    }
+private:
+  void init (string &&s)
+    { try
+      { year  = str2<uint> (findSplit (s, '-'));
+        month = str2<uint> (findSplit (s, '-'));
+        day   = str2<uint> (findSplit (s, '.'));
+        num   = str2<uint> (s);
+      } catch (...) { throw runtime_error ("Cannot read data version"); }
+    }
+public:
+  void saveText (ostream &os) const override
+    { os << year << '-' << month << '-' << day << '.' << num; }   
+    
+    
+  bool operator< (const DataVersion &other) const;
+  bool operator== (const DataVersion &other) const
+    { return    year  == other. year
+             && month == other. month
+             && day   == other. day
+             && num   == other. num;
+    }
+  bool operator<= (const DataVersion &other) const
+    { return operator< (other) || operator== (other); }
+};
+  
+  
 
 struct Application : Singleton<Application>, Root
 // Usage: int main (argc, argv) { ThisApplication /*:Application*/ app; return app. run (argc, argv); }
