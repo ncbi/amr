@@ -1439,30 +1439,6 @@ string CharInput::getLine ()
 
 
 
-// PairFile
-
-bool PairFile::next ()
-{ 
-  if (! f. nextLine ())
-	  return false;
-	  
-  iss. reset (f. line);
-  name2. clear ();
-  iss >> name1 >> name2;
-  
-  if (name2. empty ())
-  	throw runtime_error ("No pair: " + strQuote (name1) + " - " + strQuote (name2));
-  if (! sameAllowed && name1 == name2)
-  	throw runtime_error ("Same name: " + name1);
-  	
-  if (orderNames && name1 > name2)
-  	swap (name1, name2);
-  	
-  return true;
-}
-
-
-
 
 // Token
 
@@ -1630,6 +1606,23 @@ void Token::saveText (ostream &os) const
 
 
 
+bool Token::operator< (const Token &other) const
+{
+  LESS_PART (*this, other, type);
+  switch (type)
+  { 
+    case eName:
+    case eText:
+    case eDelimiter: LESS_PART (*this, other, name); break;
+    case eInteger:   LESS_PART (*this, other, n);    break; 
+    case eDouble:    LESS_PART (*this, other, d);    break;
+  }  
+  return false;
+}
+
+
+
+
 // OFStream
 
 void OFStream::open (const string &dirName,
@@ -1650,6 +1643,31 @@ void OFStream::open (const string &dirName,
 
 	if (! good ())
 	  throw runtime_error ("Cannot create file " + strQuote (pathName));
+}
+
+
+
+
+// PairFile
+
+bool PairFile::next ()
+{ 
+  if (! f. nextLine ())
+	  return false;
+	  
+  iss. reset (f. line);
+  name2. clear ();
+  iss >> name1 >> name2;
+  
+  if (name2. empty ())
+  	throw runtime_error ("No pair: " + strQuote (name1) + " - " + strQuote (name2));
+  if (! sameAllowed && name1 == name2)
+  	throw runtime_error ("Same name: " + name1);
+  	
+  if (orderNames && name1 > name2)
+  	swap (name1, name2);
+  	
+  return true;
 }
 
 
