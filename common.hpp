@@ -3251,7 +3251,11 @@ private:
     }
 public:
   void saveText (ostream &os) const override
-    { os << year << '-' << month << '-' << day << '.' << num; }   
+    { os << year 
+         << '-' << std::setfill ('0') << std::setw (2) << month 
+         << '-' << std::setfill ('0') << std::setw (2) << day 
+         << '.' << num; 
+    }   
     
     
   bool operator< (const DataVersion &other) const;
