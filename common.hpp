@@ -549,6 +549,11 @@ template <typename Key, typename Value, typename KeyParent>
                         const KeyParent& key)
     { return m. find (key) != m. end (); }
 
+template <typename Key, typename KeyParent>
+  inline bool contains (const unordered_set <Key> &m,
+                        const KeyParent& key)
+    { return m. find (key) != m. end (); }
+
 template <typename Key, typename Value, typename KeyParent>
   bool find (const map <Key, Value> &m,
              const KeyParent& key,
@@ -2621,6 +2626,20 @@ public:
 	  { return ! empty () && type == eDouble && d == d_arg; }
 	bool isDelimiter (char c) const
 	  { return ! empty () && type == eDelimiter && name [0] == c; }
+	  
+	bool operator== (const Token &other) const
+	  { if (type != other. type)
+	      return false;
+	    switch (type)
+	    { case eName:
+	      case eText:
+	      case eDelimiter: return name == other. name;
+	      case eInteger:   return n    == other. n;
+	      case eDouble:    return d    == other. d;
+	    }
+	    return false;
+	  }
+	bool operator< (const Token &other) const;
 };
 
 
@@ -3009,6 +3028,9 @@ public:
 
   const JsonArray* asJsonArray () const final
     { return this; }
+    
+  size_t size () const
+    { return data. size (); }
 };
 
 
@@ -3040,6 +3062,13 @@ public:
 
   const JsonMap* asJsonMap () const final
     { return this; }
+    
+  StringVector getKeys () const
+    { StringVector keys;  keys. reserve (data. size ());
+      for (const auto& it : data)
+        keys << it. first;
+      return keys;
+    }
 };
 
 
@@ -3150,11 +3179,9 @@ struct SoftwareVersion : Root
   
 
   explicit SoftwareVersion (const string &fName)
-    { if (fileExists (fName))
-      { LineInput f (fName);
-        string s (f. getString ());
-        init (move (s), false);
-      }
+    { LineInput f (fName);
+      string s (f. getString ());
+      init (move (s), false);
     }
   explicit SoftwareVersion (istream &is,
                             bool minorOnly = false)
@@ -3204,11 +3231,9 @@ struct DataVersion : Root
   
 
   explicit DataVersion (const string &fName)
-    { if (fileExists (fName))
-      { LineInput f (fName);
-        string s (f. getString ());
-        init (move (s));
-      }
+    { LineInput f (fName);
+      string s (f. getString ());
+      init (move (s));
     }
   explicit DataVersion (istream &is)
     { string s;
@@ -3248,7 +3273,7 @@ struct Application : Singleton<Application>, Root
   const string description;
   const bool needsArg;
   const bool gnu;
-  string version {"1"};
+  string version {"1.0.0"};
   static constexpr const char* helpS {"help"};
   static constexpr const char* versionS {"version"};
   
