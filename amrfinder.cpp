@@ -289,11 +289,11 @@ struct ThisApplication : ShellApplication
   		const DataVersion dataVersion (db + "/version.txt");
   		istringstream dataVersionIss (DATA_VER_MIN); 
   		const DataVersion dataVersion_min (dataVersionIss);  
-      stderr << "Data version: " << dataVersion. str () << '\n';
+      stderr << "Database version: " << dataVersion. str () << '\n';
       if (softwareVersion < softwareVersion_min)
-        throw runtime_error ("Data requires sofware version " + softwareVersion_min. str ());
+        throw runtime_error ("Database requires at least sofware version " + softwareVersion_min. str ());
       if (dataVersion < dataVersion_min)
-        throw runtime_error ("Software requires data version " + dataVersion_min. str ());
+        throw runtime_error ("Software requires at least database version " + dataVersion_min. str ());
     }
 
 
