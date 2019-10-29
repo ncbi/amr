@@ -344,7 +344,9 @@ Requirements:\n\
     fetchAMRFile (curl, urlDir, latestDir, "AMRProt-suppress");
     fetchAMRFile (curl, urlDir, latestDir, "AMR_CDS");
     fetchAMRFile (curl, urlDir, latestDir, "version.txt");
-    fetchAMRFile (curl, urlDir, latestDir, "min_software_version.txt");  
+//    fetchAMRFile (curl, urlDir, latestDir, "min_software_version.txt");  
+    fetchAMRFile (curl, urlDir, latestDir, "database_format_version.txt");  // PD-3051 
+    
     for (const string& dnaPointMut : dnaPointMuts)
     {
       fetchAMRFile (curl, urlDir, latestDir, "AMR_DNA-" + dnaPointMut);

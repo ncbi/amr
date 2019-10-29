@@ -283,7 +283,8 @@ struct ThisApplication : ShellApplication
 		{
   	  istringstream versionIss (version);
   		const SoftwareVersion softwareVersion (versionIss);
-  		const SoftwareVersion softwareVersion_min (db + "/min_software_version.txt");
+//  		const SoftwareVersion softwareVersion_min (db + "/min_software_version.txt");
+  		const SoftwareVersion softwareVersion_min (db + "/database_format_version.txt");
   	  stderr << "Software version: " << softwareVersion. str () << '\n'; 
   		const DataVersion dataVersion (db + "/version.txt");
   		istringstream dataVersionIss (DATA_VER_MIN); 
