@@ -52,7 +52,7 @@ using namespace Common_sp;
   #define SOFTWARE_VER "3.2.1"
 #endif
 
-#define DATA_VER_MIN "2019-9-6.1"  // "2019-09-24.1"
+#define DATA_VER_MIN "2019-11-30.1"  
 
 
 
