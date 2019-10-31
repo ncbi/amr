@@ -209,6 +209,7 @@ struct HmmAlignment
     // May be different from max(Domain::score)
   const Fam* fam {nullptr};
     // Query
+    // !nullptr
 //ali_from, ali_to ??
   unique_ptr<const BlastAlignment> blastAl;
     // (bool)get()
@@ -225,8 +226,7 @@ struct HmmAlignment
       
       
   bool good () const
-    { if (! fam)
-        return false;
+    { QC_ASSERT (fam);
       QC_ASSERT (! fam->hmm. empty ());
     	return    score1 >= fam->tc1
              && score2 >= fam->tc2
@@ -1626,9 +1626,11 @@ HmmAlignment::HmmAlignment (const string &line,
   //                                                        --- full sequence ---  --- best 1 domain --
   //     target name  accession  query name     accession   E-value  score     bias     E-value  score  bias   exp reg clu  ov env dom rep inc description of target
   iss >> sseqid >>    dummy      >> dummy      >> hmm >>    dummy >> score1 >> dummy >> dummy >> score2;
-  ASSERT (score1 > 0);
-  ASSERT (score2 > 0)
+  QC_ASSERT (score1 > 0);
+  QC_ASSERT (score2 > 0)
   find (batch. hmm2fam, hmm, fam);
+  if (! fam)
+    throw runtime_error ("No family for HMM " + hmm);
 }
 
 
