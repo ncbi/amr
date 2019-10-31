@@ -225,7 +225,8 @@ struct HmmAlignment
       
       
   bool good () const
-    { QC_ASSERT (fam);
+    { if (! fam)
+        return false;
       QC_ASSERT (! fam->hmm. empty ());
     	return    score1 >= fam->tc1
              && score2 >= fam->tc2
@@ -238,7 +239,7 @@ private:
     // Reflexive
     // For one sseqid: one HmmAlignment is better than all others
     { ASSERT (good ());
-      ASSERT (other. fam);
+      ASSERT (other. good ());
       if (sseqid != other. sseqid)
         return false;
       switch (criterion)
@@ -635,6 +636,7 @@ struct BlastAlignment
     , product    (other. fam->familyName)   
     { if (allele ())
         ERROR_MSG (famId + " " + gene);
+      ASSERT (other. good ());
     }
   void qc () const
     {
