@@ -560,6 +560,17 @@ struct ThisApplication : ShellApplication
 			// ".amr"
 			exec ("mv " + tmp + ".amr-out " + tmp + ".amr", logFName);			
 		}
+		else if (   emptyArg (dna)
+		         && ! emptyArg (gff)
+		        )
+		{ 
+		  // PD-2244
+			// ".amr-out"
+  		exec ("head -1 "    + tmp + ".amr                              >  " + tmp + ".amr-out", logFName);
+			exec ("tail -n +2 " + tmp + ".amr | sort -k2 -k3n -k4n -k5 -k1 >> " + tmp + ".amr-out", logFName);
+			// ".amr"
+			exec ("mv " + tmp + ".amr-out " + tmp + ".amr", logFName);			
+		}
 		
     // timing the run
     end = time(NULL);
