@@ -68,8 +68,8 @@ constexpr double ident_min_def = 0.9;
 constexpr double partial_coverage_min_def = 0.5;
   
     
-#define ORGANISMS "Campylobacter|Escherichia|Klebsiella|Salmonella|Staphylococcus|Vibrio_cholerae"  // Table Taxgroup
-// Vibrio_cholerae  PD-3051 ??
+#define ORGANISMS "Campylobacter|Escherichia|Klebsiella|Salmonella|Staphylococcus|Vibrio_cholerae"  
+  // Table Taxgroup
 
 #define HELP  \
 "Identify AMR genes in proteins and/or contigs and print a report\n" \
@@ -275,15 +275,17 @@ struct ThisApplication : ShellApplication
 		}
 
 
+    const string downloadLatestInstr ("\nTo download the latest version to the default directory run amrfinder -u");
+    
 		if (! directoryExists (db))  // PD-2447
-		  throw runtime_error ("No valid AMRFinder database found. To download the latest version to the default directory run amrfinder -u");
+		  throw runtime_error ("No valid AMRFinder database found." + downloadLatestInstr);
 		  
 		  
 		// PD-3051
+		try
 		{
   	  istringstream versionIss (version);
   		const SoftwareVersion softwareVersion (versionIss);
-//  		const SoftwareVersion softwareVersion_min (db + "/min_software_version.txt");
   		const SoftwareVersion softwareVersion_min (db + "/database_format_version.txt");
   	  stderr << "Software version: " << softwareVersion. str () << '\n'; 
   		const DataVersion dataVersion (db + "/version.txt");
@@ -294,6 +296,10 @@ struct ThisApplication : ShellApplication
         throw runtime_error ("Database requires at least sofware version " + softwareVersion_min. str ());
       if (dataVersion < dataVersion_min)
         throw runtime_error ("Software requires at least database version " + dataVersion_min. str ());
+    }
+    catch (const exception &e)
+    {
+      throw runtime_error (e. what () + downloadLatestInstr);
     }
 
 
