@@ -400,6 +400,9 @@ inline bool isUpper (char c)
 inline bool isLower (char c)
   { return toLower (c) == c; }
 
+inline bool isHex (char c)
+  { return isDigit (c) || strchr ("ABCDEF", toUpper (c)); }
+
 inline bool printable (char c)
   { return between (c, ' ', (char) 127); }
   
@@ -1042,6 +1045,7 @@ inline streamsize double2decimals (double r)
 
 // hash
 extern hash<string> str_hash;
+extern hash<size_t> size_hash;
 constexpr size_t hash_class_max = 1000;  // PAR
 inline size_t str2hash_class (const string &s)
   { return str_hash (s) % hash_class_max; }
@@ -2334,6 +2338,38 @@ public:
   
 
 
+template <typename T>
+struct Enumerate
+{
+  Vector<T> num2elem;
+private:
+  unordered_map<T,size_t> elem2num;
+public:
+  
+  explicit Enumerate (size_t n)
+    { num2elem. reserve (n);
+      elem2num. rehash (n);
+    }
+    
+  size_t size () const
+    { return num2elem. size (); }
+  size_t find (const T &t) const
+    { if (const size_t* num = Common_sp::findPtr (elem2num, t))
+        return *num;
+      return NO_INDEX;
+    }
+  size_t add (const T &t)
+    { size_t num = find (t);
+      if (num == NO_INDEX)
+      { num2elem << t;
+        num = num2elem. size () - 1;
+        elem2num [t] = num;
+      }
+      return num;
+    }
+};
+
+
 
 struct Progress : Nocopy
 {
@@ -2530,11 +2566,17 @@ public:
     // Postcondition: eol
 	  
 
+  struct Error : runtime_error 
+  {
+    explicit Error (const string &what_arg)
+      : runtime_error (what_arg)
+      {}
+  };
   [[noreturn]] void error (const string &what,
 		                       bool expected = true) const
-		{ throw runtime_error ("Error at line " + to_string (lineNum + 1) + ", pos. " + to_string (charNum + 1)
-		                       + (what. empty () ? string () : (": " + what + ifS (expected, " is expected")))
-		                      );
+		{ throw Error ("Error at line " + to_string (lineNum + 1) + ", pos. " + to_string (charNum + 1)
+		               + (what. empty () ? string () : (": " + what + ifS (expected, " is expected")))
+		              );
 		}
 };
 	
@@ -2554,7 +2596,7 @@ struct Token : Root
 	  // eText => embracing quote's are removed
 	char quote {'\0'};
 	  // eText => '\'' or '\"'
-	int n {0};
+	long long n {0};
 	double d {0.0};
   // Valid if eDouble
 	streamsize decimals {0};
@@ -2575,11 +2617,11 @@ struct Token : Root
 	  , name (name_arg)
 	  , quote (quote_arg)
 	  {}
-	explicit Token (const int n_arg)
+	explicit Token (long long n_arg)
 	  : type (eInteger)
 	  , n (n_arg)
 	  {}
-	explicit Token (const double d_arg)
+	explicit Token (double d_arg)
 	  : type (eDouble)
 	  , d (d_arg)
 	  {}
@@ -2620,7 +2662,7 @@ public:
 	  { return ! empty () && type == eName && name == s; }
 	bool isNameText (const string &s) const
 	  { return ! empty () && (type == eName || type == eText) && name == s; }
-	bool isInteger (int n_arg) const
+	bool isInteger (long long n_arg) const
 	  { return ! empty () && type == eInteger && n == n_arg; }
 	bool isDouble (double d_arg) const
 	  { return ! empty () && type == eDouble && d == d_arg; }
@@ -2885,7 +2927,7 @@ protected:
 public:    
   string getString () const;
     // Requires: JsonString
-  int getInt () const;
+  long long getInt () const;
     // Requires: JsonInt
   double getDouble () const;
     // Requires: JsonDouble
@@ -2934,9 +2976,9 @@ struct JsonString : Json
 
 struct JsonInt : Json
 {
-  int n {0};
+  long long n {0};
   
-  JsonInt (int n_arg,
+  JsonInt (long long n_arg,
            JsonContainer* parent,
            const string& name = noString)
     : Json (parent, name)
