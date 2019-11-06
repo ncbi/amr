@@ -49,7 +49,7 @@ using namespace Common_sp;
 #ifdef SVN_REV
   #define SOFTWARE_VER SVN_REV
 #else
-  #define SOFTWARE_VER "3.2.1"
+  #define SOFTWARE_VER "3.2.2"
 #endif
 
 #define DATA_VER_MIN "2019-10-30.1"  
@@ -559,7 +559,7 @@ struct ThisApplication : ShellApplication
 			// merging, sorting
 			exec ("tail -n +2 " + tmp + ".amr     >  " + tmp + ".mrg", logFName);
 			exec ("tail -n +2 " + tmp + ".amr-snp >> " + tmp + ".mrg", logFName);
-			exec ("sort -k2 -k3n -k4n -k5 -k1 " + tmp + ".mrg > " + tmp + ".sorted", logFName);
+			exec ("LANG=C && sort -k2 -k3n -k4n -k5 -k1 " + tmp + ".mrg > " + tmp + ".sorted", logFName);
 			// ".amr-out"
   		exec ("head -1 " + tmp + ".amr    >  " + tmp + ".amr-out", logFName);
 			exec ("cat "     + tmp + ".sorted >> " + tmp + ".amr-out", logFName);
@@ -573,7 +573,7 @@ struct ThisApplication : ShellApplication
 		  // PD-2244
 			// ".amr-out"
   		exec ("head -1 "    + tmp + ".amr                              >  " + tmp + ".amr-out", logFName);
-			exec ("tail -n +2 " + tmp + ".amr | sort -k2 -k3n -k4n -k5 -k1 >> " + tmp + ".amr-out", logFName);
+			exec ("LANG=C && tail -n +2 " + tmp + ".amr | sort -k2 -k3n -k4n -k5 -k1 >> " + tmp + ".amr-out", logFName);
 			// ".amr"
 			exec ("mv " + tmp + ".amr-out " + tmp + ".amr", logFName);			
 		}
