@@ -115,7 +115,7 @@ inline thread::id get_thread_id ()
 thread::id main_thread_id = get_thread_id ();
   
 bool isMainThread ()
-  { return get_thread_id () == main_thread_id; }
+  { return threads_max == 1 || get_thread_id () == main_thread_id; }
 
 
 bool Chronometer::enabled = false;

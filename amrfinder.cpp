@@ -29,6 +29,10 @@
 * File Description:
 *   AMRFinder
 *
+* Release changes:
+*   3.2.3 11/12/2019 PD-3187  Sequence name is always from AMRProt, not from fam.tab
+*   3.2.2 11/06/2019 PD-2244  Added "LANG=C" before "sort"
+*
 */
 
 
@@ -49,7 +53,7 @@ using namespace Common_sp;
 #ifdef SVN_REV
   #define SOFTWARE_VER SVN_REV
 #else
-  #define SOFTWARE_VER "3.2.2"
+  #define SOFTWARE_VER "3.2.3"
 #endif
 
 #define DATA_VER_MIN "2019-10-30.1"  

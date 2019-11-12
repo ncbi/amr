@@ -684,9 +684,9 @@ struct BlastAlignment
       const string na ("NA");
       const string proteinName (isPointMut () 
                                   ? string ()
-                                  : refExactlyMatched () || ! gi 
-                                    ? product 
-                                    : nvl (getFam () -> familyName, na)
+                                  : /*refExactlyMatched () || ! gi   // PD-3187
+                                    ?*/ product 
+                                  //: nvl (getFam () -> familyName, na)
                                );
       ASSERT (! contains (proteinName, '\t'));
       Vector<Locus> cdss_ (cdss);
