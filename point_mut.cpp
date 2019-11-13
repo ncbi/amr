@@ -138,18 +138,18 @@ struct PointMut
 		, subclass (subclass_arg)
 		, name (name_arg)
 		{ 
-			ASSERT (! gene. empty ());
-			ASSERT (pos > 0);
+			QC_ASSERT (! gene. empty ());
+			QC_ASSERT (pos > 0);
 			pos--;
-			ASSERT (alleleChar != ' ');
+			QC_ASSERT (alleleChar != ' ');
 			alleleChar = toUpper (alleleChar);
-			ASSERT (! geneMutation. empty ());
-			ASSERT (! geneMutationGen. empty ());
-			ASSERT (! name. empty ());
-      ASSERT (! contains (name, '\t'));
+			QC_ASSERT (! geneMutation. empty ());
+			QC_ASSERT (! geneMutationGen. empty ());
+			QC_ASSERT (! name. empty ());
+      QC_ASSERT (! contains (name, '\t'));
       replace (name, '_', ' ');
-      ASSERT (geneMutation. back () == alleleChar);
-      ASSERT (geneMutationGen. back () == alleleChar);
+      QC_ASSERT (geneMutation. back () == alleleChar);
+      QC_ASSERT (geneMutationGen. back () == alleleChar);
 		}
 	PointMut () = default;
 
@@ -316,12 +316,12 @@ struct BlastAlignment
     {
       if (! qc_on)
         return;
-	    ASSERT (targetStart < targetEnd);
-	    ASSERT (targetEnd <= targetLen);
-      ASSERT (refStart < refEnd);
-	    ASSERT (nident <= refEnd - refStart);
-	    ASSERT (refEnd <= refLen);
-	    ASSERT (refEnd - refStart <= length);	    
+	    QC_ASSERT (targetStart < targetEnd);
+	    QC_ASSERT (targetEnd <= targetLen);
+      QC_ASSERT (refStart < refEnd);
+	    QC_ASSERT (nident <= refEnd - refStart);
+	    QC_ASSERT (refEnd <= refLen);
+	    QC_ASSERT (refEnd - refStart <= length);	    
     }
   void saveText (ostream& os) const 
     { const string na ("NA");

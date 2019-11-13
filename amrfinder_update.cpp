@@ -47,16 +47,19 @@ using namespace Common_sp;
 
 
 // PD-3096
+// PAR!
 #ifdef SVN_REV
   #define SOFTWARE_VER SVN_REV
 #else
-  #define SOFTWARE_VER "3.2.3"
+  #define SOFTWARE_VER "3.2.4"
 #endif
 
 string curMinor;
 
 
-#define ORGANISMS "Campylobacter|Escherichia|Salmonella"  // from table GENE3P
+// PAR!
+#define ORGANISMS "Campylobacter|Escherichia|Salmonella"  
+  // From table GENE3P: organisms with DNA point mutations
 
 
 

@@ -30,6 +30,7 @@
 *   AMRFinder
 *
 * Release changes:
+*   3.2.4 11/13/2019 PD-3190  organisms for --gpipe
 *   3.2.3 11/12/2019 PD-3187  Sequence name is always from AMRProt, not from fam.tab
 *   3.2.2 11/06/2019 PD-2244  Added "LANG=C" before "sort"
 *
@@ -48,12 +49,12 @@ using namespace Common_sp;
 
 
 
-// PAR
+// PAR!
 // PD-3051
 #ifdef SVN_REV
   #define SOFTWARE_VER SVN_REV
 #else
-  #define SOFTWARE_VER "3.2.3"
+  #define SOFTWARE_VER "3.2.4"
 #endif
 
 #define DATA_VER_MIN "2019-10-30.1"  
@@ -72,8 +73,11 @@ constexpr double ident_min_def = 0.9;
 constexpr double partial_coverage_min_def = 0.5;
   
     
-#define ORGANISMS "Campylobacter|Escherichia|Klebsiella|Salmonella|Staphylococcus|Vibrio_cholerae"  
-  // Table Taxgroup
+// PAR!
+// Table Taxgroup
+#define ORGANISMS       "Campylobacter|Escherichia|Klebsiella|Salmonella|Staphylococcus|Vibrio_cholerae"  
+#define ORGANISMS_GPIPE "Campylobacter|Escherichia_coli_Shigella|Klebsiella|Salmonella|Staphylococcus_pseudintermedius|Vibrio_cholerae"  
+  // PD-3190
 
 #define HELP  \
 "Identify AMR genes in proteins and/or contigs and print a report\n" \
@@ -371,41 +375,38 @@ struct ThisApplication : ShellApplication
 	    prog2dir ["blastn"] = blast_bin;
 	  }
 	  
+	  // organism --> organism1
 	  string organism1;
 	  bool suppress_common = false;	  
 	  if (! emptyArg (organism))
 	  {
 	  	organism1 = unQuote (organism);
-      const StringVector organisms (ORGANISMS, '|');
-      if (! organisms. contains (organism1))
-        throw runtime_error ("Possible organisms: " + organisms. toString (", "));
  	  	replace (organism1, ' ', '_');
  	  	ASSERT (! organism1. empty ());
+      const StringVector organisms       (ORGANISMS,       '|');
+      const StringVector organisms_gpipe (ORGANISMS_GPIPE, '|');
+      ASSERT (organisms. size () == organisms_gpipe. size ());
+      if (gpipe)
+      {
+        const size_t index = organisms_gpipe. indexOf (organism1);
+        if (index == NO_INDEX)
+          organism1. clear ();
+        else
+          organism1 = organisms [index];
+      }
+      else
+      {
+        if (! organisms. contains (organism1))
+          throw runtime_error ("Possible organisms: " + organisms. toString (", "));
+      }
+ 	  }
+	  if (! organism1. empty ())
  	  	if (! report_common)
  	  	  suppress_common = true;
- 	  }
 
-
-  #if 0
-	  if (! emptyArg (organism))
-	  {
- 	  	string errMsg;
-			try { exec ("grep -w ^" + organism1 + " " + db + "/AMRProt-point_mut.tab > /dev/null 2> /dev/null"); }
-			  catch (const runtime_error &)
-			  { 
-			  	errMsg = "No protein point mutations for organism " + organism;
-			  }
-  		if (! emptyArg (dna))
-  			if (! fileExists (db + "/AMR_DNA-" + organism1))
-  	      errMsg = "No DNA point mutations for organism " + organism;
-  		if (! errMsg. empty ())
-  		  throw runtime_error (errMsg + "\nPossible organisms: " ORGANISMS);
-	  }
-	#endif
-        
 
     const string qcS (qc_on ? " -qc  -verbose 1" : "");
-		const string force_cds_report (! emptyArg (dna) && ! emptyArg (organism) ? "-force_cds_report" : "");  // Needed for point_mut
+		const string force_cds_report (! emptyArg (dna) && ! organism1. empty () ? "-force_cds_report" : "");  // Needed for point_mut
 		
 								  
     findProg ("fasta_check");
@@ -523,7 +524,7 @@ struct ThisApplication : ShellApplication
   		}
 
   		if (   ! emptyArg (dna) 
-  		    && ! emptyArg (organism)
+  		    && ! organism1. empty ()
   		    && fileExists (db + "/AMR_DNA-" + organism1)
   		   )
   		{
@@ -548,14 +549,14 @@ struct ThisApplication : ShellApplication
     const string point_mut_allS (point_mut_all. empty () ? "" : ("-point_mut_all " + point_mut_all));
     const string coreS (add_plus ? "" : " -core");
 		exec (fullProg ("amr_report") + " -fam " + db + "/fam.tab  " + amr_report_blastp + "  " + amr_report_blastx
-		  + "  -organism " + organism + "  -point_mut " + db + "/AMRProt-point_mut.tab " + point_mut_allS + " "
+		  + "  -organism " + strQuote (organism1) + "  -point_mut " + db + "/AMRProt-point_mut.tab " + point_mut_allS + " "
 		  + force_cds_report + " -pseudo" + coreS
 		  + (ident == -1 ? string () : "  -ident_min "    + toString (ident)) 
 		  + "  -coverage_min " + toString (cov)
 		  + ifS (suppress_common, " -suppress_prot " + tmp + ".suppress_prot")
 		  + qcS + " " + parm + " -log " + logFName + " > " + tmp + ".amr", logFName);
 		if (   ! emptyArg (dna) 
-		    && ! emptyArg (organism)
+		    && ! organism1. empty ()
 		    && fileExists (db + "/AMR_DNA-" + organism1)
 		   )
 		{
