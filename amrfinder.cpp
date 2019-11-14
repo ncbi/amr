@@ -30,7 +30,8 @@
 *   AMRFinder
 *
 * Release changes:
-*   3.2.4 11/13/2019 PD-3190  organisms for --gpipe
+*         11/14/2019 PD-3192  Fixed error made by PD-3190
+*         11/13/2019 PD-3190  organisms for --gpipe
 *   3.2.3 11/12/2019 PD-3187  Sequence name is always from AMRProt, not from fam.tab
 *   3.2.2 11/06/2019 PD-2244  Added "LANG=C" before "sort"
 *
@@ -54,7 +55,7 @@ using namespace Common_sp;
 #ifdef SVN_REV
   #define SOFTWARE_VER SVN_REV
 #else
-  #define SOFTWARE_VER "3.2.4"
+  #define SOFTWARE_VER "3.2.3"
 #endif
 
 #define DATA_VER_MIN "2019-10-30.1"  
@@ -115,7 +116,7 @@ struct ThisApplication : ShellApplication
     	addKey ("parm", "amr_report parameters for testing: -nosame -noblast -skip_hmm_check -bed", "", '\0', "PARM");
       addKey ("output", "Write output to OUTPUT_FILE instead of STDOUT", "", 'o', "OUTPUT_FILE");
       addFlag ("quiet", "Suppress messages to STDERR", 'q');
-      addFlag ("gpipe", "Protein identifiers in the protein FASTA file have format 'gnl|<project>|<accession>'");
+      addFlag ("gpipe", "For NCBI GPipe processing: Protein identifiers in the protein FASTA file have format 'gnl|<project>|<accession>', different organism names");
 	    version = SOFTWARE_VER;  
 	  #if 0
 	    setRequiredGroup ("protein",    "Input");
