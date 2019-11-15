@@ -29,6 +29,9 @@
 * File Description:
 *   Updating of AMRFinder data
 *
+* Release changes:
+*   3.2.4
+*
 */
 
 
@@ -51,7 +54,7 @@ using namespace Common_sp;
 #ifdef SVN_REV
   #define SOFTWARE_VER SVN_REV
 #else
-  #define SOFTWARE_VER "3.2.3"
+  #define SOFTWARE_VER "3.2.4"
 #endif
 
 string curMinor;

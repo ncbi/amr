@@ -29,6 +29,9 @@
 * File Description:
 *   Identification of point mutations at DNA level
 *
+* Release changes:
+*   3.2.4 11/15/2019 PD-3191  neighborhoodMismatch <= 0.04; good(): length >= min (refLen, 2 * flankingLen + 1)
+*
 */
    
    
@@ -37,6 +40,17 @@
 
 #include "common.hpp"
 using namespace Common_sp;
+
+
+
+
+// PD-3096
+// PAR!
+#ifdef SVN_REV
+  #define SOFTWARE_VER SVN_REV
+#else
+  #define SOFTWARE_VER "3.2.4"
+#endif
 
 
 
@@ -111,7 +125,7 @@ struct PointMut
 	  // Upper-case
 	// !empty()
 	string geneMutation;
-	  // Depends on the above
+	  // Depends on the above, except for pos
 	string geneMutationGen;
 	  // geneMutation generalized, may have a different pos
 	string classS;
@@ -156,6 +170,7 @@ struct PointMut
 
   bool empty () const
     { return gene. empty (); }
+#if 0
   string getResistance () const
     { size_t p = name. find (' ');
     	ASSERT (p != string::npos);
@@ -163,6 +178,7 @@ struct PointMut
     	ASSERT (p != string::npos);
     	return name. substr (p + 1);
     }
+#endif
   bool better (const PointMut &other) const  
     { if (geneMutationGen != other. geneMutationGen)
         return false;
@@ -296,7 +312,7 @@ struct BlastAlignment
   				    		if (toUpper (targetSeq [i]) == pm. alleleChar)
   				    		{
   				    			ASSERT (targetSeq [i] != refSeq [i]);
-  				    			if (neighborhoodMismatch <= 0.03)   // PAR
+  				    			if (neighborhoodMismatch <= 0.04)   // PAR  // PD-3191
   				    			{
   				    			  ASSERT (targetPos2pointMut [targetPos]. empty ());
   				    			  targetPos2pointMut [targetPos] = pm;
@@ -336,7 +352,7 @@ struct BlastAlignment
            << targetStart + 1
            << targetEnd
            << (targetStrand ? '+' : '-');
-        td << pm. geneMutationGen  // was: pm.geneMutation
+        td << pm. geneMutationGen  
            << pm. name
            << "core"  // PD-2825
            // PD-1856
@@ -412,7 +428,7 @@ struct BlastAlignment
       return (double) mismatches / (double) len;
     }
   bool good () const
-    { return length >= 2 * flankingLen + 1; }
+    { return length >= min (refLen, 2 * flankingLen + 1); }
   bool operator< (const BlastAlignment &other) const
     { LESS_PART (*this, other, targetName);
       LESS_PART (other, *this, pIdentity ());
@@ -501,13 +517,9 @@ struct ThisApplication : Application
   ThisApplication ()
     : Application ("Find point mutations at DNA level and report in the format of amr_report.cpp")
     {
-      // Input
       addPositional ("blastn", "blastn output in the format: qseqid sseqid length nident qstart qend qlen sstart send slen sseq. sseqid is the 1st column of <point_mut> table");  
       addPositional ("point_mut", "Point mutation table");
-      // Output
-    #ifdef SVN_REV
-      version = SVN_REV;
-    #endif
+	    version = SOFTWARE_VER;
     }
 
 
