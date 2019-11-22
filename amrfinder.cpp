@@ -56,10 +56,9 @@ using namespace Common_sp;
 #ifdef SVN_REV
   #define SOFTWARE_VER SVN_REV
 #else
-  #define SOFTWARE_VER "3.2.5"
+  #define SOFTWARE_VER "3.3.1"
 #endif
-
-#define DATA_VER_MIN "2019-10-30.1"  
+#define DATA_VER_MIN "2019-11-22.1"  
 
 
 
@@ -178,8 +177,7 @@ struct ThisApplication : ShellApplication
                              const string &logFName) const
   {
     exec ("cut -f 1 " + db + "/AMRProt-point_mut.tab | sort -u > " + tmp + ".prot_org", logFName);
-    exec ("ls " + db + "/AMR_DNA-*.tab | sed 's|" + db + "/AMR_DNA-||1' | sed 's/\\.tab$//1' > " + tmp + ".dna_org", logFName);
-    exec ("cat " + tmp + ".prot_org " + tmp + ".dna_org | sort -u > " + tmp + ".org", logFName);
+    exec ("cat " + tmp + ".prot_org " + db + "/taxgroup.list | sort -u > " + tmp + ".org", logFName);
     LineInput f (tmp + ".org");
     return f. getVector ();
   }

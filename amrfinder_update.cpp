@@ -54,15 +54,11 @@ using namespace Common_sp;
 #ifdef SVN_REV
   #define SOFTWARE_VER SVN_REV
 #else
-  #define SOFTWARE_VER "3.2.5"
+  #define SOFTWARE_VER "3.3.1"
 #endif
 
 string curMinor;
 
-
-// PAR!
-#define ORGANISMS "Campylobacter|Escherichia|Salmonella"  
-  // From table GENE3P: organisms with DNA point mutations
 
 
 
@@ -116,11 +112,19 @@ void Curl::download (const string &url,
   ASSERT (! url. empty ());  
   ASSERT (! fName. empty ());  
   
-  OFStream f (fName);
-  curl_easy_setopt (eh, CURLOPT_URL, url. c_str ());
-  curl_easy_setopt (eh, CURLOPT_WRITEFUNCTION, write_stream_cb);
-  curl_easy_setopt (eh, CURLOPT_WRITEDATA, & f);
-  EXEC_ASSERT (curl_easy_perform (eh) == 0);
+  {
+    OFStream f (fName);
+    curl_easy_setopt (eh, CURLOPT_URL, url. c_str ());
+    curl_easy_setopt (eh, CURLOPT_WRITEFUNCTION, write_stream_cb);
+    curl_easy_setopt (eh, CURLOPT_WRITEDATA, & f);
+    EXEC_ASSERT (curl_easy_perform (eh) == 0);
+  }
+  
+  ifstream f (fName);
+  string s;
+  f >> s;
+  if (s == "<?xml")
+    throw runtime_error ("Cannot download " + strQuote (fName));
 }
 
 
@@ -340,8 +344,6 @@ Requirements:\n\
     }
     
     
-    const StringVector dnaPointMuts (ORGANISMS, '|');
-    
     stderr << "Dowloading AMRFinder database version " << latest_version << " into " << latestDir << "\n";
     const string urlDir (URL + curMinor + "/" + latest_version + "/");
     fetchAMRFile (curl, urlDir, latestDir, "AMR.LIB");
@@ -349,16 +351,20 @@ Requirements:\n\
     fetchAMRFile (curl, urlDir, latestDir, "AMRProt-point_mut.tab");
     fetchAMRFile (curl, urlDir, latestDir, "AMRProt-suppress");
     fetchAMRFile (curl, urlDir, latestDir, "AMR_CDS");
-    fetchAMRFile (curl, urlDir, latestDir, "version.txt");
-//    fetchAMRFile (curl, urlDir, latestDir, "min_software_version.txt");  
     fetchAMRFile (curl, urlDir, latestDir, "database_format_version.txt");  // PD-3051 
+    fetchAMRFile (curl, urlDir, latestDir, "fam.tab");
+    fetchAMRFile (curl, urlDir, latestDir, "gpipe.tab");
+    fetchAMRFile (curl, urlDir, latestDir, "taxgroup.list");
+    fetchAMRFile (curl, urlDir, latestDir, "version.txt");
     
+    LineInput taxf (latestDir + "taxgroup.list");
+    const StringVector dnaPointMuts (taxf. getVector ());
     for (const string& dnaPointMut : dnaPointMuts)
     {
       fetchAMRFile (curl, urlDir, latestDir, "AMR_DNA-" + dnaPointMut);
       fetchAMRFile (curl, urlDir, latestDir, "AMR_DNA-" + dnaPointMut + ".tab");
     }
-    fetchAMRFile (curl, urlDir, latestDir, "fam.tab");
+
     fetchAMRFile (curl, urlDir, latestDir, "changes.txt");
     
     stderr << "Indexing" << "\n";
