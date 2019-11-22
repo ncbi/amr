@@ -56,7 +56,7 @@ using namespace Common_sp;
 #ifdef SVN_REV
   #define SOFTWARE_VER SVN_REV
 #else
-  #define SOFTWARE_VER "3.2.4"
+  #define SOFTWARE_VER "3.2.5"
 #endif
 
 #define DATA_VER_MIN "2019-10-30.1"  
@@ -75,12 +75,6 @@ constexpr double ident_min_def = 0.9;
 constexpr double partial_coverage_min_def = 0.5;
   
     
-// PAR!
-// Table Taxgroup
-#define ORGANISMS       "Campylobacter|Escherichia|Klebsiella|Salmonella|Staphylococcus|Vibrio_cholerae"  
-#define ORGANISMS_GPIPE "Campylobacter|Escherichia_coli_Shigella|Klebsiella|Salmonella|Staphylococcus_pseudintermedius|Vibrio_cholerae"  
-  // PD-3190
-
 #define HELP  \
 "Identify AMR genes in proteins and/or contigs and print a report\n" \
 "\n" \
@@ -90,7 +84,6 @@ constexpr double partial_coverage_min_def = 0.5;
 "UPDATES\n" \
 "    Subscribe to the amrfinder-announce mailing list for database and software update notifications:\n" \
 "    https://www.ncbi.nlm.nih.gov/mailman/listinfo/amrfinder-announce"
-
 
 		
 
@@ -108,7 +101,8 @@ struct ThisApplication : ShellApplication
     	addFlag ("update", "Update the AMRFinder database", 'u');  // PD-2379
     	addKey ("ident_min", "Minimum identity for nucleotide hit (0..1). -1 means use a curated threshold if it exists and " + toString (ident_min_def) + " otherwise", "-1", 'i', "MIN_IDENT");
     	addKey ("coverage_min", "Minimum coverage of the reference protein (0..1)", toString (partial_coverage_min_def), 'c', "MIN_COV");
-      addKey ("organism", "Taxonomy group\n    " ORGANISMS, "", 'O', "ORGANISM");
+      addKey ("organism", "Taxonomy group. To see all possible taxonomy groups use the --list_organisms flag", "", 'O', "ORGANISM");
+      addFlag ("list_organisms", "Print the list of all possible taxonomy groups for point mutations identification and exit", 'l');
     	addKey ("translation_table", "NCBI genetic code for translated BLAST", "11", 't', "TRANSLATION_TABLE");
     	addFlag ("plus", "Add the plus genes to the report");  // PD-2789
       addFlag ("report_common", "Report proteins common to a taxonomy group");  // PD-2756
@@ -117,7 +111,7 @@ struct ThisApplication : ShellApplication
     	addKey ("parm", "amr_report parameters for testing: -nosame -noblast -skip_hmm_check -bed", "", '\0', "PARM");
       addKey ("output", "Write output to OUTPUT_FILE instead of STDOUT", "", 'o', "OUTPUT_FILE");
       addFlag ("quiet", "Suppress messages to STDERR", 'q');
-      addFlag ("gpipe", "For NCBI GPipe processing: Protein identifiers in the protein FASTA file have format 'gnl|<project>|<accession>', different organism names");
+      addFlag ("gpipe", "For NCBI GPipe processing: Protein identifiers in the protein FASTA file have format 'gnl|<project>|<accession>', different organism names are used");
 	    version = SOFTWARE_VER;  
 	  #if 0
 	    setRequiredGroup ("protein",    "Input");
@@ -144,9 +138,9 @@ struct ThisApplication : ShellApplication
         { return false; }
     return true;        
   }
-  
-  
-  
+
+
+
   size_t get_threads_max_max (const string &logFName) const
   {
   #if __APPLE__
@@ -158,24 +152,36 @@ struct ThisApplication : ShellApplication
   #else
     exec ("nproc --all > " + tmp + ".nproc", logFName);
     LineInput f (tmp + ".nproc");
-	  return str2<size_t> (f. getString ());
+    return str2<size_t> (f. getString ());
   #endif
   }
-  
-  
-  
+
+
+
   string file2link (const string &fName,
                     const string &logFName) const
   {
     exec ("file " + fName + " > " + tmp + ".file", logFName);
     
     LineInput f (tmp + ".file");
-	  string s (f. getString ());
-	  
-	  trimPrefix (s, fName + ": ");
-	  if (isLeft (s, "symbolic link to "))
-	    return s;
-	  return string ();
+    string s (f. getString ());
+    
+    trimPrefix (s, fName + ": ");
+    if (isLeft (s, "symbolic link to "))
+      return s;
+    return string ();
+  }
+
+
+
+  StringVector db2organisms (const string &db,
+                             const string &logFName) const
+  {
+    exec ("cut -f 1 " + db + "/AMRProt-point_mut.tab | sort -u > " + tmp + ".prot_org", logFName);
+    exec ("ls " + db + "/AMR_DNA-*.tab | sed 's|" + db + "/AMR_DNA-||1' | sed 's/\\.tab$//1' > " + tmp + ".dna_org", logFName);
+    exec ("cat " + tmp + ".prot_org " + tmp + ".dna_org | sort -u > " + tmp + ".org", logFName);
+    LineInput f (tmp + ".org");
+    return f. getVector ();
   }
 
 
@@ -190,6 +196,7 @@ struct ThisApplication : ShellApplication
     const double ident           =             arg2double ("ident_min");
     const double cov             =             arg2double ("coverage_min");
     const string organism        = shellQuote (getArg ("organism"));   
+    const bool   list_organisms  =             getFlag ("list_organisms");
     const uint   gencode         =             arg2uint ("translation_table"); 
     const bool   add_plus        =             getFlag ("plus");
     const bool   report_common   =             getFlag ("report_common");
@@ -289,7 +296,15 @@ struct ThisApplication : ShellApplication
     
 		if (! directoryExists (db))  // PD-2447
 		  throw runtime_error ("No valid AMRFinder database found." + downloadLatestInstr);
-		  
+
+
+    if (list_organisms)
+    {
+      const StringVector organisms (db2organisms (db, logFName));
+      cout << "Possible organisms: " + organisms. toString (", ") << endl;
+      return;
+    }    		  
+
 		  
 		// PD-3051
 		try
@@ -385,22 +400,32 @@ struct ThisApplication : ShellApplication
 	  	organism1 = unQuote (organism);
  	  	replace (organism1, ' ', '_');
  	  	ASSERT (! organism1. empty ());
-      const StringVector organisms       (ORGANISMS,       '|');
-      const StringVector organisms_gpipe (ORGANISMS_GPIPE, '|');
-      ASSERT (organisms. size () == organisms_gpipe. size ());
       if (gpipe)
       {
-        const size_t index = organisms_gpipe. indexOf (organism1);
-        if (index == NO_INDEX)
-          organism1. clear ();
-        else
-          organism1 = organisms [index];
+        LineInput f (db + "/gpipe.tab");
+        Istringstream iss;
+        bool found = false;
+        while (f. nextLine ())
+        {
+          iss. reset (f. line);
+          string gpipeOrg, org;
+          iss >> gpipeOrg >> org;
+          QC_ASSERT (! gpipeOrg. empty ());
+          QC_ASSERT (! org. empty ());
+          QC_ASSERT (iss. eof ());
+          if (organism1 == gpipeOrg)
+          {
+            organism1 = org;
+            found = true;
+            break;
+          }
+        }
+        if (! found)
+          throw runtime_error ("No organism " + strQuote (organism1) + " in GPipe");
       }
-      else
-      {
-        if (! organisms. contains (organism1))
-          throw runtime_error ("Possible organisms: " + organisms. toString (", "));
-      }
+      const StringVector organisms (db2organisms (db, logFName));
+      if (! organisms. contains (organism1))
+        throw runtime_error ("Possible organisms: " + organisms. toString (", "));
  	  }
 	  if (! organism1. empty ())
  	  	if (! report_common)
