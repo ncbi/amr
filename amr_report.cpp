@@ -290,73 +290,105 @@ public:
 struct PointMut
 {
 	size_t pos {0};
-	  // In reference sequence
+	  // In whole reference sequence
+	  // = start of reference
 	  // >= 0
-	char alleleChar {' '};
-	  // Upper-case
 	// !empty()
 	string geneMutation;
 	  // Depends on the above
-	string geneMutationGen;
-	  // geneMutation generalized, may have a different pos
 	string classS;
 	string subclass;
 	string name;
 	  // Species binomial + resistance
 	bool additional {false};
+	
+	// Replacement
+  // Upper-case
+  string reference;
+	string allele;
 
 	
 	PointMut (size_t pos_arg,
-						char alleleChar_arg,
 						const string &geneMutation_arg,
-						const string &geneMutationGen_arg,
 						const string &class_arg,
 						const string &subclass_arg,
 						const string &name_arg)
 		: pos (pos_arg)
-		, alleleChar (toUpper (alleleChar_arg))
 		, geneMutation (geneMutation_arg)
-		, geneMutationGen (geneMutationGen_arg)
 		, classS (class_arg)
 		, subclass (subclass_arg)
 		, name (name_arg)
 		{ ASSERT (pos > 0);
 			pos--;
-			ASSERT (alleleChar != ' ');
-			ASSERT (! geneMutation. empty ());
-			ASSERT (! geneMutationGen. empty ());
-			if (isRight (geneMutation, "STOP"))
-				ASSERT (alleleChar == '*')
-			else
-        ASSERT (geneMutation. back () == alleleChar);
-      ASSERT (geneMutation. front () != alleleChar);
-			if (isRight (geneMutationGen, "STOP"))
-				ASSERT (alleleChar == '*')
-			else
-        ASSERT (geneMutationGen. back () == alleleChar);
-      ASSERT (geneMutationGen. front () != alleleChar);
 			ASSERT (! name. empty ());
       ASSERT (! contains (name, '\t'));
       replace (name, '_', ' ');
       ASSERT (! contains (name, "  "));
+      // reference, allele
+			parse (geneMutation, reference, allele);
+			if (allele == "STOP")
+			  allele = "*";
+			else if (allele == "del")
+			  allele. clear ();
+			ASSERT (isUpper (reference));
+			ASSERT (isUpper (allele));
+	  	ASSERT (reference != allele);
 		}
 	PointMut (const string &gene,
 	          size_t pos_arg,
-	          char refChar,
-	          char alleleChar_arg)
+	          const string &reference_arg,
+	          const string &allele_arg)
 	  : pos (pos_arg)
-	  , alleleChar (alleleChar_arg)
-	  , geneMutation (gene + pm_delimiter + refChar + toString (pos + 1) + alleleChar)
-	  , geneMutationGen (geneMutation)
-	  , name (string (refChar == alleleChar ? "wildtype" : "mutation") + " " + strUpper1 (gene))
+	  , geneMutation (gene + pm_delimiter + reference_arg + to_string (pos + 1) + allele_arg)
+	  , name (string (reference_arg == allele_arg ? "wildtype" : "mutation") + " " + strUpper1 (gene))
 	  , additional (true)
+	  , reference (reference_arg)
+	  , allele (allele_arg)
 	  { ASSERT (! gene. empty ());
-	  	ASSERT (isUpper (refChar));
-	  	ASSERT (isUpper (alleleChar));
-	  	ASSERT (refChar != ' ');
-	  	ASSERT (alleleChar != ' ');
+			ASSERT (isUpper (reference));
+			ASSERT (isUpper (allele));
 	  }
 	PointMut () = default;
+	static void parse (const string &geneMutation,
+	                   string &reference,
+	                   string &allele)
+	  { ASSERT (! geneMutation. empty ());
+	    ASSERT (reference. empty ());
+	    ASSERT (allele. empty ());
+	    enum Type {inAllele, inPos, inRef};
+	    Type type = inAllele;
+	    FOR_REV (size_t, i, geneMutation. size ())
+	    {
+	      const char c = geneMutation [i];
+	      switch (type)
+	      {
+	        case inAllele:
+	          if (isAlpha (c))
+  	          allele += c;
+  	        else
+  	          type = inPos;
+  	        break;
+	        case inPos:
+	          if (isAlpha (c))
+	          {
+	            type = inRef;
+	            reference = string (1, c);
+	          }
+	          break;
+	        case inRef:
+	          if (isAlpha (c))
+  	          reference += c;
+  	        else
+  	        {
+  	          reverse (allele);
+  	          reverse (reference);
+  	          return;
+  	        }
+  	        break;
+  	    }
+	    }
+	    NEVER_CALL;
+	  }
 
 
   bool empty () const
@@ -369,16 +401,14 @@ struct PointMut
     	return name. substr (p + 1);
     }
   void print (ostream &os) const
-    { os << pos << ' ' << alleleChar << ' ' << geneMutation << ' ' << geneMutationGen << ' ' << name << endl; }
+    { os << pos << ' ' << geneMutation << ' ' << name << endl; }
   bool operator< (const PointMut &other) const
     { LESS_PART (*this, other, pos);
-      LESS_PART (*this, other, alleleChar);
+      LESS_PART (*this, other, geneMutation);
       return false;
     }
   bool operator== (const PointMut &other) const
-    { return    pos        == other. pos
-    	       && alleleChar == other. alleleChar;
-    }
+    { return geneMutation == other. geneMutation; }
 };
 
 
@@ -393,6 +423,46 @@ const string stopCodonS ("[stop]");
 const string frameShiftS ("[frameshift]");
 
 unique_ptr<OFStream> point_mut_all;
+
+
+
+struct SeqChange
+{
+  size_t start {0};
+  size_t len {0};
+  string reference;
+  string allele;
+  size_t refStart {0};
+  
+  
+  SeqChange () = default;
+  void saveText (ostream &os) const
+    { os << start << ' ' << len << ' ' << reference << " -> " << allele << ' ' << refStart << endl; }
+  
+  
+  void setSeq (const string &targetSeq,
+               const string &refSeq)
+    { 
+      ASSERT (targetSeq. size () == refSeq. size ());
+      ASSERT (start + len < targetSeq. size ());
+      reference = refSeq.    substr (start, len);
+      allele    = targetSeq. substr (start, len);
+      replaceStr (reference, "-", "");
+      replaceStr (allele,    "-", "");
+      QC_ASSERT (reference != allele);
+      ASSERT (isUpper (reference));
+      ASSERT (isUpper (allele));
+    }
+  void setRefStart (const string &refSeq, 
+                    size_t refStart_arg)
+    {
+      ASSERT (refSeq [start] != '-');
+      refStart = refStart_arg;
+      FOR (size_t, i, start)
+        if (refSeq [i] != '-')
+          refStart++;
+    }
+};
 
 
 
@@ -550,6 +620,7 @@ struct BlastAlignment
 		    if (! targetProt)
 		      cdss << move (Locus (0, targetName, targetStart, targetStop, targetStrand, partialDna, 0));
 	
+
 	      strUpper (targetSeq);
 	      strUpper (refSeq);
 		    if (const Vector<PointMut>* pointMuts_all = findPtr (accession2pointMuts, accessionProt))
@@ -558,12 +629,49 @@ struct BlastAlignment
 		        cout << "PointMut protein found: " << refName << endl;
   	      ASSERT (isPointMut ());
 		      ASSERT (! pointMuts_all->empty ());
+		      
+		      // pmGene
 		      string s (pointMuts_all->front (). geneMutation);
-		      rfindSplit (s, pm_delimiter);  
+		      rfindSplit (s, pm_delimiter);  // Only gene symbol
 		      const string pmGene (s);
-	    		size_t refPos = refStart;
+
+	  		  Vector<SeqChange> seqChanges; 
+	  		  {
+  	  		  SeqChange seqChange;
+  	  		  bool inSeqChange = false;
+  	    		FFOR (size_t, i, refSeq. size ())
+  	    		  if (inSeqChange)
+  	    		  {
+  			        if (targetSeq [i] == refSeq [i])
+  			        {
+  			          seqChange. setSeq (targetSeq, refSeq);
+  			          if (refSeq [seqChange. start] == '-')
+  			          {
+  			            QC_ASSERT (seqChange. start);
+  			            seqChange. start--;
+  			            seqChange. len++;
+    			          seqChange. setSeq (targetSeq, refSeq);
+  			          }
+   			          ASSERT (! seqChange. reference. empty ());
+   			          seqChange. setRefStart (refSeq, refStart);
+  			          seqChanges << move (seqChange);
+  			          seqChange = SeqChange ();
+  			          inSeqChange = false;
+  			        }
+  			        else
+  			          seqChange. len++;
+  			      }
+  			      else
+  			        if (targetSeq [i] != refSeq [i])
+  			        {
+  			          seqChange. start = i;
+  			          seqChange. len = 1;
+  			          inSeqChange = true;
+  			        }
+  			  }
+  			  
 	    		size_t j = 0;
-	  		  while (j < pointMuts_all->size () && pointMuts_all->at (j). pos < refPos)
+	  		  while (j < pointMuts_all->size () && pointMuts_all->at (j). pos < refStart)
 	  		  {
 	  		  	if (point_mut_all. get ())
 	  		  	{
@@ -574,44 +682,30 @@ struct BlastAlignment
 	  		  	}
 	  		    j++;
 	  		  }
-	   		  VectorPtr<PointMut> pos_pm;  // PointMut's of the same refPos
-	    		FFOR (size_t, i, refSeq. size ())
-	    	  {
-	    		  if (refSeq [i] == '-')
-	    		  	continue;
-	    		  pos_pm. clear ();
-	    		  while (j < pointMuts_all->size () && pointMuts_all->at (j). pos == refPos)
-	    		  {
-	    		  	pos_pm << & pointMuts_all->at (j);
-	    		    j++;
-	    		  }
-			      if (targetSeq [i] == refSeq [i])
-			      	if (pos_pm. empty ())
-			      		;
-			      	else
+	  		  
+	    		size_t refStart_prev = NO_INDEX;
+  			  for (const SeqChange& seqChange : seqChanges)
+  			  {
+  			    IMPLY (refStart_prev != NO_INDEX, refStart_prev < seqChange. refStart);
+  			    while (j < pointMuts_all->size ())
+  			    {
+      			  const PointMut& pm = pointMuts_all->at (j);
+      			  if (pm. pos < seqChange. refStart)
 			      	{
-				      	for (const PointMut* pm : pos_pm)
-					    		if (targetSeq [i] == pm->alleleChar)
-					    			throw logic_error ("Wildtype allele " + pm->geneMutation);
 					    	if (point_mut_all. get ())
-					    		pointMuts << move (PointMut (pmGene, refPos, refSeq [i], targetSeq [i]));
-			      	}
-			      else
-			      {
-			      //bool found = false;
-			      	for (const PointMut* pm : pos_pm)
-				    		if (targetSeq [i] == pm->alleleChar)
-				    		{
-			    			  pointMuts << *pm;
-				    		//found = true;
-				    		}
-				    #if 0
-				    	if (! found && point_mut_all. get ())
-				    		pointMuts << move (PointMut (pmGene, refPos, refSeq [i], targetSeq [i]));
-				    #endif
-				    }
-	  		  	refPos++;
+					    		pointMuts << move (PointMut (pmGene, pm. pos, pm. reference, pm. reference));
+			      	}      			    
+      			  if (pm. pos > seqChange. refStart)
+      			    break;
+      			  if (   pm. pos    == seqChange. refStart
+      			      && pm. allele == seqChange. allele
+      			     )
+  	    		  	pointMuts << pm;
+	    		    j++;
+  	    		}
+    			  refStart_prev = seqChange. refStart;
 	    		}
+  			    
 	 		  	if (point_mut_all. get ())
 		  		  while (j < pointMuts_all->size ())
 		  		  {
@@ -621,6 +715,9 @@ struct BlastAlignment
 				  		pointMuts << move (pm);
 		  		    j++;
 		  		  }
+		  		  
+		  		pointMuts. sort ();
+		  		pointMuts. uniq ();
 		    }
 		  }
 		  catch (...)
@@ -1272,15 +1369,14 @@ struct Batch
 	      Istringstream iss;
 	  	  while (f. nextLine ())
 	  	  {
-	  	  	string organism_, accession, geneMutation, geneMutationGen, classS, subclass, name;
+	  	  	string organism_, accession, geneMutation, classS, subclass, name;
 					int pos;
-					char alleleChar;
     	  	iss. reset (f. line);
-	  	  	iss >> organism_ >> accession >> pos >> alleleChar >> geneMutation >> geneMutationGen >> classS >> subclass >> name;
+	  	  	iss >> organism_ >> accession >> pos >> geneMutation >> classS >> subclass >> name;
 	  	  	QC_ASSERT (pos > 0);
 	  	  	replace (organism_, '_', ' ');
 	  	  	if (organism_ == organism)
-	  	  		accession2pointMuts [accession] << move (PointMut ((size_t) pos, alleleChar, geneMutation, geneMutationGen, classS, subclass, name));
+	  	  		accession2pointMuts [accession] << move (PointMut ((size_t) pos, geneMutation, classS, subclass, name));
 	  	  }
 	  	#if 0
 	  	  // PD-2008
@@ -1290,8 +1386,8 @@ struct Batch
 	  	  for (auto& it : accession2pointMuts)
 	  	  {
 	  	  	it. second. sort ();
-	  	  //if (! it. second. isUniq ())
-	  	  	//throw runtime_error ("Duplicate mutations for " + it. first);
+	  	    if (! it. second. isUniq ())
+	  	  	  throw runtime_error ("Duplicate mutations for " + it. first);
 	  	  }
 	    }
 	  	  
@@ -1417,11 +1513,11 @@ public:
                 cout        << blastAl2. targetName 
                      << ' ' << it1. first 
                      << ' ' << it2. first 
-                     << ' ' << pm1. geneMutationGen 
-                     << ' ' << pm2. geneMutationGen 
+                     << ' ' << pm1. geneMutation
+                     << ' ' << pm2. geneMutation
                      << endl; 
               if (   it1. first == it2. first
-                  && pm1. geneMutationGen == pm2. geneMutationGen
+                  && pm1. geneMutation == pm2. geneMutation
                  )
                 pm2 = PointMut ();
             }

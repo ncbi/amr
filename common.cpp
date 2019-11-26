@@ -1087,7 +1087,7 @@ void exec (const string &cmd,
   if (verbose ())
   	cout << cmd << endl;
   	
-	const int status = system (cmd. c_str ());
+	const int status = system (("set -o pipefail && " + cmd). c_str ());
 	if (status)
 	{
 	  if (! logFName. empty ())

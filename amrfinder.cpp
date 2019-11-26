@@ -30,7 +30,11 @@
 *   AMRFinder
 *
 * Release changes:
-*   3.2.4
+*   3.3.2 11/26/2019 PD-3193  Indel mutations: partially implemented
+*                             Bug fixed: protein point mutations were reported incorrectly if there was an offset w.r.t. the reference sequence
+*                             Files AMRProt-point_mut.tab and AMR_DNA-<taxgroup>.tab: columns allele, symbol are removed
+*                             Files taxgroup.list and gpipe.tab are replaced by taxgroup.tab
+*   3.3.1 11/22/2019 PD-3206  New files: taxgroup.list, gpipe.tab; new option --list_organisms
 *   3.2.3 11/14/2019 PD-3192  Fixed error made by PD-3190
 *   3.2.3 11/13/2019 PD-3190  organisms for --gpipe
 *   3.2.3 11/12/2019 PD-3187  Sequence name is always from AMRProt, not from fam.tab
@@ -56,9 +60,9 @@ using namespace Common_sp;
 #ifdef SVN_REV
   #define SOFTWARE_VER SVN_REV
 #else
-  #define SOFTWARE_VER "3.3.1"
+  #define SOFTWARE_VER "3.3.2"
 #endif
-#define DATA_VER_MIN "2019-11-22.1"  
+#define DATA_VER_MIN "2019-11-25.1"  
 
 
 
@@ -140,7 +144,7 @@ struct ThisApplication : ShellApplication
 
 
 
-  size_t get_threads_max_max (const string &logFName) const
+  size_t get_threads_max_max () const
   {
   #if __APPLE__
     int count;
@@ -149,7 +153,7 @@ struct ThisApplication : ShellApplication
     // fprintf(stderr,"you have %i cpu cores", count);
     return count;
   #else
-    exec ("nproc --all > " + tmp + ".nproc", logFName);
+    exec ("nproc --all > " + tmp + ".nproc");
     LineInput f (tmp + ".nproc");
     return str2<size_t> (f. getString ());
   #endif
@@ -157,10 +161,9 @@ struct ThisApplication : ShellApplication
 
 
 
-  string file2link (const string &fName,
-                    const string &logFName) const
+  string file2link (const string &fName) const
   {
-    exec ("file " + fName + " > " + tmp + ".file", logFName);
+    exec ("file " + fName + " > " + tmp + ".file");
     
     LineInput f (tmp + ".file");
     string s (f. getString ());
@@ -173,11 +176,11 @@ struct ThisApplication : ShellApplication
 
 
 
-  StringVector db2organisms (const string &db,
-                             const string &logFName) const
+  StringVector db2organisms (const string &db) const
   {
-    exec ("cut -f 1 " + db + "/AMRProt-point_mut.tab | sort -u > " + tmp + ".prot_org", logFName);
-    exec ("cat " + tmp + ".prot_org " + db + "/taxgroup.list | sort -u > " + tmp + ".org", logFName);
+    exec ("cut -f 1 " + db + "/AMRProt-point_mut.tab | sort -u > " + tmp + ".prot_org");
+    exec ("cut -f 1 " + db + "/taxgroup.tab          | sort -u > " + tmp + ".tax_org");
+    exec ("cat " + tmp + ".prot_org " + tmp + ".tax_org | sort -u > " + tmp + ".org");
     LineInput f (tmp + ".org");
     return f. getVector ();
   }
@@ -235,7 +238,7 @@ struct ThisApplication : ShellApplication
     start = time (NULL);
     
     
-    const size_t threads_max_max = get_threads_max_max (logFName);
+    const size_t threads_max_max = get_threads_max_max ();
     if (threads_max > threads_max_max)
     {
       stderr << "The number of threads cannot be greater than " << threads_max_max << " on this computer" << '\n'
@@ -298,7 +301,7 @@ struct ThisApplication : ShellApplication
 
     if (list_organisms)
     {
-      const StringVector organisms (db2organisms (db, logFName));
+      const StringVector organisms (db2organisms (db));
       cout << "Possible organisms: " + organisms. toString (", ") << endl;
       return;
     }    		  
@@ -316,9 +319,9 @@ struct ThisApplication : ShellApplication
   		const DataVersion dataVersion_min (dataVersionIss);  
       stderr << "Database version: " << dataVersion. str () << '\n';
       if (softwareVersion < softwareVersion_min)
-        throw runtime_error ("Database requires at least sofware version " + softwareVersion_min. str ());
+        throw runtime_error ("Database requires sofware version at least " + softwareVersion_min. str ());
       if (dataVersion < dataVersion_min)
-        throw runtime_error ("Software requires at least database version " + dataVersion_min. str ());
+        throw runtime_error ("Software requires database version at least " + dataVersion_min. str ());
     }
     catch (const exception &e)
     {
@@ -367,7 +370,7 @@ struct ThisApplication : ShellApplication
 
     stderr << "AMRFinder " << searchMode << " search with database " << db;
     {
-      const string link (file2link (db, logFName));
+      const string link (file2link (db));
       if (! link. empty ())
         stderr << ": " << link;
     }
@@ -400,16 +403,17 @@ struct ThisApplication : ShellApplication
  	  	ASSERT (! organism1. empty ());
       if (gpipe)
       {
-        LineInput f (db + "/gpipe.tab");
+        LineInput f (db + "/taxgroup.tab");
         Istringstream iss;
         bool found = false;
         while (f. nextLine ())
         {
           iss. reset (f. line);
-          string gpipeOrg, org;
-          iss >> gpipeOrg >> org;
-          QC_ASSERT (! gpipeOrg. empty ());
+          string org, gpipeOrg;
+          int num = -1;
+          iss >> org >> gpipeOrg >> num;
           QC_ASSERT (! org. empty ());
+          QC_ASSERT (num >= 0);
           QC_ASSERT (iss. eof ());
           if (organism1 == gpipeOrg)
           {
@@ -419,11 +423,14 @@ struct ThisApplication : ShellApplication
           }
         }
         if (! found)
-          throw runtime_error ("No organism " + strQuote (organism1) + " in GPipe");
+          organism1. clear ();
       }
-      const StringVector organisms (db2organisms (db, logFName));
-      if (! organisms. contains (organism1))
-        throw runtime_error ("Possible organisms: " + organisms. toString (", "));
+      if (! organism1. empty ())
+      {
+        const StringVector organisms (db2organisms (db));
+        if (! organisms. contains (organism1))
+          throw runtime_error ("Possible organisms: " + organisms. toString (", "));
+      }
  	  }
 	  if (! organism1. empty ())
  	  	if (! report_common)
@@ -528,9 +535,9 @@ struct ThisApplication : ShellApplication
   		//ASSERT (threadsAvailable);
   		  if (threadsAvailable >= 2)
   		  {
-    		  exec ("mkdir " + tmp + ".chunk", logFName);
+    		  exec ("mkdir " + tmp + ".chunk");
     		  exec (fullProg ("fasta2parts") + dna_ + " " + to_string (threadsAvailable) + " " + tmp + ".chunk  -log " + logFName, logFName);   // PAR
-    		  exec ("mkdir " + tmp + ".blastx_dir", logFName);
+    		  exec ("mkdir " + tmp + ".blastx_dir");
     		  FileItemGenerator fig (false, true, tmp + ".chunk");
     		  string item;
     		  while (fig. next (item))
@@ -563,11 +570,11 @@ struct ThisApplication : ShellApplication
   	
   	
   	if (blastxChunks)
-  	  exec ("cat " + tmp + ".blastx_dir/* > " + tmp + ".blastx", logFName);
+  	  exec ("cat " + tmp + ".blastx_dir/* > " + tmp + ".blastx");
   	  
   	
   	if (suppress_common)
-			exec ("grep -w ^" + organism1 + " " + db + "/AMRProt-suppress | cut -f 2 > " + tmp + ".suppress_prot"); 
+			exec ("set +o pipefail && grep -w ^" + organism1 + " " + db + "/AMRProt-suppress | cut -f 2 > " + tmp + ".suppress_prot"); 
 		
 
     // ".amr"
@@ -587,14 +594,14 @@ struct ThisApplication : ShellApplication
 		{
 			exec (fullProg ("point_mut") + tmp + ".blastn " + db + "/AMR_DNA-" + organism1 + ".tab" + qcS + " -log " + logFName + " > " + tmp + ".amr-snp", logFName);
 			// merging, sorting
-			exec ("tail -n +2 " + tmp + ".amr     >  " + tmp + ".mrg", logFName);
-			exec ("tail -n +2 " + tmp + ".amr-snp >> " + tmp + ".mrg", logFName);
-			exec ("LANG=C && sort -k2 -k3n -k4n -k5 -k1 " + tmp + ".mrg > " + tmp + ".sorted", logFName);
+			exec ("tail -n +2 " + tmp + ".amr     >  " + tmp + ".mrg");
+			exec ("tail -n +2 " + tmp + ".amr-snp >> " + tmp + ".mrg");
+			exec ("LANG=C && sort -k2 -k3n -k4n -k5 -k1 " + tmp + ".mrg > " + tmp + ".sorted");
 			// ".amr-out"
-  		exec ("head -1 " + tmp + ".amr    >  " + tmp + ".amr-out", logFName);
-			exec ("cat "     + tmp + ".sorted >> " + tmp + ".amr-out", logFName);
+  		exec ("head -1 " + tmp + ".amr    >  " + tmp + ".amr-out");
+			exec ("cat "     + tmp + ".sorted >> " + tmp + ".amr-out");
 			// ".amr"
-			exec ("mv " + tmp + ".amr-out " + tmp + ".amr", logFName);			
+			exec ("mv " + tmp + ".amr-out " + tmp + ".amr");
 		}
 		else if (   emptyArg (dna)
 		         && ! emptyArg (gff)
@@ -602,10 +609,10 @@ struct ThisApplication : ShellApplication
 		{ 
 		  // PD-2244
 			// ".amr-out"
-  		exec ("head -1 "    + tmp + ".amr                              >  " + tmp + ".amr-out", logFName);
-			exec ("LANG=C && tail -n +2 " + tmp + ".amr | sort -k2 -k3n -k4n -k5 -k1 >> " + tmp + ".amr-out", logFName);
+  		exec ("head -1 "    + tmp + ".amr                              >  " + tmp + ".amr-out");
+			exec ("LANG=C && tail -n +2 " + tmp + ".amr | sort -k2 -k3n -k4n -k5 -k1 >> " + tmp + ".amr-out");
 			// ".amr"
-			exec ("mv " + tmp + ".amr-out " + tmp + ".amr", logFName);			
+			exec ("mv " + tmp + ".amr-out " + tmp + ".amr");
 		}
 		
     // timing the run
@@ -614,9 +621,9 @@ struct ThisApplication : ShellApplication
 
 
 		if (emptyArg (output))
-		  exec ("cat " + tmp + ".amr", logFName);
+		  exec ("cat " + tmp + ".amr");
 		else
-		  exec ("cp " + tmp + ".amr " + output, logFName);
+		  exec ("cp " + tmp + ".amr " + output);
   }
 };
 

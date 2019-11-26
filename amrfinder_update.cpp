@@ -54,7 +54,7 @@ using namespace Common_sp;
 #ifdef SVN_REV
   #define SOFTWARE_VER SVN_REV
 #else
-  #define SOFTWARE_VER "3.3.1"
+  #define SOFTWARE_VER "3.3.2"
 #endif
 
 string curMinor;
@@ -165,7 +165,7 @@ string Curl::read (const string &url)
 
 
 #if 0
-  #define URL "https://ftp.ncbi.nlm.nih.gov/pathogen/Technical/AMRFinder_technical/data/"
+  #define URL "https://ftp.ncbi.nlm.nih.gov/pathogen/Technical/AMRFinder_technical/test_database/"
 #else
   #define URL "https://ftp.ncbi.nlm.nih.gov/pathogen/Antimicrobial_resistance/AMRFinderPlus/database/"
 #endif
@@ -353,12 +353,23 @@ Requirements:\n\
     fetchAMRFile (curl, urlDir, latestDir, "AMR_CDS");
     fetchAMRFile (curl, urlDir, latestDir, "database_format_version.txt");  // PD-3051 
     fetchAMRFile (curl, urlDir, latestDir, "fam.tab");
-    fetchAMRFile (curl, urlDir, latestDir, "gpipe.tab");
-    fetchAMRFile (curl, urlDir, latestDir, "taxgroup.list");
+    fetchAMRFile (curl, urlDir, latestDir, "taxgroup.tab");
     fetchAMRFile (curl, urlDir, latestDir, "version.txt");
     
-    LineInput taxf (latestDir + "taxgroup.list");
-    const StringVector dnaPointMuts (taxf. getVector ());
+    StringVector dnaPointMuts;
+    {
+      LineInput f (latestDir + "taxgroup.tab");
+      while (f. nextLine ())
+      {
+        string taxgroup, gpipe;
+        int n = -1;
+        istringstream iss (f. line);
+        iss >> taxgroup >> gpipe >> n;
+        QC_ASSERT (n >= 0);
+        if (n)
+          dnaPointMuts << taxgroup;
+      }
+    }
     for (const string& dnaPointMut : dnaPointMuts)
     {
       fetchAMRFile (curl, urlDir, latestDir, "AMR_DNA-" + dnaPointMut);
@@ -372,7 +383,7 @@ Requirements:\n\
 	  exec (fullProg ("makeblastdb") + " -in " + latestDir + "AMRProt  -dbtype prot  -logfile /dev/null");  
 	  exec (fullProg ("makeblastdb") + " -in " + latestDir + "AMR_CDS  -dbtype nucl  -logfile /dev/null");  
     for (const string& dnaPointMut : dnaPointMuts)
-  	  exec (fullProg ("makeblastdb") + " -in " + latestDir + "AMR_DNA-" + dnaPointMut + "  -dbtype nucl  -logfile /dev/null");  
+  	  exec (fullProg ("makeblastdb") + " -in " + latestDir + "AMR_DNA-" + dnaPointMut + "  -dbtype nucl  -logfile /dev/null");
   }
 };
 

@@ -126,8 +126,6 @@ struct PointMut
 	// !empty()
 	string geneMutation;
 	  // Depends on the above, except for pos
-	string geneMutationGen;
-	  // geneMutation generalized, may have a different pos
 	string classS;
 	string subclass;
 	string name;
@@ -137,17 +135,14 @@ struct PointMut
 	
 	PointMut (const string &gene_arg,
 	          size_t pos_arg,
-						char alleleChar_arg,
 						const string &geneMutation_arg,
-						const string &geneMutationGen_arg,
 						const string &class_arg,
 						const string &subclass_arg,
 						const string &name_arg)
 		: gene (gene_arg)
 		, pos (pos_arg)
-		, alleleChar (alleleChar_arg)
+		, alleleChar (geneMutation_arg. back ())  // ??
 		, geneMutation (geneMutation_arg)
-		, geneMutationGen (geneMutationGen_arg)
 		, classS (class_arg)
 		, subclass (subclass_arg)
 		, name (name_arg)
@@ -158,29 +153,18 @@ struct PointMut
 			QC_ASSERT (alleleChar != ' ');
 			alleleChar = toUpper (alleleChar);
 			QC_ASSERT (! geneMutation. empty ());
-			QC_ASSERT (! geneMutationGen. empty ());
 			QC_ASSERT (! name. empty ());
       QC_ASSERT (! contains (name, '\t'));
       replace (name, '_', ' ');
       QC_ASSERT (geneMutation. back () == alleleChar);
-      QC_ASSERT (geneMutationGen. back () == alleleChar);
 		}
 	PointMut () = default;
 
 
   bool empty () const
     { return gene. empty (); }
-#if 0
-  string getResistance () const
-    { size_t p = name. find (' ');
-    	ASSERT (p != string::npos);
-    	p = name. find (' ', p + 1);
-    	ASSERT (p != string::npos);
-    	return name. substr (p + 1);
-    }
-#endif
   bool better (const PointMut &other) const  
-    { if (geneMutationGen != other. geneMutationGen)
+    { if (geneMutation != other. geneMutation)
         return false;
     /*if (pos != other. pos)
         return false; */
@@ -190,10 +174,17 @@ struct PointMut
       LESS_PART (*this, other, geneMutation);  
       return false;
     }
+  bool operator< (const PointMut &other) const
+    { LESS_PART (*this, other, pos);
+      LESS_PART (*this, other, geneMutation);
+      return false;
+    }
+  bool operator== (const PointMut &other) const
+    { return geneMutation == other. geneMutation; }
 };
 
 
-map <string/*accession*/, vector<PointMut>>  accession2pointMuts;
+map <string/*accession*/, Vector<PointMut>>  accession2pointMuts;
 
 
 
@@ -230,23 +221,6 @@ struct BlastAlignment
     // blastn:  ...         ...          733       733          62285        63017        88215         105       837       837          ...
 	    ASSERT (! targetSeq. empty ());	
 	    ASSERT (targetSeq. size () == refSeq. size ());    
-
-    #if 0	    
-	    string refAccession;
-	    size_t refSegStart = 0;
-	    size_t refSegEnd = 0;
-	    {
-		    string s (refName);
-		    replace (s, ':', ' ');
-		    replace (s, '-', ' ');
-		    static Istringstream refNameIss;
-		    refNameIss. reset (s);
-		    refNameIss >> refAccession >> refSegStart >> refSegEnd;
-		    ASSERT (refSegStart);
-		    ASSERT (refSegStart < refSegEnd);
-		    refSegStart--;
-		  }
-		#endif
 
 	    ASSERT (refStart != refEnd);
 	    bool refStrand = refStart < refEnd;  
@@ -352,7 +326,7 @@ struct BlastAlignment
            << targetStart + 1
            << targetEnd
            << (targetStrand ? '+' : '-');
-        td << pm. geneMutationGen  
+        td << pm. geneMutation
            << pm. name
            << "core"  // PD-2825
            // PD-1856
@@ -448,18 +422,25 @@ struct Batch
   
   explicit Batch (const string &point_mut)
 	  {
-      LineInput f (point_mut);
-	  	string accession, gene, geneMutation, geneMutationGen, classS, subclass, name;
-			int pos;
-			char alleleChar;
- 	  	Istringstream iss;
-  	  while (f. nextLine ())
+	    {
+        LineInput f (point_mut);
+  	  	string accession, gene, geneMutation, classS, subclass, name;
+  			int pos;
+   	  	Istringstream iss;
+    	  while (f. nextLine ())
+    	  {
+     	  	iss. reset (f. line);
+    	  	iss >> accession >> gene >> pos >> geneMutation >> classS >> subclass >> name;
+    	  	ASSERT (pos > 0);
+   	  		accession2pointMuts [accession]. push_back (move (PointMut (gene, (size_t) pos, geneMutation, classS, subclass, name)));
+    	  }	    
+    	}
+  	  for (auto& it : accession2pointMuts)
   	  {
-   	  	iss. reset (f. line);
-  	  	iss >> accession >> gene >> pos >> alleleChar >> geneMutation >> geneMutationGen >> classS >> subclass >> name;
-  	  	ASSERT (pos > 0);
- 	  		accession2pointMuts [accession]. push_back (move (PointMut (gene, (size_t) pos, alleleChar, geneMutation, geneMutationGen, classS, subclass, name)));
-  	  }	    
+  	  	it. second. sort ();
+  	    if (! it. second. isUniq ())
+  	  	  throw runtime_error ("Duplicate mutations for " + it. first);
+  	  }
 	  }
 	  	  
 
@@ -589,8 +570,6 @@ struct ThisApplication : Application
                      << ' ' << it2. first 
                      << ' ' << pm1. geneMutation 
                      << ' ' << pm2. geneMutation 
-                     << ' ' << pm1. geneMutationGen 
-                     << ' ' << pm2. geneMutationGen 
                      << ' ' << pm1. neighborhoodMismatch 
                      << ' ' << pm2. neighborhoodMismatch 
                      << ' ' << pm1. better (pm2)
