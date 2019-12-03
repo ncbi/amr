@@ -40,11 +40,12 @@
 using namespace Common_sp;
 #include "gff.hpp"
 using namespace GFF_sp;
+#include "point_mut.hpp"
+using namespace PointMut_sp;
 
 
 
 static constexpr bool useCrossOrigin = false;  // GPipe: true
-static constexpr char pm_delimiter = '_';
 
 
 
@@ -287,131 +288,6 @@ public:
 
 
 
-struct PointMut
-{
-	size_t pos {0};
-	  // In whole reference sequence
-	  // = start of reference
-	  // >= 0
-	// !empty()
-	string geneMutation;
-	  // Depends on the above
-	string classS;
-	string subclass;
-	string name;
-	  // Species binomial + resistance
-	bool additional {false};
-	
-	// Replacement
-  // Upper-case
-  string reference;
-	string allele;
-
-	
-	PointMut (size_t pos_arg,
-						const string &geneMutation_arg,
-						const string &class_arg,
-						const string &subclass_arg,
-						const string &name_arg)
-		: pos (pos_arg)
-		, geneMutation (geneMutation_arg)
-		, classS (class_arg)
-		, subclass (subclass_arg)
-		, name (name_arg)
-		{ ASSERT (pos > 0);
-			pos--;
-			ASSERT (! name. empty ());
-      ASSERT (! contains (name, '\t'));
-      replace (name, '_', ' ');
-      ASSERT (! contains (name, "  "));
-      // reference, allele
-			parse (geneMutation, reference, allele);
-			if (allele == "STOP")
-			  allele = "*";
-			else if (allele == "del")
-			  allele. clear ();
-			ASSERT (isUpper (reference));
-			ASSERT (isUpper (allele));
-	  	ASSERT (reference != allele);
-		}
-	PointMut (const string &gene,
-	          size_t pos_arg,
-	          const string &reference_arg,
-	          const string &allele_arg)
-	  : pos (pos_arg)
-	  , geneMutation (gene + pm_delimiter + reference_arg + to_string (pos + 1) + allele_arg)
-	  , name (string (reference_arg == allele_arg ? "wildtype" : "mutation") + " " + strUpper1 (gene))
-	  , additional (true)
-	  , reference (reference_arg)
-	  , allele (allele_arg)
-	  { ASSERT (! gene. empty ());
-			ASSERT (isUpper (reference));
-			ASSERT (isUpper (allele));
-	  }
-	PointMut () = default;
-	static void parse (const string &geneMutation,
-	                   string &reference,
-	                   string &allele)
-	  { ASSERT (! geneMutation. empty ());
-	    ASSERT (reference. empty ());
-	    ASSERT (allele. empty ());
-	    enum Type {inAllele, inPos, inRef};
-	    Type type = inAllele;
-	    FOR_REV (size_t, i, geneMutation. size ())
-	    {
-	      const char c = geneMutation [i];
-	      switch (type)
-	      {
-	        case inAllele:
-	          if (isAlpha (c))
-  	          allele += c;
-  	        else
-  	          type = inPos;
-  	        break;
-	        case inPos:
-	          if (isAlpha (c))
-	          {
-	            type = inRef;
-	            reference = string (1, c);
-	          }
-	          break;
-	        case inRef:
-	          if (isAlpha (c))
-  	          reference += c;
-  	        else
-  	        {
-  	          reverse (allele);
-  	          reverse (reference);
-  	          return;
-  	        }
-  	        break;
-  	    }
-	    }
-	    NEVER_CALL;
-	  }
-
-
-  bool empty () const
-    { return name. empty (); }
-  string getResistance () const
-    { size_t p = name. find (' ');
-    	ASSERT (p != string::npos);
-    	p = name. find (' ', p + 1);
-    	ASSERT (p != string::npos);
-    	return name. substr (p + 1);
-    }
-  void print (ostream &os) const
-    { os << pos << ' ' << geneMutation << ' ' << name << endl; }
-  bool operator< (const PointMut &other) const
-    { LESS_PART (*this, other, pos);
-      LESS_PART (*this, other, geneMutation);
-      return false;
-    }
-  bool operator== (const PointMut &other) const
-    { return geneMutation == other. geneMutation; }
-};
-
-
 map <string/*accession*/, Vector<PointMut>>  accession2pointMuts;
 
 
@@ -423,46 +299,6 @@ const string stopCodonS ("[stop]");
 const string frameShiftS ("[frameshift]");
 
 unique_ptr<OFStream> point_mut_all;
-
-
-
-struct SeqChange
-{
-  size_t start {0};
-  size_t len {0};
-  string reference;
-  string allele;
-  size_t refStart {0};
-  
-  
-  SeqChange () = default;
-  void saveText (ostream &os) const
-    { os << start << ' ' << len << ' ' << reference << " -> " << allele << ' ' << refStart << endl; }
-  
-  
-  void setSeq (const string &targetSeq,
-               const string &refSeq)
-    { 
-      ASSERT (targetSeq. size () == refSeq. size ());
-      ASSERT (start + len < targetSeq. size ());
-      reference = refSeq.    substr (start, len);
-      allele    = targetSeq. substr (start, len);
-      replaceStr (reference, "-", "");
-      replaceStr (allele,    "-", "");
-      QC_ASSERT (reference != allele);
-      ASSERT (isUpper (reference));
-      ASSERT (isUpper (allele));
-    }
-  void setRefStart (const string &refSeq, 
-                    size_t refStart_arg)
-    {
-      ASSERT (refSeq [start] != '-');
-      refStart = refStart_arg;
-      FOR (size_t, i, start)
-        if (refSeq [i] != '-')
-          refStart++;
-    }
-};
 
 
 
@@ -527,8 +363,10 @@ struct BlastAlignment
 		  // format:  qseqid      sseqid    length    nident         qstart         qend         qlen      sstart      send      slen         sseq    qseq
 	    // blastp:  ...         ...          663       169              2          600          639           9       665       693          ...
 	    // blastx:  ...         ...          381       381          13407        14549        57298           1       381       381          ...
-		    ASSERT (! targetSeq. empty ());	
-		    ASSERT (targetSeq. size () == refSeq. size ());    
+		    QC_ASSERT (! targetSeq. empty ());	
+		    QC_ASSERT (targetSeq. size () == refSeq. size ());    
+		    
+		    normalizeAlignment (targetSeq, refSeq);
 
         try
         {	
@@ -546,7 +384,7 @@ struct BlastAlignment
 			  {
 			  	throw runtime_error (string ("Bad AMRFinder database\n") + e. what ());
 			  }
-		    ASSERT (gi > 0);
+		    QC_ASSERT (gi > 0);
 		    	    
 		    replace (product, '_', ' ');
 		    
@@ -573,18 +411,18 @@ struct BlastAlignment
 		    }
 		    
 
-		    ASSERT (refStart < refStop);  
+		    QC_ASSERT (refStart < refStop);  
 	
-		    ASSERT (targetStart != targetStop);
+		    QC_ASSERT (targetStart != targetStop);
 		    targetStrand = targetStart < targetStop;  
-		    IMPLY (targetProt, targetStrand);
+		    QC_IMPLY (targetProt, targetStrand);
 		    if (! targetStrand)
 		      swap (targetStart, targetStop);
 		      
-		    ASSERT (refStart >= 1);
-		    ASSERT (targetStart >= 1);
-		    ASSERT (refStart < refStop);
-		    ASSERT (targetStart < targetStop);
+		    QC_ASSERT (refStart >= 1);
+		    QC_ASSERT (targetStart >= 1);
+		    QC_ASSERT (refStart < refStop);
+		    QC_ASSERT (targetStart < targetStop);
 		    refStart--;
 		    targetStart--;
 	
@@ -627,7 +465,7 @@ struct BlastAlignment
 		    {
 		    	if (verbose ())
 		        cout << "PointMut protein found: " << refName << endl;
-  	      ASSERT (isPointMut ());
+  	      QC_ASSERT (isPointMut ());
 		      ASSERT (! pointMuts_all->empty ());
 		      
 		      // pmGene
@@ -654,6 +492,8 @@ struct BlastAlignment
   			          }
    			          ASSERT (! seqChange. reference. empty ());
    			          seqChange. setRefStart (refSeq, refStart);
+   			          if (verbose ())
+   			            seqChange. saveText (cout);
   			          seqChanges << move (seqChange);
   			          seqChange = SeqChange ();
   			          inSeqChange = false;
@@ -686,7 +526,9 @@ struct BlastAlignment
 	    		size_t refStart_prev = NO_INDEX;
   			  for (const SeqChange& seqChange : seqChanges)
   			  {
-  			    IMPLY (refStart_prev != NO_INDEX, refStart_prev < seqChange. refStart);
+  			    if (verbose ())
+  			      seqChange. saveText (cout);
+  			    QC_IMPLY (refStart_prev != NO_INDEX, refStart_prev < seqChange. refStart);
   			    while (j < pointMuts_all->size ())
   			    {
       			  const PointMut& pm = pointMuts_all->at (j);
@@ -697,8 +539,9 @@ struct BlastAlignment
 			      	}      			    
       			  if (pm. pos > seqChange. refStart)
       			    break;
-      			  if (   pm. pos    == seqChange. refStart
-      			      && pm. allele == seqChange. allele
+      			  if (   pm. pos       == seqChange. refStart
+      			      && pm. reference == seqChange. reference
+      			      && pm. allele    == seqChange. allele
       			     )
   	    		  	pointMuts << pm;
 	    		    j++;
@@ -795,6 +638,7 @@ struct BlastAlignment
       for (const Locus& cds : cdss_)
 	      for (const PointMut& pm : pointMuts_)
 	      {
+	      //IMPLY (isPointMut (), ! pm. empty ());  // May be invoked for debugging
           const string method (getMethod (cds));
 	        TabDel td (2, false);
           td << (targetProt ? targetName : na);  // PD-2534
@@ -1378,6 +1222,8 @@ struct Batch
 	  	  	if (organism_ == organism)
 	  	  		accession2pointMuts [accession] << move (PointMut ((size_t) pos, geneMutation, classS, subclass, name));
 	  	  }
+	  	  if (verbose ())
+	  	    PRINT (accession2pointMuts. size ());
 	  	#if 0
 	  	  // PD-2008
 	  	  if (accession2pointMuts. empty ())
@@ -1858,7 +1704,7 @@ struct ThisApplication : Application
     const string dnaLenFName          = getArg ("dna_len");
     const string hmmDom               = getArg ("hmmdom");
     const string hmmsearch            = getArg ("hmmsearch");  
-    const string organism             = getArg ("organism");  
+          string organism             = getArg ("organism");  
     const string point_mut            = getArg ("point_mut");  
     const string point_mut_all_FName  = getArg ("point_mut_all");
     const string suppress_prot_FName  = getArg ("suppress_prot");
@@ -1875,6 +1721,8 @@ struct ThisApplication : Application
     const bool   noblast              = getFlag ("noblast");
     const bool   nohmm                = getFlag ("nohmm");
     const bool   retainBlasts         = getFlag ("retain_blasts");
+    
+    replace (organism, '_', ' ');
     
     QC_ASSERT (hmmsearch. empty () == hmmDom. empty ());
     QC_IMPLY (! outFName. empty (), ! blastpFName. empty ());
@@ -1895,7 +1743,7 @@ struct ThisApplication : Application
     	
     if (partial_coverage_min > complete_coverage_min_def)
       throw runtime_error ("-coverage_min must be less than " + toString (complete_coverage_min_def) + " - threshod for complete matches");
-
+      
 
     defaultCompleteBR = BlastRule (ident_min, complete_coverage_min_def);  
     defaultPartialBR  = BlastRule (ident_min, partial_coverage_min);

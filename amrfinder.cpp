@@ -30,6 +30,9 @@
 *   AMRFinder
 *
 * Release changes:
+*   3.4.1 12/02/2019 PD-3193  AMR_DNA-*.tab: column "genesymbol" is removed
+*                             product name is fixed for point mutations
+*                             point_mut.cpp -> dna_point_mut.cpp
 *   3.3.2 11/26/2019 PD-3193  Indel mutations: partially implemented
 *                             Bug fixed: protein point mutations were reported incorrectly if there was an offset w.r.t. the reference sequence
 *                             Files AMRProt-point_mut.tab and AMR_DNA-<taxgroup>.tab: columns allele, symbol are removed
@@ -60,9 +63,9 @@ using namespace Common_sp;
 #ifdef SVN_REV
   #define SOFTWARE_VER SVN_REV
 #else
-  #define SOFTWARE_VER "3.3.2"
+  #define SOFTWARE_VER "3.4.1"
 #endif
-#define DATA_VER_MIN "2019-11-25.1"  
+#define DATA_VER_MIN "2019-12-02.1"  
 
 
 
@@ -435,10 +438,11 @@ struct ThisApplication : ShellApplication
 	  if (! organism1. empty ())
  	  	if (! report_common)
  	  	  suppress_common = true;
+ 	  ASSERT (! contains (organism1, ' '));
 
 
     const string qcS (qc_on ? " -qc  -verbose 1" : "");
-		const string force_cds_report (! emptyArg (dna) && ! organism1. empty () ? "-force_cds_report" : "");  // Needed for point_mut
+		const string force_cds_report (! emptyArg (dna) && ! organism1. empty () ? "-force_cds_report" : "");  // Needed for dna_point_mut
 		
 								  
     findProg ("fasta_check");
@@ -561,7 +565,7 @@ struct ThisApplication : ShellApplication
   		   )
   		{
   			findProg ("blastn");
-  			findProg ("point_mut");
+  			findProg ("dna_point_mut");
   			stderr << "Running blastn...\n";
   			exec (fullProg ("blastn") + " -query " + dna_ + " -db " + db + "/AMR_DNA-" + organism1 + " -evalue 1e-20  -dust no  "
   			  "-outfmt '6 qseqid sseqid length nident qstart qend qlen sstart send slen qseq sseq' -out " + tmp + ".blastn > " + logFName + " 2> " + logFName, logFName);
@@ -592,7 +596,7 @@ struct ThisApplication : ShellApplication
 		    && fileExists (db + "/AMR_DNA-" + organism1)
 		   )
 		{
-			exec (fullProg ("point_mut") + tmp + ".blastn " + db + "/AMR_DNA-" + organism1 + ".tab" + qcS + " -log " + logFName + " > " + tmp + ".amr-snp", logFName);
+			exec (fullProg ("dna_point_mut") + tmp + ".blastn " + db + "/AMR_DNA-" + organism1 + ".tab" + qcS + " -log " + logFName + " > " + tmp + ".amr-snp", logFName);
 			// merging, sorting
 			exec ("tail -n +2 " + tmp + ".amr     >  " + tmp + ".mrg");
 			exec ("tail -n +2 " + tmp + ".amr-snp >> " + tmp + ".mrg");
