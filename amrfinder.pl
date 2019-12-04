@@ -235,7 +235,7 @@ sub download_database {
         system("mkdir -p $base_dir") and die "Couldn't mkdir $base_dir";
     }
     my $latest_version = get_latest_db_version();
-    print STDERR "Dowloading AMRFinder database version $latest_version\n" unless ($quiet);
+    print STDERR "Downloading AMRFinder database version $latest_version\n" unless ($quiet);
     my $ftp = Net::FTP->new("ftp.ncbi.nlm.nih.gov", Passive => 1) or die "Cannot connect to hostname $@" ;
     $ftp->login("anonymous", 'AMRFinder@ncbi') or die "Couldn't log in to ftp.ncbi.nlm.nih.gov: ", $ftp->message;
     $ftp->cwd('/pathogen/Antimicrobial_resistance/AMRFinder/data/latest')

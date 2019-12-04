@@ -339,7 +339,7 @@ Requirements:\n\
     
     const StringVector dnaPointMuts (ORGANISMS, '|');
     
-    stderr << "Dowloading AMRFinder database version " << latest_version << " into " << latestDir << "\n";
+    stderr << "Downloading AMRFinder database version " << latest_version << " into " << latestDir << "\n";
     const string urlDir (URL + curMinor + "/" + latest_version + "/");
     fetchAMRFile (curl, urlDir, latestDir, "AMR.LIB");
     fetchAMRFile (curl, urlDir, latestDir, "AMRProt");
