@@ -2352,6 +2352,7 @@ string Application::key2shortHelp (const string &name) const
 string Application::getInstruction () const
 {
   string instr (description);
+
   instr += "\n\nUSAGE:   " + programName;
 
   for (const Positional& p : positionals)
@@ -2384,10 +2385,8 @@ string Application::getInstruction () const
 	if (! requiredGroup_prev. empty ())
 		instr += ")";
   
-//if (! contains (name2arg, "help"))
-    instr += "\nHELP:    " + programName + " " + ifS (gnu, "-") + "-" + helpS;
-//if (! contains (name2arg, "version"))
-	  instr += "\nVERSION: " + programName + " " + ifS (gnu, "-") + "-" + versionS;
+  instr += "\nHELP:    " + programName + " " + ifS (gnu, "-") + "-" + helpS;
+  instr += "\nVERSION: " + programName + " " + ifS (gnu, "-") + "-" + versionS;
 
   return instr;
 }
@@ -2417,7 +2416,7 @@ string Application::getHelp () const
 	    	instr += par + "Default: " + key. defaultValue;
 	  }
 	}
-  
+	
   return instr;
 }
 

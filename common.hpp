@@ -414,6 +414,10 @@ inline bool isDelimiter (char c)
  
 
 
+constexpr double NaN = numeric_limits<double>::quiet_NaN ();  
+
+
+
 /* Usage:
   for (Iter<T> iter (t); iter. next (); )
     ...
