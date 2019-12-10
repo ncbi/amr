@@ -4,7 +4,7 @@ data/
 amr_report
 amrfinder
 fasta_check
-dna_point_mut
+dna_mutation
 gff_check
 amrfinder_update
 fasta2parts
