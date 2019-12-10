@@ -175,15 +175,11 @@ struct ThisApplication : ShellApplication
 
   string file2link (const string &fName) const
   {
-    exec ("file " + fName + " > " + tmp + ".file");
-    
-    LineInput f (tmp + ".file");
-    string s (f. getString ());
-    
-    trimPrefix (s, fName + ": ");
-    if (isLeft (s, "symbolic link to "))
-      return s;
-    return string ();
+    string s = realpath(fName.c_str(), NULL);
+
+    if (s == fName)
+      return string ();
+    return s;
   }
 
 
