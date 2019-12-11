@@ -433,6 +433,7 @@ struct BlastAlignment : Alignment
     , product    (other. fam->familyName)   
     { targetName = other. sseqid;
       targetProt = true;
+      alProt = true;
       if (allele ())
         ERROR_MSG (famId + " " + gene);
       ASSERT (other. good ());

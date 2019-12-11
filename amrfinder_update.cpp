@@ -29,6 +29,9 @@
 * File Description:
 *   Updating of AMRFinder data
 *
+* Dependencies: NCBI BLAST, HMMer
+*               mkdir, ln, rm
+*
 * Release changes:
 *
 */
@@ -53,7 +56,7 @@ using namespace Common_sp;
 #ifdef SVN_REV
   #define SOFTWARE_VER SVN_REV
 #else
-  #define SOFTWARE_VER "3.4.2"
+  #define SOFTWARE_VER "3.4.3"
 #endif
 
 string curMinor;

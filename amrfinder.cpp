@@ -29,8 +29,13 @@
 * File Description:
 *   AMRFinder
 *
+* Dependencies: NCBI BLAST, HMMer, 
+*               cat, cp, cut, file, grep, head, mkdir, mv, nproc, sed, sort, tail
+*
 * Release changes:
-*   3.4.2 12/06/2019 PD-3209  alignment correction for mutations
+*   3.4.3 12/11/2019 PD-2171  --mutation_all bug
+*                             --debug does not imply "-verbose 1"
+*   3.4.2 12/10/2019 PD-3209  alignment correction for mutations
 *                             point_mut.{hpp,cpp} -> alignment.{hpp,cpp}
 *                             dna_point_mut.cpp -> dna_mutation.cpp
 *                             AMRProt-point_mut.tab -> AMRProt-mutation.tab
@@ -71,7 +76,7 @@ using namespace Common_sp;
 #ifdef SVN_REV
   #define SOFTWARE_VER SVN_REV
 #else
-  #define SOFTWARE_VER "3.4.2"
+  #define SOFTWARE_VER "3.4.3"
 #endif
 #define DATA_VER_MIN "2019-12-06.1"  
 
@@ -175,11 +180,22 @@ struct ThisApplication : ShellApplication
 
   string file2link (const string &fName) const
   {
-    string s = realpath(fName.c_str(), NULL);
-
+  #if 1
+    const string s (realpath (fName. c_str(), nullptr));
     if (s == fName)
       return string ();
     return s;
+  #else
+    exec ("file " + fName + " > " + tmp + ".file");
+    
+    LineInput f (tmp + ".file");
+    string s (f. getString ());
+    
+    trimPrefix (s, fName + ": ");
+    if (isLeft (s, "symbolic link to "))
+      return s;
+    return string ();
+  #endif
   }
 
 
@@ -222,7 +238,7 @@ struct ThisApplication : ShellApplication
 
     Stderr stderr (quiet);
     stderr << "Running "<< getCommandLine () << '\n';
-    const Verbose vrb (qc_on);
+  //const Verbose vrb (qc_on);
     
     if (threads_max < threads_max_min)
       throw runtime_error ("Number of threads cannot be less than " + to_string (threads_max_min));
@@ -447,7 +463,7 @@ struct ThisApplication : ShellApplication
  	  ASSERT (! contains (organism1, ' '));
 
 
-    const string qcS (qc_on ? " -qc  -verbose 1" : "");
+    const string qcS (qc_on ? " -qc" : "");
 		const string force_cds_report (! emptyArg (dna) && ! organism1. empty () ? "-force_cds_report" : "");  // Needed for dna_mutation
 		
 								  

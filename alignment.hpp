@@ -104,6 +104,7 @@ struct Alignment;
 
 
 struct SeqChange
+// Report real mutation in AMRFinder ??
 {
   const Alignment* al {nullptr};
     // !nullptr
@@ -113,6 +114,7 @@ struct SeqChange
   size_t start {0};
   size_t len {0};
   string reference;
+    // Insertion => !empty() by artifically decrementing start and incrementing len
   string allele;
 
   size_t start_ref {0};
@@ -133,13 +135,14 @@ struct SeqChange
     : al (al_arg)
     , mutation (checkPtr (mutation_arg))
     {}
+  void qc () const;
 
 
   void saveText (ostream &os) const
     { os        << start + 1 
          << ' ' << len 
          << ' ' << reference << " -> " << allele 
-         << ' ' << start_ref + 1 
+         << ' ' << start_ref + 1 << ".." << stop_ref
          << ' ' << start_target + 1 
          << ' ' << neighborhoodMismatch
          << endl; 
@@ -191,8 +194,11 @@ struct Alignment
   size_t refEnd {0};
   size_t refLen {0};  
   
-  // Alignment quality
+  // Alignment
+  bool alProt {false};
   size_t nident {0};
+  size_t al2ref_len {1};
+  size_t al2target_len {1};
 
   Vector<SeqChange> seqChanges;
 
@@ -236,14 +242,10 @@ public:
   size_t targetTail (bool upstream) const
     { return targetStrand == upstream ? targetStart : (targetLen - targetEnd); }
   bool refExactlyMatched () const
-    { return    refLen   
+    { return    refProt
+             && refLen   
              && nident == refLen 
-             && refLen == targetSeq. size ();
-	  }
-  bool targetExactlyMatched () const
-    { return    targetLen   
-             && nident == targetLen 
-             && targetLen == targetSeq. size ();
+             && nident == targetSeq. size ();
 	  }
 };
 
