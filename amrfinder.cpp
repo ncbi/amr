@@ -29,10 +29,11 @@
 * File Description:
 *   AMRFinder
 *
-* Dependencies: NCBI BLAST, HMMer, 
-*               cat, cp, cut, file, grep, head, mkdir, mv, nproc, sed, sort, tail
+* Dependencies: NCBI BLAST, HMMer
+*               cat, cp, cut, grep, head, mkdir, mv, nproc, sed, sort, tail
 *
 * Release changes:
+*   3.5.1 12/12/2019 PD-3277  Files AMRProt-mutation.tab, AMRProt-suppress, AMR_DNA-<TAXGROUP>.tab and taxgroup.tab have headers
 *   3.4.3 12/11/2019 PD-2171  --mutation_all bug
 *                             --debug does not imply "-verbose 1"
 *   3.4.2 12/10/2019 PD-3209  alignment correction for mutations
@@ -76,9 +77,9 @@ using namespace Common_sp;
 #ifdef SVN_REV
   #define SOFTWARE_VER SVN_REV
 #else
-  #define SOFTWARE_VER "3.4.3"
+  #define SOFTWARE_VER "3.5.1"
 #endif
-#define DATA_VER_MIN "2019-12-06.1"  
+#define DATA_VER_MIN "2019-12-12.1"  
 
 
 
@@ -202,8 +203,8 @@ struct ThisApplication : ShellApplication
 
   StringVector db2organisms (const string &db) const
   {
-    exec ("cut -f 1 " + db + "/AMRProt-mutation.tab | sort -u > " + tmp + ".prot_org");
-    exec ("cut -f 1 " + db + "/taxgroup.tab         | sort -u > " + tmp + ".tax_org");
+    exec ("tail -n +2 " + db + "/AMRProt-mutation.tab | cut -f 1 > " + tmp + ".prot_org");
+    exec ("tail -n +2 " + db + "/taxgroup.tab         | cut -f 1 > " + tmp + ".tax_org");
     exec ("cat " + tmp + ".prot_org " + tmp + ".tax_org | sort -u > " + tmp + ".org");
     LineInput f (tmp + ".org");
     return f. getVector ();
@@ -433,6 +434,8 @@ struct ThisApplication : ShellApplication
         bool found = false;
         while (f. nextLine ())
         {
+	  	    if (isLeft (f. line, "#"))
+	  	      continue;
           iss. reset (f. line);
           string org, gpipeOrg;
           int num = -1;
@@ -600,7 +603,7 @@ struct ThisApplication : ShellApplication
   	  
   	
   	if (suppress_common)
-			exec ("set +o pipefail && grep -w ^" + organism1 + " " + db + "/AMRProt-suppress | cut -f 2 > " + tmp + ".suppress_prot"); 
+			exec ("set +o pipefail && grep -v '^#' " + db + "/AMRProt-suppress | grep -w ^" + organism1 + " | cut -f 2 > " + tmp + ".suppress_prot"); 
 		
 
     // ".amr"

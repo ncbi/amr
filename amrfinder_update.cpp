@@ -56,7 +56,7 @@ using namespace Common_sp;
 #ifdef SVN_REV
   #define SOFTWARE_VER SVN_REV
 #else
-  #define SOFTWARE_VER "3.4.3"
+  #define SOFTWARE_VER "3.5.1"
 #endif
 
 string curMinor;
@@ -363,6 +363,8 @@ Requirements:\n\
       LineInput f (latestDir + "taxgroup.tab");
       while (f. nextLine ())
       {
+   	    if (isLeft (f. line, "#"))
+	 	      continue;
         string taxgroup, gpipe;
         int n = -1;
         istringstream iss (f. line);

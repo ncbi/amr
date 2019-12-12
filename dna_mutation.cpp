@@ -51,7 +51,7 @@ using namespace Alignment_sp;
 #ifdef SVN_REV
   #define SOFTWARE_VER SVN_REV
 #else
-  #define SOFTWARE_VER "3.4.3"
+  #define SOFTWARE_VER "3.5.1"
 #endif
 
 
@@ -161,6 +161,8 @@ struct Batch
    	  	Istringstream iss;
     	  while (f. nextLine ())
     	  {
+	  	    if (isLeft (f. line, "#"))
+	  	      continue;
      	  	iss. reset (f. line);
     	  	iss >> accession >> pos >> geneMutation >> classS >> subclass >> name;
     	  	QC_ASSERT (pos > 0);

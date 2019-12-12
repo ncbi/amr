@@ -1042,6 +1042,8 @@ struct Batch
 	      Istringstream iss;
 	  	  while (f. nextLine ())
 	  	  {
+	  	    if (isLeft (f. line, "#"))
+	  	      continue;
 	  	  	string organism_, accession, geneMutation, classS, subclass, name;
 					int pos;
     	  	iss. reset (f. line);
