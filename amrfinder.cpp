@@ -33,6 +33,7 @@
 *               cat, cp, cut, grep, head, mkdir, mv, nproc, sed, sort, tail
 *
 * Release changes:
+*   3.5.2 12/13/2019 PD-3269  New flag --pgapx
 *   3.5.1 12/12/2019 PD-3277  Files AMRProt-mutation.tab, AMRProt-suppress, AMR_DNA-<TAXGROUP>.tab and taxgroup.tab have headers
 *   3.4.3 12/11/2019 PD-2171  --mutation_all bug
 *                             --debug does not imply "-verbose 1"
@@ -77,7 +78,7 @@ using namespace Common_sp;
 #ifdef SVN_REV
   #define SOFTWARE_VER SVN_REV
 #else
-  #define SOFTWARE_VER "3.5.1"
+  #define SOFTWARE_VER "3.5.2"
 #endif
 #define DATA_VER_MIN "2019-12-12.1"  
 
@@ -132,7 +133,8 @@ struct ThisApplication : ShellApplication
     	addKey ("parm", "amr_report parameters for testing: -nosame -noblast -skip_hmm_check -bed", "", '\0', "PARM");
       addKey ("output", "Write output to OUTPUT_FILE instead of STDOUT", "", 'o', "OUTPUT_FILE");
       addFlag ("quiet", "Suppress messages to STDERR", 'q');
-      addFlag ("gpipe", "NCBI GPipe processing: protein identifiers in the protein FASTA file have format 'gnl|<project>|<accession>', different organism names");
+      addFlag ("gpipe", "NCBI internal GPipe processing: protein identifiers in the protein FASTA file have format 'gnl|<project>|<accession>', different organism names");
+      addFlag ("pgapx", "Input protein, genomic and GFF files are created by the external NCBI PGAP. Format is described at https://github.com/ncbi/pgap/wiki/Output-Files");
 	    version = SOFTWARE_VER;  
 	  #if 0
 	    setRequiredGroup ("protein",    "Input");
@@ -232,6 +234,7 @@ struct ThisApplication : ShellApplication
     const string output          = shellQuote (getArg ("output"));
     const bool   quiet           =             getFlag ("quiet");
     const bool   gpipe           =             getFlag ("gpipe");
+    const bool   pgapx           =             getFlag ("pgapx");
     
     
 		const string logFName (tmp + ".log");
@@ -253,6 +256,9 @@ struct ThisApplication : ShellApplication
 	  if (report_common && emptyArg (organism))
 		  throw runtime_error ("--report_common requires --organism");
 		  
+    if (gpipe && pgapx)
+      throw runtime_error ("Flags --gpipe and --pgapx are mutually exclusive");
+
 
 		if (! emptyArg (output))
 		  try { OFStream f (unQuote (output)); }
@@ -477,6 +483,7 @@ struct ThisApplication : ShellApplication
     
     string amr_report_blastp;	
  		string amr_report_blastx;
+	  const string pgapxS (ifS (pgapx, " -pgapx"));
  		bool blastxChunks = false;
     {
       Threads th (threads_max - 1, true);  
@@ -494,7 +501,13 @@ struct ThisApplication : ShellApplication
   		{
   		  dna_ = tmp + ".dna";
   		  if (system (("sed 's/^>gnl|[^|]*|/>/1' " + dna + " > " + dna_). c_str ()))
-  		    throw runtime_error ("Cannot remove 'gnl' from " + dna);
+  		    throw runtime_error ("Cannot remove 'gnl|...|' from " + dna);
+  		}
+  		if (! emptyArg (dna) && pgapx)
+  		{
+  		  dna_ = tmp + ".dna";
+  		  if (system (("sed 's/^>lcl|/>/1' " + dna + " > " + dna_). c_str ()))
+  		    throw runtime_error ("Cannot remove 'lcl|' from " + dna);
   		}
   		
   		
@@ -511,7 +524,7 @@ struct ThisApplication : ShellApplication
   			findProg ("blastp");  			
   			findProg ("hmmsearch");
   			
-  		  exec (fullProg ("fasta_check") + prot + " -aa -hyphen  -log " + logFName, logFName);  
+  		  exec (fullProg ("fasta_check") + prot + " -aa -hyphen " + qcS + " -log " + logFName, logFName);  
   			
   			string gff_match;
   			if (! emptyArg (gff) && ! contains (parm, "-bed"))
@@ -529,7 +542,7 @@ struct ThisApplication : ShellApplication
   			  if (! emptyArg (dna))
   			    dnaPar = " -dna " + dna_;
   			  const string gpipeS (ifS (gpipe, " -gpipe"));
-  			  exec (fullProg ("gff_check") + gff + " -prot " + prot + dnaPar + gpipeS + locus_tag + " -log " + logFName, logFName);
+  			  exec (fullProg ("gff_check") + gff + " -prot " + prot + dnaPar + gpipeS + pgapxS + locus_tag + qcS + " -log " + logFName, logFName);
   			}
   			
   			if (! fileExists (db + "/AMRProt.phr"))
@@ -561,13 +574,13 @@ struct ThisApplication : ShellApplication
   			stderr << "Running blastx...\n";
   			findProg ("blastx");
 
-  		  exec (fullProg ("fasta_check") + dna_ + " -hyphen  -len "+ tmp + ".len  -log " + logFName, logFName); 
+  		  exec (fullProg ("fasta_check") + dna_ + " -hyphen  -len "+ tmp + ".len " + qcS + " -log " + logFName, logFName); 
   		  const size_t threadsAvailable = th. getAvailable ();
   		//ASSERT (threadsAvailable);
   		  if (threadsAvailable >= 2)
   		  {
     		  exec ("mkdir " + tmp + ".chunk");
-    		  exec (fullProg ("fasta2parts") + dna_ + " " + to_string (threadsAvailable) + " " + tmp + ".chunk  -log " + logFName, logFName);   // PAR
+    		  exec (fullProg ("fasta2parts") + dna_ + " " + to_string (threadsAvailable) + " " + tmp + ".chunk " + qcS + " -log " + logFName, logFName);   // PAR
     		  exec ("mkdir " + tmp + ".blastx_dir");
     		  FileItemGenerator fig (false, true, tmp + ".chunk");
     		  string item;
@@ -614,7 +627,7 @@ struct ThisApplication : ShellApplication
 		  + force_cds_report + " -pseudo" + coreS
 		  + (ident == -1 ? string () : "  -ident_min "    + toString (ident)) 
 		  + "  -coverage_min " + toString (cov)
-		  + ifS (suppress_common, " -suppress_prot " + tmp + ".suppress_prot")
+		  + ifS (suppress_common, " -suppress_prot " + tmp + ".suppress_prot") + pgapxS
 		  + qcS + " " + parm + " -log " + logFName + " > " + tmp + ".amr", logFName);
 		if (   ! emptyArg (dna) 
 		    && ! organism1. empty ()

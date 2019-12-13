@@ -61,6 +61,7 @@ struct Locus
   size_t contigLen {0};
     // 0 <=> unknown
   bool crossOrigin {false};
+
   
   Locus (size_t lineNum_arg,
          const string &contig_arg,
@@ -71,6 +72,7 @@ struct Locus
          size_t crossOriginSeqLen);
   Locus () = default;
     
+
   bool empty () const
     { return contig. empty (); }
   void print (ostream &os) const
@@ -91,13 +93,15 @@ struct Locus
 
 struct Annot : Root
 {	
-  map<string, Set<Locus>> prot2cdss; 
+  map<string/*protein accession*/, Set<Locus>> prot2cdss; 
 
 
   class Gff {};
   Annot (Gff,
          const string &fName,
-         bool locus_tag);
+         bool trimProject,
+         bool locus_tag,
+         bool pgapx);
 		// https://github.com/The-Sequence-Ontology/Specifications/blob/master/gff3.md
 		// Requirement: the protein id should be in the attribute "Name=<id>" (9th field) of the rows with type "CDS" or "gene" (3rd field)
     // Input: fName may be empty

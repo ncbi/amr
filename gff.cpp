@@ -98,8 +98,13 @@ bool Locus::operator< (const Locus& other) const
 
 Annot::Annot (Gff,
 	            const string &fName,
-	            bool locus_tag)
+	            bool trimProject,
+	            bool locus_tag,
+	            bool pgapx)
 {
+  IMPLY (pgapx, ! locus_tag);
+  IMPLY (pgapx, ! trimProject);
+
 	if (fName. empty ())
 		throw runtime_error ("Empty GFF file name");
 	
@@ -134,8 +139,9 @@ Annot::Annot (Gff,
     if (attributes. empty ())
     	throw runtime_error (errorS + "9 fields are expected in each line");
 
-    if (contains (contig, ":"))
-      findSplit (contig, ':');  // = project_id
+    if (trimProject)
+      if (contains (contig, ":"))
+        findSplit (contig, ':');  // = project_id
     if (contig. empty ())
     	throw runtime_error (errorS + "empty sequence indentifier");
 	  for (const char c : contig)
@@ -146,6 +152,9 @@ Annot::Annot (Gff,
         && type != "gene"
         && type != "pseudogene"
        )
+      continue;
+      
+    if (pgapx && type != "CDS")
       continue;
       
     long start = -1;
@@ -185,25 +194,31 @@ Annot::Annot (Gff,
     const bool partial = contains (attributes, "partial=true");
 
     string locusTag;
-    const string locusTagName (locus_tag || pseudo ? "locus_tag=" : "Name=");
+    const string locusTagName (! pgapx && (locus_tag || pseudo) ? "locus_tag=" : "Name=");
     while (! attributes. empty ())
     {
 	    locusTag = findSplit (attributes, ';');
-	    while (trimPrefix (locusTag, "_"));  // trim leading spaces
+  	  trim (locusTag, tmpSpace);
 	    if (isLeft (locusTag, locusTagName))
 	      break;
 	  }
     if (! isLeft (locusTag, locusTagName))
     	continue;
     //throw runtime_error (errorS + "No attribute '" + locusTagName + "': " + f. line);
-	  if (contains (locusTag, ":"))
+	  if (! pgapx && contains (locusTag, ":"))
 	    { EXEC_ASSERT (isLeft (findSplit (locusTag, ':'), locusTagName)); }
 	  else
 	    findSplit (locusTag, '='); 
 	  trimPrefix (locusTag, "\"");
 	  trimSuffix (locusTag, "\"");
 	  trim (locusTag, tmpSpace);
-	  ASSERT (! locusTag. empty ());
+	  if (pgapx)
+	  {
+	    if (! trimPrefix (locusTag, "extdb:"))
+	      throw runtime_error (errorS + "PGAPx GFF file has no \"extdb:\" prefix in the protein_id in the Name field");
+	    locusTag = "gnl|extdb|" + locusTag;
+	  }
+	  QC_ASSERT (! locusTag. empty ());
 	  
 	  const Locus locus (f. lineNum, contig, (size_t) start, (size_t) stop, strand == "+", partial, 0);
 	#if 0
