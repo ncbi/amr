@@ -33,6 +33,8 @@
 *               cat, cp, cut, grep, head, mkdir, mv, nproc, sed, sort, tail
 *
 * Release changes:
+*   3.5.3 12/16/2019 PD-3279  GPipe-GenColl assemblies, --gpipe_org
+*                    GP-28025
 *   3.5.2 12/13/2019 PD-3269  New flag --pgapx
 *   3.5.1 12/12/2019 PD-3277  Files AMRProt-mutation.tab, AMRProt-suppress, AMR_DNA-<TAXGROUP>.tab and taxgroup.tab have headers
 *   3.4.3 12/11/2019 PD-2171  --mutation_all bug
@@ -78,7 +80,7 @@ using namespace Common_sp;
 #ifdef SVN_REV
   #define SOFTWARE_VER SVN_REV
 #else
-  #define SOFTWARE_VER "3.5.2"
+  #define SOFTWARE_VER "3.5.3"
 #endif
 #define DATA_VER_MIN "2019-12-12.1"  
 
@@ -115,11 +117,12 @@ struct ThisApplication : ShellApplication
   ThisApplication ()
     : ShellApplication (HELP, true, true, true)
     {
+    	addFlag ("update", "Update the AMRFinder database", 'u');  // PD-2379
     	addKey ("protein", "Protein FASTA file to search", "", 'p', "PROT_FASTA");
     	addKey ("nucleotide", "Nucleotide FASTA file to search", "", 'n', "NUC_FASTA");
     	addKey ("gff", "GFF file for protein locations. Protein id should be in the attribute 'Name=<id>' (9th field) of the rows with type 'CDS' or 'gene' (3rd field).", "", 'g', "GFF_FILE");
+      addFlag ("pgapx", "Input files PROT_FASTA, NUC_FASTA and GFF_FILE are created by the external NCBI PGAP. Format is described at https://github.com/ncbi/pgap/wiki/Output-Files");
     	addKey ("database", "Alternative directory with AMRFinder database. Default: $AMRFINDER_DB", "", 'd', "DATABASE_DIR");
-    	addFlag ("update", "Update the AMRFinder database", 'u');  // PD-2379
     	addKey ("ident_min", "Minimum identity for nucleotide hit (0..1). -1 means use a curated threshold if it exists and " + toString (ident_min_def) + " otherwise", "-1", 'i', "MIN_IDENT");
     	addKey ("coverage_min", "Minimum coverage of the reference protein (0..1)", toString (partial_coverage_min_def), 'c', "MIN_COV");
       addKey ("organism", "Taxonomy group. To see all possible taxonomy groups use the --list_organisms flag", "", 'O', "ORGANISM");
@@ -130,11 +133,11 @@ struct ThisApplication : ShellApplication
     	addKey ("mutation_all", "File to report all target positions of reference mutations", "", '\0', "MUT_ALL_FILE");
     	addKey ("blast_bin", "Directory for BLAST. Deafult: $BLAST_BIN", "", '\0', "BLAST_DIR");
     //addKey ("hmmer_bin" ??
-    	addKey ("parm", "amr_report parameters for testing: -nosame -noblast -skip_hmm_check -bed", "", '\0', "PARM");
       addKey ("output", "Write output to OUTPUT_FILE instead of STDOUT", "", 'o', "OUTPUT_FILE");
       addFlag ("quiet", "Suppress messages to STDERR", 'q');
-      addFlag ("gpipe", "NCBI internal GPipe processing: protein identifiers in the protein FASTA file have format 'gnl|<project>|<accession>', different organism names");
-      addFlag ("pgapx", "Input protein, genomic and GFF files are created by the external NCBI PGAP. Format is described at https://github.com/ncbi/pgap/wiki/Output-Files");
+      addFlag ("gpipe", "NCBI internal GPipe processing: protein identifiers in the protein FASTA file have format 'gnl|<project>|<accession>'");
+      addFlag ("gpipe_org", "NCBI internal GPipe processing: different organism names");
+    	addKey ("parm", "amr_report parameters for testing: -nosame -noblast -skip_hmm_check -bed", "", '\0', "PARM");
 	    version = SOFTWARE_VER;  
 	  #if 0
 	    setRequiredGroup ("protein",    "Input");
@@ -221,6 +224,7 @@ struct ThisApplication : ShellApplication
           string db              =             getArg ("database");
     const bool   update          =             getFlag ("update");
     const string gff             = shellQuote (getArg ("gff"));
+    const bool   pgapx           =             getFlag ("pgapx");
     const double ident           =             arg2double ("ident_min");
     const double cov             =             arg2double ("coverage_min");
     const string organism        = shellQuote (getArg ("organism"));   
@@ -234,7 +238,7 @@ struct ThisApplication : ShellApplication
     const string output          = shellQuote (getArg ("output"));
     const bool   quiet           =             getFlag ("quiet");
     const bool   gpipe           =             getFlag ("gpipe");
-    const bool   pgapx           =             getFlag ("pgapx");
+    const bool   gpipe_org       =             getFlag ("gpipe_org");
     
     
 		const string logFName (tmp + ".log");
@@ -433,7 +437,7 @@ struct ThisApplication : ShellApplication
 	  	organism1 = unQuote (organism);
  	  	replace (organism1, ' ', '_');
  	  	ASSERT (! organism1. empty ());
-      if (gpipe)
+      if (gpipe_org)
       {
         LineInput f (db + "/taxgroup.tab");
         Istringstream iss;

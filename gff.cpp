@@ -214,9 +214,18 @@ Annot::Annot (Gff,
 	  trim (locusTag, tmpSpace);
 	  if (pgapx)
 	  {
+	  #if 0
 	    if (! trimPrefix (locusTag, "extdb:"))
 	      throw runtime_error (errorS + "PGAPx GFF file has no \"extdb:\" prefix in the protein_id in the Name field");
 	    locusTag = "gnl|extdb|" + locusTag;
+	  #else
+	    const size_t pos = locusTag. rfind (':');
+	    if (pos != string::npos)
+	    {
+	      locusTag [pos] = '|';
+	      locusTag = "gnl|" + locusTag;
+	    }
+	  #endif
 	  }
 	  QC_ASSERT (! locusTag. empty ());
 	  
