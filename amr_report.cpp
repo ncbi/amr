@@ -674,7 +674,9 @@ struct BlastAlignment : Alignment
       }
   	  // PD-1032
 	    if (partial ())
-  	    if (parts > 1)
+  	    if (   parts > 1 
+  	        || refEnd - refStart <= 35  // PAR  // PD-3287
+  	       )
   	    	return false;
 	      else
 	        return passBlastRule (partialBR);

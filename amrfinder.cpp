@@ -33,6 +33,7 @@
 *               cat, cp, cut, grep, head, mkdir, mv, nproc, sed, sort, tail
 *
 * Release changes:
+*   3.5.4 12/17/2019 PD-3287  truncated short proteins are not reported
 *   3.5.3 12/16/2019 PD-3279  GPipe-GenColl assemblies, --gpipe_org
 *                    GP-28025
 *   3.5.2 12/13/2019 PD-3269  New flag --pgapx
@@ -80,7 +81,7 @@ using namespace Common_sp;
 #ifdef SVN_REV
   #define SOFTWARE_VER SVN_REV
 #else
-  #define SOFTWARE_VER "3.5.3"
+  #define SOFTWARE_VER "3.5.4"
 #endif
 #define DATA_VER_MIN "2019-12-12.1"  
 
