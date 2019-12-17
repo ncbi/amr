@@ -617,6 +617,14 @@ struct BlastAlignment : Alignment
     { return    (missedDnaStart (cds) > 0 && (targetProt ? (cds. empty () ? false : cds. atContigStart ()) : targetStart            <= Locus::end_delta))
              || (missedDnaStop  (cds) > 0 && (targetProt ? (cds. empty () ? false : cds. atContigStop  ()) : targetLen - targetEnd <= Locus::end_delta));
     }
+  bool truncatedCds () const
+    { if (cdss. empty ())
+        return false;
+      for (const Locus& cds : cdss)
+        if (truncated (cds))
+          return true;
+      return false;
+    }
   bool alleleReported () const
     { return refExactlyMatched () && allele () && (! targetProt || refLen == targetLen); }
 	string getMethod (const Locus &cds) const
@@ -652,7 +660,7 @@ struct BlastAlignment : Alignment
 	  { return    pIdentity ()      >= br. ident        - frac_delta
   	         && refCoverage ()    >= br. ref_coverage - frac_delta
   	         ;
-	  }
+	  }	
   bool good () const
     { if (! gi)
         return true;
@@ -662,20 +670,16 @@ struct BlastAlignment : Alignment
           return false; 
         if (frameShift)
           return false;
-        if (partial () && ! cdss. empty ())
-        {
-          bool found = false;
-          for (const Locus& cds : cdss)
-            if (truncated (cds))
-              found = true;
-          if (! found)
-            return false;
-        }
+        if (   partial () 
+            && ! cdss. empty ()
+            && ! truncatedCds ()
+           )
+          return false;
       }
   	  // PD-1032
 	    if (partial ())
   	    if (   parts > 1 
-  	        || refEnd - refStart <= 35  // PAR  // PD-3287
+  	        || (! truncatedCds () && refEnd - refStart <= 35)  // PAR  // PD-3287
   	       )
   	    	return false;
 	      else
@@ -1693,12 +1697,13 @@ struct ThisApplication : Application
   	  	    continue;  // domain does not exist
   	  	/*al->refLen      = domain. hmmLen;
   	  	  al->refStart    = domain. hmmStart;
-  	  	  al->refEnd     = domain. hmmStop; */
+  	  	  al->refEnd      = domain. hmmStop; */
   	  	  al->targetLen   = domain. seqLen;
   	  	  al->targetStart = domain. seqStart;
-  	  	  al->targetEnd  = domain. seqStop;
+  	  	  al->targetEnd   = domain. seqStop;
   	  	  al->setTargetAlign ();
   	  	  ASSERT (! al->refExactlyMatched ());
+  	  	  ASSERT (! al->partial ());
   	  	  al->qc ();
   	      batch. hmmAls << move (hmmAl);
     	  }

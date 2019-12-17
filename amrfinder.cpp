@@ -33,6 +33,7 @@
 *               cat, cp, cut, grep, head, mkdir, mv, nproc, sed, sort, tail
 *
 * Release changes:
+*   3.5.5 12/17/2019 PD-3287  short proteins at an end of a contig are reported
 *   3.5.4 12/17/2019 PD-3287  truncated short proteins are not reported
 *   3.5.3 12/16/2019 PD-3279  GPipe-GenColl assemblies, --gpipe_org
 *                    GP-28025
@@ -81,7 +82,7 @@ using namespace Common_sp;
 #ifdef SVN_REV
   #define SOFTWARE_VER SVN_REV
 #else
-  #define SOFTWARE_VER "3.5.4"
+  #define SOFTWARE_VER "3.5.5"
 #endif
 #define DATA_VER_MIN "2019-12-12.1"  
 
@@ -332,7 +333,7 @@ struct ThisApplication : ShellApplication
     const string downloadLatestInstr ("\nTo download the latest version to the default directory run amrfinder -u");
     
 		if (! directoryExists (db))  // PD-2447
-		  throw runtime_error ("No valid AMRFinder database found." + downloadLatestInstr);
+		  throw runtime_error ("No valid AMRFinder database found." + ifS (! update, downloadLatestInstr));
 
 
     if (list_organisms)
@@ -370,8 +371,9 @@ struct ThisApplication : ShellApplication
     if (emptyArg (prot))
       if (emptyArg (dna))
       {
-        if (! update)
-  	  	  throw runtime_error ("Parameter --prot or --nucleotide must be present");
+        if (update)
+          return;
+	  	  throw runtime_error ("Parameter --prot or --nucleotide must be present");
   		}
       else
       {
@@ -400,10 +402,6 @@ struct ThisApplication : ShellApplication
     else
       searchMode += " and mutation";
       
-      
-    if (searchMode. empty ())
-      return;
-
 
     stderr << "AMRFinder " << searchMode << " search with database " << db;
     {
