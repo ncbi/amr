@@ -1486,7 +1486,7 @@ struct ThisApplication : Application
       addKey ("gff", ".gff assembly file");
       addKey ("gff_match", ".gff-FASTA matching file for \"locus_tag\": \"<FASTA id> <locus_tag>\"");
       addFlag ("bed", "Browser Extensible Data format of the <gff> file");
-      addFlag ("pgap", "Protein, genomic and GFF files are created by the NCBI PGAP. Format is described at https://github.com/ncbi/pgap/wiki/Output-Files");
+      addFlag ("pgap", "Protein, genomic and GFF files are created by the NCBI PGAP");
       addKey ("dna_len", "File with lines: <dna id> <dna length>");
       addKey ("hmmdom", "HMM domain alignments");
       addKey ("hmmsearch", "Output of hmmsearch");

@@ -33,6 +33,7 @@
 *               cat, cp, cut, grep, head, mkdir, mv, nproc, sed, sort, tail
 *
 * Release changes:
+*   3.5.7 12/18/2019 PD-3289  improved message for gff_check failure
 *   3.5.6 12/18/2019 PD-3269  --gpipe is removed, --pgapx is replaced by --pgap
 *   3.5.5 12/17/2019 PD-3287  short proteins at an end of a contig are reported
 *   3.5.4 12/17/2019 PD-3287  truncated short proteins are not reported
@@ -83,7 +84,7 @@ using namespace Common_sp;
 #ifdef SVN_REV
   #define SOFTWARE_VER SVN_REV
 #else
-  #define SOFTWARE_VER "3.5.6"
+  #define SOFTWARE_VER "3.5.7"
 #endif
 #define DATA_VER_MIN "2019-12-12.1"  
 
@@ -124,7 +125,7 @@ struct ThisApplication : ShellApplication
     	addKey ("protein", "Protein FASTA file to search", "", 'p', "PROT_FASTA");
     	addKey ("nucleotide", "Nucleotide FASTA file to search", "", 'n', "NUC_FASTA");
     	addKey ("gff", "GFF file for protein locations. Protein id should be in the attribute 'Name=<id>' (9th field) of the rows with type 'CDS' or 'gene' (3rd field).", "", 'g', "GFF_FILE");
-      addFlag ("pgap", "Input files PROT_FASTA, NUC_FASTA and GFF_FILE are created by the NCBI PGAP. Format is described at https://github.com/ncbi/pgap/wiki/Output-Files. Prefixes 'gnl|' or 'lcl|' are removed from the accessions in NUC_FASTA");
+      addFlag ("pgap", "Input files PROT_FASTA, NUC_FASTA and GFF_FILE are created by the NCBI PGAP. Prefixes 'gnl|' or 'lcl|' are removed from the accessions in NUC_FASTA");
     	addKey ("database", "Alternative directory with AMRFinder database. Default: $AMRFINDER_DB", "", 'd', "DATABASE_DIR");
     	addKey ("ident_min", "Minimum identity for nucleotide hit (0..1). -1 means use a curated threshold if it exists and " + toString (ident_min_def) + " otherwise", "-1", 'i', "MIN_IDENT");
     	addKey ("coverage_min", "Minimum coverage of the reference protein (0..1)", toString (partial_coverage_min_def), 'c', "MIN_COV");
@@ -548,7 +549,14 @@ struct ThisApplication : ShellApplication
   			  if (! emptyArg (dna))
   			    dnaPar = " -dna " + dna_;
   			//const string gpipeS (ifS (gpipe, " -gpipe"));
-  			  exec (fullProg ("gff_check") + gff + " -prot " + prot + dnaPar /*+ gpipeS*/ + pgapS + locus_tag + qcS + " -log " + logFName, logFName);
+  			  try 
+  			  {
+  			    exec (fullProg ("gff_check") + gff + " -prot " + prot + dnaPar /*+ gpipeS*/ + pgapS + locus_tag + qcS + " -log " + logFName, logFName);
+  			  }
+  			  catch (...)
+  			  {
+  			    throw runtime_error ("GFF file mismatch.\nMore information in " + logFName);  // PD-3289
+  			  } 
   			}
   			
   			if (! fileExists (db + "/AMRProt.phr"))
