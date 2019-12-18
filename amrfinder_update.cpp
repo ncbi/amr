@@ -56,7 +56,7 @@ using namespace Common_sp;
 #ifdef SVN_REV
   #define SOFTWARE_VER SVN_REV
 #else
-  #define SOFTWARE_VER "3.5.7"
+  #define SOFTWARE_VER "3.5.8"
 #endif
 
 string curMinor;
@@ -289,7 +289,7 @@ Requirements:\n\
 
   void shellBody () const final
   {
-          string mainDirOrig = getArg ("database");
+    const string mainDirOrig = getArg ("database");
     const bool   quiet       = getFlag ("quiet");
     
         
@@ -297,9 +297,11 @@ Requirements:\n\
     stderr << "Running "<< getCommandLine () << '\n';
     const Verbose vrb (qc_on);
     
-    // mainDir
-    const Dir mainDir (mainDirOrig);
-    string mainDirS (mainDir. get ());
+    string mainDirS;
+    {
+      const Dir mainDir (mainDirOrig);
+      mainDirS = mainDir. get ();
+    }
     if (! isRight (mainDirS, "/"))
       mainDirS += "/";    
 

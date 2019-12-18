@@ -514,18 +514,6 @@ public:
 
 // STL algorithms
 
-template <typename To, typename From>
-  inline void insertAll (To &to,
-                         const From &from)
-    { to. insert (to. begin (), from. begin (), from. end ()); }
-
-template <typename To, typename From>
-  inline void insertIter (To &to,
-                          const From &from)
-    { for (const auto x : from)
-        to << move (x);
-    }
-
 template <typename T>
   inline void sort (T &t)
     { std::sort (t. begin (), t. end ()); }
@@ -656,6 +644,32 @@ template <typename T, typename UnaryPredicate>
   inline long count_if (T &t, UnaryPredicate pred)
     { return std::count_if (t. begin (), t. end (), pred); }
 
+template <typename To, typename From>
+  inline void insertAll (To &to,
+                         const From &from)
+    { to. insert (to. begin (), from. begin (), from. end ()); }
+
+template <typename To, typename From>
+  inline void insertIter (To &to,
+                          From &&from)
+    { for (auto&& x : from)
+        to. insert (move (x));
+    }
+
+template <typename To, typename From>
+  inline void insertIter (To &to,
+                          const From &from)
+    { for (const auto& x : from)
+        to. insert (x);
+    }
+
+template <typename From, typename What>
+  inline void eraseIter (From &from,
+                         const What &what)
+    { for (const auto& x : what)
+        if (contains (from, x))
+          from. erase (x);
+    }
 
 
 
