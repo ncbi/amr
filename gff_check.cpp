@@ -60,8 +60,8 @@ struct ThisApplication : Application
       addPositional ("gff", ".gff-file, if " + strQuote (noFile) + " then exit 0");
       addKey ("prot", "Protein FASTA file");
       addKey ("dna", "DNA FASTA file");
-      addFlag ("gpipe", "Protein identifiers in the protein FASTA file have format 'gnl|<project>|<accession>'");
-      addFlag ("pgapx", "Input files are created by PGAPx; exclusive with --gpipe");
+    //addFlag ("gpipe", "Protein identifiers in the protein FASTA file have format 'gnl|<project>|<accession>'");
+      addFlag ("pgap", "Input files are created by PGAP");  // exclusive with --gpipe
       // Output
       addKey ("locus_tag", "Output file with matches: \"<FASTA id> <GFF id>\", where <id> is from " + strQuote (locus_tagS + "<id>") + " in the FASTA comment and from the .gff-file");
     }
@@ -74,11 +74,11 @@ struct ThisApplication : Application
     const string protFName      = getArg ("prot");
     const string dnaFName       = getArg ("dna");
     const string locus_tagFName = getArg ("locus_tag");
-    const bool   gpipe          = getFlag ("gpipe");
-    const bool   pgapx          = getFlag ("pgapx"); 
+  //const bool   gpipe          = getFlag ("gpipe");
+    const bool   pgap           = getFlag ("pgap"); 
     
-    if (gpipe && pgapx)
-      throw runtime_error ("Flags --gpipe and --pgapx are mutually exclusive");
+  //if (gpipe && pgapx)
+    //throw runtime_error ("Flags --gpipe and --pgapx are mutually exclusive");
     
     
     if (isRight (gffName, noFile))
@@ -86,7 +86,7 @@ struct ThisApplication : Application
     
 
     Annot::Gff gff;
-    const Annot annot (gff, gffName, false, ! locus_tagFName. empty (), pgapx);
+    const Annot annot (gff, gffName, false, ! locus_tagFName. empty (), pgap);
     
     
     if (! protFName. empty ())
@@ -114,6 +114,7 @@ struct ThisApplication : Application
 		    			string gffId (fastaId);
 			    		if (! locus_tagFName. empty ())
 			    		{
+			    		#if 0
 			    		  if (gpipe)
 			    		  {
 			    		    if (! trimPrefix (gffId, "gnl|"))
@@ -124,6 +125,7 @@ struct ThisApplication : Application
   			    			gffId. erase (0, pos + 1);
 			    		  }
 			    		  else
+			    		#endif
 			    		  {
   			    			const size_t pos = f. line. find (locus_tagS);
   			    			if (pos == string::npos)

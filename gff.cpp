@@ -63,7 +63,7 @@ Locus::Locus (size_t lineNum_arg,
 , contigLen (crossOriginSeqLen_arg)
 , crossOrigin (bool (crossOriginSeqLen_arg))
 { 
-//ASSERT (lineNum >= 1);
+//QC_ASSERT (lineNum >= 1);
 	trim (contig, '_');
 	if (contig. empty ())
 		throw runtime_error ("Empty contig name");
@@ -72,10 +72,10 @@ Locus::Locus (size_t lineNum_arg,
 		swap (start, stop);
 		start--;
 		stop++;
-	  ASSERT (contigLen);
-		ASSERT (stop <= contigLen);
+	  QC_ASSERT (contigLen);
+		QC_ASSERT (stop <= contigLen);
 	}
-  ASSERT (start < stop); 
+  QC_ASSERT (start < stop); 
 }
   
   
@@ -100,10 +100,10 @@ Annot::Annot (Gff,
 	            const string &fName,
 	            bool trimProject,
 	            bool locus_tag,
-	            bool pgapx)
+	            bool pgap)
 {
-  IMPLY (pgapx, ! locus_tag);
-  IMPLY (pgapx, ! trimProject);
+  IMPLY (pgap, ! locus_tag);
+  IMPLY (pgap, ! trimProject);
 
 	if (fName. empty ())
 		throw runtime_error ("Empty GFF file name");
@@ -154,7 +154,7 @@ Annot::Annot (Gff,
        )
       continue;
       
-    if (pgapx && type != "CDS")
+    if (pgap && type != "CDS")
       continue;
       
     long start = -1;
@@ -194,7 +194,7 @@ Annot::Annot (Gff,
     const bool partial = contains (attributes, "partial=true");
 
     string locusTag;
-    const string locusTagName (! pgapx && (locus_tag || pseudo) ? "locus_tag=" : "Name=");
+    const string locusTagName (! pgap && (locus_tag || pseudo) ? "locus_tag=" : "Name=");
     while (! attributes. empty ())
     {
 	    locusTag = findSplit (attributes, ';');
@@ -205,27 +205,24 @@ Annot::Annot (Gff,
     if (! isLeft (locusTag, locusTagName))
     	continue;
     //throw runtime_error (errorS + "No attribute '" + locusTagName + "': " + f. line);
-	  if (! pgapx && contains (locusTag, ":"))
+	  if (! pgap && contains (locusTag, ":"))
 	    { EXEC_ASSERT (isLeft (findSplit (locusTag, ':'), locusTagName)); }
 	  else
 	    findSplit (locusTag, '='); 
 	  trimPrefix (locusTag, "\"");
 	  trimSuffix (locusTag, "\"");
 	  trim (locusTag, tmpSpace);
-	  if (pgapx)
+	  if (pgap)
 	  {
-	  #if 0
-	    if (! trimPrefix (locusTag, "extdb:"))
-	      throw runtime_error (errorS + "PGAPx GFF file has no \"extdb:\" prefix in the protein_id in the Name field");
-	    locusTag = "gnl|extdb|" + locusTag;
-	  #else
-	    const size_t pos = locusTag. rfind (':');
+	    size_t pos = locusTag. rfind (':');
 	    if (pos != string::npos)
 	    {
 	      locusTag [pos] = '|';
 	      locusTag = "gnl|" + locusTag;
 	    }
-	  #endif
+	    pos = contig. rfind (':');
+	    if (pos != string::npos)
+	      contig [pos] = '|';
 	  }
 	  QC_ASSERT (! locusTag. empty ());
 	  

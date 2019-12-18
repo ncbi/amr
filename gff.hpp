@@ -101,7 +101,7 @@ struct Annot : Root
          const string &fName,
          bool trimProject,
          bool locus_tag,
-         bool pgapx);
+         bool pgap);
 		// https://github.com/The-Sequence-Ontology/Specifications/blob/master/gff3.md
 		// Requirement: the protein id should be in the attribute "Name=<id>" (9th field) of the rows with type "CDS" or "gene" (3rd field)
     // Input: fName may be empty

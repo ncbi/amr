@@ -618,9 +618,7 @@ struct BlastAlignment : Alignment
              || (missedDnaStop  (cds) > 0 && (targetProt ? (cds. empty () ? false : cds. atContigStop  ()) : targetLen - targetEnd <= Locus::end_delta));
     }
   bool truncatedCds () const
-    { if (cdss. empty ())
-        return false;
-      for (const Locus& cds : cdss)
+    { for (const Locus& cds : cdss)
         if (truncated (cds))
           return true;
       return false;
@@ -1488,7 +1486,7 @@ struct ThisApplication : Application
       addKey ("gff", ".gff assembly file");
       addKey ("gff_match", ".gff-FASTA matching file for \"locus_tag\": \"<FASTA id> <locus_tag>\"");
       addFlag ("bed", "Browser Extensible Data format of the <gff> file");
-      addFlag ("pgapx", "Protein, genomic and GFF files are created by the external NCBI PGAP. Format is described at https://github.com/ncbi/pgap/wiki/Output-Files");
+      addFlag ("pgap", "Protein, genomic and GFF files are created by the NCBI PGAP. Format is described at https://github.com/ncbi/pgap/wiki/Output-Files");
       addKey ("dna_len", "File with lines: <dna id> <dna length>");
       addKey ("hmmdom", "HMM domain alignments");
       addKey ("hmmsearch", "Output of hmmsearch");
@@ -1528,7 +1526,7 @@ struct ThisApplication : Application
     const string gffFName             = getArg ("gff");
     const string gffMatchFName        = getArg ("gff_match");
     const bool   bedP                 = getFlag ("bed");
-    const bool   pgapx                = getFlag ("pgapx");
+    const bool   pgap                 = getFlag ("pgap");
     const string dnaLenFName          = getArg ("dna_len");
     const string hmmDom               = getArg ("hmmdom");
     const string hmmsearch            = getArg ("hmmsearch");  
@@ -1725,7 +1723,7 @@ struct ThisApplication : Application
     	else
     	{
 	    	Annot::Gff gff;
-		    annot. reset (new Annot (gff, gffFName, false, ! gffMatchFName. empty (), pgapx));
+		    annot. reset (new Annot (gff, gffFName, false, ! gffMatchFName. empty (), pgap));
 		  }
 		  ASSERT (annot. get ());
 	    map<string/*seqid*/,string/*locusTag*/> seqId2locusTag;

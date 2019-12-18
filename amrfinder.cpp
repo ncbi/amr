@@ -33,6 +33,7 @@
 *               cat, cp, cut, grep, head, mkdir, mv, nproc, sed, sort, tail
 *
 * Release changes:
+*   3.5.6 12/18/2019 PD-3269  --gpipe is removed, --pgapx is replaced by --pgap
 *   3.5.5 12/17/2019 PD-3287  short proteins at an end of a contig are reported
 *   3.5.4 12/17/2019 PD-3287  truncated short proteins are not reported
 *   3.5.3 12/16/2019 PD-3279  GPipe-GenColl assemblies, --gpipe_org
@@ -82,7 +83,7 @@ using namespace Common_sp;
 #ifdef SVN_REV
   #define SOFTWARE_VER SVN_REV
 #else
-  #define SOFTWARE_VER "3.5.5"
+  #define SOFTWARE_VER "3.5.6"
 #endif
 #define DATA_VER_MIN "2019-12-12.1"  
 
@@ -123,7 +124,7 @@ struct ThisApplication : ShellApplication
     	addKey ("protein", "Protein FASTA file to search", "", 'p', "PROT_FASTA");
     	addKey ("nucleotide", "Nucleotide FASTA file to search", "", 'n', "NUC_FASTA");
     	addKey ("gff", "GFF file for protein locations. Protein id should be in the attribute 'Name=<id>' (9th field) of the rows with type 'CDS' or 'gene' (3rd field).", "", 'g', "GFF_FILE");
-      addFlag ("pgapx", "Input files PROT_FASTA, NUC_FASTA and GFF_FILE are created by the external NCBI PGAP. Format is described at https://github.com/ncbi/pgap/wiki/Output-Files");
+      addFlag ("pgap", "Input files PROT_FASTA, NUC_FASTA and GFF_FILE are created by the NCBI PGAP. Format is described at https://github.com/ncbi/pgap/wiki/Output-Files. Prefixes 'gnl|' or 'lcl|' are removed from the accessions in NUC_FASTA");
     	addKey ("database", "Alternative directory with AMRFinder database. Default: $AMRFINDER_DB", "", 'd', "DATABASE_DIR");
     	addKey ("ident_min", "Minimum identity for nucleotide hit (0..1). -1 means use a curated threshold if it exists and " + toString (ident_min_def) + " otherwise", "-1", 'i', "MIN_IDENT");
     	addKey ("coverage_min", "Minimum coverage of the reference protein (0..1)", toString (partial_coverage_min_def), 'c', "MIN_COV");
@@ -137,8 +138,8 @@ struct ThisApplication : ShellApplication
     //addKey ("hmmer_bin" ??
       addKey ("output", "Write output to OUTPUT_FILE instead of STDOUT", "", 'o', "OUTPUT_FILE");
       addFlag ("quiet", "Suppress messages to STDERR", 'q');
-      addFlag ("gpipe", "NCBI internal GPipe processing: protein identifiers in the protein FASTA file have format 'gnl|<project>|<accession>'");
-      addFlag ("gpipe_org", "NCBI internal GPipe processing: different organism names");
+    //addFlag ("gpipe", "NCBI internal GPipe processing: protein identifiers in the protein FASTA file have format 'gnl|<project>|<accession>'");
+      addFlag ("gpipe_org", "NCBI internal GPipe organism names");
     	addKey ("parm", "amr_report parameters for testing: -nosame -noblast -skip_hmm_check -bed", "", '\0', "PARM");
 	    version = SOFTWARE_VER;  
 	  #if 0
@@ -226,7 +227,7 @@ struct ThisApplication : ShellApplication
           string db              =             getArg ("database");
     const bool   update          =             getFlag ("update");
     const string gff             = shellQuote (getArg ("gff"));
-    const bool   pgapx           =             getFlag ("pgapx");
+    const bool   pgap            =             getFlag ("pgap");
     const double ident           =             arg2double ("ident_min");
     const double cov             =             arg2double ("coverage_min");
     const string organism        = shellQuote (getArg ("organism"));   
@@ -239,7 +240,7 @@ struct ThisApplication : ShellApplication
     const string parm            =             getArg ("parm");  
     const string output          = shellQuote (getArg ("output"));
     const bool   quiet           =             getFlag ("quiet");
-    const bool   gpipe           =             getFlag ("gpipe");
+  //const bool   gpipe           =             getFlag ("gpipe");
     const bool   gpipe_org       =             getFlag ("gpipe_org");
     
     
@@ -262,8 +263,8 @@ struct ThisApplication : ShellApplication
 	  if (report_common && emptyArg (organism))
 		  throw runtime_error ("--report_common requires --organism");
 		  
-    if (gpipe && pgapx)
-      throw runtime_error ("Flags --gpipe and --pgapx are mutually exclusive");
+  //if (gpipe && pgapx)
+    //throw runtime_error ("Flags --gpipe and --pgapx are mutually exclusive");
 
 
 		if (! emptyArg (output))
@@ -486,7 +487,7 @@ struct ThisApplication : ShellApplication
     
     string amr_report_blastp;	
  		string amr_report_blastx;
-	  const string pgapxS (ifS (pgapx, " -pgapx"));
+	  const string pgapS (ifS (pgap, " -pgap"));
  		bool blastxChunks = false;
     {
       Threads th (threads_max - 1, true);  
@@ -500,17 +501,19 @@ struct ThisApplication : ShellApplication
   		const double total_share = prot_share + dna_share;
   		
   		string dna_ = dna;
+    #if 0
   		if (! emptyArg (dna) && gpipe)
   		{
   		  dna_ = tmp + ".dna";
   		  if (system (("sed 's/^>gnl|[^|]*|/>/1' " + dna + " > " + dna_). c_str ()))
   		    throw runtime_error ("Cannot remove 'gnl|...|' from " + dna);
   		}
-  		if (! emptyArg (dna) && pgapx)
+    #endif
+  		if (! emptyArg (dna) && pgap)
   		{
   		  dna_ = tmp + ".dna";
-  		  if (system (("sed 's/^>lcl|/>/1' " + dna + " > " + dna_). c_str ()))
-  		    throw runtime_error ("Cannot remove 'lcl|' from " + dna);
+  		  if (system (("sed 's/^>lcl|/>/1' " + dna + " | sed 's/^>gnl|/>/1' > " + dna_). c_str ()))
+  		    throw runtime_error ("Cannot remove 'lcl|' and 'gnl|' from " + dna);
   		}
   		
   		
@@ -535,7 +538,7 @@ struct ThisApplication : ShellApplication
   			  string locus_tag;
   			  const int status = system (("grep '^>.*\\[locus_tag=' " + prot + " > /dev/null"). c_str ());
   			  const bool locus_tagP = (status == 0);
-  			  if (locus_tagP || gpipe)
+  			  if (locus_tagP /*|| gpipe*/)
   			  {
   			    locus_tag = " -locus_tag " + tmp + ".match";
   			    gff_match = " -gff_match " + tmp + ".match";
@@ -544,8 +547,8 @@ struct ThisApplication : ShellApplication
   			  string dnaPar;
   			  if (! emptyArg (dna))
   			    dnaPar = " -dna " + dna_;
-  			  const string gpipeS (ifS (gpipe, " -gpipe"));
-  			  exec (fullProg ("gff_check") + gff + " -prot " + prot + dnaPar + gpipeS + pgapxS + locus_tag + qcS + " -log " + logFName, logFName);
+  			//const string gpipeS (ifS (gpipe, " -gpipe"));
+  			  exec (fullProg ("gff_check") + gff + " -prot " + prot + dnaPar /*+ gpipeS*/ + pgapS + locus_tag + qcS + " -log " + logFName, logFName);
   			}
   			
   			if (! fileExists (db + "/AMRProt.phr"))
@@ -630,7 +633,7 @@ struct ThisApplication : ShellApplication
 		  + force_cds_report + " -pseudo" + coreS
 		  + (ident == -1 ? string () : "  -ident_min "    + toString (ident)) 
 		  + "  -coverage_min " + toString (cov)
-		  + ifS (suppress_common, " -suppress_prot " + tmp + ".suppress_prot") + pgapxS
+		  + ifS (suppress_common, " -suppress_prot " + tmp + ".suppress_prot") + pgapS
 		  + qcS + " " + parm + " -log " + logFName + " > " + tmp + ".amr", logFName);
 		if (   ! emptyArg (dna) 
 		    && ! organism1. empty ()
