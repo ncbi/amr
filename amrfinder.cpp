@@ -33,6 +33,7 @@
 *               cat, cp, cut, grep, head, mkdir, mv, nproc, sed, sort, tail
 *
 * Release changes:
+*   3.5.9 12/19/2019 PD-3294   blastx parameters: space added
 *   3.5.8 12/18/2019 issues/19 changed message if db path is bad
 *   3.5.7 12/18/2019 PD-3289   improved message for gff_check failure
 *   3.5.6 12/18/2019 PD-3269   --gpipe is removed, --pgapx is replaced by --pgap
@@ -85,7 +86,7 @@ using namespace Common_sp;
 #ifdef SVN_REV
   #define SOFTWARE_VER SVN_REV
 #else
-  #define SOFTWARE_VER "3.5.8"
+  #define SOFTWARE_VER "3.5.9"
 #endif
 #define DATA_VER_MIN "2019-12-12.1"  
 
@@ -608,7 +609,7 @@ struct ThisApplication : ShellApplication
   		  else
     			th. exec (fullProg ("blastx") + "  -query " + dna_ + " -db " + db + "/AMRProt  "
     			  + blastx_par + to_string (gencode) + " " BLAST_FMT
-    			  "-out " + tmp + ".blastx > /dev/null 2> /dev/null", threadsAvailable);
+    			  " -out " + tmp + ".blastx > /dev/null 2> /dev/null", threadsAvailable);
   		  amr_report_blastx = "-blastx " + tmp + ".blastx  -dna_len " + tmp + ".len";
   		}
 
