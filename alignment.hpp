@@ -47,7 +47,7 @@ static constexpr char pm_delimiter = '_';
 
 
 
-struct Mutation
+struct Mutation : Root
 {
 	size_t pos {0};
 	  // In whole reference sequence
@@ -79,12 +79,16 @@ private:
 	                   string &reference,
 	                   string &allele);
 public:
-
-
-  void print (ostream &os) const
-    { os << pos + 1 << ' ' << geneMutation << ' ' << name << endl; }
-  bool empty () const
+  void saveText (ostream &os) const override
+    { os << pos + 1 << ' ' << geneMutation << ' ' << name; }
+  void print (ostream &os) const override
+    { saveText (os); 
+      os << endl;
+    }
+  bool empty () const override
     { return geneMutation. empty (); }
+
+
   size_t getStop () const
     { return pos + reference. size (); }
   bool operator< (const Mutation &other) const;
@@ -152,10 +156,15 @@ struct SeqChange
   size_t getStop () const
     { return start + len; }
   bool operator< (const SeqChange &other) const;
+  bool finish (const string &refSeq,
+               size_t flankingLen);
+    // Return: good match
+private:
   void setSeq ();
   void setStartStopRef ();
   void setStartTarget ();
   void setNeighborhoodMismatch (size_t flankingLen);
+public:
   bool matchesMutation (const Mutation& mut) const;
 };
 
@@ -193,6 +202,8 @@ struct Alignment
   size_t refStart {0};
   size_t refEnd {0};
   size_t refLen {0};  
+  Mutation refMutation;
+    // !empty() => original refSeq is the result of refMutation.apply() to the original refSeq
   
   // Alignment
   bool alProt {false};
@@ -210,6 +221,10 @@ struct Alignment
     // 1-based
   Alignment () = default;
 protected:
+  void set_nident ();
+    // Output: nident
+  void refMutation2refSeq ();
+    // Update: refSeq
   void setSeqChanges (const Vector<Mutation> &refMutations,
                       size_t flankingLen,
                       bool allMutationsP);

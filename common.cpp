@@ -1394,7 +1394,10 @@ char CharInput::get ()
 	ASSERT (eof == (c == (char) EOF));
 
   if (ungot)
+  {
     ungot = false;
+	  charNum++;
+  }
   else
   	if (eol)
   	{ 
@@ -1407,6 +1410,12 @@ char CharInput::get ()
 
 	eol = (eof || c == '\n');
 	
+#if 0
+	PRINT (c);
+	PRINT (lineNum);
+	PRINT (charNum);
+#endif
+	
 	return /*eof ? (char) EOF :*/ c;
 }
 
@@ -1418,7 +1427,7 @@ void CharInput::unget ()
 	ASSERT (! ungot);
 	
 	is->unget (); 
-	charNum--;
+	charNum--;  // May be (uint) (-1)
 	ungot = true;
 }
 
@@ -1557,7 +1566,7 @@ void Token::readInput (CharInput &in)
   if (verbose ())
   {
   	cout << type2str (type) << ' ';  
-  	cout << *this << endl;
+  	cout << *this << ' ' << charNum << endl;
   }
 }
 
@@ -2286,6 +2295,32 @@ void Application::setRequiredGroup (const string &keyName,
 
 
 
+void Application::addDefaultArgs ()
+{ 
+  if (gnu)
+	{ 
+	  addKey ("threads", "Max. number of threads", "1", '\0', "THREADS");
+	  addFlag ("debug", "Integrity checks");
+    addKey ("log", "Error log file, appended", "", '\0', "LOG");
+  }
+	else
+	{ 
+	  addFlag ("qc", "Integrity checks (quality control)");
+    addKey ("verbose", "Level of verbosity", "0");
+    addFlag ("noprogress", "Turn off progress printout");
+    addFlag ("profile", "Use chronometers to profile");
+    addKey ("seed", "Positive integer seed for random number generator", "1");
+    addKey ("threads", "Max. number of threads", "1");
+    addKey ("json", "Output file in Json format");
+    addKey ("log", "Error log file, appended");
+  #ifndef _MSC_VER
+    addFlag ("sigpipe", "Exit normally on SIGPIPE");
+  #endif
+  }
+}
+
+
+
 void Application::qc () const
 {
   if (! qc_on)
@@ -2591,6 +2626,11 @@ int Application::run (int argc,
   
   
     string logFName;
+    logFName = getArg ("log");
+  	ASSERT (! logPtr);
+    if (! logFName. empty ())
+  		logPtr = new ofstream (logFName, ios_base::app);
+
     string jsonFName;
     if (gnu)
     {
@@ -2599,11 +2639,6 @@ int Application::run (int argc,
     }
     else
     {
-	    logFName = getArg ("log");
-	  	ASSERT (! logPtr);
-	    if (! logFName. empty ())
-	  		logPtr = new ofstream (logFName, ios_base::app);
-
 	  	if (getFlag ("qc"))
 	  		qc_on = true;
 	
@@ -2717,8 +2752,8 @@ void ShellApplication::initEnvironment ()
 
 void ShellApplication::body () const
 {
-  if (useTmp && verbose () /*qc_on*/)
-    cout << tmp << endl;  
+  if (logPtr && useTmp)
+    *logPtr << tmp << endl;
   shellBody ();
 }
 

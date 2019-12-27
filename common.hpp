@@ -672,7 +672,6 @@ template <typename From, typename What>
     }
 
 
-
 template <typename T>
   ostream& operator<< (ostream &os,
                        const list<T> &ts)
@@ -1782,6 +1781,18 @@ public:
 
 
 
+template <typename T>
+  Vector<T> diff2vec (const unordered_set<T> &a,
+                      const unordered_set<T> &b)
+  { Vector<T> v;  v. reserve (a. size ());
+    for (const T& t : a)
+      if (! contains (b, t))
+        v << t;
+    return v;
+  }  
+
+
+
 template <typename T /* : Root */>
 struct VectorPtr : Vector <const T*>
 {
@@ -2709,8 +2720,8 @@ struct TokenInput : Root
 private:
   CharInput ci;
   const char commentStart {'\0'};
-public:
   Token last;
+public:
 
 
   explicit TokenInput (const string &fName,
@@ -2766,6 +2777,11 @@ public:
     { const Token t (get ());
     	if (! t. isDelimiter (expected))
    			ci. error (Token::type2str (Token::eDelimiter) + " " + strQuote (toString (expected))); 
+    }
+  void setLast (Token &&t)
+    { if (t. empty ())
+        throw logic_error ("TokenInput::setLast()");
+      last = move (t);
     }
 };
 
@@ -3448,25 +3464,7 @@ protected:
   void setRequiredGroup (const string &keyName,
                          const string &requiredGroup);
 private:
-	void addDefaultArgs ()
-	  { if (gnu)
-    	{ addKey ("threads", "Max. number of threads", "1", '\0', "THREADS");
-    	  addFlag ("debug", "Integrity checks");
-      }
-    	else
-    	{ addFlag ("qc", "Integrity checks (quality control)");
-	      addKey ("verbose", "Level of verbosity", "0");
-	      addFlag ("noprogress", "Turn off progress printout");
-	      addFlag ("profile", "Use chronometers to profile");
-	      addKey ("seed", "Positive integer seed for random number generator", "1");
-	      addKey ("threads", "Max. number of threads", "1");
-	      addKey ("json", "Output file in Json format");
-	      addKey ("log", "Error log file, appended");
-      #ifndef _MSC_VER
-	      addFlag ("sigpipe", "Exit normally on SIGPIPE");
-      #endif
-	    }
-	  }
+	void addDefaultArgs ();
 	void qc () const final;
 	Key* getKey (const string &keyName) const;
 	  // Return: !nullptr

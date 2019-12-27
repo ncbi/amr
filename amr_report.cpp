@@ -314,7 +314,7 @@ struct BlastAlignment : Alignment
   // Reference protein
   long gi {0};  
     // 0 <=> HMM method
-  string accessionProt; 
+  string refAccession; 
   size_t part {1};    
     // >= 1
     // <= parts
@@ -350,8 +350,19 @@ struct BlastAlignment : Alignment
 			    famId                       =                     rfindSplit (refName, '|');  // Reportable_vw.fam
 			    parts                       = (size_t) str2<int> (rfindSplit (refName, '|'));
 			    part                        = (size_t) str2<int> (rfindSplit (refName, '|'));
-			    accessionProt               =                     rfindSplit (refName, '|');
+			    refAccession               =                      rfindSplit (refName, '|');
 			    gi = str2<long> (refName);
+  		    if (contains (refAccession, ':'))
+  		    {
+  		      QC_ASSERT (isMutation ());
+  		      const string geneMutation =               rfindSplit (refAccession, ':');
+  		      const size_t pos          = str2<size_t> (rfindSplit (refAccession, ':'));
+  		      ASSERT (refMutation. empty ());
+  		      refMutation = move (Mutation (pos, geneMutation));
+  		      ASSERT (! refMutation. empty ());
+  		      refMutation. qc ();
+  		      refMutation2refSeq ();
+  		    }
 			  }
 			  catch (const exception &e)
 			  {
@@ -413,7 +424,7 @@ struct BlastAlignment : Alignment
 		      cdss << move (Locus (0, targetName, targetStart, targetEnd, targetStrand, partialDna, 0));
 	
 
-		    if (const Vector<Mutation>* refMutations /*mutations_all*/ = findPtr (accession2mutations, accessionProt))
+		    if (const Vector<Mutation>* refMutations = findPtr (accession2mutations, refAccession))
 		    {
 		    	if (verbose ())
 		        cout << "Mutation protein found: " << refName << endl;
@@ -451,7 +462,7 @@ struct BlastAlignment : Alignment
 	    QC_ASSERT ((bool) gi == ! targetSeq. empty ());
 	    QC_ASSERT ((bool) gi == (bool) refLen);
 	    QC_ASSERT ((bool) gi == (bool) nident);
-	    QC_ASSERT ((bool) gi == ! accessionProt. empty ());
+	    QC_ASSERT ((bool) gi == ! refAccession. empty ());
 	    QC_IMPLY (! gi && ! isMutation (), getFam () -> getHmmFam ());
 	    QC_IMPLY (targetProt, ! partialDna);
 	    QC_ASSERT (targetAlign);
@@ -460,6 +471,7 @@ struct BlastAlignment : Alignment
 	    QC_ASSERT (nident <= targetAlign_aa);
 	  //QC_IMPLY (! targetProt, cdss. empty ());
 	    QC_IMPLY (gi, targetAlign_aa <= targetSeq. size ());
+	    QC_IMPLY (! refMutation. empty (), isMutation ());
 	  #if 0
 	    if (targetProt)
     	  for (const Locus& cds : cdss)
@@ -527,7 +539,7 @@ struct BlastAlignment : Alignment
 	             << refCoverage () * 100.0  
 	             << pIdentity () * 100.0  // refIdentity
 	             << targetSeq. size ()
-	             << accessionProt
+	             << refAccession
 	             << product
 	             ;
 	        else
@@ -569,6 +581,7 @@ struct BlastAlignment : Alignment
   	             << '\t' << alleleReported ()
   	             << '\t' << targetProt
   	             << '\t' << nident
+  	             << '\t' << refMutation
   	             << '\t';
 	          os << td. str () << endl;
 	        }
@@ -626,7 +639,8 @@ struct BlastAlignment : Alignment
   bool alleleReported () const
     { return refExactlyMatched () && allele () && (! targetProt || refLen == targetLen); }
 	string getMethod (const Locus &cds) const
-	  { string method (refExactlyMatched () 
+	  { IMPLY (refExactlyMatched (), ! isMutation ());
+	    string method (refExactlyMatched () 
         	             ? alleleReported () 
         	               ? "ALLELE"
         	               : "EXACT"  // PD-776
@@ -816,7 +830,7 @@ public:
     // Requires: all SCCs of betterEq() are complete subgraphs ??
     { return    betterEq (other) 
     	       && (   ! other. betterEq (*this) 
-    	           || accessionProt < other. accessionProt  // Tie resolution: PD-1245
+    	           || refAccession < other. refAccession  // Tie resolution: PD-1245
     	          );
     }
   bool better (const HmmAlignment& other) const
@@ -847,7 +861,7 @@ public:
       LESS_PART (*this, other, targetStart);
       LESS_PART (*this, other, getCdsStart ());
       LESS_PART (*this, other, famId);
-      LESS_PART (*this, other, accessionProt);
+      LESS_PART (*this, other, refAccession);
       return false;
     }
   void setTargetAlign ()
@@ -1335,7 +1349,7 @@ public:
 	       << "% Coverage of reference sequence"  // queryCoverage
 	       << "% Identity to reference sequence"  
 	       << "Alignment length"                  // targetSeq. size ()
-	       << "Accession of closest sequence"     // accessionProt
+	       << "Accession of closest sequence"     // refAccession
 	       << "Name of closest sequence"
 	       //
 	       << "HMM id"

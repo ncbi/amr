@@ -33,38 +33,40 @@
 *               cat, cp, cut, grep, head, mkdir, mv, nproc, sed, sort, tail
 *
 * Release changes:
-*   3.5.9 12/19/2019 PD-3294   blastx parameters: space added
-*   3.5.8 12/18/2019 issues/19 changed message if db path is bad
-*   3.5.7 12/18/2019 PD-3289   improved message for gff_check failure
-*   3.5.6 12/18/2019 PD-3269   --gpipe is removed, --pgapx is replaced by --pgap
-*   3.5.5 12/17/2019 PD-3287   short proteins at an end of a contig are reported
-*   3.5.4 12/17/2019 PD-3287   truncated short proteins are not reported
-*   3.5.3 12/16/2019 PD-3279   GPipe-GenColl assemblies, --gpipe_org
-*                    GP-28025
-*   3.5.2 12/13/2019 PD-3269   New flag --pgapx
-*   3.5.1 12/12/2019 PD-3277   Files AMRProt-mutation.tab, AMRProt-suppress, AMR_DNA-<TAXGROUP>.tab and taxgroup.tab have headers
-*   3.4.3 12/11/2019 PD-2171   --mutation_all bug
-*                              --debug does not imply "-verbose 1"
-*   3.4.2 12/10/2019 PD-3209   alignment correction for mutations
-*                              point_mut.{hpp,cpp} -> alignment.{hpp,cpp}
-*                              dna_point_mut.cpp -> dna_mutation.cpp
-*                              AMRProt-point_mut.tab -> AMRProt-mutation.tab
-*                              protein resistance: "point_mutation" -> "mutation"
-*                              amrfinder: --point_mut_all -> --mutation_all
-*                    PD-3232   mutation detection redesign
-*                    PD-3267   mutation in a mutated context
-*   3.4.1 12/03/2019 PD-3193   AMR_DNA-*.tab: column "genesymbol" is removed
-*                              product name is fixed for point mutations
-*                              point_mut.cpp -> dna_point_mut.cpp
-*   3.3.2 11/26/2019 PD-3193   Indel mutations: partially implemented
-*                              Bug fixed: protein point mutations were reported incorrectly if there was an offset w.r.t. the reference sequence
-*                              Files AMRProt-point_mut.tab and AMR_DNA-<taxgroup>.tab: columns allele, symbol are removed
-*                              Files taxgroup.list and gpipe.tab are replaced by taxgroup.tab
-*   3.3.1 11/22/2019 PD-3206   New files: taxgroup.list, gpipe.tab; new option --list_organisms
-*   3.2.3 11/14/2019 PD-3192   Fixed error made by PD-3190
-*   3.2.3 11/13/2019 PD-3190   organisms for --gpipe
-*   3.2.3 11/12/2019 PD-3187   Sequence name is always from AMRProt, not from fam.tab
-*   3.2.2 11/06/2019 PD-2244   Added "LANG=C" before "sort"
+*   3.6.1  12/27/2019 PD-3230   Mutated proteins are added to AMRProt
+*   3.5.10 12/20/2019           --log
+*   3.5.9  12/19/2019 PD-3294   blastx parameters: space added
+*   3.5.8  12/18/2019 issues/19 changed message if db path is bad
+*   3.5.7  12/18/2019 PD-3289   improved message for gff_check failure
+*   3.5.6  12/18/2019 PD-3269   --gpipe is removed, --pgapx is replaced by --pgap
+*   3.5.5  12/17/2019 PD-3287   short proteins at an end of a contig are reported
+*   3.5.4  12/17/2019 PD-3287   truncated short proteins are not reported
+*   3.5.3  12/16/2019 PD-3279   GPipe-GenColl assemblies, --gpipe_org
+*                     GP-28025
+*   3.5.2  12/13/2019 PD-3269   New flag --pgapx
+*   3.5.1  12/12/2019 PD-3277   Files AMRProt-mutation.tab, AMRProt-suppress, AMR_DNA-<TAXGROUP>.tab and taxgroup.tab have headers
+*   3.4.3  12/11/2019 PD-2171   --mutation_all bug
+*                               --debug does not imply "-verbose 1"
+*   3.4.2  12/10/2019 PD-3209   alignment correction for mutations
+*                               point_mut.{hpp,cpp} -> alignment.{hpp,cpp}
+*                               dna_point_mut.cpp -> dna_mutation.cpp
+*                               AMRProt-point_mut.tab -> AMRProt-mutation.tab
+*                               protein resistance: "point_mutation" -> "mutation"
+*                               amrfinder: --point_mut_all -> --mutation_all
+*                     PD-3232   mutation detection redesign
+*                     PD-3267   mutation in a mutated context
+*   3.4.1  12/03/2019 PD-3193   AMR_DNA-*.tab: column "genesymbol" is removed
+*                               product name is fixed for point mutations
+*                               point_mut.cpp -> dna_point_mut.cpp
+*   3.3.2  11/26/2019 PD-3193   Indel mutations: partially implemented
+*                               Bug fixed: protein point mutations were reported incorrectly if there was an offset w.r.t. the reference sequence
+*                               Files AMRProt-point_mut.tab and AMR_DNA-<taxgroup>.tab: columns allele, symbol are removed
+*                               Files taxgroup.list and gpipe.tab are replaced by taxgroup.tab
+*   3.3.1  11/22/2019 PD-3206   New files: taxgroup.list, gpipe.tab; new option --list_organisms
+*   3.2.3  11/14/2019 PD-3192   Fixed error made by PD-3190
+*   3.2.3  11/13/2019 PD-3190   organisms for --gpipe
+*   3.2.3  11/12/2019 PD-3187   Sequence name is always from AMRProt, not from fam.tab
+*   3.2.2  11/06/2019 PD-2244   Added "LANG=C" before "sort"
 *
 */
 
@@ -86,9 +88,9 @@ using namespace Common_sp;
 #ifdef SVN_REV
   #define SOFTWARE_VER SVN_REV
 #else
-  #define SOFTWARE_VER "3.5.9"
+  #define SOFTWARE_VER "3.6.1"
 #endif
-#define DATA_VER_MIN "2019-12-12.1"  
+#define DATA_VER_MIN "2019-12-26.1"  
 
 
 
@@ -97,7 +99,7 @@ namespace
   
   
 // PAR
-constexpr size_t threads_max_min = 1;  // was: 4
+constexpr size_t threads_max_min = 1;  
 constexpr size_t threads_def = 4;
 // Cf. amr_report.cpp
 constexpr double ident_min_def = 0.9;
@@ -243,11 +245,10 @@ struct ThisApplication : ShellApplication
     const string parm            =             getArg ("parm");  
     const string output          = shellQuote (getArg ("output"));
     const bool   quiet           =             getFlag ("quiet");
-  //const bool   gpipe           =             getFlag ("gpipe");
     const bool   gpipe_org       =             getFlag ("gpipe_org");
     
     
-		const string logFName (tmp + ".log");
+		const string logFName (tmp + ".log");  // Command-local log file
 
 
     Stderr stderr (quiet);
@@ -266,9 +267,6 @@ struct ThisApplication : ShellApplication
 	  if (report_common && emptyArg (organism))
 		  throw runtime_error ("--report_common requires --organism");
 		  
-  //if (gpipe && pgapx)
-    //throw runtime_error ("Flags --gpipe and --pgapx are mutually exclusive");
-
 
 		if (! emptyArg (output))
 		  try { OFStream f (unQuote (output)); }
