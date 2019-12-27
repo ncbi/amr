@@ -171,6 +171,15 @@ bool SeqChange::operator< (const SeqChange &other) const
 
 
 
+bool SeqChange::better (const SeqChange &other) const
+{ 
+  LESS_PART (*this, other, neighborhoodMismatch);  
+  LESS_PART (other, *this, al->pIdentity ());  
+  return false;
+}
+
+
+
 bool SeqChange::finish (const string &refSeq,
                         size_t flankingLen)
 {
@@ -523,6 +532,7 @@ Alignment::Alignment (const string &line,
 
 void Alignment::set_nident ()
 {
+  ASSERT (targetSeq. size () == refSeq. size ());
   nident = 0;
   FFOR (size_t, i, targetSeq. size ())
     if (targetSeq [i] == refSeq [i])

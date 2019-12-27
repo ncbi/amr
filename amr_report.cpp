@@ -218,9 +218,6 @@ struct HmmAlignment
   HmmAlignment (const string &line,
                 const Batch &batch);
     // Update: batch.domains
-  HmmAlignment (const HmmAlignment &other);
-  HmmAlignment operator= (const HmmAlignment &other);
-  HmmAlignment () = default;
   void saveText (ostream &os) const 
     { os << sseqid << ' ' << score1 << ' ' << score2 << ' ' << (fam ? fam->hmm : string ()); }
       
@@ -503,7 +500,7 @@ struct BlastAlignment : Alignment
 	        Mutation mut;
 	        if (seqChange. mutation)
 	          mut = * seqChange. mutation;
-	      //IMPLY (isMutation (), ! mut. empty ());  // May be invoked for debugging
+	        IMPLY (! verbose () && isMutation (), ! mut. empty ());  
           const string method (getMethod (cds));
 	        TabDel td (2, false);
           td << (targetProt ? targetName : na);  // PD-2534
@@ -512,7 +509,7 @@ struct BlastAlignment : Alignment
 	             << (cds. contig. empty () ? targetStart : cds. start) + 1
 	             << (cds. contig. empty () ? targetEnd  : cds. stop)
 	             << (cds. contig. empty () ? (targetStrand ? '+' : '-') : (cds. strand ? '+' : '-'));
-	        td << (isMutation () /*! mut. empty ()*/
+	        td << (isMutation ()
 			             ? mut. geneMutation
 	                 : print_fam 
 			                 ? famId
@@ -855,15 +852,6 @@ public:
                ? 0
                : cdss. front (). start;
     }
-  bool operator< (const BlastAlignment &other) const
-    { 
-      LESS_PART (*this, other, targetName);
-      LESS_PART (*this, other, targetStart);
-      LESS_PART (*this, other, getCdsStart ());
-      LESS_PART (*this, other, famId);
-      LESS_PART (*this, other, refAccession);
-      return false;
-    }
   void setTargetAlign ()
     { targetAlign = targetEnd - targetStart;
       targetAlign_aa = targetAlign;
@@ -905,6 +893,18 @@ public:
   	    throw runtime_error ("Locus tag " + strQuote (locusTag) + " is misssing in .gff-file. Protein name: " + targetName);
   	  qc ();
     }
+  static bool less (const BlastAlignment* a,
+                    const BlastAlignment* b) 
+  { ASSERT (a);
+    ASSERT (b);
+    LESS_PART (*a, *b, targetName);
+    LESS_PART (*a, *b, targetStart);
+    LESS_PART (*a, *b, getCdsStart ());
+    LESS_PART (*a, *b, famId);
+    LESS_PART (*a, *b, refAccession);
+    LESS_PART (*b, *a, pIdentity ());
+    return false;
+  }
 };
 
 
@@ -926,6 +926,7 @@ bool HmmAlignment::better (const BlastAlignment& other) const
 
 
 
+
 // Batch
 
 struct Batch
@@ -936,16 +937,13 @@ struct Batch
   Vector<long> suppress_prots;
 
   // Target input
-  typedef  List<BlastAlignment>  BlastAls; 
-  typedef  List<HmmAlignment>  HmmAls;   
-
-  BlastAls blastAls;   
+  VectorOwn<BlastAlignment> blastAls;
+  VectorOwn<HmmAlignment> hmmAls;
   bool hmmExist {false};
   map<HmmAlignment::Pair, HmmAlignment::Domain> domains;  // Best domain  
-  HmmAls hmmAls;  
   
   // Output
-  BlastAls goodBlastAls; 
+  VectorPtr<BlastAlignment> goodBlastAls; 
   
   
   Batch (const string &famFName,
@@ -1115,28 +1113,29 @@ private:
   // Input: blastAls
   // Output: goodBlastAls
   {
-    goodBlastAls. clear ();
-	  for (const auto& blastAl : blastAls)
+    ASSERT (goodBlastAls. empty ());
+	  for (const BlastAlignment* blastAl : blastAls)
     {
-    	ASSERT (blastAl. good ());
+      ASSERT (blastAl);
+    	ASSERT (blastAl->good ());
   	  bool found = false;
-  	  for (const auto& goodBlastAl : goodBlastAls)
-  	    if (goodBlastAl. better (blastAl))
+  	  for (const BlastAlignment* goodBlastAl : goodBlastAls)
+  	    if (goodBlastAl->better (*blastAl))
 	      {
 	        found = true;
 	        break;
 	      }
 	    if (found)
 	      continue;	      
-      for (Iter<BlastAls> goodIter (goodBlastAls); goodIter. next ();)
-        if (blastAl. better (*goodIter))
+      for (Iter<VectorPtr<BlastAlignment>> goodIter (goodBlastAls); goodIter. next ();)
+        if (blastAl->better (**goodIter))
         {
           if (verbose ())
           {
             cout << "Bad:  ";
-            goodIter->saveText (cout); 
+            (*goodIter)->saveText (cout); 
             cout << "Good:  ";
-            blastAl. saveText (cout); 
+            blastAl->saveText (cout); 
           }
           goodIter. erase ();          
         }
@@ -1145,21 +1144,9 @@ private:
   	if (verbose ())
   	{
   	  cout << "# Best Blasts: " << goodBlastAls. size () << endl;
-  	  for (const auto& blastAl : goodBlastAls)
-  	    blastAl. saveText (cout);
+  	  for (const BlastAlignment* blastAl : goodBlastAls)
+  	    blastAl->saveText (cout);
   	}
-  #if 0
-	  for (const auto& blastAl1 : goodBlastAls)
-		  for (const auto& blastAl2 : goodBlastAls)
-		  {
-		  	cout << endl;
-		  	blastAl1. saveText (cout);
-		  	blastAl2. saveText (cout);
-		  	cout        << blastAl1. better (blastAl2) 
-		  	     << ' ' << blastAl2. better (blastAl1) 
-		  	     << endl;
-		  }
-	#endif
   }
 public:
 	  	  
@@ -1170,15 +1157,15 @@ public:
 	// Output: goodBlastAls
 	{
     // Use BlastAlignment.cdss
-    for (Iter<BlastAls> iter (blastAls); iter. next ();)
-      if (! iter->good ())
+    for (Iter<VectorOwn<BlastAlignment>> iter (blastAls); iter. next ();)
+      if (! (*iter)->good ())
       {
         if (verbose ())
         {
           cout << "Erased:" << endl;
-          iter->saveText (cout);
+          (*iter)->saveText (cout);
         }
-        iter. erase ();
+        delete iter. erase ();
       }
         
     // Group by targetName and process each targetName separately for speed ??    
@@ -1189,78 +1176,84 @@ public:
       blastParetoBetter ();
 
     // Cf. dna_mutation.cpp
-    for (const BlastAlignment& blastAl1 : blastAls)
-      for (const SeqChange& seqChange1 : blastAl1. seqChanges)
+    for (const BlastAlignment* blastAl1 : goodBlastAls)
+      for (const SeqChange& seqChange1 : blastAl1->seqChanges)
       {
+        ASSERT (seqChange1. al == blastAl1);
         if (! seqChange1. mutation)
           continue;
-        for (BlastAlignment& blastAl2 : blastAls)
-          if (   blastAl2. targetName   == blastAl1. targetName
-              && blastAl2. targetStrand == blastAl1. targetStrand
-              && & blastAl2 != & blastAl1
+        for (const BlastAlignment* blastAl2 : goodBlastAls)
+          if (   blastAl2->targetName   == blastAl1->targetName
+              && blastAl2->targetStrand == blastAl1->targetStrand
+              && blastAl2 != blastAl1
              )  
-            for (SeqChange& seqChange2 : blastAl2. seqChanges)
+            for (Iter<Vector<SeqChange>> iter (var_cast (blastAl2) -> seqChanges); iter. next (); )
             {
-              if (! seqChange2. mutation)
-                continue;
-              if (   seqChange1. start_target         == seqChange2. start_target 
-                  && seqChange1. neighborhoodMismatch <  seqChange2. neighborhoodMismatch
+              SeqChange& seqChange2 = *iter;
+              ASSERT (seqChange2. al == blastAl2);
+              if (   seqChange1. start_target == seqChange2. start_target 
+                  && seqChange1. better (seqChange2)
                  )
-                seqChange2 = SeqChange ();
+                iter. erase ();
             }
       }    
 
     // HMM: Pareto-better()  
-    HmmAls goodHmmAls; 
-    FOR (unsigned char, criterion, 2)
+    VectorPtr<HmmAlignment> goodHmmAls;  goodHmmAls. reserve (hmmAls. size ());
     {
-      // hmmAls --> goodHmmAls
-      goodHmmAls. clear ();
-  	  for (const auto& hmmAl : hmmAls)
+      VectorPtr<HmmAlignment> hmmAls_ (hmmAls);
+      FOR (unsigned char, criterion, 2)
       {
-      	ASSERT (hmmAl. good ());
-    	  bool found = false;
-    	  for (const auto& goodHmmAl : goodHmmAls)
-    	    if (goodHmmAl. better (hmmAl, criterion))
-  	      {
-  	        found = true;
-  	        break;
-  	      }
-  	    if (found)
-  	      continue;  
-        for (Iter<HmmAls> goodIter (goodHmmAls); goodIter. next ();)
-          if (hmmAl. better (*goodIter, criterion))
-            goodIter. erase ();
-        goodHmmAls << hmmAl;
-      }
-      //
-      hmmAls = goodHmmAls;
-      if (verbose ())
-      {
-        cout << "Pareto-better HMMs: (Criterion " << (int) criterion << "): " << hmmAls. size () << endl;
-        for (const HmmAlignment& al : hmmAls)
+        // hmmAls_ --> goodHmmAls
+        ASSERT (goodHmmAls. empty ());
+    	  for (const HmmAlignment* hmmAl : hmmAls_)
         {
-          al. saveText (cout);
-          cout << endl;
+          ASSERT (hmmAl);
+        	ASSERT (hmmAl->good ());
+      	  bool found = false;
+      	  for (const HmmAlignment* goodHmmAl : goodHmmAls)
+      	    if (goodHmmAl->better (*hmmAl, criterion))
+    	      {
+    	        found = true;
+    	        break;
+    	      }
+    	    if (found)
+    	      continue;  
+          for (Iter<VectorPtr<HmmAlignment>> goodIter (goodHmmAls); goodIter. next ();)
+            if (hmmAl->better (**goodIter, criterion))
+              goodIter. erase ();
+          goodHmmAls << hmmAl;
         }
+        if (verbose ())
+        {
+          cout << "Pareto-better HMMs: (Criterion " << (int) criterion << "): " << goodHmmAls. size () << endl;
+          for (const HmmAlignment* al : goodHmmAls)
+          {
+            al->saveText (cout);
+            cout << endl;
+          }
+        }
+        //
+        if (criterion < 1)
+          hmmAls_ = move (goodHmmAls);
       }
     }
 
     // PD-741
   	if (hmmExist && ! skip_hmm_check)
-      for (Iter<BlastAls> iter (goodBlastAls); iter. next ();)
+      for (Iter<VectorPtr<BlastAlignment>> iter (goodBlastAls); iter. next ();)
         if (   /*! iter->refExactlyMatched () */
-               ! iter->isMutation ()
-        	  && iter->targetProt
-        	  && iter->pIdentity () < 0.98 - frac_delta  // PAR  // PD-1673
-            && ! iter->partial ()
+               ! (*iter) -> isMutation ()
+        	  && (*iter) -> targetProt
+        	  && (*iter) -> pIdentity () < 0.98 - frac_delta  // PAR  // PD-1673
+            && ! (*iter) -> partial ()
            )
-	        if (const Fam* fam = iter->getFam () -> getHmmFam ())  
+	        if (const Fam* fam = (*iter) -> getFam () -> getHmmFam ())  
 	        {
 	          bool found = false;
-	      	  for (const auto& hmmAl : goodHmmAls)
-	            if (   iter->targetName == hmmAl. sseqid
-	                && fam == hmmAl. fam
+	      	  for (const HmmAlignment* hmmAl : goodHmmAls)
+	            if (   (*iter) -> targetName == hmmAl->sseqid
+	                && fam == hmmAl->fam
 	               )
 	            {
 	              found = true;
@@ -1271,7 +1264,7 @@ public:
 	            if (verbose ())
 	            {
                 cout << "HMM-wrong:  ";
-                iter->saveText (cout); 
+                (*iter) -> saveText (cout); 
               }
 	            iter. erase ();
 	          }
@@ -1279,18 +1272,18 @@ public:
   	if (verbose ())
   	  cout << "# Best Blasts left: " << goodBlastAls. size () << endl;
 
-    for (Iter<HmmAls> hmmIt (goodHmmAls); hmmIt. next ();)
-  	  for (const auto& blastAl : goodBlastAls)
-  	    if (blastAl. better (*hmmIt))
+    for (Iter<VectorPtr<HmmAlignment>> hmmIt (goodHmmAls); hmmIt. next ();)
+  	  for (const BlastAlignment* blastAl : goodBlastAls)
+  	    if (blastAl->better (**hmmIt))
 	      {
           hmmIt. erase ();
 	        break;
 	      }
 
     // PD-2783
-    for (Iter<BlastAls> blastIt (goodBlastAls); blastIt. next ();)
-  	  for (const auto& hmmAl : goodHmmAls)
-  	    if (hmmAl. better (*blastIt))
+    for (Iter<VectorPtr<BlastAlignment>> blastIt (goodBlastAls); blastIt. next ();)
+  	  for (const HmmAlignment* hmmAl : goodHmmAls)
+  	    if (hmmAl->better (**blastIt))
 	      {
           blastIt. erase ();
 	        break;
@@ -1299,21 +1292,21 @@ public:
     // Output 
     
     // goodHmmAls --> goodBlastAls
-  	for (const auto& hmmAl : goodHmmAls)
+  	for (const HmmAlignment* hmmAl : goodHmmAls)
   	{
-  	  ASSERT (hmmAl. blastAl. get ());
-  	  goodBlastAls << * hmmAl. blastAl. get ();
+  	  ASSERT (hmmAl->blastAl. get ());
+  	  goodBlastAls << hmmAl->blastAl. get ();
   	}
   
-    goodBlastAls. sort ();
+    goodBlastAls. sort (BlastAlignment::less);
 
     if (verbose ())
     {
 	    cout << endl << "After process():" << endl;
-		  for (const auto& blastAl : goodBlastAls)
+		  for (const BlastAlignment* blastAl : goodBlastAls)
 		  {
-		    blastAl. saveText (cout);
-		    cout << "# Mutations: " << blastAl. seqChanges. size () << endl;
+		    blastAl->saveText (cout);
+		    cout << "# Mutations: " << blastAl->seqChanges. size () << endl;
 		  }
 		}
 	}
@@ -1363,18 +1356,24 @@ public:
         *mutation_all << td. str () << endl;
 	  }
 
-  	for (const auto& blastAl : goodBlastAls)
+  	for (const BlastAlignment* blastAl : goodBlastAls)
   	{
-   	  blastAl. qc ();
-   	  if (blastAl. isMutation ())
-  	  	if (blastAl. seqChanges. empty ())
+  	  ASSERT (blastAl);
+   	  if (blastAl->isMutation ())
+  	  	if (blastAl->seqChanges. empty ())
   	  	  ;
   	  	else
-      	  blastAl. saveText (os);
-   	  else if (   blastAl. getFam () -> reportable >= reportable_min
-   	           && ! suppress_prots. containsFast (blastAl. gi)
+  	  	{
+      	  blastAl->saveText (os);
+       	  blastAl->qc ();
+      	}
+   	  else if (   blastAl->getFam () -> reportable >= reportable_min
+   	           && ! suppress_prots. containsFast (blastAl->gi)
    	          )
-    	  blastAl. saveText (os);
+   	  {
+    	  blastAl->saveText (os);
+     	  blastAl->qc ();
+    	}
     }
 	}
 
@@ -1383,12 +1382,12 @@ public:
 	void printTargetIds (ostream &os) const
 	{
 		ASSERT (os. good ());
-  	for (const auto& blastAl : goodBlastAls)
-  	  if (   blastAl. targetProt
-  	  	  && ! blastAl. isMutation ()
-  	  	  && blastAl. getFam () -> reportable >= reportable_min
+  	for (const BlastAlignment* blastAl : goodBlastAls)
+  	  if (   blastAl->targetProt
+  	  	  && ! blastAl->isMutation ()
+  	  	  && blastAl->getFam () -> reportable >= reportable_min
   	  	 )
-        os << blastAl. targetName << endl;
+        os << blastAl->targetName << endl;
 	}
 };
 
@@ -1411,28 +1410,6 @@ HmmAlignment::HmmAlignment (const string &line,
   find (batch. hmm2fam, hmm, fam);
   if (! fam)
     throw runtime_error ("No family for HMM " + hmm);
-}
-
-
-
-HmmAlignment::HmmAlignment (const HmmAlignment &other)
-: sseqid (other. sseqid)
-, score1 (other. score1)
-, score2 (other. score2)
-, fam    (other. fam)
-, blastAl (new BlastAlignment (* other. blastAl. get ()))
-{}
-
-
-
-HmmAlignment HmmAlignment::operator= (const HmmAlignment &other)
-{
-  sseqid = other. sseqid;
-  score1 = other. score1;
-  score2 = other. score2;
-  fam    = other. fam;
-  blastAl. reset (new BlastAlignment (* other. blastAl. get ()));
-  return *this;
 }
 
 
@@ -1617,22 +1594,17 @@ struct ThisApplication : Application
     	      if (verbose ())
     	        cout << f. line << endl;  
     	    }
-    	    BlastAlignment al (f. line, true);
-    	    al. qc ();  
-    	    if (nosame && toString (al. gi) == al. targetName)
+    	    auto al = new BlastAlignment (f. line, true);
+    	    al->qc ();  
+    	    if (nosame && toString (al->gi) == al->targetName)
     	      continue;
-    	    if (al. good ())
-    	      batch. blastAls << move (al);
+    	    if (al->good ())
+    	      batch. blastAls << al;
     	    else
-      	    { ASSERT (! al. refExactlyMatched ());
-      	      if (false)
-      	      {
-      	        al. saveText (cout);
-      	        cout << al. targetName << endl;
-      	        cout << al. pIdentity () << ' ' << al. refCoverage () << ' ' << al. targetCoverage () << endl;
-      	        ERROR;
-      	      }
-      	    }
+    	    { 
+    	      ASSERT (! al->refExactlyMatched ());
+    	      delete al;
+    	    }
     	  }
     	}
 
@@ -1646,14 +1618,17 @@ struct ThisApplication : Application
     	      if (verbose ())
     	        cout << f. line << endl;  
     	    }
-    	    BlastAlignment al (f. line, false);
-    	    al. qc ();  
-    	    if (nosame && toString (al. gi) == al. targetName)
+    	    auto al = new BlastAlignment (f. line, false);
+    	    al->qc ();  
+    	    if (nosame && toString (al->gi) == al->targetName)
     	      continue;
-    	    if (al. good ())
-    	      batch. blastAls << move (al);
+    	    if (al->good ())
+    	      batch. blastAls << al;
     	    else
-      	    { ASSERT (! al. refExactlyMatched ()); }
+      	  { 
+      	    ASSERT (! al->refExactlyMatched ()); 
+      	    delete al;
+      	  }
     	  }
     	}
     }
@@ -1690,18 +1665,19 @@ struct ThisApplication : Application
     	      cout << f. line << endl;  
     	    if (f. line. empty () || f. line [0] == '#')
     	      continue;
-    	    HmmAlignment hmmAl (f. line, batch);
-    	    if (! hmmAl. good ())
+    	    auto hmmAl = new HmmAlignment (f. line, batch);
+    	    if (! hmmAl->good ())
     	    {
     	      if (verbose ())
     	      {
     	        cout << "  Bad HMM: " << endl;
-    	        hmmAl. saveText (cout);
+    	        hmmAl->saveText (cout);
     	      }
+    	      delete hmmAl;
     	    	continue;
     	    }
-    	    auto al = new BlastAlignment (hmmAl);
-  	  	  hmmAl. blastAl. reset (al);
+    	    auto al = new BlastAlignment (*hmmAl);
+  	  	  hmmAl->blastAl. reset (al);
   	  	  if (verbose ())
   	  	    cout << al->targetName << " " << al->gene << endl;  
   	  	  const HmmAlignment::Domain domain = batch. domains [HmmAlignment::Pair (al->targetName, al->gene)];
@@ -1717,12 +1693,12 @@ struct ThisApplication : Application
   	  	  ASSERT (! al->refExactlyMatched ());
   	  	  ASSERT (! al->partial ());
   	  	  al->qc ();
-  	      batch. hmmAls << move (hmmAl);
+  	      batch. hmmAls << hmmAl;
     	  }
     	}
     }
    	if (verbose ())
-   	  cout << "# Good HMMs: " << batch. hmmAls. size () << endl;
+   	  cout << "# Good initial HMMs: " << batch. hmmAls. size () << endl;
   
   
     // For Batch::report()
@@ -1779,16 +1755,16 @@ struct ThisApplication : Application
   	            var_cast (locus). contigLen = contig2len [locus.contig];
   	    }
   	  }
-    	for (auto& al : batch. blastAls)
-    	  if (al. targetProt)
-    	  	al. setCdss (seqId2locusTag, * annot. get ());
-	    for (auto& hmmAl : batch. hmmAls)
-        var_cast (hmmAl. blastAl. get ()) -> setCdss (seqId2locusTag, * annot. get ());;
+    	for (const BlastAlignment* al : batch. blastAls)
+    	  if (al->targetProt)
+    	  	var_cast (al) -> setCdss (seqId2locusTag, * annot. get ());
+	    for (const HmmAlignment* hmmAl : batch. hmmAls)
+        var_cast (hmmAl->blastAl. get ()) -> setCdss (seqId2locusTag, * annot. get ());;
     }
     
     
     // Output
-    batch. process (retainBlasts, skip_hmm_check);    
+    batch. process (retainBlasts, skip_hmm_check);
     batch. report (cout);
     if (! outFName. empty ())
     {

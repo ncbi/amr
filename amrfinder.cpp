@@ -33,6 +33,8 @@
 *               cat, cp, cut, grep, head, mkdir, mv, nproc, sed, sort, tail
 *
 * Release changes:
+*   3.6.2  12/27/2019 PD-3230   Redundant reported lines are removed for mutated reference proteins
+*                               Reports are sorted by sort
 *   3.6.1  12/27/2019 PD-3230   Mutated proteins are added to AMRProt
 *   3.5.10 12/20/2019           --log
 *   3.5.9  12/19/2019 PD-3294   blastx parameters: space added
@@ -88,7 +90,7 @@ using namespace Common_sp;
 #ifdef SVN_REV
   #define SOFTWARE_VER SVN_REV
 #else
-  #define SOFTWARE_VER "3.6.1"
+  #define SOFTWARE_VER "3.6.2"
 #endif
 #define DATA_VER_MIN "2019-12-26.1"  
 
@@ -273,8 +275,8 @@ struct ThisApplication : ShellApplication
 		    catch (...) { throw runtime_error ("Cannot open output file " + output); }
 
     
-    time_t start, end;  // For timing... 
-    start = time (NULL);
+    // For timing... 
+    const time_t start = time (NULL);
     
     
     const size_t threads_max_max = get_threads_max_max ();
@@ -649,30 +651,19 @@ struct ThisApplication : ShellApplication
 		   )
 		{
 			exec (fullProg ("dna_mutation") + tmp + ".blastn " + db + "/AMR_DNA-" + organism1 + ".tab" + qcS + " -log " + logFName + " > " + tmp + ".amr-snp", logFName);
-			// merging, sorting
-			exec ("tail -n +2 " + tmp + ".amr     >  " + tmp + ".mrg");
-			exec ("tail -n +2 " + tmp + ".amr-snp >> " + tmp + ".mrg");
-			exec ("LANG=C && sort -k2 -k3n -k4n -k5 -k1 " + tmp + ".mrg > " + tmp + ".sorted");
-			// ".amr-out"
-  		exec ("head -1 " + tmp + ".amr    >  " + tmp + ".amr-out");
-			exec ("cat "     + tmp + ".sorted >> " + tmp + ".amr-out");
-			// ".amr"
-			exec ("mv " + tmp + ".amr-out " + tmp + ".amr");
-		}
-		else if (   emptyArg (dna)
-		         && ! emptyArg (gff)
-		        )
-		{ 
-		  // PD-2244
-			// ".amr-out"
-  		exec ("head -1 "    + tmp + ".amr                              >  " + tmp + ".amr-out");
-			exec ("LANG=C && tail -n +2 " + tmp + ".amr | sort -k2 -k3n -k4n -k5 -k1 >> " + tmp + ".amr-out");
-			// ".amr"
-			exec ("mv " + tmp + ".amr-out " + tmp + ".amr");
-		}
+			exec ("tail -n +2 " + tmp + ".amr-snp >> " + tmp + ".amr");
+	  }
+
+    // Sorting
+    // PD-2244
+    const string sortS (emptyArg (dna) && emptyArg (gff) ? "-k2 -k1" : "-k2 -k3n -k4n -k5 -k1");
+		exec ("head -1 "              + tmp + ".amr                      >  " + tmp + ".amr-out");
+		exec ("LANG=C && tail -n +2 " + tmp + ".amr | sort " + sortS + " >> " + tmp + ".amr-out");
+		exec ("mv " + tmp + ".amr-out " + tmp + ".amr");
+
 		
     // timing the run
-    end = time(NULL);
+    const time_t end = time (NULL);
     stderr << "AMRFinder took " << end - start << " seconds to complete\n";
 
 

@@ -107,7 +107,7 @@ struct Alignment;
 
 
 
-struct SeqChange
+struct SeqChange : Root
 // Report real mutation in AMRFinder ??
 {
   const Alignment* al {nullptr};
@@ -139,10 +139,8 @@ struct SeqChange
     : al (al_arg)
     , mutation (checkPtr (mutation_arg))
     {}
-  void qc () const;
-
-
-  void saveText (ostream &os) const
+  void qc () const override;
+  void saveText (ostream &os) const override
     { os        << start + 1 
          << ' ' << len 
          << ' ' << reference << " -> " << allele 
@@ -151,11 +149,14 @@ struct SeqChange
          << ' ' << neighborhoodMismatch
          << endl; 
     }
-  bool empty () const
+  bool empty () const override
     { return ! len; }
+    
+    
   size_t getStop () const
     { return start + len; }
   bool operator< (const SeqChange &other) const;
+  bool better (const SeqChange &other) const;
   bool finish (const string &refSeq,
                size_t flankingLen);
     // Return: good match
@@ -175,7 +176,7 @@ void normalizeSeqs (string &seq1,
 
 
 
-struct Alignment
+struct Alignment : Root
 // No TBLASTX
 {
   // Positions are 0-based
@@ -229,8 +230,8 @@ protected:
                       size_t flankingLen,
                       bool allMutationsP);
 public:
-  void qc () const;
-  void saveText (ostream &os) const
+  void qc () const override;
+  void saveText (ostream &os) const override
     { os         << targetProt
          << '\t' << targetName 
          << '\t' << targetStart
