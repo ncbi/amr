@@ -33,6 +33,7 @@
 *               cat, cp, cut, grep, head, mkdir, mv, nproc, sed, sort, tail
 *
 * Release changes:
+*   3.6.4  01/03/2020 PD-3230   sorting of report rows: protein accession is ignored if contig is available
 *   3.6.3  01/03/2020 PD-3230   sorting of report rows
 *          12/28/2019           QC in dna_mutation
 *   3.6.2  12/27/2019 PD-3230   Redundant reported lines are removed for mutated reference proteins
@@ -92,7 +93,7 @@ using namespace Common_sp;
 #ifdef SVN_REV
   #define SOFTWARE_VER SVN_REV
 #else
-  #define SOFTWARE_VER "3.6.3"
+  #define SOFTWARE_VER "3.6.4"
 #endif
 #define DATA_VER_MIN "2019-12-26.1"  
 
@@ -658,7 +659,7 @@ struct ThisApplication : ShellApplication
 
     // Sorting
     // PD-2244, PD-3230
-    const string sortS (emptyArg (dna) && emptyArg (gff) ? "-k1,1 -k2,2" : "-k1,1 -k2,2 -k3,3n -k4,4n -k5,5");
+    const string sortS (emptyArg (dna) && emptyArg (gff) ? "-k1,1 -k2,2" : "-k2,2 -k3,3n -k4,4n -k5,5 -k1,1");
 		exec ("head -1 "              + tmp + ".amr                      >  " + tmp + ".amr-out");
 		exec ("LANG=C && tail -n +2 " + tmp + ".amr | sort " + sortS + " >> " + tmp + ".amr-out");
 		exec ("mv " + tmp + ".amr-out " + tmp + ".amr");

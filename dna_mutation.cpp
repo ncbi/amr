@@ -51,7 +51,7 @@ using namespace Alignment_sp;
 #ifdef SVN_REV
   #define SOFTWARE_VER SVN_REV
 #else
-  #define SOFTWARE_VER "3.6.3"
+  #define SOFTWARE_VER "3.6.4"
 #endif
 
 
