@@ -51,7 +51,7 @@ using namespace Alignment_sp;
 #ifdef SVN_REV
   #define SOFTWARE_VER SVN_REV
 #else
-  #define SOFTWARE_VER "3.6.2"
+  #define SOFTWARE_VER "3.6.3"
 #endif
 
 
@@ -65,7 +65,6 @@ unique_ptr<OFStream> mutation_all;  // ??
 
 
 struct BlastnAlignment : Alignment
-// BLASTN alignment
 {
 	// PD-2001
  	static constexpr const size_t flankingLen = 200;  // PAR  
@@ -149,7 +148,7 @@ struct BlastnAlignment : Alignment
 
 struct Batch
 {
-  vector<BlastnAlignment> blastAls;   
+  VectorOwn<BlastnAlignment> blastAls;   
   
   
   explicit Batch (const string &mutation_tab)
@@ -214,10 +213,11 @@ struct Batch
 	    os << td. str () << endl;
 	  }
 
-  	for (const auto& blastAl : blastAls)
+  	for (const BlastnAlignment* blastAl : blastAls)
   	{
-   	  blastAl. qc ();
-   	  blastAl. saveText (os);
+  	  ASSERT (blastAl);
+   	  blastAl->qc ();
+   	  blastAl->saveText (os);
     }
 	}
 };
@@ -259,10 +259,12 @@ struct ThisApplication : Application
   	      if (verbose ())
   	        cout << f. line << endl;  
   	    }
-  	    BlastnAlignment al (f. line);
-  	    al. qc ();  
-  	    if (al. good ())
-  	      batch. blastAls. push_back (move (al));
+  	    auto al = new BlastnAlignment (f. line);
+  	    al->qc ();  
+  	    if (al->good ())
+  	      batch. blastAls << al;
+  	    else
+  	      delete al;
   	  }
   	}
   	if (verbose ())
@@ -275,32 +277,35 @@ struct ThisApplication : Application
     if (verbose ())
     {
 	    cout << "After process():" << endl;
-		  for (const auto& blastAl : batch. blastAls)
+		  for (const BlastnAlignment* blastAl : batch. blastAls)
 		  {
-		    blastAl. saveText (cout);
-		    cout << ' ' << blastAl. seqChanges. size () << endl;
+		    ASSERT (blastAl);
+		    blastAl->saveText (cout);
+		    cout << ' ' << blastAl->seqChanges. size () << endl;
 		  }
 		}
 		
     
-    for (const BlastnAlignment& blastAl1 : batch. blastAls)
-      for (const SeqChange& seqChange1 : blastAl1. seqChanges)
+    for (const BlastnAlignment* blastAl1 : batch. blastAls)
+      for (const SeqChange& seqChange1 : blastAl1->seqChanges)
       {
-        if (! seqChange1. mutation)
-          continue;
-        for (BlastnAlignment& blastAl2 : batch. blastAls)
-          if (   blastAl2. targetName   == blastAl1. targetName
-              && blastAl2. targetStrand == blastAl1. targetStrand
-              && & blastAl2 != & blastAl1
+        ASSERT (seqChange1. al == blastAl1);
+        ASSERT (seqChange1. mutation);
+        for (const BlastnAlignment* blastAl2 : batch. blastAls)
+          if (   blastAl2->targetName   == blastAl1->targetName
+              && blastAl2->targetStrand == blastAl1->targetStrand
+              && blastAl2 != blastAl1
              )  
-            for (SeqChange& seqChange2 : blastAl2. seqChanges)
+          //for (SeqChange& seqChange2 : blastAl2. seqChanges)
+            for (Iter<Vector<SeqChange>> iter (var_cast (blastAl2) -> seqChanges); iter. next (); )
             {
-              if (! seqChange2. mutation)
-                continue;
+              SeqChange& seqChange2 = *iter;
+              ASSERT (seqChange2. al == blastAl2);
+              ASSERT (seqChange2. mutation);
               if (   seqChange1. start_target         == seqChange2. start_target 
                   && seqChange1. neighborhoodMismatch <  seqChange2. neighborhoodMismatch
                  )
-                seqChange2 = SeqChange ();
+                iter. erase ();
             }
       }
 		

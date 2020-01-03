@@ -1180,8 +1180,7 @@ public:
       for (const SeqChange& seqChange1 : blastAl1->seqChanges)
       {
         ASSERT (seqChange1. al == blastAl1);
-        if (! seqChange1. mutation)
-          continue;
+        ASSERT (seqChange1. mutation);
         for (const BlastAlignment* blastAl2 : goodBlastAls)
           if (   blastAl2->targetName   == blastAl1->targetName
               && blastAl2->targetStrand == blastAl1->targetStrand
@@ -1190,6 +1189,7 @@ public:
             for (Iter<Vector<SeqChange>> iter (var_cast (blastAl2) -> seqChanges); iter. next (); )
             {
               SeqChange& seqChange2 = *iter;
+              ASSERT (seqChange2. mutation);
               ASSERT (seqChange2. al == blastAl2);
               if (   seqChange1. start_target == seqChange2. start_target 
                   && seqChange1. better (seqChange2)

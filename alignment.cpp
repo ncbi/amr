@@ -700,6 +700,12 @@ void Alignment::qc () const
   
   QC_ASSERT (nident <= (refEnd    - refStart) / al2ref_len);
   QC_ASSERT (nident <= (targetEnd - targetStart) / al2target_len);
+  
+  for (const SeqChange& seqChange : seqChanges)
+  {
+    seqChange. qc ();
+    QC_ASSERT (seqChange. al == this);
+  }
 }
 
 
