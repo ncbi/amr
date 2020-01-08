@@ -33,8 +33,10 @@
 *               cat, cp, cut, grep, head, mkdir, mv, nproc, sed, sort, tail
 *
 * Release changes:
-*   3.6.4  01/03/2020 PD-3230   sorting of report rows: protein accession is ignored if contig is available
-*   3.6.3  01/03/2020 PD-3230   sorting of report rows
+*          01/08/2020 GP-28123  'gnl|' is added to report for --pgap
+*   3.6.5                       sorting of reported rows: gene symbol as the last sorting column is used if contig is available
+*   3.6.4  01/03/2020 PD-3230   sorting of reported rows: protein accession is ignored if contig is available
+*   3.6.3  01/03/2020 PD-3230   sorting of reported rows
 *          12/28/2019           QC in dna_mutation
 *   3.6.2  12/27/2019 PD-3230   Redundant reported lines are removed for mutated reference proteins
 *                               Reports are sorted by sort
@@ -93,7 +95,7 @@ using namespace Common_sp;
 #ifdef SVN_REV
   #define SOFTWARE_VER SVN_REV
 #else
-  #define SOFTWARE_VER "3.6.4"
+  #define SOFTWARE_VER "3.6.5"
 #endif
 #define DATA_VER_MIN "2019-12-26.1"  
 
@@ -134,7 +136,7 @@ struct ThisApplication : ShellApplication
     	addKey ("protein", "Protein FASTA file to search", "", 'p', "PROT_FASTA");
     	addKey ("nucleotide", "Nucleotide FASTA file to search", "", 'n', "NUC_FASTA");
     	addKey ("gff", "GFF file for protein locations. Protein id should be in the attribute 'Name=<id>' (9th field) of the rows with type 'CDS' or 'gene' (3rd field).", "", 'g', "GFF_FILE");
-      addFlag ("pgap", "Input files PROT_FASTA, NUC_FASTA and GFF_FILE are created by the NCBI PGAP. Prefixes 'gnl|' or 'lcl|' are removed from the accessions in NUC_FASTA");
+      addFlag ("pgap", "Input files PROT_FASTA, NUC_FASTA and GFF_FILE are created by the NCBI PGAP. Prefix 'lcl|' is removed from the accessions in NUC_FASTA");
     	addKey ("database", "Alternative directory with AMRFinder database. Default: $AMRFINDER_DB", "", 'd', "DATABASE_DIR");
     	addKey ("ident_min", "Minimum identity for nucleotide hit (0..1). -1 means use a curated threshold if it exists and " + toString (ident_min_def) + " otherwise", "-1", 'i', "MIN_IDENT");
     	addKey ("coverage_min", "Minimum coverage of the reference protein (0..1)", toString (partial_coverage_min_def), 'c', "MIN_COV");
@@ -507,14 +509,6 @@ struct ThisApplication : ShellApplication
   		const double total_share = prot_share + dna_share;
   		
   		string dna_ = dna;
-    #if 0
-  		if (! emptyArg (dna) && gpipe)
-  		{
-  		  dna_ = tmp + ".dna";
-  		  if (system (("sed 's/^>gnl|[^|]*|/>/1' " + dna + " > " + dna_). c_str ()))
-  		    throw runtime_error ("Cannot remove 'gnl|...|' from " + dna);
-  		}
-    #endif
   		if (! emptyArg (dna) && pgap)
   		{
   		  dna_ = tmp + ".dna";
@@ -556,7 +550,7 @@ struct ThisApplication : ShellApplication
   			//const string gpipeS (ifS (gpipe, " -gpipe"));
   			  try 
   			  {
-  			    exec (fullProg ("gff_check") + gff + " -prot " + prot + dnaPar /*+ gpipeS*/ + pgapS + locus_tag + qcS + " -log " + logFName, logFName);
+  			    exec (fullProg ("gff_check") + gff + " -prot " + prot + dnaPar + pgapS + locus_tag + qcS + " -log " + logFName, logFName);
   			  }
   			  catch (...)
   			  {
@@ -659,7 +653,7 @@ struct ThisApplication : ShellApplication
 
     // Sorting
     // PD-2244, PD-3230
-    const string sortS (emptyArg (dna) && emptyArg (gff) ? "-k1,1 -k2,2" : "-k2,2 -k3,3n -k4,4n -k5,5 -k1,1");
+    const string sortS (emptyArg (dna) && emptyArg (gff) ? "-k1,1 -k2,2" : "-k2,2 -k3,3n -k4,4n -k5,5 -k1,1 -k6,6");
 		exec ("head -1 "              + tmp + ".amr                      >  " + tmp + ".amr-out");
 		exec ("LANG=C && tail -n +2 " + tmp + ".amr | sort " + sortS + " >> " + tmp + ".amr-out");
 		exec ("mv " + tmp + ".amr-out " + tmp + ".amr");

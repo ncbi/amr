@@ -327,7 +327,7 @@ struct BlastAlignment : Alignment
   BlastRule partialBR;
   
   string product;  
-  Vector<Locus> cdss;  
+  Vector<Locus> cdss;
   static constexpr size_t mismatchTail_aa = 10;  // PAR
   size_t mismatchTailTarget {0};
 
@@ -1319,14 +1319,14 @@ public:
     {
     	// Cf. BlastAlignment::saveText()
 	    TabDel td;
-	    td << "Protein identifier";  // targetName  // PD-2534
+	    td << "Protein identifier";  // targetName  // PD-2534  // 1
 	    if (cdsExist)  
 	      // Contig
-	      td << "Contig id"
-	         << "Start"    // targetStart
-	         << "Stop"     // targetEnd
-	         << "Strand";  // targetStrand
-	    td << (print_fam ? "FAM.id" : "Gene symbol")
+	      td << "Contig id"                                     // 2
+	         << "Start"    // targetStart                       // 3
+	         << "Stop"     // targetEnd                         // 4
+	         << "Strand";  // targetStrand                      // 5
+	    td << (print_fam ? "FAM.id" : "Gene symbol")            // 6
 	       << "Sequence name"
 	       << "Scope"  // PD-2825
 	       // PD-1856
@@ -1764,7 +1764,17 @@ struct ThisApplication : Application
     
     
     // Output
-    batch. process (retainBlasts, skip_hmm_check);
+    batch. process (retainBlasts, skip_hmm_check);    
+    if (pgap)  // GP-28123
+    {
+      const string gnlPrefix ("gnl|");
+      for (const BlastAlignment* al : batch. goodBlastAls)
+        for (Locus& cds : var_cast (al) -> cdss)
+        {
+          QC_ASSERT (! isLeft (cds. contig, gnlPrefix));
+          cds. contig = gnlPrefix + cds. contig;
+        }
+    }
     batch. report (cout);
     if (! outFName. empty ())
     {
