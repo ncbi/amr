@@ -814,13 +814,18 @@ Dir::Dir (const string &name)
 
 streampos getFileSize (const string &fName)
 {
-  try 
-  {
-    ifstream f (fName, ios::ate | ios::binary);
-    return f. tellg (); 
-  }
-  catch (const exception &e)
-    { throw runtime_error ("Cannot open file " + strQuote (fName) + "\n" + e. what ()); }
+  static_assert (sizeof (streampos) >= sizeof (long long), "streampos size");
+
+  ifstream f (fName, ios::in);
+  if (! f. good ())
+    throw runtime_error ("Cannot open file " + strQuote (fName));
+
+  const streampos start = f. tellg ();   
+  f. seekg (0, ios::end);    
+  if (f. tellg () < start)
+    throw runtime_error ("Bad file " + strQuote (fName));
+    
+  return f. tellg () - start; 
 }
 
 

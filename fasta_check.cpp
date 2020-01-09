@@ -139,8 +139,8 @@ struct ThisApplication : Application
   	if (lenF. get () && ! ids. empty ())
   	  *lenF << ids. back () << '\t' << seqSize << endl;
 
-	/*if (! lines)
-	  	throw runtime_error ("Empty file"); */  // PD-3323
+	  if (! lines)
+	  	throw runtime_error ("Empty file"); 
 	  if (! first && seqSize == 0)
   		throw runtime_error ("Empty sequence");
   	if (aa && (double) nuc / (double) allSize > 0.9)  // PAR
