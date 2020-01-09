@@ -84,7 +84,7 @@ string getCommandLine ()
                      || contains (s, '<')
                      || contains (s, '>')
                      || contains (s, '~')
-                      || contains (s, '\'')
+                     || contains (s, '\'')
                      || contains (s, '"')
                      || contains (s, '\\');
     if (! commandLine. empty ())
@@ -187,8 +187,9 @@ namespace
 	
 	// time ??
 #ifndef _MSC_VER
-	const char* hostname = getenv ("HOSTNAME");
-	const char* pwd = getenv ("PWD");
+	const char* hostname = getenv ("HOSTNAME");//const char* shell    = getenv ("SHELL");
+	const char* shell    = getenv ("SHELL");	
+	const char* pwd      = getenv ("PWD");
 #endif
   const string errorS ("*** ERROR ***");
   if (isLeft (msg, errorS))  // msg already is the result of errorExit()
@@ -199,6 +200,7 @@ namespace
         << msg << endl << endl
       #ifndef _MSC_VER
   	    << "HOSTNAME: " << (hostname ? hostname : "?") << endl
+  	    << "SHELL: " << (shell ? shell : "?") << endl
   	    << "PWD: " << (pwd ? pwd : "?") << endl
       #endif
   	    << "Progam name:  " << programName << endl
@@ -1087,7 +1089,7 @@ void exec (const string &cmd,
   if (verbose ())
   	cout << cmd << endl;
   	
-	const int status = system (("set -o pipefail && " + cmd). c_str ());
+	const int status = system (cmd. c_str ());  // pipefail's are not caught
 	if (status)
 	{
 	  if (! logFName. empty ())
@@ -2725,12 +2727,8 @@ void ShellApplication::initEnvironment ()
   if (useTmp)
   {
     char templateS [] = {'/', 't', 'm', 'p', '/', 'X', 'X', 'X', 'X', 'X', 'X', '\0'}; 
-  #if 0
-    tmp = tmpnam (NULL);
-  #else
     EXEC_ASSERT (mkstemp (templateS) != -1);
     tmp = templateS;
-  #endif
   	if (tmp. empty ())
   		throw runtime_error ("Cannot create a temporary file");
   }
@@ -2739,7 +2737,8 @@ void ShellApplication::initEnvironment ()
 	execDir = getProgramDirName ();
 	if (execDir. empty ())
 		execDir = which (programArgs. front ());
-  ASSERT (isRight (execDir, "/"));
+  if (! isRight (execDir, "/"))
+    throw logic_error ("Cannot identify the directory of the executable");
 
   string execDir_ (execDir);
   trimSuffix (execDir_, "/");				

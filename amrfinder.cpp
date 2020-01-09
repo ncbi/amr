@@ -30,11 +30,13 @@
 *   AMRFinder
 *
 * Dependencies: NCBI BLAST, HMMer
-*               cat, cp, cut, grep, head, mkdir, mv, nproc, sed, sort, tail
+*               cat, cp, cut, grep, head, mkdir, mv, nproc, rm, sed, sort, tail, which
 *
 * Release changes:
-*          01/08/2020 GP-28123  'gnl|' is added to report for --pgap
-*   3.6.5                       sorting of reported rows: gene symbol as the last sorting column is used if contig is available
+*   3.6.6             PD-3323   allow empty input files
+*          01/09/2020 PD-3324   pipefail requires bash
+*          01/08/2020 GP-28123  'gnl|' is added to report if --pgap
+*   3.6.5                       sorting of reported rows: gene symbol is used as the last sorting column if contig is available
 *   3.6.4  01/03/2020 PD-3230   sorting of reported rows: protein accession is ignored if contig is available
 *   3.6.3  01/03/2020 PD-3230   sorting of reported rows
 *          12/28/2019           QC in dna_mutation
@@ -171,13 +173,10 @@ struct ThisApplication : ShellApplication
   
   
   
-  bool blastThreadable (const string &blast,
-                        const string &logFName) const
+  bool blastThreadable (const string &blast) const
   {
-    try { exec (fullProg (blast) + " -help | grep '^ *\\-num_threads' > " + logFName + " 2> " + logFName, logFName); }
-      catch (const runtime_error &) 
-        { return false; }
-    return true;        
+    exec (fullProg (blast) + " -help > " + tmp + ".blast_help");
+    return ! system (("grep '^ *\\-num_threads' " + tmp + ".blast_help 1> /dev/null 2> /dev/null"). c_str ());
   }
 
 
@@ -566,7 +565,7 @@ struct ThisApplication : ShellApplication
   			stderr << "Running blastp...\n";
   			// " -task blastp-fast -word_size 6  -threshold 21 "  // PD-2303
   			string num_threads;
-  			if (blastThreadable ("blastp", logFName) && prot_threads > 1)
+  			if (blastThreadable ("blastp") && prot_threads > 1)
   			  num_threads = " -num_threads " + to_string (prot_threads);
   			th. exec (fullProg ("blastp") + " -query " + prot + " -db " + db + "/AMRProt  " 
   			  + blastp_par + num_threads + " " BLAST_FMT " -out " + tmp + ".blastp > /dev/null 2> /dev/null", prot_threads);
@@ -629,7 +628,22 @@ struct ThisApplication : ShellApplication
   	  
   	
   	if (suppress_common)
-			exec ("set +o pipefail && grep -v '^#' " + db + "/AMRProt-suppress | grep -w ^" + organism1 + " | cut -f 2 > " + tmp + ".suppress_prot"); 
+  	{
+	  //exec ("set +o pipefail && grep -v '^#' " + db + "/AMRProt-suppress | grep -w ^" + organism1 + " | cut -f 2 > " + tmp + ".suppress_prot"); 
+			OFStream outF (tmp + ".suppress_prot");
+			LineInput f (db + "/AMRProt-suppress");
+			while (f. nextLine ())
+			  if (! isLeft (f. line, "#"))
+  			{
+  			  string org;
+  			  long gi = 0;
+  			  istringstream iss (f. line);
+  			  iss >> org >> gi;
+  			  QC_ASSERT (gi > 0);
+  			  if (org == organism1)
+  			    outF << gi << endl;
+  			}
+	  }
 		
 
     // ".amr"

@@ -40,9 +40,18 @@ using namespace Common_sp;
 
 
 
+// PD-3096
+// PAR!
+#ifdef SVN_REV
+  #define SOFTWARE_VER SVN_REV
+#else
+  #define SOFTWARE_VER "3.6.5"
+#endif
+
+
+
 namespace 
 {
-
 
 
 
@@ -55,6 +64,7 @@ struct ThisApplication : Application
       addFlag ("aa", "Amino acid sequenes, otherwise nucleotide");
       addFlag ("hyphen", "Hyphens are allowed");
       addKey ("len", "Output file with lines: <sequence id> <length>");
+	    version = SOFTWARE_VER;
     }
 
 
@@ -139,8 +149,8 @@ struct ThisApplication : Application
   	if (lenF. get () && ! ids. empty ())
   	  *lenF << ids. back () << '\t' << seqSize << endl;
 
-	  if (! lines)
-	  	throw runtime_error ("Empty file");
+	/*if (! lines)
+	  	throw runtime_error ("Empty file"); */  // PD-3323
 	  if (! first && seqSize == 0)
   		throw runtime_error ("Empty sequence");
   	if (aa && (double) nuc / (double) allSize > 0.9)  // PAR
