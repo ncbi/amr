@@ -1500,9 +1500,7 @@ struct ThisApplication : Application
       addFlag ("noblast", "Exclude the BLAST output (for testing)"); 
       addFlag ("nohmm", "Exclude the HMMer output (for testing)"); 
       addFlag ("retain_blasts", "Retain all blast hits (for testing)");
-    #ifdef SVN_REV
-      version = SVN_REV;
-    #endif
+ 	    version = SVN_REV;  
     }
 
 
@@ -1772,7 +1770,8 @@ struct ThisApplication : Application
         for (Locus& cds : var_cast (al) -> cdss)
         {
           QC_ASSERT (! isLeft (cds. contig, gnlPrefix));
-          cds. contig = gnlPrefix + cds. contig;
+          if (contains (cds. contig, '|'))
+            cds. contig = gnlPrefix + cds. contig;
         }
     }
     batch. report (cout);

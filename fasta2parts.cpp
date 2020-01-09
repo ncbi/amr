@@ -53,6 +53,7 @@ struct ThisApplication : Application
       addPositional ("in", "FASTA file");
       addPositional ("parts_max", "Max. number of parts (>= 2)");
       addPositional ("dir", "Output directory where chunks are saved named by integers starting with 1");
+	    version = SVN_REV;
     }
 
 

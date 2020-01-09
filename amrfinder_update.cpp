@@ -51,14 +51,6 @@ using namespace Common_sp;
 
 
 
-// PD-3096
-// PAR!
-#ifdef SVN_REV
-  #define SOFTWARE_VER SVN_REV
-#else
-  #define SOFTWARE_VER "3.6.5"
-#endif
-
 string curMinor;
 
 
@@ -275,7 +267,7 @@ Requirements:\n\
     	addKey ("database", "Directory for all versions of AMRFinder databases", "$BASE/data", 'd', "DATABASE_DIR");
     	  // Symbolic link ??
       addFlag ("quiet", "Suppress messages to STDERR", 'q');
-	    version = SOFTWARE_VER;
+	    version = SVN_REV;
 
       // curMinor
       {

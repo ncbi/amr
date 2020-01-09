@@ -64,6 +64,7 @@ struct ThisApplication : Application
       addFlag ("pgap", "Input files are created by PGAP");  // exclusive with --gpipe
       // Output
       addKey ("locus_tag", "Output file with matches: \"<FASTA id> <GFF id>\", where <id> is from " + strQuote (locus_tagS + "<id>") + " in the FASTA comment and from the .gff-file");
+	    version = SVN_REV;
     }
 
 

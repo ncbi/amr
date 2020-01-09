@@ -46,16 +46,6 @@ using namespace Alignment_sp;
 
 
 
-// PD-3096
-// PAR!
-#ifdef SVN_REV
-  #define SOFTWARE_VER SVN_REV
-#else
-  #define SOFTWARE_VER "3.6.5"
-#endif
-
-
-
 namespace
 {  
 
@@ -234,7 +224,7 @@ struct ThisApplication : Application
     {
       addPositional ("blastn", string ("blastn output in the format: ") + Alignment::format + ". sseqid is the 1st column of <mutation_tab> table");  
       addPositional ("mutation", "Mutations table");
-	    version = SOFTWARE_VER;
+	    version = SVN_REV;
     }
 
 

@@ -33,7 +33,8 @@
 *               cat, cp, cut, grep, head, mkdir, mv, nproc, rm, sed, sort, tail, which
 *
 * Release changes:
-*   3.6.6             PD-3323   allow empty input files
+*   XXX               PD-3323   allow empty input files
+*   3.6.6  01/09/2020 PD-3326   'gnl|' is added only for gnl|PROJECT|ACC accessions
 *          01/09/2020 PD-3324   pipefail requires bash
 *          01/08/2020 GP-28123  'gnl|' is added to report if --pgap
 *   3.6.5                       sorting of reported rows: gene symbol is used as the last sorting column if contig is available
@@ -94,11 +95,6 @@ using namespace Common_sp;
 
 // PAR!
 // PD-3051
-#ifdef SVN_REV
-  #define SOFTWARE_VER SVN_REV
-#else
-  #define SOFTWARE_VER "3.6.5"
-#endif
 #define DATA_VER_MIN "2019-12-26.1"  
 
 
@@ -155,11 +151,7 @@ struct ThisApplication : ShellApplication
     //addFlag ("gpipe", "NCBI internal GPipe processing: protein identifiers in the protein FASTA file have format 'gnl|<project>|<accession>'");
       addFlag ("gpipe_org", "NCBI internal GPipe organism names");
     	addKey ("parm", "amr_report parameters for testing: -nosame -noblast -skip_hmm_check -bed", "", '\0', "PARM");
-	    version = SOFTWARE_VER;  
-	  #if 0
-	    setRequiredGroup ("protein",    "Input");
-	    setRequiredGroup ("nucleotide", "Input");
-	  #endif
+	    version = SVN_REV;  
 	    // threads_max: do not include blast/hmmsearch's threads ??
     }
 
@@ -629,7 +621,6 @@ struct ThisApplication : ShellApplication
   	
   	if (suppress_common)
   	{
-	  //exec ("set +o pipefail && grep -v '^#' " + db + "/AMRProt-suppress | grep -w ^" + organism1 + " | cut -f 2 > " + tmp + ".suppress_prot"); 
 			OFStream outF (tmp + ".suppress_prot");
 			LineInput f (db + "/AMRProt-suppress");
 			while (f. nextLine ())

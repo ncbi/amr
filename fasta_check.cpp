@@ -40,16 +40,6 @@ using namespace Common_sp;
 
 
 
-// PD-3096
-// PAR!
-#ifdef SVN_REV
-  #define SOFTWARE_VER SVN_REV
-#else
-  #define SOFTWARE_VER "3.6.5"
-#endif
-
-
-
 namespace 
 {
 
@@ -64,7 +54,7 @@ struct ThisApplication : Application
       addFlag ("aa", "Amino acid sequenes, otherwise nucleotide");
       addFlag ("hyphen", "Hyphens are allowed");
       addKey ("len", "Output file with lines: <sequence id> <length>");
-	    version = SOFTWARE_VER;
+	    version = SVN_REV;
     }
 
 
