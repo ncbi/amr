@@ -1763,17 +1763,6 @@ struct ThisApplication : Application
     
     // Output
     batch. process (retainBlasts, skip_hmm_check);    
-    if (pgap)  // GP-28123
-    {
-      const string gnlPrefix ("gnl|");
-      for (const BlastAlignment* al : batch. goodBlastAls)
-        for (Locus& cds : var_cast (al) -> cdss)
-        {
-          QC_ASSERT (! isLeft (cds. contig, gnlPrefix));
-          if (contains (cds. contig, '|'))
-            cds. contig = gnlPrefix + cds. contig;
-        }
-    }
     batch. report (cout);
     if (! outFName. empty ())
     {

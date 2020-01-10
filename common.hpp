@@ -969,15 +969,20 @@ List<string> str2list (const string &s,
 string list2str (const List<string> &strList,
                  const string &sep = " ");
 
+size_t strMonth2num (const string& month);
+// Input: month: "Jan", "Feb", ... (3 characters)
 
-const char fileSlash = 
+
+
+// File
+
+constexpr char fileSlash = 
   #ifdef _MSC_VER
     '\\'
   #else  // UNIX
     '/'
   #endif
   ;
-
 
 inline string getFileName (const string &path)  
   { const size_t pos = path. rfind ('/');
@@ -997,6 +1002,17 @@ inline bool isDirName (const string &path)
   { return isRight (path, "/"); }
 
 bool fileExists (const string &fName);
+
+streampos getFileSize (const string &fName);
+
+inline void removeFile (const string &fName)
+  { if (std::remove (fName. c_str ()))
+      throw runtime_error ("Cannot remove file + " + strQuote (fName));
+  }
+
+
+
+// Directory
 
 #ifndef _MSC_VER
   bool directoryExists (const string &dirName);
@@ -1026,11 +1042,6 @@ struct Dir
     }
 };
 
-
-streampos getFileSize (const string &fName);
-
-size_t strMonth2num (const string& month);
-// Input: month: "Jan", "Feb", ... (3 characters)
 
 
 // istream
@@ -1067,7 +1078,6 @@ constexpr size_t hash_class_max = 1000;  // PAR
 inline size_t str2hash_class (const string &s)
   { return str_hash (s) % hash_class_max; }
  
-
 
 
 struct Rand
@@ -3520,6 +3530,7 @@ struct ShellApplication : Application
   string tmp;
   string execDir;
     // Ends with '/'
+    // Physically real directory of the software
   mutable map<string,string> prog2dir;
   
 

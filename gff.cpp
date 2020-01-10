@@ -214,15 +214,19 @@ Annot::Annot (Gff,
 	  trim (locusTag, tmpSpace);
 	  if (pgap)
 	  {
+	    const string gnlPrefix ("gnl|");
 	    size_t pos = locusTag. rfind (':');
 	    if (pos != string::npos)
 	    {
 	      locusTag [pos] = '|';
-	      locusTag = "gnl|" + locusTag;
+	      locusTag = gnlPrefix + locusTag;
 	    }
 	    pos = contig. rfind (':');
 	    if (pos != string::npos)
+	    {
 	      contig [pos] = '|';
+	      contig = gnlPrefix + contig;
+	    }
 	  }
 	  QC_ASSERT (! locusTag. empty ());
 	  

@@ -30,9 +30,12 @@
 *   AMRFinder
 *
 * Dependencies: NCBI BLAST, HMMer
-*               cat, cp, cut, grep, head, mkdir, mv, nproc, rm, sed, sort, tail, which
+*               cat, cp, cut, grep, head, mkdir, mv, nproc, sort, tail, which
 *
 * Release changes:
+*          01/10/2020 PD-3329   ln -s .../amrfinder abc: abc calls the right executables
+*          01/20/2020           'rm" dependence is removed
+*   3.6.8  01/10/2020           'gnl|' processing is simplified
 *          01/09/2020 PD-3327   allow empty input files
 *   3.6.7  01/09/2020           do not remove 'lcl|' from DNA FASTA
 *   3.6.6  01/09/2020 PD-3326   'gnl|' is added only for gnl|PROJECT|ACC accessions if --pgap
@@ -149,7 +152,6 @@ struct ThisApplication : ShellApplication
     //addKey ("hmmer_bin" ??
       addKey ("output", "Write output to OUTPUT_FILE instead of STDOUT", "", 'o', "OUTPUT_FILE");
       addFlag ("quiet", "Suppress messages to STDERR", 'q');
-    //addFlag ("gpipe", "NCBI internal GPipe processing: protein identifiers in the protein FASTA file have format 'gnl|<project>|<accession>'");
       addFlag ("gpipe_org", "NCBI internal GPipe organism names");
     	addKey ("parm", "amr_report parameters for testing: -nosame -noblast -skip_hmm_check -bed", "", '\0', "PARM");
 	    version = SVN_REV;  
@@ -193,22 +195,10 @@ struct ThisApplication : ShellApplication
 
   string file2link (const string &fName) const
   {
-  #if 1
-    const string s (realpath (fName. c_str(), nullptr));
+    const string s (realpath (fName. c_str (), nullptr));
     if (s == fName)
       return string ();
     return s;
-  #else
-    exec ("file " + fName + " > " + tmp + ".file");
-    
-    LineInput f (tmp + ".file");
-    string s (f. getString ());
-    
-    trimPrefix (s, fName + ": ");
-    if (isLeft (s, "symbolic link to "))
-      return s;
-    return string ();
-  #endif
   }
 
 
@@ -252,7 +242,7 @@ struct ThisApplication : ShellApplication
 
     Stderr stderr (quiet);
     stderr << "Running "<< getCommandLine () << '\n';
-  //const Verbose vrb (qc_on);
+    stderr << "Software directory: " << execDir << "\n";
     
     if (threads_max < threads_max_min)
       throw runtime_error ("Number of threads cannot be less than " + to_string (threads_max_min));
@@ -320,7 +310,7 @@ struct ThisApplication : ShellApplication
   		const Dir dbDir (db);
       if (! dbDir. items. empty () && dbDir. items. back () == "latest")
       {
-        findProg ("amrfinder_update");	
+        prog2dir ["amrfinder_update"] = execDir;
   		  exec (fullProg ("amrfinder_update") + " -d " + dbDir. getParent () + ifS (quiet, " -q") + ifS (qc_on, " --debug") + " > " + logFName, logFName);
       }
       else
@@ -489,9 +479,9 @@ struct ThisApplication : ShellApplication
 		const string force_cds_report (! emptyArg (dna) && ! organism1. empty () ? "-force_cds_report" : "");  // Needed for dna_mutation
 		
 								  
-    findProg ("fasta_check");
-    findProg ("fasta2parts");
-    findProg ("amr_report");	
+    prog2dir ["fasta_check"] = execDir;
+    prog2dir ["fasta2parts"] = execDir;
+    prog2dir ["amr_report"]  = execDir;	
     
     
     string amr_report_blastp;	
@@ -509,15 +499,7 @@ struct ThisApplication : ShellApplication
   		  dna_share = 1.0;   // PAR
   		const double total_share = prot_share + dna_share;
   		
-  		string dna_ = dna;
-  		if (! emptyArg (dna) && pgap)
-  		{
-  		  dna_ = tmp + ".dna";
-  		  if (system (("sed 's/^>gnl|/>/1' " + dna + " > " + dna_). c_str ()))
-  		    throw runtime_error ("Cannot remove 'gnl|' from " + dna);
-  		}
-  		
-  		
+
   		#define BLAST_FMT  "-outfmt '6 qseqid sseqid qstart qend qlen sstart send slen qseq sseq'"
 			  // length nident 
 
@@ -544,11 +526,10 @@ struct ThisApplication : ShellApplication
     			    locus_tag = " -locus_tag " + tmp + ".match";
     			    gff_match = " -gff_match " + tmp + ".match";
     			  }
-    			  findProg ("gff_check");		
+    			  prog2dir ["gff_check"] = execDir;		
     			  string dnaPar;
     			  if (! emptyArg (dna))
-    			    dnaPar = " -dna " + dna_;
-    			//const string gpipeS (ifS (gpipe, " -gpipe"));
+    			    dnaPar = " -dna " + dna;
     			  try 
     			  {
     			    exec (fullProg ("gff_check") + gff + " -prot " + prot + dnaPar + pgapS + locus_tag + qcS + " -log " + logFName, logFName);
@@ -598,13 +579,13 @@ struct ThisApplication : ShellApplication
     		{
     			stderr << "Running blastx...\n";
     			findProg ("blastx");
-    		  exec (fullProg ("fasta_check") + dna_ + " -hyphen  -len "+ tmp + ".len " + qcS + " -log " + logFName, logFName); 
+    		  exec (fullProg ("fasta_check") + dna + " -hyphen  -len "+ tmp + ".len " + qcS + " -log " + logFName, logFName); 
     		  const size_t threadsAvailable = th. getAvailable ();
     		//ASSERT (threadsAvailable);
     		  if (threadsAvailable >= 2)
     		  {
       		  exec ("mkdir " + tmp + ".chunk");
-      		  exec (fullProg ("fasta2parts") + dna_ + " " + to_string (threadsAvailable) + " " + tmp + ".chunk " + qcS + " -log " + logFName, logFName);   // PAR
+      		  exec (fullProg ("fasta2parts") + dna + " " + to_string (threadsAvailable) + " " + tmp + ".chunk " + qcS + " -log " + logFName, logFName);   // PAR
       		  exec ("mkdir " + tmp + ".blastx_dir");
       		  FileItemGenerator fig (false, true, tmp + ".chunk");
       		  string item;
@@ -615,7 +596,7 @@ struct ThisApplication : ShellApplication
       		  blastxChunks = true;
     		  }
     		  else
-      			th. exec (fullProg ("blastx") + "  -query " + dna_ + " -db " + db + "/AMRProt  "
+      			th. exec (fullProg ("blastx") + "  -query " + dna + " -db " + db + "/AMRProt  "
       			  + blastx_par + to_string (gencode) + " " BLAST_FMT
       			  " -out " + tmp + ".blastx > /dev/null 2> /dev/null", threadsAvailable);
     		  amr_report_blastx = "-blastx " + tmp + ".blastx  -dna_len " + tmp + ".len";
@@ -633,9 +614,9 @@ struct ThisApplication : ShellApplication
   		  if (getFileSize (unQuote (dna)))
     		{
     			findProg ("blastn");
-    			findProg ("dna_mutation");
+    			prog2dir ["dna_mutation"] = execDir;
     			stderr << "Running blastn...\n";
-    			exec (fullProg ("blastn") + " -query " + dna_ + " -db " + db + "/AMR_DNA-" + organism1 + " -evalue 1e-20  -dust no  "
+    			exec (fullProg ("blastn") + " -query " + dna + " -db " + db + "/AMR_DNA-" + organism1 + " -evalue 1e-20  -dust no  "
     			  BLAST_FMT " -out " + tmp + ".blastn > " + logFName + " 2> " + logFName, logFName);
     		}
     		else

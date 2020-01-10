@@ -60,7 +60,6 @@ struct ThisApplication : Application
       addPositional ("gff", ".gff-file, if " + strQuote (noFile) + " then exit 0");
       addKey ("prot", "Protein FASTA file");
       addKey ("dna", "DNA FASTA file");
-    //addFlag ("gpipe", "Protein identifiers in the protein FASTA file have format 'gnl|<project>|<accession>'");
       addFlag ("pgap", "Input files are created by PGAP");  // exclusive with --gpipe
       // Output
       addKey ("locus_tag", "Output file with matches: \"<FASTA id> <GFF id>\", where <id> is from " + strQuote (locus_tagS + "<id>") + " in the FASTA comment and from the .gff-file");
@@ -115,28 +114,14 @@ struct ThisApplication : Application
 		    			string gffId (fastaId);
 			    		if (! locus_tagFName. empty ())
 			    		{
-			    		#if 0
-			    		  if (gpipe)
-			    		  {
-			    		    if (! trimPrefix (gffId, "gnl|"))
-			    		      throw runtime_error (__FILE__ ": Protein name should start with \"gnl|\" in: " + line_orig);
-  			    			const size_t pos = gffId. find ("|");
-  			    			if (pos == string::npos)
-  			    				throw runtime_error (__FILE__ ": " + strQuote ("|") + " is not found in: " + line_orig);
-  			    			gffId. erase (0, pos + 1);
-			    		  }
-			    		  else
-			    		#endif
-			    		  {
-  			    			const size_t pos = f. line. find (locus_tagS);
-  			    			if (pos == string::npos)
-  			    				throw runtime_error (__FILE__ ": " + strQuote (locus_tagS) + " is not found in: " + line_orig);
-  			    			gffId = f. line. substr (pos + locus_tagS. size ());
-  			    			const size_t end = gffId. find (']');
-  			    			if (end == string::npos)
-  			    				throw runtime_error (__FILE__ ": ']' is not found after " + strQuote (locus_tagS) + " in: " + line_orig);
-  			    		  gffId. erase (end);
-  			    		}
+			    			const size_t pos = f. line. find (locus_tagS);
+			    			if (pos == string::npos)
+			    				throw runtime_error (__FILE__ ": " + strQuote (locus_tagS) + " is not found in: " + line_orig);
+			    			gffId = f. line. substr (pos + locus_tagS. size ());
+			    			const size_t end = gffId. find (']');
+			    			if (end == string::npos)
+			    				throw runtime_error (__FILE__ ": ']' is not found after " + strQuote (locus_tagS) + " in: " + line_orig);
+			    		  gffId. erase (end);
 			    		}
 			    		ASSERT (! contains (fastaId, ' '));
 			    		if (contains (gffId, ' '))

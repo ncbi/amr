@@ -30,7 +30,7 @@
 *   Updating of AMRFinder data
 *
 * Dependencies: NCBI BLAST, HMMer
-*               mkdir, ln, rm
+*               mkdir, ln
 *
 * Release changes:
 *
@@ -335,7 +335,7 @@ Requirements:\n\
     {    
       const string latestLink (mainDirS + "latest");
       if (directoryExists (latestLink))
-        exec ("rm " + latestLink);
+        removeFile (latestLink);
       exec ("ln -s " + latest_version + " " + latestLink);
     }
     

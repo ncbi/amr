@@ -814,18 +814,22 @@ Dir::Dir (const string &name)
 
 streampos getFileSize (const string &fName)
 {
-  static_assert (sizeof (streampos) >= sizeof (long long), "streampos size");
-
-  ifstream f (fName, ios::in);
+  ifstream f (fName, ifstream::binary);
   if (! f. good ())
     throw runtime_error ("Cannot open file " + strQuote (fName));
 
-  const streampos start = f. tellg ();   
-  f. seekg (0, ios::end);    
-  if (f. tellg () < start)
-    throw runtime_error ("Bad file " + strQuote (fName));
-    
-  return f. tellg () - start; 
+  const streampos start = f. tellg ();
+  QC_ASSERT (start >= 0); 
+
+  f. seekg (0, ios_base::end);
+  QC_ASSERT (f. good ());
+
+  const streampos end = f. tellg ();
+  QC_ASSERT (end >= 0); 
+
+  if (end < start)
+    throw runtime_error ("Bad file " + strQuote (fName));    
+  return end - start; 
 }
 
 
@@ -2738,12 +2742,25 @@ void ShellApplication::initEnvironment ()
   		throw runtime_error ("Cannot create a temporary file");
   }
 
-  // execDir
+  // execDir, programName
 	execDir = getProgramDirName ();
 	if (execDir. empty ())
 		execDir = which (programArgs. front ());
   if (! isRight (execDir, "/"))
     throw logic_error ("Cannot identify the directory of the executable");
+  {
+    string s (programArgs. front ());
+    programName = rfindSplit (s, fileSlash);
+    string path (execDir + programName);
+    for (;;)
+    {
+      const string path_new (realpath (path. c_str (), nullptr));
+      if (path == path_new)
+        break;
+      path = path_new;
+    }
+    execDir = getDirName (path);
+  }
 
   string execDir_ (execDir);
   trimSuffix (execDir_, "/");				
