@@ -9,6 +9,8 @@ jobs:
     
     steps:
     - uses: actions/checkout@v1
+    - name: prepare system with prerequisites
+       run: sudo apt-get install -y hmmer ncbi-blast+ git libcurl4-openssl-dev build-essential curl
     - name: make
       run: make
     - name: make test
