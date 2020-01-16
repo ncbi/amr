@@ -6,17 +6,16 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
-
+    
     steps:
     - uses: actions/checkout@v1
-    - name: test action
-      run: echo "Actions started..."
-    - name: prep system
-	  run: sudo apt-get update && sudo apt-get install -y hmmer ncbi-blast+ git libcurl4-openssl-dev build-essential curl
-	- name: make
-	  run: make
-	- name: update database
-	  run: ./amrfinder -u
-	- name: make test
-	  run: make test
-
+    # - name: prepare system with prerequisites
+       # run: sudo apt-get install -y hmmer ncbi-blast+ git libcurl4-openssl-dev build-essential curl
+    - name: prep
+      run: sudo apt-get install -y hmmer ncbi-blast+ git libcurl4-openssl-dev build-essential curl
+    - name: make
+      run: make
+    - name: download db
+      run: ./amrfinder -u
+    - name: make test
+      run: make test
