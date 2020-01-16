@@ -16,7 +16,7 @@ jobs:
     - name: debug
       run: pwd -P && ls -al
     - name: download db
-      run: ./amrfinder -u
+      run: cd /home/runner/work/amr/amr && ./amrfinder -u
     - name: make
       run: make
     - name: make test
