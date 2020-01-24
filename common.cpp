@@ -39,6 +39,7 @@
 
 #include <sstream>
 #include <cstring>
+#include <regex>
 #ifndef _MSC_VER
   #include <dirent.h>
 //#include <execinfo.h>
@@ -348,9 +349,9 @@ bool goodName (const string &name)
 {
   if (name. empty ())
     return false;
-  if (name [0] == ' ')
+  if (name. front () == ' ')
     return false;
-  if (*(name. end () - 1) == ' ')
+  if (name. back () == ' ')
     return false;
 
   for (const char c : name)
@@ -1103,8 +1104,8 @@ void exec (const string &cmd,
 	{
 	  if (! logFName. empty ())
 	  {
-	    LineInput f (logFName);
-	    throw runtime_error (f. getString ());
+	    const StringVector vec (logFName, (size_t) 10);  // PAR
+	    throw runtime_error (vec. toString ("\n"));
 	  }
 		throw runtime_error ("Command failed:\n" + cmd + "\nstatus = " + to_string (status));		
 	}
@@ -1191,16 +1192,22 @@ StringVector::StringVector (const string &fName,
 {
 	reserve (reserve_size);
 	searchSorted = true;
-	ifstream f (fName);
-	string s;
-	string prev;
-	while (f >> s)
-	{
-	  *this << s;
-	  if (s < prev)
-	  	searchSorted = false;
-	  prev = s;
-	}
+  try
+  {
+  	LineInput f (fName);
+  	string prev;
+    while (f. nextLine ())
+    {
+      *this << f. line;
+  	  if (f. line < prev)
+  	  	searchSorted = false;
+      prev = move (f. line);
+    }
+  }
+  catch (const exception &e)
+  {
+    throw runtime_error ("Loading file " + strQuote (fName) + "\n" + e. what ());
+  }  
 }
 
 
@@ -1516,41 +1523,14 @@ void Token::readInput (CharInput &in)
 			in. unget ();
 	  if (name == "-")
 	    type = eDelimiter;
-	  else if (isLeft (name, "0x"))
+	  else 
 	  {
-   		type = eInteger;
- 		  n = (long long) std::stoull (name. substr (2), nullptr, 16); 
-    }
-    else
-	  {
-  	  strLower (name);
-  	  if (   contains (name, '.') 
-  	      || contains (name, 'e') 
-  	     )
-  	  {
-    		type = eDouble;
-  		  d = str2<double> (name);
-        decimals = 0;
-        size_t pos = name. find ('.');
-        if (pos != string::npos)
-        {
-          pos++;
-          while (   pos < name. size () 
-                 && isDigit (name [pos])
-                )
-          {
-            pos++;
-            decimals++;
-          }
-        }
-        scientific = contains (name, 'e');
-  	  }
-  	  else
-  	  {
-    		type = eInteger;
- 		    n = str2<long long> (name);
-  		}
-  	}
+	    type = eText;
+	    toNumberDate ();
+	    QC_ASSERT (   type == eInteger
+	               || type == eDouble
+	              );
+	  }
 	}
 	else if (isLetter (c))
 	{
@@ -1570,9 +1550,9 @@ void Token::readInput (CharInput &in)
 	}	
 	else
 	  in. error ("Unknown token starting with ASCII " + to_string ((int) c), false);
-	    
+	  	    
 	ASSERT (! empty ());
-	qc ();
+  qc ();
 
   if (verbose ())
   {
@@ -1591,12 +1571,13 @@ void Token::qc () const
   {
   	QC_IMPLY (type != eText, ! name. empty ());
   	QC_IMPLY (type != eText, ! contains (name, ' '));
-  	QC_IMPLY (type != eText, quote == '\0');
+    QC_IMPLY (type == eName || type == eDelimiter, quote == '\0');
     QC_ASSERT (! contains (name, quote));
     QC_IMPLY (type != eDouble, decimals == 0);
   	switch (type)
   	{ 
-  		case eName:      QC_ASSERT (isIdentifier (name)); 
+  		case eName:      if (! isIdentifier (name))
+  		                   throw runtime_error ("Not an identifier: " + strQuote (name));
   		                 break;
   	  case eText:      break;
   		case eInteger:   
@@ -1605,6 +1586,7 @@ void Token::qc () const
   		case eDelimiter: QC_ASSERT (name. size () == 1); 
   		                 QC_ASSERT (Common_sp::isDelimiter (name [0]));
   		                 break;
+  		case eDateTime:  break;
   		default: throw runtime_error ("Token: Unknown type");
   	}
   }
@@ -1619,7 +1601,9 @@ void Token::saveText (ostream &os) const
     
   switch (type)
 	{ 
-	  case eName:      os          << name;          break;
+	  case eName:      
+	  case eDateTime:
+	                   os          << name;          break;
 		case eText:      os << quote << name << quote; break;
 		case eInteger:   os          << n;             break;
 		case eDouble:    { 
@@ -1641,11 +1625,144 @@ bool Token::operator< (const Token &other) const
   { 
     case eName:
     case eText:
+    case eDateTime:
     case eDelimiter: LESS_PART (*this, other, name); break;
     case eInteger:   LESS_PART (*this, other, n);    break; 
     case eDouble:    LESS_PART (*this, other, d);    break;
   }  
   return false;
+}
+
+
+
+void Token::toNumberDate ()
+{
+  if (empty ())
+    return;
+	if (   type != eName
+	    && type != eText
+	   )
+	  return;	 
+	if (contains (name, ' '))
+	  return;
+	
+	{  
+  	static const regex date_time_re {R"(\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d\.\d\d\d)"};   // Example: 2018-08-13T16:12:54.487
+  	smatch sm;
+  	if (regex_match (name, sm, date_time_re))
+  	{
+  	  type = eDateTime;
+  	  return;
+  	}
+  }	
+	  
+  try
+  {
+    if (isLeft (name, "0x"))
+	  {
+ 		  n = (long long) std::stoull (name. substr (2), nullptr, 16); 
+   		type = eInteger;
+    }
+    else if (   contains (name, '.') 
+    	       || contains (name, 'e') 
+    	       || contains (name, 'E') 
+    	      )
+	  {
+		  d = str2<double> (name);
+  		type = eDouble;
+      decimals = 0;
+      size_t pos = name. find ('.');
+      if (pos != string::npos)
+      {
+        pos++;
+        while (   pos < name. size () 
+               && isDigit (name [pos])
+              )
+        {
+          pos++;
+          decimals++;
+        }
+      }
+      scientific = contains (name, 'e');
+	  }
+	  else
+	  {
+	    n = str2<long long> (name);
+  		type = eInteger;
+		}
+  }
+  catch (...) {}
+}
+
+
+
+
+// TokenInput
+
+Token TokenInput::get ()
+{ 
+  const Token last_ (last);
+  last = Token ();
+  if (! last_. empty ())
+    return last_;
+    
+  for (;;)  
+  { 
+    Token t (ci);
+    if (t. empty ())
+      break;
+    if (! t. isDelimiter (commentStart))
+      return t;
+    ci. getLine ();
+  }
+  
+  return Token ();
+}
+
+
+
+Token TokenInput::getXmlText ()
+{ 
+  QC_ASSERT (last. empty ());
+
+  Token t;
+  t. charNum = ci. charNum;
+	for (;;)
+	{ 
+	  char c = ci. get (); 
+		if (ci. eof)
+	    ci. error ("XML text is not finished: end of file", false);
+	  if (c == '<')
+	    break;
+	  if (isSpace (c))
+	    c = ' ';
+		t. name += c;
+	}
+	
+	trim (t. name);
+	if (! t. name. empty ())
+    t. type = Token::eText;  
+  else
+    { ASSERT (t. empty ()); }
+	
+  return t;
+}
+
+
+
+char TokenInput::getNextChar () 
+{ 
+  QC_ASSERT (last. empty ());
+
+	char c = '\0';
+	do { c = ci. get (); }
+	  while (! ci. eof && isSpace (c));
+
+	if (ci. eof)
+		return '\0';  
+		
+  ci. unget ();
+  return c;
 }
 
 
@@ -2788,9 +2905,10 @@ string ShellApplication::which (const string &progName) const
 	try { exec ("which " + progName + " 1> " + tmp + ".src 2> /dev/null"); }
 	  catch (const runtime_error &)
 	    { return string (); }
-	LineInput li (tmp + ".src");
-	const string s (li. getString ());
-	return getDirName (s);
+	    
+  const StringVector vec (tmp + ".src", (size_t) 1);  
+  QC_ASSERT (vec. size () == 1);
+	return getDirName (vec [0]);
 }
 
 	

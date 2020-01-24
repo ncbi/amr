@@ -33,6 +33,8 @@
 *               cat, cp, cut, grep, head, mkdir, mv, nproc, sort, tail, which
 *
 * Release changes:
+*          01/24/2020 PD-3345   Improved error message for "GFF file mismatch"
+*   3.6.9  01/13/2020           "Database directory" is printed to stederr
 *          01/10/2020 PD-3329   ln -s .../amrfinder abc: abc calls the right executables
 *          01/20/2020           'rm" dependence is removed
 *   3.6.8  01/10/2020           'gnl|' processing is simplified
@@ -186,8 +188,9 @@ struct ThisApplication : ShellApplication
     return count;
   #else
     exec ("nproc --all > " + tmp + ".nproc");
-    LineInput f (tmp + ".nproc");
-    return str2<size_t> (f. getString ());
+    const StringVector vec (tmp + ".nproc", (size_t) 1);
+    QC_ASSERT (vec. size () == 1);
+    return str2<size_t> (vec [0]);
   #endif
   }
 
@@ -208,8 +211,7 @@ struct ThisApplication : ShellApplication
     exec ("tail -n +2 " + db + "/AMRProt-mutation.tab | cut -f 1 > " + tmp + ".prot_org");
     exec ("tail -n +2 " + db + "/taxgroup.tab         | cut -f 1 > " + tmp + ".tax_org");
     exec ("cat " + tmp + ".prot_org " + tmp + ".tax_org | sort -u > " + tmp + ".org");
-    LineInput f (tmp + ".org");
-    return f. getVector ();
+    return StringVector (tmp + ".org", (size_t) 100);  // PAR
   }
 
 
@@ -325,6 +327,7 @@ struct ThisApplication : ShellApplication
     
 		if (! directoryExists (db))  // PD-2447
 		  throw runtime_error ("No valid AMRFinder database found." + ifS (! update, downloadLatestInstr));
+		stderr << "Database directory: " << db << "\n";
 
 
     if (list_organisms)
@@ -536,7 +539,14 @@ struct ThisApplication : ShellApplication
     			  }
     			  catch (...)
     			  {
-    			    throw runtime_error ("GFF file mismatch.\nMore information in " + logFName);  // PD-3289
+    			    StringVector vec (logFName, (size_t) 10);  // PAR
+    			    if (! vec. empty ())
+    			      if (vec [0]. empty ())
+    			        vec. eraseAt (0);
+    			    if (! vec. empty ())
+    			      if (vec [0] == "*** ERROR ***")
+    			        vec. eraseAt (0);
+    			    throw runtime_error ("GFF file mismatch.\n" + vec. toString ("\n"));  // PD-3289, PD-3345
     			  } 
     			}
     			
