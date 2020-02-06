@@ -636,7 +636,7 @@ struct BlastAlignment : Alignment
   bool alleleReported () const
     { return refExactlyMatched () && allele () && (! targetProt || refLen == targetLen); }
 	string getMethod (const Locus &cds) const
-	  { IMPLY (refExactlyMatched (), ! isMutation ());
+	  { IMPLY (refExactlyMatched () && ! mutation_all. get (), ! isMutation ());  
 	    string method (refExactlyMatched () 
         	             ? alleleReported () 
         	               ? "ALLELE"
