@@ -18,7 +18,7 @@ jobs:
     - name: install conda
       run: |
           bash ./Miniconda3-latest-Linux-x86_64.sh -b
-          export PATH=$HOME/miniconda3/bin:$PATH # Change to match installation location, if not default.
+          export PATH=/home/runner/miniconda3/bin:$PATH # Change to match installation location, if not default.
     - name: configure conda channels
       run: |
           conda config --add channels defaults
@@ -27,9 +27,10 @@ jobs:
     - name: install AMRFinderPlus
       run: conda install -y -c bioconda ncbi-amrfinderplus
     - name: activate bioconda
-      run: source ~/miniconda3/bin/activate
+      run: source /home/runner/miniconda3/bin/activate
     - name: test protein
       run: |
+          source /home/runner/miniconda3/bin/activate
           amrfinder --plus -p test_prot.fa -g test_prot.gff -O Escherichia > test_prot.got
           diff test_prot.expected test_prot.got
     - name: test dna
