@@ -19,26 +19,10 @@ jobs:
       run: |
           bash ./Miniconda3-latest-Linux-x86_64.sh -b -p /home/runner/miniconda3
           source /home/runner/miniconda3/bin/activate
-    - name: test echo
-      run: |
-          echo "This is the first line"
-          echo "This is the second line"
-          echo "This is the third line, and that's enough"
-    - name: where is conda?
-      run: which conda
-    - name: echo path
-      run: echo $PATH
-    - name: conda info
-      run: conda info
-    - name: configure conda channels
-      run: |
-          conda config --add channels defaults
-          conda config --add channels bioconda
-          conda config --add channels conda-forge
     - name: install AMRFinderPlus
       run: conda install -y -c bioconda ncbi-amrfinderplus
-    - name: where is AMRFinder?
-      run: /usr/share/miniconda/bin/amrfinder --help
+    - name: download latest AMRFinderPlus database
+      run: /usr/share/miniconda/bin/amrfinder -u
     - name: test protein
       run: |
           source /usr/share/miniconda/bin/activate
@@ -46,9 +30,11 @@ jobs:
           diff test_prot.expected test_prot.got
     - name: test dna
       run: |
-          /home/runner/miniconda3/bin/amrfinder --plus -n test_dna.fa -O Escherichia --mutation_all test_dna_mut_all.got > test_dna.got
+          source /usr/share/miniconda/bin/activate
+          amrfinder --plus -n test_dna.fa -O Escherichia --mutation_all test_dna_mut_all.got > test_dna.got
           diff test_dna.expected test_dna.got
     - name: test combined
       run: |
-          /home/runner/miniconda3/bin/amrfinder --plus -n test_dna.fa -p test_prot.fa -g test_prot.gff -O Escherichia > test_both.got
+          source /usr/share/miniconda/bin/activate
+          amrfinder --plus -n test_dna.fa -p test_prot.fa -g test_prot.gff -O Escherichia > test_both.got
           diff test_both.expected test_both.got
