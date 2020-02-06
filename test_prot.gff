@@ -14,3 +14,4 @@ contig12	.	gene	71	637	.	+	.	Name=qacR-curated_blast
 contig13	.	gene	1	1137	.	+	.	Name=emrD3-suppressed-in-vibrio
 contig13	.	gene	1141	1491	.	+	.	Name=arsR-suppressed-in-escherichia
 contig14	.	gene	1093	2181	.	+	.	Name=pmrB_C84R
+contig16	.	gene	1	423	.	+	.	Name=nfsA_R15C_K141STOP

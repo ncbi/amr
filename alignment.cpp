@@ -611,22 +611,23 @@ void Alignment::setSeqChanges (const Vector<Mutation> &refMutations,
   if (verbose ())
     PRINT (seqChanges. size ());
   
+	Vector<SeqChange> seqChanges_add;
 	size_t j = 0;
+	
   while (j < refMutations. size () && refMutations [j]. pos < refStart)
   {
   	if (allMutationsP)
-  	  seqChanges << SeqChange (this, & refMutations [j]);
+  	  seqChanges_add << SeqChange (this, & refMutations [j]);
     j++;
   }
   
 	size_t start_ref_prev = NO_INDEX;
-	Vector<SeqChange> seqChanges_add;
 	for (SeqChange& seqChange : seqChanges)
   {
     seqChange. qc ();
     if (verbose ())
       seqChange. saveText (cout);
-    QC_IMPLY (start_ref_prev != NO_INDEX, start_ref_prev < seqChange. start_ref);
+    IMPLY (start_ref_prev != NO_INDEX, start_ref_prev < seqChange. start_ref);
     while (j < refMutations. size ())
     {
 		  const Mutation& mut = refMutations [j];
@@ -653,6 +654,7 @@ void Alignment::setSeqChanges (const Vector<Mutation> &refMutations,
 		}
 	  start_ref_prev = seqChange. start_ref;
 	}
+	
 	seqChanges << move (seqChanges_add);
     
 	if (allMutationsP)
