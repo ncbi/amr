@@ -2,6 +2,8 @@ name: bioconda CI
 
 on:
     push:
+        branches:
+            - master
     schedule:
         - cron: '15 4 * * *' # 4:15am everyday
 
