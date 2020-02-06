@@ -26,6 +26,10 @@ jobs:
           echo "This is the third line, and that's enough"
     - name: where is conda?
       run: which conda
+    - name: echo path
+      run: echo $PATH
+    - name: conda info
+      run: conda info
     - name: configure conda channels
       run: |
           conda config --add channels defaults
