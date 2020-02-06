@@ -33,6 +33,7 @@
 *               cat, cp, cut, grep, head, mkdir, mv, nproc, sort, tail, which
 *
 * Release changes:
+*   3.6.10 02/06/2020 PD-3357, issue#21  --mutation_all bug
 *          01/24/2020 PD-3345   Improved error message for "GFF file mismatch"
 *   3.6.9  01/13/2020           "Database directory" is printed to stederr
 *          01/10/2020 PD-3329   ln -s .../amrfinder abc: abc calls the right executables

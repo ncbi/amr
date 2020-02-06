@@ -143,7 +143,7 @@ struct SeqChange : Root
   void saveText (ostream &os) const override
     { os        << start + 1 
          << ' ' << len 
-         << ' ' << reference << " -> " << allele 
+         << ' ' << strQuote (reference) << " -> " << strQuote (allele)
          << ' ' << start_ref + 1 << ".." << stop_ref
          << ' ' << start_target + 1 
          << ' ' << neighborhoodMismatch

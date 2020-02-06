@@ -536,10 +536,26 @@ template <typename T, typename U>
                    const U &u)
     { if (u. empty ())
         return false;
-      for (const auto x : t)
+      for (const auto& x : t)
         if (u. find (static_cast <typename U::value_type> (x)) != u. end ())
           return true;
       return false;
+    }
+
+template <typename T, typename U>
+  bool containsSubset (const T &t,
+                       const U &u)
+    { for (const auto& x : u)
+        if (t. find (static_cast <typename U::value_type> (x)) == t. end ())
+          return false;
+      return true;
+    }
+
+template <typename T, typename U>
+  void setMinus (T &t,
+                 const U &u)
+    { for (const auto& x : u)
+        t. erase (x);
     }
 
 template <typename Key, typename Value, typename KeyParent>
