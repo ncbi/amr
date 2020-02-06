@@ -1,8 +1,8 @@
 name: bioconda CI
 
 on:
-    - push
-    - schedule:
+    push:
+    schedule:
         cron: '15 4 * * *' # 4:15am everyday
 
 jobs:
