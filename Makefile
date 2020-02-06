@@ -33,7 +33,7 @@ SVNREV := -D'SVN_REV="$(VERSION_STRING)"'
 # make it possible to hard define a database directory
 
 # Define default paths
-PREFIX ?= /usr/local
+# PREFIX ?= /usr/local
 INSTALL=install
 ifneq '$(DEFAULT_DB_DIR)' ''
 	DBDIR := -D'DEFAULT_DB_DIR="$(DEFAULT_DB_DIR)"'
@@ -100,7 +100,11 @@ clean:
 	rm -f $(BINARIES)
 
 install:
-	$(INSTALL) -D --target-directory=$(PREFIX)/bin $(BINARIES)
+	@if [ ! -e $(bindir) ]; \
+	then \
+		mkdir -p $(bindir); \
+	fi
+	$(INSTALL) $(BINARIES) $(bindir)
 
 # amrfinder binaries for github binary release
 GITHUB_FILE=amrfinder_binaries_v$(VERSION_STRING)
