@@ -33,8 +33,9 @@
 *               cat, cp, cut, grep, head, mkdir, mv, nproc, sort, tail, which
 *
 * Release changes:
-*   3.6.11 02/13/2020 PD-3359   AMRFinder directory may contain spaces
-*   3.6.10 02/06/2020 PD-3357, issue#21  --mutation_all bug
+*   3.6.12 02/13/2020 PD-3359,issue#23   AMRFinder database directory may contain spaces
+*   3.6.11 02/13/2020 PD-3359,issue#23   AMRFinder directory may contain spaces
+*   3.6.10 02/06/2020 PD-3357,issue#21  --mutation_all bug
 *          01/24/2020 PD-3345   Improved error message for "GFF file mismatch"
 *   3.6.9  01/13/2020           "Database directory" is printed to stederr
 *          01/10/2020 PD-3329   ln -s .../amrfinder abc: abc calls the right executables
@@ -208,10 +209,10 @@ struct ThisApplication : ShellApplication
 
 
 
-  StringVector db2organisms (const string &db) const
+  StringVector db2organisms () const
   {
-    exec ("tail -n +2 " + shellQuote (db + "/AMRProt-mutation.tab") + " | cut -f 1 > " + tmp + ".prot_org");
-    exec ("tail -n +2 " + shellQuote (db + "/taxgroup.tab") + "         | cut -f 1 > " + tmp + ".tax_org");
+    exec ("tail -n +2 " + tmp + ".db/AMRProt-mutation.tab" + " | cut -f 1 > " + tmp + ".prot_org");
+    exec ("tail -n +2 " + tmp + ".db/taxgroup.tab" + "         | cut -f 1 > " + tmp + ".tax_org");
     exec ("cat " + tmp + ".prot_org " + tmp + ".tax_org | sort -u > " + tmp + ".org");
     return StringVector (tmp + ".org", (size_t) 100);  // PAR
   }
@@ -315,7 +316,7 @@ struct ThisApplication : ShellApplication
       if (! dbDir. items. empty () && dbDir. items. back () == "latest")
       {
         prog2dir ["amrfinder_update"] = execDir;
-  		  exec (fullProg ("amrfinder_update") + " -d " + dbDir. getParent () + ifS (quiet, " -q") + ifS (qc_on, " --debug") + " > " + logFName, logFName);
+  		  exec (fullProg ("amrfinder_update") + " -d " + shellQuote (dbDir. getParent ()) + ifS (quiet, " -q") + ifS (qc_on, " --debug") + " > " + logFName, logFName);
       }
       else
         cout << "WARNING: Updating database directory works only for databases with the default data directory format." << endl
@@ -329,12 +330,13 @@ struct ThisApplication : ShellApplication
     
 		if (! directoryExists (db))  // PD-2447
 		  throw runtime_error ("No valid AMRFinder database found." + ifS (! update, downloadLatestInstr));
-		stderr << "Database directory: " << shellQuote (db) << "\n";
+		stderr << "Database directory: " << shellQuote (db) << "\n";		
+    exec ("ln -s " + shellQuote (db) + " " + tmp + ".db");
 
 
     if (list_organisms)
     {
-      const StringVector organisms (db2organisms (db));
+      const StringVector organisms (db2organisms ());
       cout << "Possible organisms: " + organisms. toString (", ") << endl;
       return;
     }    		  
@@ -469,7 +471,7 @@ struct ThisApplication : ShellApplication
       }
       if (! organism1. empty ())
       {
-        const StringVector organisms (db2organisms (db));
+        const StringVector organisms (db2organisms ());
         if (! organisms. contains (organism1))
           throw runtime_error ("Possible organisms: " + organisms. toString (", "));
       }
@@ -562,14 +564,14 @@ struct ThisApplication : ShellApplication
     			string num_threads;
     			if (blastThreadable ("blastp") && prot_threads > 1)
     			  num_threads = " -num_threads " + to_string (prot_threads);
-    			th. exec (fullProg ("blastp") + " -query " + prot + " -db " + shellQuote (db + "/AMRProt") +"  " 
+    			th. exec (fullProg ("blastp") + " -query " + prot + " -db " + tmp + ".db/AMRProt" +"  " 
     			  + blastp_par + num_threads + " " BLAST_FMT " -out " + tmp + ".blastp > /dev/null 2> /dev/null", prot_threads);
     			  
     			stderr << "Running hmmsearch...\n";
     			string cpu;
     			if (prot_threads > 1)
     			  cpu = "--cpu " + to_string (prot_threads);
-    			th. exec (fullProg ("hmmsearch") + " --tblout " + tmp + ".hmmsearch  --noali  --domtblout " + tmp + ".dom  --cut_tc  -Z 10000  " + cpu + " " + shellQuote (db + "/AMR.LIB") + " " + prot + " > /dev/null 2> /dev/null", prot_threads);
+    			th. exec (fullProg ("hmmsearch") + " --tblout " + tmp + ".hmmsearch  --noali  --domtblout " + tmp + ".dom  --cut_tc  -Z 10000  " + cpu + " " + tmp + ".db/AMR.LIB" + " " + prot + " > /dev/null 2> /dev/null", prot_threads);
   		  }
   		  else
   		  {
@@ -602,13 +604,13 @@ struct ThisApplication : ShellApplication
       		  FileItemGenerator fig (false, true, tmp + ".chunk");
       		  string item;
       		  while (fig. next (item))
-        			th << thread (exec, fullProg ("blastx") + "  -query " + tmp + ".chunk/" + item + " -db " + shellQuote (db + "/AMRProt") + "  "
+        			th << thread (exec, fullProg ("blastx") + "  -query " + tmp + ".chunk/" + item + " -db " + tmp + ".db/AMRProt" + "  "
         			  + blastx_par + to_string (gencode) + " " BLAST_FMT
         			  " -out " + tmp + ".blastx_dir/" + item + " > /dev/null 2> /dev/null", string ());
       		  blastxChunks = true;
     		  }
     		  else
-      			th. exec (fullProg ("blastx") + "  -query " + dna + " -db " + shellQuote (db + "/AMRProt") + "  "
+      			th. exec (fullProg ("blastx") + "  -query " + dna + " -db " + tmp + ".db/AMRProt" + "  "
       			  + blastx_par + to_string (gencode) + " " BLAST_FMT
       			  " -out " + tmp + ".blastx > /dev/null 2> /dev/null", threadsAvailable);
     		  amr_report_blastx = "-blastx " + tmp + ".blastx  -dna_len " + tmp + ".len";
@@ -628,7 +630,7 @@ struct ThisApplication : ShellApplication
     			findProg ("blastn");
     			prog2dir ["dna_mutation"] = execDir;
     			stderr << "Running blastn...\n";
-    			exec (fullProg ("blastn") + " -query " + dna + " -db " + shellQuote (db + "/AMR_DNA-" + organism1) + " -evalue 1e-20  -dust no  "
+    			exec (fullProg ("blastn") + " -query " + dna + " -db " + tmp + ".db/AMR_DNA-" + organism1 + " -evalue 1e-20  -dust no  "
     			  BLAST_FMT " -out " + tmp + ".blastn > " + logFName + " 2> " + logFName, logFName);
     		}
     		else

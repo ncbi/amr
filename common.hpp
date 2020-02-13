@@ -1067,7 +1067,7 @@ struct Dir
   string get () const
     { return items. empty () 
                ? string (1, '.') 
-               : shellQuote (nvl (list2str (items, string (1, fileSlash)), string (1, fileSlash))); 
+               : nvl (list2str (items, string (1, fileSlash)), string (1, fileSlash)); 
     }
   string getParent () const
     { if (items. empty ())
