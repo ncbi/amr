@@ -91,7 +91,7 @@ string getCommandLine ()
     if (! commandLine. empty ())
       commandLine += ' ';
     if (bad)
-      commandLine += strQuote (s, '\'');
+      commandLine += shellQuote (s);
     else
       commandLine += s;
   }
@@ -817,7 +817,7 @@ streampos getFileSize (const string &fName)
 {
   ifstream f (fName, ifstream::binary);
   if (! f. good ())
-    throw runtime_error ("Cannot open file " + strQuote (fName));
+    throw runtime_error ("Cannot open file " + shellQuote (fName));
 
   const streampos start = f. tellg ();
   QC_ASSERT (start >= 0); 
@@ -829,7 +829,7 @@ streampos getFileSize (const string &fName)
   QC_ASSERT (end >= 0); 
 
   if (end < start)
-    throw runtime_error ("Bad file " + strQuote (fName));    
+    throw runtime_error ("Bad file " + shellQuote (fName));    
   return end - start; 
 }
 
@@ -1206,7 +1206,7 @@ StringVector::StringVector (const string &fName,
   }
   catch (const exception &e)
   {
-    throw runtime_error ("Loading file " + strQuote (fName) + "\n" + e. what ());
+    throw runtime_error ("Loading file " + shellQuote (fName) + "\n" + e. what ());
   }  
 }
 
@@ -1294,9 +1294,9 @@ Input::Input (const string &fName,
 , prog (0, displayPeriod)  
 { 
   if (! ifs. good ())
-    throw runtime_error ("Cannot open file " + strQuote (fName));
+    throw runtime_error ("Cannot open file " + shellQuote (fName));
   if (! ifs. rdbuf () -> pubsetbuf (buf. get (), (long) bufSize))
-  	throw runtime_error ("Cannot allocate buffer to file " + strQuote (fName));
+  	throw runtime_error ("Cannot allocate buffer to file " + shellQuote (fName));
 }
  
 
@@ -1787,7 +1787,7 @@ void OFStream::open (const string &dirName,
 	ofstream::open (pathName);
 
 	if (! good ())
-	  throw runtime_error ("Cannot create file " + strQuote (pathName));
+	  throw runtime_error ("Cannot create file " + shellQuote (pathName));
 }
 
 
@@ -2082,7 +2082,7 @@ JsonMap::JsonMap (const string &fName)
   CharInput in (fName);
   const Token token (in);
   if (! token. isDelimiter ('{'))
-    in. error ("Json file " + strQuote (fName) + ": text should start with '{'", false);
+    in. error ("Json file " + shellQuote (fName) + ": text should start with '{'", false);
   parse (in);
 }
 
@@ -2902,7 +2902,7 @@ string ShellApplication::which (const string &progName) const
 	if (tmp. empty ())
 	  throw runtime_error ("Temporary file is needed");
 	
-	try { exec ("which " + progName + " 1> " + tmp + ".src 2> /dev/null"); }
+	try { exec ("which " + shellQuote (progName) + " 1> " + tmp + ".src 2> /dev/null"); }
 	  catch (const runtime_error &)
 	    { return string (); }
 	    
@@ -2940,9 +2940,9 @@ string ShellApplication::fullProg (const string &progName) const
 {
 	string dir;
 	if (! find (prog2dir, progName, dir))
-	  throw runtime_error ("Program " + strQuote (progName) + " is not found");
+	  throw runtime_error ("Program " + shellQuote (progName) + " is not found");
 	ASSERT (isRight (dir, "/"));
-	return dir + progName + " ";
+	return shellQuote (dir + progName) + " ";
 }
 #endif
 
