@@ -2871,7 +2871,7 @@ void ShellApplication::initEnvironment ()
     string path (execDir + programName);
     for (;;)
     {
-      const string path_new (realpath (path. c_str (), nullptr));
+      const string path_new (path2canonical (path));
       if (path == path_new)
         break;
       path = path_new;

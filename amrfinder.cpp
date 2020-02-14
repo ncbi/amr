@@ -33,8 +33,9 @@
 *               cat, cp, cut, grep, head, mkdir, mv, nproc, sort, tail, which
 *
 * Release changes:
+*   3.6.13 02/13/2020 PD-3359,issue#23   ln -s <db>: uses path2canonical()
 *   3.6.12 02/13/2020 PD-3359,issue#23   AMRFinder database directory may contain spaces
-*   3.6.11 02/13/2020 PD-3359,issue#23   AMRFinder directory may contain spaces
+*   3.6.11 02/13/2020 PD-3359,issue#23   AMRFinder code directory may contain spaces
 *   3.6.10 02/06/2020 PD-3357,issue#21  --mutation_all bug
 *          01/24/2020 PD-3345   Improved error message for "GFF file mismatch"
 *   3.6.9  01/13/2020           "Database directory" is printed to stederr
@@ -201,7 +202,7 @@ struct ThisApplication : ShellApplication
 
   string file2link (const string &fName) const
   {
-    const string s (realpath (fName. c_str (), nullptr));
+    const string s (path2canonical (fName));
     if (s == fName)
       return string ();
     return s;
@@ -331,7 +332,7 @@ struct ThisApplication : ShellApplication
 		if (! directoryExists (db))  // PD-2447
 		  throw runtime_error ("No valid AMRFinder database found." + ifS (! update, downloadLatestInstr));
 		stderr << "Database directory: " << shellQuote (db) << "\n";		
-    exec ("ln -s " + shellQuote (db) + " " + tmp + ".db");
+    exec ("ln -s " + shellQuote (path2canonical (db)) + " " + tmp + ".db");
 
 
     if (list_organisms)

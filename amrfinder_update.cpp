@@ -332,13 +332,6 @@ Requirements:\n\
     else
       exec ("mkdir -p " + shellQuote (latestDir));
 
-    {    
-      const string latestLink (mainDirS + "latest");
-      if (directoryExists (latestLink))
-        removeFile (latestLink);
-      exec ("ln -s " + shellQuote (latest_version) + " " + shellQuote (latestLink));
-    }
-    
     
     stderr << "Downloading AMRFinder database version " << latest_version << " into " << shellQuote (latestDir) << "\n";
     const string urlDir (URL + curMinor + "/" + latest_version + "/");
@@ -378,11 +371,19 @@ Requirements:\n\
     
     stderr << "Indexing" << "\n";
     exec (fullProg ("hmmpress") + " -f " + shellQuote (latestDir + "AMR.LIB") + " > /dev/null 2> /dev/null");
-    exec ("ln -s " + shellQuote (latestDir) + " " + tmp + ".db");
+    exec ("ln -s " + shellQuote (path2canonical (latestDir)) + " " + tmp + ".db");
 	  exec (fullProg ("makeblastdb") + " -in " + tmp + ".db/AMRProt" + "  -dbtype prot  -logfile /dev/null");  
 	  exec (fullProg ("makeblastdb") + " -in " + tmp + ".db/AMR_CDS" + "  -dbtype nucl  -logfile /dev/null");  
     for (const string& dnaPointMut : dnaPointMuts)
   	  exec (fullProg ("makeblastdb") + " -in " + tmp + ".db/AMR_DNA-" + dnaPointMut + "  -dbtype nucl  -logfile /dev/null");
+
+    {    
+      const string latestLink (mainDirS + "latest");
+      if (directoryExists (latestLink))
+        removeFile (latestLink);
+      exec ("ln -s " + shellQuote (path2canonical (latestDir)) + " " + shellQuote (latestLink));
+    }
+    
   }
 };
 

@@ -1046,6 +1046,16 @@ inline void removeFile (const string &fName)
   { if (std::remove (fName. c_str ()))
       throw runtime_error ("Cannot remove file + " + shellQuote (fName));
   }
+  
+inline string path2canonical (const string &path)
+  { if (char* p = realpath (path. c_str (), nullptr))
+    { const string s (p);
+      free (p);
+      return s;
+    }
+    else
+      throw runtime_error ("path2canonical " + shellQuote (path));
+  }
 
 
 
