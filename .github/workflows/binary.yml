@@ -1,6 +1,6 @@
-name: binary installation
+name: binary tarball
 
-on: [release, push]
+on: [release]
 
 jobs:
   build:
