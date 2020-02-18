@@ -1033,13 +1033,28 @@ inline string getDirName (const string &path)
 inline bool isDirName (const string &path)
   { return isRight (path, "/"); }
 
+inline string shellQuote (string s)
+  { replaceStr (s, "\'", "\'\"\'\"\'");
+  	return "\'" + s + "\'";
+  }
+
 bool fileExists (const string &fName);
 
 streampos getFileSize (const string &fName);
 
 inline void removeFile (const string &fName)
   { if (std::remove (fName. c_str ()))
-      throw runtime_error ("Cannot remove file + " + strQuote (fName));
+      throw runtime_error ("Cannot remove file + " + shellQuote (fName));
+  }
+  
+inline string path2canonical (const string &path)
+  { if (char* p = realpath (path. c_str (), nullptr))
+    { const string s (p);
+      free (p);
+      return s;
+    }
+    else
+      throw runtime_error ("path2canonical " + shellQuote (path));
   }
 
 
@@ -3291,7 +3306,7 @@ struct SoftwareVersion : Root
   explicit SoftwareVersion (const string &fName)
     { StringVector vec (fName, (size_t) 1);
       if (vec. size () != 1)
-        throw runtime_error ("One line is expected: " + strQuote (fName));
+        throw runtime_error ("One line is expected: " + shellQuote (fName));
       init (move (vec [0]), false);
     }
   explicit SoftwareVersion (istream &is,
@@ -3344,7 +3359,7 @@ struct DataVersion : Root
   explicit DataVersion (const string &fName)
     { StringVector vec (fName, (size_t) 1);
       if (vec. size () != 1)
-        throw runtime_error ("One line is expected: " + strQuote (fName));
+        throw runtime_error ("One line is expected: " + shellQuote (fName));
       init (move (vec [0]));
     }
   explicit DataVersion (istream &is)
@@ -3576,10 +3591,6 @@ private:
   void body () const final;
   virtual void shellBody () const = 0;
 protected:
-  static string shellQuote (string s)
-    { replaceStr (s, "\'", "\'\"\'\"\'");
-    	return "\'" + s + "\'";
-    }
   static bool emptyArg (const string &s)
     {	return s. empty () || s == "\'\'"; }
   string which (const string &progName) const;
@@ -3587,7 +3598,7 @@ protected:
   void findProg (const string &progName) const;
     // Output: prog2dir
   string fullProg (const string &progName) const;
-    // Return: directory + progName + ' '
+    // Return: shellQuote (directory + progName) + ' '
     // Requires: After findProg(progName)
 };
 #endif
