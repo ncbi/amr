@@ -286,7 +286,7 @@ Requirements:\n\
     
         
     Stderr stderr (quiet);
-    stderr << "Running "<< getCommandLine () << '\n';
+    stderr << "Running: "<< getCommandLine () << '\n';
     const Verbose vrb (qc_on);
     
     string mainDirS;
@@ -324,23 +324,16 @@ Requirements:\n\
     
     // Users's files  
     if (! directoryExists (mainDirS))
-      exec ("mkdir -p " + mainDirS);
+      exec ("mkdir -p " + shellQuote (mainDirS));
     
     const string latestDir (mainDirS + latest_version + "/");
     if (directoryExists (latestDir))
-      stderr << latestDir << " already exists, overwriting what was there\n";
+      stderr << shellQuote (latestDir) << " already exists, overwriting what was there\n";
     else
-      exec ("mkdir -p " + latestDir);
+      exec ("mkdir -p " + shellQuote (latestDir));
 
-    {    
-      const string latestLink (mainDirS + "latest");
-      if (directoryExists (latestLink))
-        removeFile (latestLink);
-      exec ("ln -s " + latest_version + " " + latestLink);
-    }
     
-    
-    stderr << "Downloading AMRFinder database version " << latest_version << " into " << latestDir << "\n";
+    stderr << "Downloading AMRFinder database version " << latest_version << " into " << shellQuote (latestDir) << "\n";
     const string urlDir (URL + curMinor + "/" + latest_version + "/");
     fetchAMRFile (curl, urlDir, latestDir, "AMR.LIB");
     fetchAMRFile (curl, urlDir, latestDir, "AMRProt");
@@ -377,11 +370,20 @@ Requirements:\n\
     fetchAMRFile (curl, urlDir, latestDir, "changes.txt");
     
     stderr << "Indexing" << "\n";
-    exec (fullProg ("hmmpress") + " -f " + latestDir + "AMR.LIB > /dev/null 2> /dev/null");
-	  exec (fullProg ("makeblastdb") + " -in " + latestDir + "AMRProt  -dbtype prot  -logfile /dev/null");  
-	  exec (fullProg ("makeblastdb") + " -in " + latestDir + "AMR_CDS  -dbtype nucl  -logfile /dev/null");  
+    exec (fullProg ("hmmpress") + " -f " + shellQuote (latestDir + "AMR.LIB") + " > /dev/null 2> /dev/null");
+    exec ("ln -s " + shellQuote (path2canonical (latestDir)) + " " + tmp + ".db");
+	  exec (fullProg ("makeblastdb") + " -in " + tmp + ".db/AMRProt" + "  -dbtype prot  -logfile /dev/null");  
+	  exec (fullProg ("makeblastdb") + " -in " + tmp + ".db/AMR_CDS" + "  -dbtype nucl  -logfile /dev/null");  
     for (const string& dnaPointMut : dnaPointMuts)
-  	  exec (fullProg ("makeblastdb") + " -in " + latestDir + "AMR_DNA-" + dnaPointMut + "  -dbtype nucl  -logfile /dev/null");
+  	  exec (fullProg ("makeblastdb") + " -in " + tmp + ".db/AMR_DNA-" + dnaPointMut + "  -dbtype nucl  -logfile /dev/null");
+
+    {    
+      const string latestLink (mainDirS + "latest");
+      if (directoryExists (latestLink))
+        removeFile (latestLink);
+      exec ("ln -s " + shellQuote (path2canonical (latestDir)) + " " + shellQuote (latestLink));
+    }
+    
   }
 };
 
