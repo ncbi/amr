@@ -16,9 +16,6 @@ get_tarball_url() {
 release=$(get_latest_release ncbi/amr)
 URL=$(get_tarball_url ncbi/amr)
 
-mkdir amrfinder
-cd amrfinder
-
 # download and unpack AMRFinder binaries
     curl --silent -L -O $URL
     tarball_name=$(echo $URL | perl -pe 's#^.*/(.*)#\1#')
