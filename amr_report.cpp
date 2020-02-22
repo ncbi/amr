@@ -446,11 +446,21 @@ struct BlastAlignment : Alignment
         ERROR_MSG (famId + " " + gene);
       ASSERT (other. good ());
     }
+  explicit BlastAlignment (const Mutation& mut)
+    : famId      (mut. gene)   
+    , gene       (mut. gene)   
+    , resistance ("mutation")
+    { targetProt = true;
+      alProt     = true;
+      seqChanges << SeqChange (this, & mut);
+    }
   void qc () const
     {
       if (! qc_on)
         return;
       Alignment::qc ();
+      if (empty ())
+        return;
 	    QC_ASSERT (! famId. empty ());
 	    QC_ASSERT (! gene. empty ());
 	    QC_ASSERT (part >= 1);
@@ -482,7 +492,7 @@ struct BlastAlignment : Alignment
     { // PD-736, PD-774, PD-780, PD-799
       const string na ("NA");
       const string proteinName (isMutation () 
-                                  ? string ()
+                                  ? product /*string ()*/
                                   : refExactlyMatched () || parts >= 2 || ! gi   // PD-3187, PD-3192
                                     ? product 
                                     : nvl (getFam () -> familyName, na)
@@ -497,33 +507,40 @@ struct BlastAlignment : Alignment
       for (const Locus& cds : cdss_)
 	      for (SeqChange& seqChange : seqChanges_)
 	      {
-	        Mutation mut;
-	        if (seqChange. mutation)
-	          mut = * seqChange. mutation;
-	        IMPLY (! verbose () && isMutation (), ! mut. empty ());  
-          const string method (getMethod (cds));
+	        const Mutation* mut = seqChange. mutation;
+          const string method (empty () ? na : getMethod (cds));
+          ASSERT (isMutation () == ! (seqChange. empty () && ! mut));
 	        TabDel td (2, false);
-          td << (targetProt ? targetName : na);  // PD-2534
+          td << (targetProt ? nvl(targetName, na) : na);  // PD-2534
 	        if (cdsExist)
-	          td << (cds. contig. empty () ? targetName  : cds. contig)
-	             << (cds. contig. empty () ? targetStart : cds. start) + 1
-	             << (cds. contig. empty () ? targetEnd  : cds. stop)
-	             << (cds. contig. empty () ? (targetStrand ? '+' : '-') : (cds. strand ? '+' : '-'));
+	          td << (empty () ? na : (cds. contig. empty () ? nvl (targetName,na)  : cds. contig))
+	             << (empty () ? 0 : (cds. contig. empty () ? targetStart : cds. start) + 1)
+	             << (empty () ? 0 : (cds. contig. empty () ? targetEnd  : cds. stop))
+	             << (empty () ? na : (cds. contig. empty () ? (targetStrand ? "+" : "-") : (cds. strand ? "+" : "-")));
 	        td << (isMutation ()
-			             ? mut. geneMutation
+			             ? mut 
+			                 ? mut->geneMutation
+			                 : gene + "_" + seqChange. getMutationStr ()
 	                 : print_fam 
 			                 ? famId
 			                 : (isLeft (method, "ALLELE") ? famId : nvl (getFam () -> genesymbol, na))
 	              )
-	           <<   (mut. empty () ? proteinName : (mut. name + ifS (seqChange. empty (), " [NO_CALL]")))
+	           <<   (isMutation ()
+	                   ? mut 
+	                       ? seqChange. empty ()
+	                           ? proteinName + " [" + (between (mut->pos, refStart, refEnd) ? "WILDTYPE" : "UNKNOWN") + "]"
+	                           : mut->name
+	                       : proteinName + " [NOVEL]"
+	                   : proteinName 
+	                )
 	              + ifS (reportPseudo, ifS (frameShift, " " + frameShiftS))
 	           << (isMutation () || getFam () -> reportable >= 2 ? "core" : "plus");  // PD-2825
           // PD-1856
 	        if (isMutation ())
 	          td << "AMR"
 	             << "POINT"
-	             << nvl (mut. classS, na)
-	             << nvl (mut. subclass, na);
+	             << (mut ? nvl (mut->classS,   na) : na)
+	             << (mut ? nvl (mut->subclass, na) : na);
 	        else
 	          td << nvl (getFam () -> type, na)  
   	           << nvl (getFam () -> subtype, na)
@@ -570,7 +587,9 @@ struct BlastAlignment : Alignment
 		            td << na;        	
 		        }
 	        }
-	        if (mut. empty () || ! seqChange. empty ())
+	        if (   ! isMutation ()
+	            || (! seqChange. empty () && mut)  // resistant mutation
+	           )
 	        {
   	        if (verbose ())
   	          os         << refExactlyMatched ()
@@ -582,7 +601,7 @@ struct BlastAlignment : Alignment
   	             << '\t';
 	          os << td. str () << endl;
 	        }
-	        if (mutation_all. get () && ! mut. empty ())
+	        if (mutation_all. get () && isMutation ())
 	          *mutation_all << td. str () << endl;
 	      }
     }
@@ -1078,7 +1097,7 @@ struct Batch
 	  	#endif
 	  	  for (auto& it : accession2mutations)
 	  	  {
-	  	  	it. second. sort ();
+   	  	  it. second. sort ();
 	  	    if (! it. second. isUniq ())
 	  	  	  throw runtime_error ("Duplicate mutations for " + it. first);
 	  	  }
@@ -1129,24 +1148,11 @@ private:
 	      continue;	      
       for (Iter<VectorPtr<BlastAlignment>> goodIter (goodBlastAls); goodIter. next ();)
         if (blastAl->better (**goodIter))
-        {
-          if (verbose ())
-          {
-            cout << "Bad:  ";
-            (*goodIter)->saveText (cout); 
-            cout << "Good:  ";
-            blastAl->saveText (cout); 
-          }
           goodIter. erase ();          
-        }
       goodBlastAls << blastAl;
     }
   	if (verbose ())
-  	{
   	  cout << "# Best Blasts: " << goodBlastAls. size () << endl;
-  	  for (const BlastAlignment* blastAl : goodBlastAls)
-  	    blastAl->saveText (cout);
-  	}
   }
 public:
 	  	  
@@ -1159,14 +1165,7 @@ public:
     // Use BlastAlignment.cdss
     for (Iter<VectorOwn<BlastAlignment>> iter (blastAls); iter. next ();)
       if (! (*iter)->good ())
-      {
-        if (verbose ())
-        {
-          cout << "Erased:" << endl;
-          (*iter)->saveText (cout);
-        }
         delete iter. erase ();
-      }
         
     // Group by targetName and process each targetName separately for speed ??    
 
@@ -1180,7 +1179,7 @@ public:
       for (const SeqChange& seqChange1 : blastAl1->seqChanges)
       {
         ASSERT (seqChange1. al == blastAl1);
-        ASSERT (seqChange1. mutation);
+      //ASSERT (seqChange1. mutation);
         for (const BlastAlignment* blastAl2 : goodBlastAls)
           if (   blastAl2->targetName   == blastAl1->targetName
               && blastAl2->targetStrand == blastAl1->targetStrand
@@ -1189,7 +1188,7 @@ public:
             for (Iter<Vector<SeqChange>> iter (var_cast (blastAl2) -> seqChanges); iter. next (); )
             {
               SeqChange& seqChange2 = *iter;
-              ASSERT (seqChange2. mutation);
+            //ASSERT (seqChange2. mutation);
               ASSERT (seqChange2. al == blastAl2);
               if (   seqChange1. start_target == seqChange2. start_target 
                   && seqChange1. better (seqChange2)
@@ -1297,6 +1296,24 @@ public:
   	  ASSERT (hmmAl->blastAl. get ());
   	  goodBlastAls << hmmAl->blastAl. get ();
   	}
+  	
+  	// [UNKNOWN]
+  	{
+    	map<Mutation, const Mutation*> mutation2ptr;
+    	for (const auto& it : accession2mutations)
+    	  for (const Mutation& mut : it. second)
+    	    mutation2ptr [mut] = & mut;
+    	for (const BlastAlignment* al : goodBlastAls)
+    	  for (const SeqChange& seqChange : al->seqChanges)
+    	    if (const Mutation* mut = seqChange. mutation)
+    	      mutation2ptr. erase (*mut);
+    	for (const auto& it : mutation2ptr)
+    	{
+    	  const auto al = new BlastAlignment (* it. second);
+    	  blastAls << al;
+    	  goodBlastAls << al;
+    	}
+    }
   
     goodBlastAls. sort (BlastAlignment::less);
 
@@ -1483,7 +1500,7 @@ struct ThisApplication : Application
       addKey ("hmmsearch", "Output of hmmsearch");
       addKey ("organism", "Taxonomy group for mutations");
       addKey ("mutation", "Mutations table");
-      addKey ("mutation_all", "File to report all target positions of reference mutations");
+      addKey ("mutation_all", "File to report all mutations");
       addKey ("suppress_prot", "File with protein GIs to suppress");
       addKey ("ident_min", "Min. identity to the reference protein (0..1). -1 means use a curated threshold if it exists and " + toString (ident_min_def) + " otherwise", "-1");
       addKey ("coverage_min", "Min. coverage of the reference protein (0..1) for partial hits", toString (partial_coverage_min_def));

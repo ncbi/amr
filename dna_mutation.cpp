@@ -50,7 +50,7 @@ namespace
 {  
 
 map <string/*accession*/, Vector<Mutation>>  accession2mutations;
-unique_ptr<OFStream> mutation_all;  // ??
+unique_ptr<OFStream> mutation_all;  
 
 
 
@@ -60,6 +60,7 @@ struct BlastnAlignment : Alignment
  	static constexpr const size_t flankingLen = 200;  // PAR  
   string refAccessionFrag;
   string product;
+  string gene;
   
 
   explicit BlastnAlignment (const string &line)
@@ -74,6 +75,10 @@ struct BlastnAlignment : Alignment
 	      replace (product, '_', ' ');
 	      QC_ASSERT (! s. empty ());
 	      refAccessionFrag += ":" + s;
+	      
+	      s = product;
+	      gene = findSplit (s);
+	      QC_ASSERT (! gene. empty ());
 
   	    if (const Vector<Mutation>* refMutations = findPtr (accession2mutations, refName))
   	      setSeqChanges (*refMutations, flankingLen, mutation_all. get ());
@@ -84,40 +89,64 @@ struct BlastnAlignment : Alignment
 		  	throw;
 		  }
     }
+  explicit BlastnAlignment (const Mutation& mut)
+    : gene (mut. gene)   
+    { targetProt = false;
+      alProt     = false;
+      seqChanges << SeqChange (this, & mut);
+    }
   void saveText (ostream& os) const 
     { const string na ("NA");
       for (const SeqChange& seqChange : seqChanges)
       {
-        if (! seqChange. mutation)
-          continue;
+        ASSERT (! (seqChange. empty () && ! seqChange. mutation));
         TabDel td (2, false);
         td << na  // PD-2534
-           << targetName 
-           << targetStart + 1
-           << targetEnd
-           << (targetStrand ? '+' : '-');
-        td << seqChange. mutation->geneMutation
-           << seqChange. mutation->name + ifS (seqChange. empty (), " [NO_CALL]")
+           << nvl (targetName, na)
+           << (empty () ? 0 : targetStart + 1)
+           << (empty () ? 0 : targetEnd)
+           << (empty () ? na : (targetStrand ? "+" : "-"))
+           << (seqChange. mutation
+                 ? seqChange. mutation->geneMutation
+                 : gene + "_" + seqChange. getMutationStr ()
+              )
+           << (seqChange. mutation
+                 ? seqChange. empty ()
+                     ? product + " [" + (between (seqChange. mutation->pos, refStart, refEnd) ? "WILDTYPE" : "UNKNOWN") + "]"
+                     : seqChange. mutation->name
+                 : product + " [NOVEL]"
+              )
            << "core"  // PD-2825
            // PD-1856
            << "AMR"
            << "POINT"
-           << nvl (seqChange. mutation->classS, na)
-           << nvl (seqChange. mutation->subclass, na)
-           //
-           << "POINTN"  // PD-2088
-           << targetLen;
-        td << refLen
-           << refCoverage () * 100  
-           << pIdentity () * 100  
-           << targetSeq. size ()
-           << refAccessionFrag  // refName
-           << product  // pm. gene
-           ;
+           << (seqChange. mutation ? nvl (seqChange. mutation->classS,   na) : na)
+           << (seqChange. mutation ? nvl (seqChange. mutation->subclass, na) : na);
+         if (empty ())
+           td << na
+              << na
+              << na
+              << na
+              << na
+              << na
+              << na
+              << na;
+         else
+           td << "POINTN"  // PD-2088
+              << targetLen
+              << refLen
+              << refCoverage () * 100  
+              << pIdentity () * 100  
+              << targetSeq. size ()
+              << refAccessionFrag  // refName
+              << product;  // pm.gene
         // HMM
         td << na
            << na;
-        os << td. str () << endl;
+        if (! seqChange. empty () && seqChange. mutation)  // resistant mutation
+          os << td. str () << endl;
+        if (mutation_all. get ())
+	        *mutation_all << td. str () << endl;
       }
     }
     
@@ -201,6 +230,8 @@ struct Batch
 	       << "HMM description"
 	       ;
 	    os << td. str () << endl;
+      if (mutation_all. get ())
+        *mutation_all << td. str () << endl;
 	  }
 
   	for (const BlastnAlignment* blastAl : blastAls)
@@ -224,6 +255,7 @@ struct ThisApplication : Application
     {
       addPositional ("blastn", string ("blastn output in the format: ") + Alignment::format + ". sseqid is the 1st column of <mutation_tab> table");  
       addPositional ("mutation", "Mutations table");
+      addKey ("mutation_all", "File to report all mutations");
 	    version = SVN_REV;
     }
 
@@ -231,10 +263,14 @@ struct ThisApplication : Application
 
   void body () const final
   {
-    const string blastnFName  = getArg ("blastn");
-    const string mutation_tab = getArg ("mutation");  
+    const string blastnFName        = getArg ("blastn");
+    const string mutation_tab       = getArg ("mutation");  
+    const string mutation_all_FName = getArg ("mutation_all");
     
     
+    if (! mutation_all_FName. empty ())
+      mutation_all. reset (new OFStream (mutation_all_FName));
+
 
     Batch batch (mutation_tab);  
   
@@ -280,7 +316,7 @@ struct ThisApplication : Application
       for (const SeqChange& seqChange1 : blastAl1->seqChanges)
       {
         ASSERT (seqChange1. al == blastAl1);
-        ASSERT (seqChange1. mutation);
+      //ASSERT (seqChange1. mutation);
         for (const BlastnAlignment* blastAl2 : batch. blastAls)
           if (   blastAl2->targetName   == blastAl1->targetName
               && blastAl2->targetStrand == blastAl1->targetStrand
@@ -291,15 +327,34 @@ struct ThisApplication : Application
             {
               SeqChange& seqChange2 = *iter;
               ASSERT (seqChange2. al == blastAl2);
-              ASSERT (seqChange2. mutation);
+            //ASSERT (seqChange2. mutation);
               if (   seqChange1. start_target         == seqChange2. start_target 
-                  && seqChange1. neighborhoodMismatch <  seqChange2. neighborhoodMismatch
+                  && seqChange1. better (seqChange2)                
+                //&& seqChange1. neighborhoodMismatch <  seqChange2. neighborhoodMismatch
                  )
                 iter. erase ();
             }
       }
 		
 		
+  	// [UNKNOWN]
+  	{
+    	map<Mutation, const Mutation*> mutation2ptr;
+    	for (const auto& it : accession2mutations)
+    	  for (const Mutation& mut : it. second)
+    	    mutation2ptr [mut] = & mut;
+    	for (const BlastnAlignment* al : batch. blastAls)
+    	  for (const SeqChange& seqChange : al->seqChanges)
+    	    if (const Mutation* mut = seqChange. mutation)
+    	      mutation2ptr. erase (*mut);
+    	for (const auto& it : mutation2ptr)
+    	{
+    	  const auto al = new BlastnAlignment (* it. second);
+    	  batch. blastAls << al;
+    	}
+    }
+
+
     batch. report (cout);
   }
 };

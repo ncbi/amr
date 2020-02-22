@@ -2868,6 +2868,9 @@ void ShellApplication::initEnvironment ()
   {
     string s (programArgs. front ());
     programName = rfindSplit (s, fileSlash);
+  #if 1
+    const string path (path2canonical (execDir + programName));
+  #else
     string path (execDir + programName);
     for (;;)
     {
@@ -2876,6 +2879,7 @@ void ShellApplication::initEnvironment ()
         break;
       path = path_new;
     }
+  #endif
     execDir = getDirName (path);
   }
 

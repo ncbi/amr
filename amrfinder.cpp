@@ -33,6 +33,7 @@
 *               cat, cp, cut, grep, head, mkdir, mv, nproc, sort, tail, which
 *
 * Release changes:
+*   3.6.14 02/19/2020 PD-3363   --mutation_all: 4 types of mutations, adding DNA mutations
 *   3.6.13 02/13/2020 PD-3359,issue#23   ln -s <db>: uses path2canonical()
 *   3.6.12 02/13/2020 PD-3359,issue#23   AMRFinder database directory may contain spaces
 *   3.6.11 02/13/2020 PD-3359,issue#23   AMRFinder code directory may contain spaces
@@ -153,7 +154,7 @@ struct ThisApplication : ShellApplication
     	addKey ("translation_table", "NCBI genetic code for translated BLAST", "11", 't', "TRANSLATION_TABLE");
     	addFlag ("plus", "Add the plus genes to the report");  // PD-2789
       addFlag ("report_common", "Report proteins common to a taxonomy group");  // PD-2756
-    	addKey ("mutation_all", "File to report all target positions of reference mutations", "", '\0', "MUT_ALL_FILE");
+    	addKey ("mutation_all", "File to report all mutations", "", '\0', "MUT_ALL_FILE");
     	addKey ("blast_bin", "Directory for BLAST. Deafult: $BLAST_BIN", "", '\0', "BLAST_DIR");
     //addKey ("hmmer_bin" ??
       addKey ("output", "Write output to OUTPUT_FILE instead of STDOUT", "", 'o', "OUTPUT_FILE");
@@ -235,7 +236,7 @@ struct ThisApplication : ShellApplication
     const uint   gencode         =             arg2uint ("translation_table"); 
     const bool   add_plus        =             getFlag ("plus");
     const bool   report_common   =             getFlag ("report_common");
-    const string mutation_all    =             getArg ("mutation_all");  
+    const string mutation_all    = shellQuote (getArg ("mutation_all"));  
           string blast_bin       =             getArg ("blast_bin");
     const string parm            =             getArg ("parm");  
     const string output          = shellQuote (getArg ("output"));
@@ -663,31 +664,43 @@ struct ThisApplication : ShellApplication
 		
 
     // ".amr"
-    const string mutation_allS (mutation_all. empty () ? "" : ("-mutation_all " + mutation_all));
-    const string coreS (add_plus ? "" : " -core");
-		exec (fullProg ("amr_report") + " -fam " + shellQuote (db + "/fam.tab") + "  " + amr_report_blastp + "  " + amr_report_blastx
-		  + "  -organism " + strQuote (organism1) + "  -mutation " + shellQuote (db + "/AMRProt-mutation.tab") + " " + mutation_allS + " "
-		  + force_cds_report + " -pseudo" + coreS
-		  + (ident == -1 ? string () : "  -ident_min "    + toString (ident)) 
-		  + "  -coverage_min " + toString (cov)
-		  + ifS (suppress_common, " -suppress_prot " + tmp + ".suppress_prot") + pgapS
-		  + qcS + " " + parm + " -log " + logFName + " > " + tmp + ".amr", logFName);
+    {
+      const string mutation_allS (emptyArg (mutation_all) ? "" : ("-mutation_all " + tmp + ".mutation_all"));      
+      const string coreS (add_plus ? "" : " -core");
+  		exec (fullProg ("amr_report") + " -fam " + shellQuote (db + "/fam.tab") + "  " + amr_report_blastp + "  " + amr_report_blastx
+  		  + "  -organism " + strQuote (organism1) + "  -mutation " + shellQuote (db + "/AMRProt-mutation.tab") + " " + mutation_allS + " "
+  		  + force_cds_report + " -pseudo" + coreS
+  		  + (ident == -1 ? string () : "  -ident_min "    + toString (ident)) 
+  		  + "  -coverage_min " + toString (cov)
+  		  + ifS (suppress_common, " -suppress_prot " + tmp + ".suppress_prot") + pgapS
+  		  + qcS + " " + parm + " -log " + logFName + " > " + tmp + ".amr", logFName);
+  	}
 		if (   ! emptyArg (dna) 
 		    && ! organism1. empty ()
 		    && fileExists (db + "/AMR_DNA-" + organism1)
 		   )
 		{
-			exec (fullProg ("dna_mutation") + tmp + ".blastn " + shellQuote (db + "/AMR_DNA-" + organism1 + ".tab") + qcS + " -log " + logFName + " > " + tmp + ".amr-snp", logFName);
+      const string mutation_allS (emptyArg (mutation_all) ? "" : ("-mutation_all " + tmp + ".mutation_all.dna")); 
+			exec (fullProg ("dna_mutation") + tmp + ".blastn " + shellQuote (db + "/AMR_DNA-" + organism1 + ".tab") + " " + mutation_allS 
+			      + " " + qcS + " -log " + logFName + " > " + tmp + ".amr-snp", logFName);
 			exec ("tail -n +2 " + tmp + ".amr-snp >> " + tmp + ".amr");
+      if (! emptyArg (mutation_all))
+  			exec ("tail -n +2 " + tmp + ".mutation_all.dna >> " + tmp + ".mutation_all");
 	  }
 
-    // Sorting
     // PD-2244, PD-3230
-    const string sortS (emptyArg (dna) && emptyArg (gff) ? "-k1,1 -k2,2" : "-k2,2 -k3,3n -k4,4n -k5,5 -k1,1 -k6,6");
+    const string sortS (emptyArg (dna) && emptyArg (gff) ? "-k1,1 -k2,2" : "-k2,2 -k3,3n -k4,4n -k5,5 -k1,1 -k6,6");      
+    // Sorting AMR report
 		exec ("head -1 "              + tmp + ".amr                      >  " + tmp + ".amr-out");
 		exec ("LANG=C && tail -n +2 " + tmp + ".amr | sort " + sortS + " >> " + tmp + ".amr-out");
 		exec ("mv " + tmp + ".amr-out " + tmp + ".amr");
-
+    // Sorting mutation_all
+    if (! emptyArg (mutation_all))
+    {
+  		exec ("head -1 "              + tmp + ".mutation_all                      >  " + tmp + ".mutation_all-out");
+  		exec ("LANG=C && tail -n +2 " + tmp + ".mutation_all | sort " + sortS + " >> " + tmp + ".mutation_all-out");
+  		exec ("mv " + tmp + ".mutation_all-out " + mutation_all);
+    }
 		
     // timing the run
     const time_t end = time (NULL);
