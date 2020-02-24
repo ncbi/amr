@@ -330,7 +330,6 @@ struct ThisApplication : Application
             //ASSERT (seqChange2. mutation);
               if (   seqChange1. start_target         == seqChange2. start_target 
                   && seqChange1. better (seqChange2)                
-                //&& seqChange1. neighborhoodMismatch <  seqChange2. neighborhoodMismatch
                  )
                 iter. erase ();
             }

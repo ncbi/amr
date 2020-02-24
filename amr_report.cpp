@@ -330,6 +330,8 @@ struct BlastAlignment : Alignment
   Vector<Locus> cdss;
   static constexpr size_t mismatchTail_aa = 10;  // PAR
   size_t mismatchTailTarget {0};
+  
+  const HmmAlignment* hmmAl {nullptr};
 
 
   BlastAlignment (const string &line,
@@ -438,7 +440,8 @@ struct BlastAlignment : Alignment
   explicit BlastAlignment (const HmmAlignment& other)
     : famId      (other. fam->id)   
     , gene       (other. fam->id)   
-    , product    (other. fam->familyName)   
+    , product    (other. fam->familyName) 
+    , hmmAl      (& other)  
     { targetName = other. sseqid;
       targetProt = true;
       alProt = true;
@@ -470,7 +473,7 @@ struct BlastAlignment : Alignment
 	    QC_ASSERT ((bool) gi == (bool) refLen);
 	    QC_ASSERT ((bool) gi == (bool) nident);
 	    QC_ASSERT ((bool) gi == ! refAccession. empty ());
-	    QC_IMPLY (! gi && ! isMutation (), getFam () -> getHmmFam ());
+	    QC_IMPLY (! gi && ! isMutation (), ! getFam () -> hmm. empty () /*getHmmFam ()*/);
 	    QC_IMPLY (targetProt, ! partialDna);
 	    QC_ASSERT (targetAlign);
 	    QC_IMPLY (targetProt, targetAlign == targetAlign_aa);
@@ -567,15 +570,19 @@ struct BlastAlignment : Alignment
 	        if (isMutation ())
 	          td << na
 	             << na;
-	        else if (const Fam* f = getFam () -> getHmmFam ())
-	          td << f->hmm
-	             << f->familyName;
-	        else
+	        else 
 	        {
-	          td << na
-	             << na;
-	          ASSERT (method != "HMM");
-	        }
+	        //if (const Fam* f = getFam () -> getHmmFam ())
+	          if (hmmAl)
+  	          td << hmmAl->fam->hmm
+  	             << hmmAl->fam->familyName;
+  	        else
+  	        {
+  	          td << na
+  	             << na;
+  	          ASSERT (method != "HMM");
+  	        }
+  	      }
 	        if (cdsExist)
 	        {
 	        	IMPLY (cds. crossOrigin, useCrossOrigin);
@@ -655,7 +662,7 @@ struct BlastAlignment : Alignment
   bool alleleReported () const
     { return refExactlyMatched () && allele () && (! targetProt || refLen == targetLen); }
 	string getMethod (const Locus &cds) const
-	  { IMPLY (refExactlyMatched () && ! mutation_all. get (), ! isMutation ());  
+	  { //IMPLY (refExactlyMatched () && ! mutation_all. get (), ! isMutation ())
 	    string method (refExactlyMatched () 
         	             ? alleleReported () 
         	               ? "ALLELE"
@@ -862,7 +869,6 @@ public:
 	    	if (! other. blastAl->matchesCds (*this))
 	    		return false;
       return    refExactlyMatched () 
-           //|| getFam () -> getHmmFam () == other. fam
              || getFam () -> descendantOf (other. fam)
              ;
     }
@@ -1275,6 +1281,8 @@ public:
   	  for (const BlastAlignment* blastAl : goodBlastAls)
   	    if (blastAl->better (**hmmIt))
 	      {
+	        ASSERT (! blastAl->hmmAl);
+	        var_cast (blastAl) -> hmmAl = *hmmIt;
           hmmIt. erase ();
 	        break;
 	      }

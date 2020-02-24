@@ -33,6 +33,8 @@
 *               cat, cp, cut, grep, head, mkdir, mv, nproc, sort, tail, which
 *
 * Release changes:
+*                     PD-2328  Last columns of report are real HMM hits
+*   3.6.15 02/24/2020          "database" is printed to stderr in one line in a canonical form (without links)
 *   3.6.14 02/19/2020 PD-3363   --mutation_all: 4 types of mutations, adding DNA mutations
 *   3.6.13 02/13/2020 PD-3359,issue#23   ln -s <db>: uses path2canonical()
 *   3.6.12 02/13/2020 PD-3359,issue#23   AMRFinder database directory may contain spaces
@@ -201,16 +203,6 @@ struct ThisApplication : ShellApplication
 
 
 
-  string file2link (const string &fName) const
-  {
-    const string s (path2canonical (fName));
-    if (s == fName)
-      return string ();
-    return s;
-  }
-
-
-
   StringVector db2organisms () const
   {
     exec ("tail -n +2 " + tmp + ".db/AMRProt-mutation.tab" + " | cut -f 1 > " + tmp + ".prot_org");
@@ -332,7 +324,7 @@ struct ThisApplication : ShellApplication
     
 		if (! directoryExists (db))  // PD-2447
 		  throw runtime_error ("No valid AMRFinder database found." + ifS (! update, downloadLatestInstr));
-		stderr << "Database directory: " << shellQuote (db) << "\n";		
+		stderr << "Database directory: " << shellQuote (path2canonical (db)) << "\n";		
     exec ("ln -s " + shellQuote (path2canonical (db)) + " " + tmp + ".db");
 
 
@@ -402,23 +394,15 @@ struct ThisApplication : ShellApplication
         includes << key2shortHelp ("organism") + " option to add mutation searches and suppress common proteins";
       else
         searchMode += " and mutation";
+      stderr << "AMRFinder " << searchMode << " search\n";
+
+      for (const string& include : includes)
+        stderr << "  - include " << include << '\n';
 
       StringVector emptyFiles;
       if (! emptyArg (prot) && ! getFileSize (unQuote (prot)))  emptyFiles << prot;
       if (! emptyArg (dna)  && ! getFileSize (unQuote (dna)))   emptyFiles << dna;
       if (! emptyArg (gff)  && ! getFileSize (unQuote (gff)))   emptyFiles << gff;      
-
-      stderr << "AMRFinder " << searchMode << " search with database " << shellQuote (db);
-      {
-        const string link (file2link (db));
-        if (! link. empty ())
-          stderr << ": " << shellQuote (link);
-      }
-      stderr << "\n";
-      
-      for (const string& include : includes)
-        stderr << "  - include " << include << '\n';
-
       for (const string& emptyFile : emptyFiles)
         stderr << "WARNING! Empty file: " << emptyFile << '\n';
     }
