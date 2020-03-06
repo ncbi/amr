@@ -428,7 +428,7 @@ struct BlastAlignment : Alignment
 		    	if (verbose ())
 		        cout << "Mutation protein found: " << refName << endl;
   	      QC_ASSERT (isMutation ());  	      
-  	      setSeqChanges (*refMutations, 0 /*flankingLen*/, mutation_all. get ());
+  	      setSeqChanges (*refMutations, 0 /*flankingLen*/ /*, mutation_all. get ()*/);
 		    }
 		  }
 		  catch (...)
@@ -449,6 +449,7 @@ struct BlastAlignment : Alignment
         ERROR_MSG (famId + " " + gene);
       ASSERT (other. good ());
     }
+#if 0
   explicit BlastAlignment (const Mutation& mut)
     : famId      (mut. gene)   
     , gene       (mut. gene)   
@@ -457,6 +458,7 @@ struct BlastAlignment : Alignment
       alProt     = true;
       seqChanges << SeqChange (this, & mut);
     }
+#endif
   void qc () const
     {
       if (! qc_on)
@@ -531,7 +533,7 @@ struct BlastAlignment : Alignment
 	           <<   (isMutation ()
 	                   ? mut 
 	                       ? seqChange. empty ()
-	                           ? proteinName + " [" + (between (mut->pos, refStart, refEnd) ? "WILDTYPE" : "UNKNOWN") + "]"
+	                           ? proteinName + " [WILDTYPE]"
 	                           : mut->name
 	                       : proteinName + " [NOVEL]"
 	                   : proteinName 
@@ -1305,6 +1307,7 @@ public:
   	  goodBlastAls << hmmAl->blastAl. get ();
   	}
   	
+  #if 0
   	// [UNKNOWN]
   	{
     	map<Mutation, const Mutation*> mutation2ptr;
@@ -1322,6 +1325,7 @@ public:
     	  goodBlastAls << al;
     	}
     }
+  #endif
   
     goodBlastAls. sort (BlastAlignment::less);
 

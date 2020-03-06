@@ -33,7 +33,8 @@
 *               cat, cp, cut, grep, head, mkdir, mv, nproc, sort, tail, which
 *
 * Release changes:
-*                     PD-2328  Last columns of report are real HMM hits
+*   3.6.16 03/06/2020 PD-3363  --mutation_all: UNKNOWN are not reported
+*                     PD-2328  Last 2 columns of report are real HMM hits
 *   3.6.15 02/24/2020          "database" is printed to stderr in one line in a canonical form (without links)
 *   3.6.14 02/19/2020 PD-3363   --mutation_all: 4 types of mutations, adding DNA mutations
 *   3.6.13 02/13/2020 PD-3359,issue#23   ln -s <db>: uses path2canonical()

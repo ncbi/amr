@@ -81,7 +81,7 @@ struct BlastnAlignment : Alignment
 	      QC_ASSERT (! gene. empty ());
 
   	    if (const Vector<Mutation>* refMutations = findPtr (accession2mutations, refName))
-  	      setSeqChanges (*refMutations, flankingLen, mutation_all. get ());
+  	      setSeqChanges (*refMutations, flankingLen /*, mutation_all. get ()*/);
 		  }
 		  catch (...)
 		  {
@@ -89,12 +89,14 @@ struct BlastnAlignment : Alignment
 		  	throw;
 		  }
     }
+#if 0
   explicit BlastnAlignment (const Mutation& mut)
     : gene (mut. gene)   
     { targetProt = false;
       alProt     = false;
       seqChanges << SeqChange (this, & mut);
     }
+#endif
   void saveText (ostream& os) const 
     { const string na ("NA");
       for (const SeqChange& seqChange : seqChanges)
@@ -112,7 +114,7 @@ struct BlastnAlignment : Alignment
               )
            << (seqChange. mutation
                  ? seqChange. empty ()
-                     ? product + " [" + (between (seqChange. mutation->pos, refStart, refEnd) ? "WILDTYPE" : "UNKNOWN") + "]"
+                     ? product + " [WILDTYPE]"
                      : seqChange. mutation->name
                  : product + " [NOVEL]"
               )
@@ -336,6 +338,7 @@ struct ThisApplication : Application
       }
 		
 		
+  #if 0
   	// [UNKNOWN]
   	{
     	map<Mutation, const Mutation*> mutation2ptr;
@@ -352,6 +355,7 @@ struct ThisApplication : Application
     	  batch. blastAls << al;
     	}
     }
+  #endif
 
 
     batch. report (cout);
