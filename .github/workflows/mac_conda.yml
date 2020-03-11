@@ -19,7 +19,8 @@ jobs:
       run: |
           pwd
           echo $HOME
-          ls -al
+          ls -al $HOME
+          ls -ld $HOME
     - name: install conda
       run: |
           bash ./Miniconda3-latest-Linux-x86_64.sh -b -p /home/runner/miniconda3
