@@ -22,8 +22,6 @@ jobs:
           ls -al $HOME
     - name: ls -ld home
       run: ls -ld $HOME
-    - name: mkdir $HOME/miniconda3
-      run: mkdir $HOME/miniconda3
     - name: ls $HOME again
       run: ls -l $HOME
     - name: install conda
