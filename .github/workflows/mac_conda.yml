@@ -24,6 +24,7 @@ jobs:
       run: |
           source /Users/runner/miniconda3/bin/activate
           conda install -y -c bioconda ncbi-amrfinderplus
+    - name: Download AMRFinderPlus database
       run: /Users/runner/miniconda/bin/amrfinder -u
     - name: test protein
       run: |
