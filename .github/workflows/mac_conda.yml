@@ -14,7 +14,7 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: download conda
-      run: curl -O https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+      run: curl -O https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh
     - name: debug_questions
       run: |
           pwd
@@ -26,7 +26,7 @@ jobs:
       run: ls -l $HOME
     - name: install conda
       run: |
-          bash ./Miniconda3-latest-Linux-x86_64.sh -b -p /Users/runner/miniconda3
+          bash ./Miniconda3-latest-MacOSX-x86_64.sh -b -p /Users/runner/miniconda3
           source /Users/runner/miniconda3/bin/activate
     - name: install AMRFinderPlus
       run: conda install -y -c bioconda ncbi-amrfinderplus
