@@ -28,10 +28,14 @@ jobs:
       run: ls -l $HOME
     - name: install conda
       run: |
-          bash ./Miniconda3-latest-Linux-x86_64.sh -b -p /home/runner/miniconda3
-          source /home/runner/miniconda3/bin/activate
+          bash ./Miniconda3-latest-Linux-x86_64.sh -b -p /Users/runner/miniconda3
+          source /Users/runner/miniconda3/bin/activate
     - name: install AMRFinderPlus
       run: conda install -y -c bioconda ncbi-amrfinderplus
+    - name: whereis amrfinder
+      run: whereis amrfinder
+    - name: which amrfinder
+      run: which amrfinder
     - name: download latest AMRFinderPlus database
       run: /usr/share/miniconda/bin/amrfinder -u
     - name: test protein
