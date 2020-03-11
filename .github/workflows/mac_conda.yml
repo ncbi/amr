@@ -28,8 +28,10 @@ jobs:
       run: |
           bash ./Miniconda3-latest-MacOSX-x86_64.sh -b -p /Users/runner/miniconda3
           source /Users/runner/miniconda3/bin/activate
+          conda init
     - name: install AMRFinderPlus
-      run: conda install -y -c bioconda ncbi-amrfinderplus
+      run: |
+          conda install -y -c bioconda ncbi-amrfinderplus
     - name: whereis amrfinder
       run: whereis amrfinder
     - name: which amrfinder
