@@ -1,5 +1,4 @@
-name: bioconda CI
-
+name: Mac bioconda test
 on:
     push:
         branches:
@@ -14,8 +13,6 @@ jobs:
     runs-on: macos-latest
     steps:
     - uses: actions/checkout@v1
-    - name: prep
-      run: sudo apt-get install -y git build-essential curl
     - name: download conda
       run: curl -O https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
     - name: install conda
