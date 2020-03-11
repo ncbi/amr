@@ -15,6 +15,11 @@ jobs:
     - uses: actions/checkout@v1
     - name: download conda
       run: curl -O https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+    - name: debug_questions
+      run: |
+          pwd
+          echo $HOME
+          ls -al
     - name: install conda
       run: |
           bash ./Miniconda3-latest-Linux-x86_64.sh -b -p /home/runner/miniconda3
