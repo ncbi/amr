@@ -15,15 +15,15 @@ jobs:
     - uses: actions/checkout@v1
     - name: download conda
       run: curl -O https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh
-    - name: debug_questions
-      run: |
-          pwd
-          echo $HOME
-          ls -al $HOME
-    - name: ls -ld home
-      run: ls -ld $HOME
-    - name: ls $HOME again
-      run: ls -l $HOME
+    # - name: debug_questions
+      # run: |
+          # pwd
+          # echo $HOME
+          # ls -al $HOME
+    # - name: ls -ld home
+      # run: ls -ld $HOME
+    # - name: ls $HOME again
+      # run: ls -l $HOME
     - name: install conda
       run: |
           bash ./Miniconda3-latest-MacOSX-x86_64.sh -b -p /Users/runner/miniconda3
@@ -31,6 +31,7 @@ jobs:
           conda init
     - name: install AMRFinderPlus
       run: |
+          source /Users/runner/miniconda3/bin/activate
           conda install -y -c bioconda ncbi-amrfinderplus
     - name: whereis amrfinder
       run: whereis amrfinder
