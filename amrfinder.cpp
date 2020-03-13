@@ -33,6 +33,7 @@
 *               cat, cp, cut, grep, head, mkdir, mv, nproc, sort, tail, which
 *
 * Release changes:
+*   3.6.17 03/12/2020          Software version is printed after software directory
 *   3.6.16 03/06/2020 PD-3363  --mutation_all: UNKNOWN are not reported
 *                     PD-2328  Last 2 columns of report are real HMM hits
 *   3.6.15 02/24/2020          "database" is printed to stderr in one line in a canonical form (without links)
@@ -243,6 +244,7 @@ struct ThisApplication : ShellApplication
     Stderr stderr (quiet);
     stderr << "Running: "<< getCommandLine () << '\n';
     stderr << "Software directory: " << shellQuote (execDir) << "\n";
+	  stderr << "Software version: " << version << '\n'; 
     
     if (threads_max < threads_max_min)
       throw runtime_error ("Number of threads cannot be less than " + to_string (threads_max_min));
@@ -315,13 +317,13 @@ struct ThisApplication : ShellApplication
       }
       else
         cout << "WARNING: Updating database directory works only for databases with the default data directory format." << endl
-             << "Please see https://github.com/ncbi/amr/wiki for details." << endl
-             << "Current database directory is: " << dbDir. get () << endl
-             << "New database directories will be created as subdirectories of " << dbDir. getParent () << endl;
+             << "         Please see https://github.com/ncbi/amr/wiki for details." << endl
+             << "         Current database directory is: " << dbDir. get () << endl
+             << "         New database directories will be created as subdirectories of " << dbDir. getParent () << endl;
 		}
 
 
-    const string downloadLatestInstr ("\nTo download the latest version to the default directory run amrfinder -u");
+    const string downloadLatestInstr ("\nTo download the latest version to the default directory run: amrfinder -u");
     
 		if (! directoryExists (db))  // PD-2447
 		  throw runtime_error ("No valid AMRFinder database found." + ifS (! update, downloadLatestInstr));
@@ -343,7 +345,7 @@ struct ThisApplication : ShellApplication
   	  istringstream versionIss (version);
   		const SoftwareVersion softwareVersion (versionIss);
   		const SoftwareVersion softwareVersion_min (db + "/database_format_version.txt");
-  	  stderr << "Software version: " << softwareVersion. str () << '\n'; 
+  	//stderr << "Software version: " << softwareVersion. str () << '\n'; 
   		const DataVersion dataVersion (db + "/version.txt");
   		istringstream dataVersionIss (DATA_VER_MIN); 
   		const DataVersion dataVersion_min (dataVersionIss);  
@@ -405,7 +407,7 @@ struct ThisApplication : ShellApplication
       if (! emptyArg (dna)  && ! getFileSize (unQuote (dna)))   emptyFiles << dna;
       if (! emptyArg (gff)  && ! getFileSize (unQuote (gff)))   emptyFiles << gff;      
       for (const string& emptyFile : emptyFiles)
-        stderr << "WARNING! Empty file: " << emptyFile << '\n';
+        stderr << "WARNING: Empty file: " << emptyFile << '\n';
     }
       
 
