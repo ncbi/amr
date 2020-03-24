@@ -883,7 +883,8 @@ bool getChar (istream &is,
     ASSERT (i == c);
     return false;
   }
-  ASSERT (i >= 0 && i <= 255);
+  if (! (i >= 0 && i <= 255))
+    throw runtime_error ("Cannot read character: " + to_string (i));
   c = static_cast<char> (i);
 
   return true;

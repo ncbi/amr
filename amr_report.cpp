@@ -1087,14 +1087,21 @@ struct Batch
 	  	  {
 	  	    if (isLeft (f. line, "#"))
 	  	      continue;
-	  	  	string organism_, accession, geneMutation, classS, subclass, name;
-					int pos;
-    	  	iss. reset (f. line);
-	  	  	iss >> organism_ >> accession >> pos >> geneMutation >> classS >> subclass >> name;
-	  	  	QC_ASSERT (pos > 0);
-	  	  	replace (organism_, '_', ' ');
-	  	  	if (organism_ == organism)
-	  	  		accession2mutations [accession] << move (Mutation ((size_t) pos, geneMutation, classS, subclass, name));
+	  	    try
+	  	    {
+  	  	  	string organism_, accession, geneMutation, classS, subclass, name;
+  					int pos;
+      	  	iss. reset (f. line);
+  	  	  	iss >> organism_ >> accession >> pos >> geneMutation >> classS >> subclass >> name;
+  	  	  	QC_ASSERT (pos > 0);
+  	  	  	replace (organism_, '_', ' ');
+  	  	  	if (organism_ == organism)
+  	  	  		accession2mutations [accession] << move (Mutation ((size_t) pos, geneMutation, classS, subclass, name));
+  	  	  }
+  	  	  catch (const exception &e)
+  	  	  {
+  	  	    throw runtime_error ("Reading " + strQuote (mutation_tab) + " line:\n" + f. line + "\n" + e. what ());
+  	  	  }
 	  	  }
 	  	  if (verbose ())
 	  	    PRINT (accession2mutations. size ());
@@ -1348,34 +1355,34 @@ public:
     {
     	// Cf. BlastAlignment::saveText()
 	    TabDel td;
-	    td << "Protein identifier";  // targetName  // PD-2534  // 1
+	    td << "Protein identifier";                  //  1  // targetName  // PD-2534  
 	    if (cdsExist)  
 	      // Contig
-	      td << "Contig id"                                     // 2
-	         << "Start"    // targetStart                       // 3
-	         << "Stop"     // targetEnd                         // 4
-	         << "Strand";  // targetStrand                      // 5
-	    td << (print_fam ? "FAM.id" : "Gene symbol")            // 6
-	       << "Sequence name"
-	       << "Scope"  // PD-2825
+	      td << "Contig id"                          //  2
+	         << "Start"    // targetStart            //  3
+	         << "Stop"     // targetEnd              //  4
+	         << "Strand";  // targetStrand           //  5
+	    td << (print_fam ? "FAM.id" : "Gene symbol") //  6 or 2
+	       << "Sequence name"                        //  7 or 3
+	       << "Scope"  // PD-2825                    //  8 or 4
 	       // PD-1856
-	       << "Element type"
-	       << "Element subtype"
-	       << "Class"
-	       << "Subclass"
+	       << "Element type"                         //  9 or 5
+	       << "Element subtype"                      // 10 or 6
+	       << "Class"                                // 11 or 7
+	       << "Subclass"                             // 12 or 8
 	       //
-	       << "Method"
-	       << "Target length" 
+	       << "Method"                               // 13 or 9
+	       << "Target length"                        // 14 or 10
 	       //
-	       << "Reference sequence length"         // refLen
-	       << "% Coverage of reference sequence"  // queryCoverage
-	       << "% Identity to reference sequence"  
-	       << "Alignment length"                  // targetSeq. size ()
-	       << "Accession of closest sequence"     // refAccession
-	       << "Name of closest sequence"
+	       << "Reference sequence length"            // 15 or 11  // refLen
+	       << "% Coverage of reference sequence"     // 16 or 12  // queryCoverage
+	       << "% Identity to reference sequence"     // 17 or 13 
+	       << "Alignment length"                     // 18 or 14  // targetSeq. size ()
+	       << "Accession of closest sequence"        // 19 or 15  // refAccession
+	       << "Name of closest sequence"             // 20 or 16
 	       //
-	       << "HMM id"
-	       << "HMM description"
+	       << "HMM id"                               // 21 or 17
+	       << "HMM description"                      // 22 or 18
 	       ;
       if (cdsExist)
 	    	if (useCrossOrigin)
@@ -1507,6 +1514,7 @@ struct ThisApplication : Application
       addKey ("gff_match", ".gff-FASTA matching file for \"locus_tag\": \"<FASTA id> <locus_tag>\"");
       addFlag ("bed", "Browser Extensible Data format of the <gff> file");
       addFlag ("pgap", "Protein, genomic and GFF files are created by the NCBI PGAP");
+      addFlag ("lcl", "Nucleotide FASTA created by PGAP has \"lcl|\" prefix in accessions");  
       addKey ("dna_len", "File with lines: <dna id> <dna length>");
       addKey ("hmmdom", "HMM domain alignments");
       addKey ("hmmsearch", "Output of hmmsearch");
@@ -1545,6 +1553,7 @@ struct ThisApplication : Application
     const string gffMatchFName        = getArg ("gff_match");
     const bool   bedP                 = getFlag ("bed");
     const bool   pgap                 = getFlag ("pgap");
+    const bool   lcl                  = getFlag ("lcl");
     const string dnaLenFName          = getArg ("dna_len");
     const string hmmDom               = getArg ("hmmdom");
     const string hmmsearch            = getArg ("hmmsearch");  
@@ -1740,7 +1749,7 @@ struct ThisApplication : Application
     	else
     	{
 	    	Annot::Gff gff;
-		    annot. reset (new Annot (gff, gffFName, false, ! gffMatchFName. empty (), pgap));
+		    annot. reset (new Annot (gff, gffFName, false, ! gffMatchFName. empty (), pgap, lcl));
 		  }
 		  ASSERT (annot. get ());
 	    map<string/*seqid*/,string/*locusTag*/> seqId2locusTag;

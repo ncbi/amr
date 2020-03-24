@@ -20,7 +20,7 @@
 *  warranties of performance, merchantability or fitness for any particular
 *  purpose.                                                                
 *                                                                          
-*  Please cite the author in any work or product based on this material.   
+*  Please cite NCBI in any work or product based on this material.   
 *
 * ===========================================================================
 *
@@ -33,6 +33,8 @@
 *               cat, cp, cut, grep, head, mkdir, mv, nproc, sort, tail, which
 *
 * Release changes:
+*          03/24/2020 PD-3347  -lcl parameter if gff_check and amr_report
+*   3.6.18 03/17/2020 PD-3396  amr_report.cpp prints a better error message on missing sublcass in data
 *   3.6.17 03/12/2020          Software version is printed after software directory
 *   3.6.16 03/06/2020 PD-3363  --mutation_all: UNKNOWN are not reported
 *                     PD-2328  Last 2 columns of report are real HMM hits
@@ -480,9 +482,22 @@ struct ThisApplication : ShellApplication
     prog2dir ["amr_report"]  = execDir;	
     
     
+    bool lcl = false;
+    if (pgap && ! emptyArg (dna))  // PD-3347
+    {
+      LineInput f (unQuote (dna));
+      while (f. nextLine ())
+        if (isLeft (f. line, ">lcl|"))
+        {
+          lcl = true;
+          break;
+        }
+    }
+    
+    
     string amr_report_blastp;	
  		string amr_report_blastx;
-	  const string pgapS (ifS (pgap, " -pgap"));
+	  const string pgapS (ifS (pgap, " -pgap" + ifS (lcl, " -lcl")));
  		bool blastxChunks = false;
     {
       Threads th (threads_max - 1, true);  

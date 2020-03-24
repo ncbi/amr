@@ -33,7 +33,7 @@
 *               mkdir, ln
 *               curl.{h,c}
 *
-* Release changes:
+* Release changes: see amrfinder.cpp
 *
 */
 
