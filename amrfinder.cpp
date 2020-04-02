@@ -33,7 +33,9 @@
 *               cat, cp, cut, grep, head, mkdir, mv, nproc, sort, tail, which
 *
 * Release changes:
-*          03/24/2020 PD-3347  -lcl parameter if gff_check and amr_report
+*   3.7.1  04/02/2020 PD-3154  GIs may be 0, accessions are main identifiers; file "AMRProt-suppress" is added accessions; DATA_VER_MIN is "2020-04-02.1"
+*   3.6.19 03/24/2020          Check of ">lcl|" is done only for the first sequence in FASTA
+*          03/24/2020 PD-3347  -lcl parameter in gff_check and amr_report
 *   3.6.18 03/17/2020 PD-3396  amr_report.cpp prints a better error message on missing sublcass in data
 *   3.6.17 03/12/2020          Software version is printed after software directory
 *   3.6.16 03/06/2020 PD-3363  --mutation_all: UNKNOWN are not reported
@@ -112,7 +114,7 @@ using namespace Common_sp;
 
 // PAR!
 // PD-3051
-#define DATA_VER_MIN "2019-12-26.1"  
+#define DATA_VER_MIN "2020-04-02.1"  
 
 
 
@@ -487,9 +489,9 @@ struct ThisApplication : ShellApplication
     {
       LineInput f (unQuote (dna));
       while (f. nextLine ())
-        if (isLeft (f. line, ">lcl|"))
+        if (isLeft (f. line, ">"))
         {
-          lcl = true;
+          lcl = isLeft (f. line, ">lcl|");
           break;
         }
     }
@@ -654,13 +656,13 @@ struct ThisApplication : ShellApplication
 			while (f. nextLine ())
 			  if (! isLeft (f. line, "#"))
   			{
-  			  string org;
-  			  long gi = 0;
+  			  string org, accver;
+  			//long gi = 0;
   			  istringstream iss (f. line);
-  			  iss >> org >> gi;
-  			  QC_ASSERT (gi > 0);
+  			  iss >> org >> accver;
+  			  QC_ASSERT (! accver. empty ());
   			  if (org == organism1)
-  			    outF << gi << endl;
+  			    outF << accver << endl;
   			}
 	  }
 		

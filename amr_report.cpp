@@ -309,9 +309,10 @@ struct BlastAlignment : Alignment
   bool frameShift {false};
   
   // Reference protein
-  long gi {0};  
+//long gi {0};  
     // 0 <=> HMM method
   string refAccession; 
+    // empty() <=> HMM method
   size_t part {1};    
     // >= 1
     // <= parts
@@ -349,8 +350,8 @@ struct BlastAlignment : Alignment
 			    famId                       =                     rfindSplit (refName, '|');  // Reportable_vw.fam
 			    parts                       = (size_t) str2<int> (rfindSplit (refName, '|'));
 			    part                        = (size_t) str2<int> (rfindSplit (refName, '|'));
-			    refAccession               =                      rfindSplit (refName, '|');
-			    gi = str2<long> (refName);
+			    refAccession                =                     rfindSplit (refName, '|');
+			    str2<long> (refName);  // gi: dummy
   		    if (contains (refAccession, ':'))
   		    {
   		      QC_ASSERT (isMutation ());
@@ -367,7 +368,7 @@ struct BlastAlignment : Alignment
 			  {
 			  	throw runtime_error (string ("Bad AMRFinder database\n") + e. what ());
 			  }
-		    QC_ASSERT (gi > 0);
+		    QC_ASSERT (! refAccession. empty ());
 		    	    
 		    replace (product, '_', ' ');
 		    
@@ -471,18 +472,18 @@ struct BlastAlignment : Alignment
 	    QC_ASSERT (part >= 1);
 	    QC_ASSERT (part <= parts);
 	    QC_ASSERT (! product. empty ());
-	    QC_ASSERT ((bool) gi == ! targetSeq. empty ());
-	    QC_ASSERT ((bool) gi == (bool) refLen);
-	    QC_ASSERT ((bool) gi == (bool) nident);
-	    QC_ASSERT ((bool) gi == ! refAccession. empty ());
-	    QC_IMPLY (! gi && ! isMutation (), ! getFam () -> hmm. empty () /*getHmmFam ()*/);
+	    QC_ASSERT (refAccession. empty () == targetSeq. empty ());
+	    QC_ASSERT (! refAccession. empty () == (bool) refLen);
+	    QC_ASSERT (! refAccession. empty () == (bool) nident);
+	  //QC_ASSERT ((bool) gi == ! refAccession. empty ());
+	    QC_IMPLY (refAccession. empty () && ! isMutation (), ! getFam () -> hmm. empty () /*getHmmFam ()*/);
 	    QC_IMPLY (targetProt, ! partialDna);
 	    QC_ASSERT (targetAlign);
 	    QC_IMPLY (targetProt, targetAlign == targetAlign_aa);
 	    QC_IMPLY (! targetProt, targetAlign == 3 * targetAlign_aa);
 	    QC_ASSERT (nident <= targetAlign_aa);
 	  //QC_IMPLY (! targetProt, cdss. empty ());
-	    QC_IMPLY (gi, targetAlign_aa <= targetSeq. size ());
+	    QC_IMPLY (! refAccession. empty (), targetAlign_aa <= targetSeq. size ());
 	    QC_IMPLY (! refMutation. empty (), isMutation ());
 	  #if 0
 	    if (targetProt)
@@ -498,7 +499,7 @@ struct BlastAlignment : Alignment
       const string na ("NA");
       const string proteinName (isMutation () 
                                   ? product /*string ()*/
-                                  : refExactlyMatched () || parts >= 2 || ! gi   // PD-3187, PD-3192
+                                  : refExactlyMatched () || parts >= 2 || refAccession. empty ()   // PD-3187, PD-3192
                                     ? product 
                                     : nvl (getFam () -> familyName, na)
                                );
@@ -553,7 +554,14 @@ struct BlastAlignment : Alignment
   	           << nvl (getFam () -> subclass, na);
 	        td << method
 	           << (targetProt ? targetLen : targetAlign_aa);  
-	        if (gi)
+	        if (refAccession. empty ())
+	          td << na 
+	             << na
+	             << na
+	             << na
+	             << na
+	             << na;
+	        else
 	          td << refLen
 	             << refCoverage () * 100.0  
 	             << pIdentity () * 100.0  // refIdentity
@@ -561,13 +569,6 @@ struct BlastAlignment : Alignment
 	             << refAccession
 	             << product
 	             ;
-	        else
-	          td << na 
-	             << na
-	             << na
-	             << na
-	             << na
-	             << na;
 	        // PD-775
 	        if (isMutation ())
 	          td << na
@@ -669,15 +670,15 @@ struct BlastAlignment : Alignment
         	             ? alleleReported () 
         	               ? "ALLELE"
         	               : "EXACT"  // PD-776
-        	             : gi
-        	                ? partial ()
+        	             : refAccession. empty ()
+        	                ? "HMM"
+        	                : partial ()
         	                  ? truncated (cds)
         	                    ? "PARTIAL_CONTIG_END"  // PD-2267
         	                    : "PARTIAL"
         	                  : isMutation ()
         	                    ? "POINT"
         	                    : "BLAST"
-        	                : "HMM"
         	           );
       // PD-2088, PD-2320
 	    if (   (   method == "BLAST" 
@@ -699,7 +700,7 @@ struct BlastAlignment : Alignment
   	         ;
 	  }	
   bool good () const
-    { if (! gi)
+    { if (refAccession. empty ())
         return true;
       if (! reportPseudo)
       {
@@ -961,7 +962,7 @@ struct Batch
   // Reference input
   map<string/*hmm*/,const Fam*> hmm2fam;
   uchar reportable_min {0};
-  Vector<long> suppress_prots;
+  StringVector suppress_prots;
 
   // Target input
   VectorOwn<BlastAlignment> blastAls;
@@ -1123,12 +1124,11 @@ struct Batch
   	    ifstream f (suppress_prot_FName);  	  	    
 	  	  while (! f. eof ())
 	  	  {
-	  	    long gi = 0;
-	  	    f >> gi;
-	  	    ASSERT (gi >= 0);
-	  	    if (gi == 0)
+	  	    string accver;
+	  	    f >> accver;
+	  	    if (accver. empty ())
 	  	      break;
-	  	    suppress_prots << gi;
+	  	    suppress_prots << accver;
   	    }
   	  }
   	  suppress_prots. sort ();
@@ -1404,7 +1404,7 @@ public:
        	  blastAl->qc ();
       	}
    	  else if (   blastAl->getFam () -> reportable >= reportable_min
-   	           && ! suppress_prots. containsFast (blastAl->gi)
+   	           && ! suppress_prots. containsFast (blastAl->refAccession)
    	          )
    	  {
     	  blastAl->saveText (os);
@@ -1521,7 +1521,7 @@ struct ThisApplication : Application
       addKey ("organism", "Taxonomy group for mutations");
       addKey ("mutation", "Mutations table");
       addKey ("mutation_all", "File to report all mutations");
-      addKey ("suppress_prot", "File with protein GIs to suppress");
+      addKey ("suppress_prot", "File with protein accessions to suppress");
       addKey ("ident_min", "Min. identity to the reference protein (0..1). -1 means use a curated threshold if it exists and " + toString (ident_min_def) + " otherwise", "-1");
       addKey ("coverage_min", "Min. coverage of the reference protein (0..1) for partial hits", toString (partial_coverage_min_def));
       addFlag ("skip_hmm_check", "Skip checking HMM for a BLAST hit");
@@ -1533,7 +1533,7 @@ struct ThisApplication : Application
       addFlag ("non_reportable", "Report non-reportable families");
       addFlag ("core", "Report only core reportale families");
       // Testing
-      addFlag ("nosame", "Exclude the same reference ptotein from the BLAST output (for testing)"); 
+      addFlag ("nosame", "Exclude the same reference protein accessions from the BLAST output (for testing)"); 
       addFlag ("noblast", "Exclude the BLAST output (for testing)"); 
       addFlag ("nohmm", "Exclude the HMMer output (for testing)"); 
       addFlag ("retain_blasts", "Retain all blast hits (for testing)");
@@ -1632,7 +1632,7 @@ struct ThisApplication : Application
     	    }
     	    auto al = new BlastAlignment (f. line, true);
     	    al->qc ();  
-    	    if (nosame && toString (al->gi) == al->targetName)
+    	    if (nosame && al->refAccession == al->targetName)
     	      continue;
     	    if (al->good ())
     	      batch. blastAls << al;
@@ -1656,7 +1656,7 @@ struct ThisApplication : Application
     	    }
     	    auto al = new BlastAlignment (f. line, false);
     	    al->qc ();  
-    	    if (nosame && toString (al->gi) == al->targetName)
+    	    if (nosame && al->refAccession == al->targetName)
     	      continue;
     	    if (al->good ())
     	      batch. blastAls << al;
