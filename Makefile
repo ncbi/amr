@@ -39,6 +39,8 @@ ifneq '$(DEFAULT_DB_DIR)' ''
 	DBDIR := -D'DEFAULT_DB_DIR="$(DEFAULT_DB_DIR)"'
 endif
 
+bindir ?= $(PREFIX)/bin
+
 CPPFLAGS = -std=gnu++11 -pthread -malign-double -fno-math-errno -O3 
 
 CXX=g++
