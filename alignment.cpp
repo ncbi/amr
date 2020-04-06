@@ -183,6 +183,7 @@ void SeqChange::qc () const
   QC_ASSERT (start_target <= al->targetEnd);
   QC_ASSERT (prev != '-');  
   QC_IMPLY (reference. empty (), prev);
+  QC_IMPLY (mutation, between (mutation->pos, al->refStart, al->refEnd));
 }
 
 
@@ -603,8 +604,8 @@ void Alignment::refMutation2refSeq ()
 
 
 void Alignment::setSeqChanges (const Vector<Mutation> &refMutations,
-                               size_t flankingLen,
-                               bool allMutationsP)
+                               size_t flankingLen/*,
+                               bool allMutationsP*/)
 {
   ASSERT (seqChanges. empty ());
   ASSERT (! refMutations. empty ());  	      
@@ -710,6 +711,7 @@ void Alignment::setSeqChanges (const Vector<Mutation> &refMutations,
 	  }
 #endif
 
+#if 0
   if (allMutationsP)
   {
     size_t refPos = refStart;
@@ -735,6 +737,7 @@ void Alignment::setSeqChanges (const Vector<Mutation> &refMutations,
     	  seqChanges << SeqChange (this, & mut);
     }
   }
+#endif
 	
 	seqChanges. sort ();
 	if (verbose ())

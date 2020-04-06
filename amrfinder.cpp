@@ -20,7 +20,7 @@
 *  warranties of performance, merchantability or fitness for any particular
 *  purpose.                                                                
 *                                                                          
-*  Please cite the author in any work or product based on this material.   
+*  Please cite NCBI in any work or product based on this material.   
 *
 * ===========================================================================
 *
@@ -33,7 +33,13 @@
 *               cat, cp, cut, grep, head, mkdir, mv, nproc, sort, tail, which
 *
 * Release changes:
-*                     PD-2328  Last columns of report are real HMM hits
+*   3.7.1  04/02/2020 PD-3154  GIs may be 0, accessions are main identifiers; file "AMRProt-suppress" is added accessions; DATA_VER_MIN is "2020-04-02.1"
+*   3.6.19 03/24/2020          Check of ">lcl|" is done only for the first sequence in FASTA
+*          03/24/2020 PD-3347  -lcl parameter in gff_check and amr_report
+*   3.6.18 03/17/2020 PD-3396  amr_report.cpp prints a better error message on missing sublcass in data
+*   3.6.17 03/12/2020          Software version is printed after software directory
+*   3.6.16 03/06/2020 PD-3363  --mutation_all: UNKNOWN are not reported
+*                     PD-2328  Last 2 columns of report are real HMM hits
 *   3.6.15 02/24/2020          "database" is printed to stderr in one line in a canonical form (without links)
 *   3.6.14 02/19/2020 PD-3363   --mutation_all: 4 types of mutations, adding DNA mutations
 *   3.6.13 02/13/2020 PD-3359,issue#23   ln -s <db>: uses path2canonical()
@@ -108,7 +114,7 @@ using namespace Common_sp;
 
 // PAR!
 // PD-3051
-#define DATA_VER_MIN "2019-12-26.1"  
+#define DATA_VER_MIN "2020-04-02.1"  
 
 
 
@@ -242,6 +248,7 @@ struct ThisApplication : ShellApplication
     Stderr stderr (quiet);
     stderr << "Running: "<< getCommandLine () << '\n';
     stderr << "Software directory: " << shellQuote (execDir) << "\n";
+	  stderr << "Software version: " << version << '\n'; 
     
     if (threads_max < threads_max_min)
       throw runtime_error ("Number of threads cannot be less than " + to_string (threads_max_min));
@@ -314,13 +321,13 @@ struct ThisApplication : ShellApplication
       }
       else
         cout << "WARNING: Updating database directory works only for databases with the default data directory format." << endl
-             << "Please see https://github.com/ncbi/amr/wiki for details." << endl
-             << "Current database directory is: " << dbDir. get () << endl
-             << "New database directories will be created as subdirectories of " << dbDir. getParent () << endl;
+             << "         Please see https://github.com/ncbi/amr/wiki for details." << endl
+             << "         Current database directory is: " << dbDir. get () << endl
+             << "         New database directories will be created as subdirectories of " << dbDir. getParent () << endl;
 		}
 
 
-    const string downloadLatestInstr ("\nTo download the latest version to the default directory run amrfinder -u");
+    const string downloadLatestInstr ("\nTo download the latest version to the default directory run: amrfinder -u");
     
 		if (! directoryExists (db))  // PD-2447
 		  throw runtime_error ("No valid AMRFinder database found." + ifS (! update, downloadLatestInstr));
@@ -342,7 +349,7 @@ struct ThisApplication : ShellApplication
   	  istringstream versionIss (version);
   		const SoftwareVersion softwareVersion (versionIss);
   		const SoftwareVersion softwareVersion_min (db + "/database_format_version.txt");
-  	  stderr << "Software version: " << softwareVersion. str () << '\n'; 
+  	//stderr << "Software version: " << softwareVersion. str () << '\n'; 
   		const DataVersion dataVersion (db + "/version.txt");
   		istringstream dataVersionIss (DATA_VER_MIN); 
   		const DataVersion dataVersion_min (dataVersionIss);  
@@ -404,7 +411,7 @@ struct ThisApplication : ShellApplication
       if (! emptyArg (dna)  && ! getFileSize (unQuote (dna)))   emptyFiles << dna;
       if (! emptyArg (gff)  && ! getFileSize (unQuote (gff)))   emptyFiles << gff;      
       for (const string& emptyFile : emptyFiles)
-        stderr << "WARNING! Empty file: " << emptyFile << '\n';
+        stderr << "WARNING: Empty file: " << emptyFile << '\n';
     }
       
 
@@ -477,9 +484,22 @@ struct ThisApplication : ShellApplication
     prog2dir ["amr_report"]  = execDir;	
     
     
+    bool lcl = false;
+    if (pgap && ! emptyArg (dna))  // PD-3347
+    {
+      LineInput f (unQuote (dna));
+      while (f. nextLine ())
+        if (isLeft (f. line, ">"))
+        {
+          lcl = isLeft (f. line, ">lcl|");
+          break;
+        }
+    }
+    
+    
     string amr_report_blastp;	
  		string amr_report_blastx;
-	  const string pgapS (ifS (pgap, " -pgap"));
+	  const string pgapS (ifS (pgap, " -pgap" + ifS (lcl, " -lcl")));
  		bool blastxChunks = false;
     {
       Threads th (threads_max - 1, true);  
@@ -636,13 +656,13 @@ struct ThisApplication : ShellApplication
 			while (f. nextLine ())
 			  if (! isLeft (f. line, "#"))
   			{
-  			  string org;
-  			  long gi = 0;
+  			  string org, accver;
+  			//long gi = 0;
   			  istringstream iss (f. line);
-  			  iss >> org >> gi;
-  			  QC_ASSERT (gi > 0);
+  			  iss >> org >> accver;
+  			  QC_ASSERT (! accver. empty ());
   			  if (org == organism1)
-  			    outF << gi << endl;
+  			    outF << accver << endl;
   			}
 	  }
 		

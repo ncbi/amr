@@ -883,7 +883,8 @@ bool getChar (istream &is,
     ASSERT (i == c);
     return false;
   }
-  ASSERT (i >= 0 && i <= 255);
+  if (! (i >= 0 && i <= 255))
+    throw runtime_error ("Cannot read character: " + to_string (i));
   c = static_cast<char> (i);
 
   return true;
@@ -1190,8 +1191,9 @@ void Named::qc () const
 StringVector::StringVector (const string &fName,
                             size_t reserve_size)
 {
-	reserve (reserve_size);
 	searchSorted = true;
+	
+	reserve (reserve_size);
   try
   {
   	LineInput f (fName);
@@ -1215,7 +1217,6 @@ StringVector::StringVector (const string &fName,
 StringVector::StringVector (const string &s,
                             char c)
 {
-	StringVector res;
 	string s1 (s);
 	while (! s1. empty ())
 	  *this << move (findSplit (s1, c));
@@ -2225,6 +2226,48 @@ bool FileItemGenerator::next (string &item)
 
 // SoftwareVersion
 
+SoftwareVersion::SoftwareVersion (const string &fName)
+{ 
+  StringVector vec (fName, (size_t) 1);
+  if (vec. size () != 1)
+    throw runtime_error ("Cannot read software version. One line is expected in the file: " + shellQuote (fName));
+  init (move (vec [0]), false);
+}
+
+
+
+SoftwareVersion::SoftwareVersion (istream &is,
+                                  bool minorOnly)
+{ 
+  string s;
+  is >> s;
+  init (move (s), minorOnly);
+}
+
+
+
+void SoftwareVersion::init (string &&s,
+                            bool minorOnly)
+{ 
+  try 
+  { 
+    major = str2<uint> (findSplit (s, '.'));
+    if (minorOnly)
+      minor = str2<uint> (s);
+    else
+    { 
+      minor = str2<uint> (findSplit (s, '.'));
+      patch = str2<uint> (s);
+    }
+  } 
+  catch (...) 
+  { 
+    throw runtime_error ("Cannot read software version"); 
+  }
+}
+
+
+
 bool SoftwareVersion::operator< (const SoftwareVersion &other) const
 { 
   LESS_PART (*this, other, major);
@@ -2237,6 +2280,42 @@ bool SoftwareVersion::operator< (const SoftwareVersion &other) const
 
 
 // DataVersion
+
+DataVersion::DataVersion (const string &fName)
+{ 
+  StringVector vec (fName, (size_t) 1);
+  if (vec. size () != 1)
+    throw runtime_error ("Cannot read data version. One line is expected in the file: " + shellQuote (fName));
+  init (move (vec [0]));
+}
+
+
+
+DataVersion::DataVersion (istream &is)
+{ 
+  string s;
+  is >> s;
+  init (move (s));
+}
+
+
+
+void DataVersion::init (string &&s)
+{ 
+  try
+  { 
+    year  = str2<uint> (findSplit (s, '-'));
+    month = str2<uint> (findSplit (s, '-'));
+    day   = str2<uint> (findSplit (s, '.'));
+    num   = str2<uint> (s);
+  } 
+  catch (...) 
+  { 
+    throw runtime_error ("Cannot read data version"); 
+  }
+}
+
+
 
 bool DataVersion::operator< (const DataVersion &other) const
 { 

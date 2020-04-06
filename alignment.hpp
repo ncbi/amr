@@ -138,11 +138,13 @@ struct SeqChange : Root
   explicit SeqChange (const Alignment* al_arg)
     : al (al_arg)
     {}
+#if 0
   SeqChange (const Alignment* al_arg,
              const Mutation* mutation_arg)
     : al (al_arg)
     , mutation (checkPtr (mutation_arg))
     {}
+#endif
   SeqChange (const Alignment* al_arg,
              size_t targetStopPos);    
   void qc () const override;
@@ -251,8 +253,8 @@ protected:
   void refMutation2refSeq ();
     // Update: refSeq
   void setSeqChanges (const Vector<Mutation> &refMutations,
-                      size_t flankingLen,
-                      bool allMutationsP);
+                      size_t flankingLen/*,
+                      bool allMutationsP*/);
 public:
   bool empty () const override
     { return targetName. empty (); }

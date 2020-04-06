@@ -96,14 +96,45 @@ bool Locus::operator< (const Locus& other) const
 
 // Gff
 
+namespace
+{
+  
+void pgap_accession (string &accession,
+                     bool lcl)
+// Update: accession
+{
+  static const string gnlPrefix ("gnl|");
+  static const string lclPrefix ("lcl|");
+  
+  size_t pos = accession. rfind (':');
+  if (pos == string::npos)
+  {
+    if (lcl)
+      accession = lclPrefix + accession;
+  }
+  else 
+  {
+    if (lcl)
+      throw runtime_error ("Accession " + strQuote (accession) + " cannot have " + strQuote (gnlPrefix) + " and " + strQuote (lclPrefix) + " at the same time");
+    accession [pos] = '|';
+    accession = gnlPrefix + accession;
+  }
+}
+    
+}
+
+
+
 Annot::Annot (Gff,
 	            const string &fName,
 	            bool trimProject,
 	            bool locus_tag,
-	            bool pgap)
+	            bool pgap,
+	            bool lcl)
 {
   IMPLY (pgap, ! locus_tag);
   IMPLY (pgap, ! trimProject);
+  IMPLY (lcl, pgap);
 
 	if (fName. empty ())
 		throw runtime_error ("Empty GFF file name");
@@ -214,19 +245,8 @@ Annot::Annot (Gff,
 	  trim (locusTag, tmpSpace);
 	  if (pgap)
 	  {
-	    const string gnlPrefix ("gnl|");
-	    size_t pos = locusTag. rfind (':');
-	    if (pos != string::npos)
-	    {
-	      locusTag [pos] = '|';
-	      locusTag = gnlPrefix + locusTag;
-	    }
-	    pos = contig. rfind (':');
-	    if (pos != string::npos)
-	    {
-	      contig [pos] = '|';
-	      contig = gnlPrefix + contig;
-	    }
+	    pgap_accession (locusTag, false);
+	    pgap_accession (contig, lcl);
 	  }
 	  QC_ASSERT (! locusTag. empty ());
 	  

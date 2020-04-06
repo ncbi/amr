@@ -31,8 +31,9 @@
 *
 * Dependencies: NCBI BLAST, HMMer
 *               mkdir, ln
+*               curl.{h,c}
 *
-* Release changes:
+* Release changes: see amrfinder.cpp
 *
 */
 
@@ -80,7 +81,6 @@ struct Curl
 };
 
 	
-
 
 size_t write_stream_cb (char* ptr,
                         size_t size, 

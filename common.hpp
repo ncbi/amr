@@ -3303,31 +3303,12 @@ struct SoftwareVersion : Root
   uint patch {0};
   
 
-  explicit SoftwareVersion (const string &fName)
-    { StringVector vec (fName, (size_t) 1);
-      if (vec. size () != 1)
-        throw runtime_error ("One line is expected: " + shellQuote (fName));
-      init (move (vec [0]), false);
-    }
+  explicit SoftwareVersion (const string &fName);
   explicit SoftwareVersion (istream &is,
-                            bool minorOnly = false)
-    { string s;
-      is >> s;
-      init (move (s), minorOnly);
-    }
+                            bool minorOnly = false);
 private:
   void init (string &&s,
-             bool minorOnly)
-    { try 
-      { major = str2<uint> (findSplit (s, '.'));
-        if (minorOnly)
-          minor = str2<uint> (s);
-        else
-        { minor = str2<uint> (findSplit (s, '.'));
-          patch = str2<uint> (s);
-        }
-      } catch (...) { throw runtime_error ("Cannot read software version"); }
-    }
+             bool minorOnly);
 public:
   void saveText (ostream &os) const override
     { os << major << '.' << minor << '.' << patch; }   
@@ -3356,26 +3337,10 @@ struct DataVersion : Root
   uint num {0};
   
 
-  explicit DataVersion (const string &fName)
-    { StringVector vec (fName, (size_t) 1);
-      if (vec. size () != 1)
-        throw runtime_error ("One line is expected: " + shellQuote (fName));
-      init (move (vec [0]));
-    }
-  explicit DataVersion (istream &is)
-    { string s;
-      is >> s;
-      init (move (s));
-    }
+  explicit DataVersion (const string &fName);
+  explicit DataVersion (istream &is);
 private:
-  void init (string &&s)
-    { try
-      { year  = str2<uint> (findSplit (s, '-'));
-        month = str2<uint> (findSplit (s, '-'));
-        day   = str2<uint> (findSplit (s, '.'));
-        num   = str2<uint> (s);
-      } catch (...) { throw runtime_error ("Cannot read data version"); }
-    }
+  void init (string &&s);
 public:
   void saveText (ostream &os) const override
     { os << year 
