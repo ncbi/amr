@@ -48,11 +48,11 @@ static constexpr char pm_delimiter = '_';
 
 
 struct Mutation : Root
+// Database
 {
 	size_t pos {0};
 	  // In whole reference sequence
 	  // = start of reference
-	  // >= 0
 	// !empty()
 	string geneMutation;
 	  // Depends on the above
@@ -65,6 +65,7 @@ struct Mutation : Root
   // Upper-case
   string reference;
 	string allele;
+	string gene;
 
 	
 	Mutation (size_t pos_arg,
@@ -77,7 +78,8 @@ struct Mutation : Root
 private:
 	static void parse (const string &geneMutation,
 	                   string &reference,
-	                   string &allele);
+	                   string &allele,
+                     string &gene);
 public:
   void saveText (ostream &os) const override
     { os << pos + 1 << ' ' << geneMutation << ' ' << name; }
@@ -108,7 +110,7 @@ struct Alignment;
 
 
 struct SeqChange : Root
-// Report real mutation in AMRFinder ??
+// Observation
 {
   const Alignment* al {nullptr};
     // !nullptr
@@ -127,6 +129,8 @@ struct SeqChange : Root
 	double neighborhoodMismatch {0.0};
 	  // 0..1
 	  
+	char prev {'\0'};
+	  
 	const Mutation* mutation {nullptr};
   
   
@@ -139,6 +143,8 @@ struct SeqChange : Root
     : al (al_arg)
     , mutation (checkPtr (mutation_arg))
     {}
+  SeqChange (const Alignment* al_arg,
+             size_t targetStopPos);    
   void qc () const override;
   void saveText (ostream &os) const override
     { os        << start + 1 
@@ -146,13 +152,31 @@ struct SeqChange : Root
          << ' ' << strQuote (reference) << " -> " << strQuote (allele)
          << ' ' << start_ref + 1 << ".." << stop_ref
          << ' ' << start_target + 1 
-         << ' ' << neighborhoodMismatch
-         << endl; 
+         << ' ' << neighborhoodMismatch;
+      if (mutation)
+      { os << ' ' ;
+        mutation->saveText (os);
+      }
+      os << endl; 
     }
   bool empty () const override
     { return ! len; }
     
     
+private:
+  bool hasMutation () const
+    { return mutation; }
+public:
+  string getMutationStr () const
+    { const string allele_ (allele. empty () 
+                              ? "DEL" 
+                              : allele == "*"
+                                  ? "STOP"
+                                  : allele
+                           );
+      const string reference_ (reference. empty () ? string (1, prev) : reference);
+      return reference_ + to_string (start_ref + ! reference. empty ()) + allele_; 
+    }
   size_t getStop () const
     { return start + len; }
   bool operator< (const SeqChange &other) const;
@@ -230,6 +254,8 @@ protected:
                       size_t flankingLen,
                       bool allMutationsP);
 public:
+  bool empty () const override
+    { return targetName. empty (); }
   void qc () const override;
   void saveText (ostream &os) const override
     { os         << targetProt

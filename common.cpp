@@ -2868,15 +2868,7 @@ void ShellApplication::initEnvironment ()
   {
     string s (programArgs. front ());
     programName = rfindSplit (s, fileSlash);
-    string path (execDir + programName);
-    for (;;)
-    {
-      const string path_new (path2canonical (path));
-      if (path == path_new)
-        break;
-      path = path_new;
-    }
-    execDir = getDirName (path);
+    execDir = getDirName (path2canonical (execDir + programName));
   }
 
   string execDir_ (execDir);
