@@ -1,11 +1,9 @@
 name: Mac bioconda test
 on:
-    push:
-        branches:
-            - master
-            - rc
     schedule:
         - cron: '30 3 * * *' # 3:30am everyday
+
+
 
 jobs:
   build:
