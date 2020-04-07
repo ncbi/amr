@@ -1,7 +1,9 @@
 name: binary tarball
 
-on: [release]
-
+on: 
+    - release
+    - repository_dispatch:
+        types: [linux-binary-test, install-test]
 jobs:
   build:
     runs-on: ubuntu-latest

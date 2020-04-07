@@ -2,9 +2,8 @@ name: Mac bioconda test
 on:
     schedule:
         - cron: '30 3 * * *' # 3:30am everyday
-
-
-
+    repository_dispatch:
+        types: [mac-bioconda-test, install-test]
 jobs:
   build:
 
