@@ -6,7 +6,8 @@ on:
             - master
     schedule:
         - cron: '15 4 * * *' # 4:15am everyday
-
+    repository_dispatch:
+        types: linux-bioconda-test
 jobs:
   build:
 
