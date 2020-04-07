@@ -1,8 +1,8 @@
 name: binary tarball
 
 on: 
-    - release
-    - repository_dispatch:
+    release:
+    repository_dispatch:
         types: [linux-binary-test, install-test]
 jobs:
   build:
