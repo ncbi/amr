@@ -2917,7 +2917,7 @@ int Application::run (int argc,
 
 ShellApplication::~ShellApplication ()
 {
-	if (! qc_on && ! tmp. empty ())
+	if (! tmp. empty () && ! logPtr)
 	  exec ("rm -fr " + tmp + "*");  
 }
 

@@ -109,7 +109,9 @@ struct BlastnAlignment : Alignment
            << (empty () ? 0 : targetEnd)
            << (empty () ? na : (targetStrand ? "+" : "-"))
            << (seqChange. mutation
-                 ? seqChange. mutation->geneMutation
+                 ? seqChange. empty ()
+                   ? seqChange. mutation->wildtype ()
+                   : seqChange. mutation->geneMutation
                  : gene + "_" + seqChange. getMutationStr ()
               )
            << (seqChange. mutation

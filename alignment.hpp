@@ -55,13 +55,12 @@ struct Mutation : Root
 	  // = start of reference
 	// !empty()
 	string geneMutation;
-	  // Depends on the above
 	string classS;
 	string subclass;
 	string name;
 	  // Species binomial + resistance
 	
-	// Replacement
+  // Function of geneMutation
   // Upper-case
   string reference;
 	string allele;
@@ -93,6 +92,8 @@ public:
 
   size_t getStop () const
     { return pos + reference. size (); }
+  string wildtype () const
+    { return gene + "_" + reference + to_string (pos) + reference; }
   bool operator< (const Mutation &other) const;
   bool operator== (const Mutation &other) const
     { return geneMutation == other. geneMutation; }
@@ -119,6 +120,8 @@ struct SeqChange : Root
   // In alignment
   size_t start {0};
   size_t len {0};
+  
+  // No '-'
   string reference;
     // Insertion => !empty() by artifically decrementing start and incrementing len
   string allele;
@@ -138,13 +141,11 @@ struct SeqChange : Root
   explicit SeqChange (const Alignment* al_arg)
     : al (al_arg)
     {}
-#if 0
   SeqChange (const Alignment* al_arg,
              const Mutation* mutation_arg)
     : al (al_arg)
     , mutation (checkPtr (mutation_arg))
     {}
-#endif
   SeqChange (const Alignment* al_arg,
              size_t targetStopPos);    
   void qc () const override;

@@ -80,6 +80,7 @@ Mutation::Mutation (size_t pos_arg,
 	QC_ASSERT (! contains (reference, '-'));
 	QC_ASSERT (! contains (allele,    '-'));
 	QC_ASSERT (! gene. empty ());
+	ASSERT (! reference. empty ());
 }
 
 
@@ -653,7 +654,7 @@ void Alignment::setSeqChanges (const Vector<Mutation> &refMutations,
     PRINT (seqChanges. size ());
 
   
-//Vector<SeqChange> seqChanges_add;
+  Vector<SeqChange> seqChanges_add;
 	size_t j = 0;
 	
   while (j < refMutations. size () && refMutations [j]. pos < refStart)
@@ -681,7 +682,7 @@ void Alignment::setSeqChanges (const Vector<Mutation> &refMutations,
 		  }
 	  #if 0
 		  if (mut. pos < seqChange. start_ref)
-	    	if (allMutationsP)
+	     if (allMutationsP)
       	  seqChanges_add << SeqChange (this, & mut);  // "seqChanges <<" destroys seqChange
     #endif
 		  if (mut. getStop () > seqChange. stop_ref)
@@ -700,7 +701,7 @@ void Alignment::setSeqChanges (const Vector<Mutation> &refMutations,
 	  start_ref_prev = seqChange. start_ref;
 	}
 	
-//seqChanges << move (seqChanges_add);
+  seqChanges << move (seqChanges_add);
     
 #if 0
 	if (allMutationsP)
@@ -711,8 +712,7 @@ void Alignment::setSeqChanges (const Vector<Mutation> &refMutations,
 	  }
 #endif
 
-#if 0
-  if (allMutationsP)
+  // WILDTYPE
   {
     size_t refPos = refStart;
     size_t i = 0;
@@ -737,7 +737,6 @@ void Alignment::setSeqChanges (const Vector<Mutation> &refMutations,
     	  seqChanges << SeqChange (this, & mut);
     }
   }
-#endif
 	
 	seqChanges. sort ();
 	if (verbose ())

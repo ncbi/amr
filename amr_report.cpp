@@ -525,7 +525,9 @@ struct BlastAlignment : Alignment
 	             << (empty () ? na : (cds. contig. empty () ? (targetStrand ? "+" : "-") : (cds. strand ? "+" : "-")));
 	        td << (isMutation ()
 			             ? mut 
-			                 ? mut->geneMutation
+			                 ? seqChange. empty ()
+                          ? mut->wildtype ()
+			                    : mut->geneMutation
 			                 : gene + "_" + seqChange. getMutationStr ()
 	                 : print_fam 
 			                 ? famId
