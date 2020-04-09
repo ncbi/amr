@@ -37,7 +37,7 @@ curl \
   -H 'Authorization: token `cat ~/.github-token`' \
   --data '{\"event_type\": \"$event\"}' \
   --request POST \
-  https://api.github.com/repos/evolarjun/amr/dispatches
+  https://api.github.com/repos/ncbi/amr/dispatches
 "
 echo $cmd
 echo $cmd | bash
