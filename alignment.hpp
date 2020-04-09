@@ -146,8 +146,10 @@ struct SeqChange : Root
     : al (al_arg)
     , mutation (checkPtr (mutation_arg))
     {}
+#if 0
   SeqChange (const Alignment* al_arg,
              size_t targetStopPos);    
+#endif
   void qc () const override;
   void saveText (ostream &os) const override
     { os        << start + 1 

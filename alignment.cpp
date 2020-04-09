@@ -146,7 +146,7 @@ bool Mutation::operator< (const Mutation &other) const
 
 // SeqChange
 
-
+#if 0
 SeqChange::SeqChange (const Alignment* al_arg,
                       size_t targetStopPos)
 : al (al_arg)
@@ -161,6 +161,8 @@ SeqChange::SeqChange (const Alignment* al_arg,
   ASSERT (al->targetProt);
   ASSERT (al->refProt);
 }
+#endif
+
 
 
 void SeqChange::qc () const
@@ -641,6 +643,7 @@ void Alignment::setSeqChanges (const Vector<Mutation> &refMutations,
           inSeqChange = true;
         }
   }
+#if 0
   if (   targetProt 
       && refProt
       && targetEnd == targetLen
@@ -650,11 +653,12 @@ void Alignment::setSeqChanges (const Vector<Mutation> &refMutations,
 	  SeqChange seqChange (this, targetLen);
     seqChanges << move (seqChange);
   }
+#endif
   if (verbose ())
     PRINT (seqChanges. size ());
 
   
-  Vector<SeqChange> seqChanges_add;
+//Vector<SeqChange> seqChanges_add;
 	size_t j = 0;
 	
   while (j < refMutations. size () && refMutations [j]. pos < refStart)
@@ -671,7 +675,7 @@ void Alignment::setSeqChanges (const Vector<Mutation> &refMutations,
     seqChange. qc ();
     if (verbose ())
       seqChange. saveText (cout);
-    IMPLY (start_ref_prev != NO_INDEX, start_ref_prev < seqChange. start_ref);
+    IMPLY (start_ref_prev != NO_INDEX, start_ref_prev <= seqChange. start_ref);
     while (j < refMutations. size ())
     {
 		  const Mutation& mut = refMutations [j];
@@ -701,7 +705,7 @@ void Alignment::setSeqChanges (const Vector<Mutation> &refMutations,
 	  start_ref_prev = seqChange. start_ref;
 	}
 	
-  seqChanges << move (seqChanges_add);
+//seqChanges << move (seqChanges_add);
     
 #if 0
 	if (allMutationsP)
