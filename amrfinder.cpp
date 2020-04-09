@@ -33,6 +33,8 @@
 *               cat, cp, cut, grep, head, mkdir, mv, nproc, sort, tail, which
 *
 * Release changes:
+*   3.7.3  04/09/2020 PD-3416  Redundant QC check in alignment.cpp
+*   3.7.2  04/08/2020 PD-3363  "WILDTYPE" was not reported
 *   3.7.1  04/02/2020 PD-3154  GIs may be 0, accessions are main identifiers; file "AMRProt-suppress" is added accessions; DATA_VER_MIN is "2020-04-02.1"
 *   3.6.19 03/24/2020          Check of ">lcl|" is done only for the first sequence in FASTA
 *          03/24/2020 PD-3347  -lcl parameter in gff_check and amr_report
@@ -695,14 +697,14 @@ struct ThisApplication : ShellApplication
     // PD-2244, PD-3230
     const string sortS (emptyArg (dna) && emptyArg (gff) ? "-k1,1 -k2,2" : "-k2,2 -k3,3n -k4,4n -k5,5 -k1,1 -k6,6");      
     // Sorting AMR report
-		exec ("head -1 "              + tmp + ".amr                      >  " + tmp + ".amr-out");
-		exec ("LANG=C && tail -n +2 " + tmp + ".amr | sort " + sortS + " >> " + tmp + ".amr-out");
+		exec ("head -1 "              + tmp + ".amr                             >  " + tmp + ".amr-out");
+		exec ("LANG=C && tail -n +2 " + tmp + ".amr | sort " + sortS + " | uniq >> " + tmp + ".amr-out");
 		exec ("mv " + tmp + ".amr-out " + tmp + ".amr");
     // Sorting mutation_all
     if (! emptyArg (mutation_all))
     {
-  		exec ("head -1 "              + tmp + ".mutation_all                      >  " + tmp + ".mutation_all-out");
-  		exec ("LANG=C && tail -n +2 " + tmp + ".mutation_all | sort " + sortS + " >> " + tmp + ".mutation_all-out");
+  		exec ("head -1 "              + tmp + ".mutation_all                             >  " + tmp + ".mutation_all-out");
+  		exec ("LANG=C && tail -n +2 " + tmp + ".mutation_all | sort " + sortS + " | uniq >> " + tmp + ".mutation_all-out");
   		exec ("mv " + tmp + ".mutation_all-out " + mutation_all);
     }
 		
