@@ -196,13 +196,17 @@ struct ThisApplication : ShellApplication
   size_t get_threads_max_max () const
   {
   #if __APPLE__
+    // cerr << "Compiled for MacOS" << endl;
     int count;
     size_t count_len = sizeof(count);
     sysctlbyname("hw.logicalcpu", &count, &count_len, NULL, 0);
     // fprintf(stderr,"you have %i cpu cores", count);
     return count;
   #else
-    exec ("nproc --all > " + tmp + ".nproc");
+    // cerr << "Compiled for Linux" << endl;
+    //exec ("nproc --all > " + tmp + ".nproc");
+    //exec ("grep processor /proc/cpuinfo | tail -1 | awk '{print $3}' > " + tmp + ".nproc");
+    exec ("grep -c processor /proc/cpuinfo > " + tmp + ".nproc");
     const StringVector vec (tmp + ".nproc", (size_t) 1);
     QC_ASSERT (vec. size () == 1);
     return str2<size_t> (vec [0]);
@@ -283,15 +287,19 @@ struct ThisApplication : ShellApplication
     }
 
 
-    const string defaultDb (
-      #ifdef DEFAULT_DB_DIR
-        DEFAULT_DB_DIR "/latest"
-      #else
-        execDir + "data/latest"
-      #endif
-      );
-      
-
+    string defaultDb;
+    #ifdef DEFAULT_DB_DIR
+    // we're in condaland
+      if (const char* s = getenv("CONDA_PREFIX")) {
+        defaultDb = string (s) + string ("/share/amrfinderplus/data/latest");
+      } else {
+        defaultDb = execDir + "data/latest";
+      }
+    #else
+    // not in condaland
+      defaultDb = execDir + "data/latest";
+    #endif
+        
 		// db
 		if (db. empty ())
 		{
