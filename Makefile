@@ -35,8 +35,8 @@ SVNREV := -D'SVN_REV="$(VERSION_STRING)"'
 # Define default paths
 # PREFIX ?= /usr/local
 INSTALL=install
-ifneq '$(DEFAULT_DB_DIR)' ''
-	DBDIR := -D'DEFAULT_DB_DIR="$(DEFAULT_DB_DIR)"'
+ifneq '$(CONDA_DB_DIR)' ''
+	DBDIR := -D'CONDA_DB_DIR="$(CONDA_DB_DIR)"'
 endif
 
 CPPFLAGS = -std=gnu++11 -pthread -malign-double -fno-math-errno -O3 

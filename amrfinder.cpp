@@ -288,12 +288,14 @@ struct ThisApplication : ShellApplication
 
 
     string defaultDb;
-    #ifdef DEFAULT_DB_DIR
+    #ifdef CONDA_DB_DIR
     // we're in condaland
       if (const char* s = getenv("CONDA_PREFIX")) {
         defaultDb = string (s) + string ("/share/amrfinderplus/data/latest");
       } else {
-        defaultDb = execDir + "data/latest";
+        cerr << "WARNING: This was compiled for running under bioconda, but $CONDA_PREFIX was not found" << endl;
+        cerr << "Reverting to hard coded directory: " << CONDA_DB_DIR "/latest" << endl;
+        defaultDb = CONDA_DB_DIR "/latest";
       }
     #else
     // not in condaland

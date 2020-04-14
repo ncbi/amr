@@ -158,13 +158,11 @@ string Curl::read (const string &url)
 
 
 
-#if 0
+#if 1
   #define URL "https://ftp.ncbi.nlm.nih.gov/pathogen/Technical/AMRFinder_technical/test_database/"
 #else
   #define URL "https://ftp.ncbi.nlm.nih.gov/pathogen/Antimicrobial_resistance/AMRFinderPlus/database/"
 #endif
-
-
 
 string getLatestMinor (Curl &curl)
 // Return: empty() <=> failure
@@ -294,6 +292,8 @@ Requirements:\n\
     Curl curl;    
         
     
+    stderr << "Looking up databases at " << URL << '\n';
+
     // FTP site files
     const string latest_minor (getLatestMinor (curl));
     if (latest_minor. empty ())
