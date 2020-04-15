@@ -2508,7 +2508,7 @@ void Application::addDefaultArgs ()
 	{ 
 	  addKey ("threads", "Max. number of threads", "1", '\0', "THREADS");
 	  addFlag ("debug", "Integrity checks");
-    addKey ("log", "Error log file, appended", "", '\0', "LOG");
+    addKey ("log", "Error log file, appended, opened on application start", "", '\0', "LOG");
   }
 	else
 	{ 

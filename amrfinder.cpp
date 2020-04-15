@@ -33,6 +33,7 @@
 *               cat, cp, cut, grep, head, mkdir, mv, nproc, sort, tail, which
 *
 * Release changes:
+*   3.7.4  04/14/2020 PD-3391  Mac Conda installation
 *   3.7.3  04/09/2020 PD-3416  Redundant QC check in alignment.cpp
 *   3.7.2  04/08/2020 PD-3363  "WILDTYPE" was not reported
 *   3.7.1  04/02/2020 PD-3154  GIs may be 0, accessions are main identifiers; file "AMRProt-suppress" is added accessions; DATA_VER_MIN is "2020-04-02.1"

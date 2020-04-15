@@ -164,6 +164,8 @@ string Curl::read (const string &url)
   #define URL "https://ftp.ncbi.nlm.nih.gov/pathogen/Antimicrobial_resistance/AMRFinderPlus/database/"
 #endif
 
+
+
 string getLatestMinor (Curl &curl)
 // Return: empty() <=> failure
 {
