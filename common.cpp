@@ -2628,6 +2628,8 @@ string Application::getInstruction () const
 		instr += ")";
   
   instr += "\nHELP:    " + programName + " " + ifS (gnu, "-") + "-" + helpS;
+  if (gnu)
+    instr += " or " + programName + " -" + helpS [0];
   instr += "\nVERSION: " + programName + " " + ifS (gnu, "-") + "-" + versionS;
 
   return instr;
@@ -2748,12 +2750,12 @@ int Application::run (int argc,
           else
           	name = s1;
 
-          if (name == helpS /*&& ! contains (name2arg, helpS)*/)
+          if (name == helpS || (name. empty () && c == helpS [0] && gnu))
           {
             cout << getHelp () << endl;
             return 0;
           }
-          if (name == versionS /*&& ! contains (name2arg, versionS)*/)
+          if (name == versionS)
           {
             cout << version << endl;
             return 0;

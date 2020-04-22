@@ -33,6 +33,7 @@
 *               cat, cp, cut, grep, head, mkdir, mv, nproc, sort, tail, which
 *
 * Release changes:
+*   3.7.5  04/22/2020 PD-3427  -h prints the help message
 *   3.7.4  04/14/2020 PD-3391  Mac Conda installation
 *   3.7.3  04/09/2020 PD-3416  Redundant QC check in alignment.cpp
 *   3.7.2  04/08/2020 PD-3363  "WILDTYPE" was not reported
@@ -159,6 +160,7 @@ struct ThisApplication : ShellApplication
       addFlag ("pgap", "Input files PROT_FASTA, NUC_FASTA and GFF_FILE are created by the NCBI PGAP");
     	addKey ("database", "Alternative directory with AMRFinder database. Default: $AMRFINDER_DB", "", 'd', "DATABASE_DIR");
     	addKey ("ident_min", "Minimum identity for nucleotide hit (0..1). -1 means use a curated threshold if it exists and " + toString (ident_min_def) + " otherwise", "-1", 'i', "MIN_IDENT");
+    	  // "nucleotide hit" --> "reference protein" ??
     	addKey ("coverage_min", "Minimum coverage of the reference protein (0..1)", toString (partial_coverage_min_def), 'c', "MIN_COV");
       addKey ("organism", "Taxonomy group. To see all possible taxonomy groups use the --list_organisms flag", "", 'O', "ORGANISM");
       addFlag ("list_organisms", "Print the list of all possible taxonomy groups for mutations identification and exit", 'l');
@@ -171,6 +173,7 @@ struct ThisApplication : ShellApplication
       addKey ("output", "Write output to OUTPUT_FILE instead of STDOUT", "", 'o', "OUTPUT_FILE");
       addFlag ("quiet", "Suppress messages to STDERR", 'q');
       addFlag ("gpipe_org", "NCBI internal GPipe organism names");
+    //addKey ("sample", "Sample name to be adde as the first column of the report", ""); 
     	addKey ("parm", "amr_report parameters for testing: -nosame -noblast -skip_hmm_check -bed", "", '\0', "PARM");
 	    version = SVN_REV;  
 	    // threads_max: do not include blast/hmmsearch's threads ??
