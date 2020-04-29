@@ -77,7 +77,7 @@ struct BlastnAlignment : Alignment
 	      refAccessionFrag += ":" + s;
 	      
 	      s = product;
-	      gene = findSplit (s);
+	      gene = rfindSplit (s);  // PD-3419
 	      QC_ASSERT (! gene. empty ());
 
   	    if (const Vector<Mutation>* refMutations = findPtr (accession2mutations, refName))

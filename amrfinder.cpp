@@ -33,6 +33,7 @@
 *               cat, cp, cut, grep, head, mkdir, mv, nproc, sort, tail, which
 *
 * Release changes:
+*   3.7.6  04/29/2020 PD-3419  dna_mutation: reporing gene symbol for novel mutations
 *   3.7.5  04/22/2020 PD-3427  -h prints the help message
 *   3.7.4  04/14/2020 PD-3391  Mac Conda installation
 *   3.7.3  04/09/2020 PD-3416  Redundant QC check in alignment.cpp
