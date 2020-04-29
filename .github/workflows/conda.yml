@@ -1,4 +1,4 @@
-name: bioconda CI
+name: Linux bioconda 
 
 on:
     schedule:

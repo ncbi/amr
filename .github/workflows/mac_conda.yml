@@ -1,4 +1,4 @@
-name: Mac bioconda test
+name: Mac bioconda
 on:
     schedule:
         - cron: '30 3 * * *' # 3:30am everyday
