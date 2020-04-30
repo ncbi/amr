@@ -1,7 +1,11 @@
 #!/bin/sh
 
-echo "Actions that can be triggered:"
 cat <<END
+Note this requires a ~/.github-token file that contains a github token
+with appropriate permissions
+
+Actions that can be triggered:
+
 1. install-test
 2. linux-compile-test
 3. linux-binary-test
