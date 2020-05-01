@@ -61,6 +61,7 @@ struct BlastnAlignment : Alignment
   string refAccessionFrag;
   string product;
   string gene;
+  string taxgroup;
   
 
   explicit BlastnAlignment (const string &line)
@@ -68,18 +69,25 @@ struct BlastnAlignment : Alignment
     {
       try
       {
+        // refName =      NC_000913.3@16S_ribosomal_RNA@Escherichia@16S_rrsB:4166659-4168201
+        //           accesion_version@gene_name@taxgroup@gene_symbol:start-stop
 	      ASSERT (! refName. empty ());
-	      string s (refName);
-	      refAccessionFrag = findSplit (s, '@');
-	      product = findSplit (s, ':');
+	      // PD-3419
+	      {
+  	      string s (refName);
+  	      refAccessionFrag = findSplit (s, '@');
+  	      product          = findSplit (s, '@');
+  	      taxgroup         = findSplit (s, '@');
+  	      gene             = findSplit (s, ':');
+  	      refAccessionFrag += ":" + s;
+  	    }
 	      replace (product, '_', ' ');
-	      QC_ASSERT (! s. empty ());
-	      refAccessionFrag += ":" + s;
-	      
-	      s = product;
-	      gene = rfindSplit (s);  // PD-3419
+	      replace (taxgroup, '_', ' ');
+	      QC_ASSERT (! refAccessionFrag. empty ());
+	      QC_ASSERT (! product. empty ());
 	      QC_ASSERT (! gene. empty ());
-
+	      QC_ASSERT (! taxgroup. empty ());
+	      
   	    if (const Vector<Mutation>* refMutations = findPtr (accession2mutations, refName))
   	      setSeqChanges (*refMutations, flankingLen /*, mutation_all. get ()*/);
 		  }
@@ -116,9 +124,9 @@ struct BlastnAlignment : Alignment
               )
            << (seqChange. mutation
                  ? seqChange. empty ()
-                     ? product + " [WILDTYPE]"
+                     ? taxgroup + " " + product + " [WILDTYPE]"
                      : seqChange. mutation->name
-                 : product + " [NOVEL]"
+                 : taxgroup + " " + product + " [NOVEL]"
               )
            << "core"  // PD-2825
            // PD-1856
