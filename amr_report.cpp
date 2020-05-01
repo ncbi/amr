@@ -538,7 +538,7 @@ struct BlastAlignment : Alignment
 	                       ? seqChange. empty ()
 	                           ? proteinName + " [WILDTYPE]"
 	                           : mut->name
-	                       : proteinName + " [NOVEL]"
+	                       : proteinName + " [UNKNOWN]"
 	                   : proteinName 
 	                )
 	              + ifS (reportPseudo, ifS (frameShift, " " + frameShiftS))

@@ -197,7 +197,14 @@ namespace
     *os << endl << msg << endl;
   else
   	*os << endl
-        << errorS << endl
+      #ifndef _MSC_VER
+        << Color::code (Color::red, true) 
+      #endif
+        << errorS 
+      #ifndef _MSC_VER
+        << Color::code ()
+      #endif
+        << endl
         << msg << endl << endl
       #ifndef _MSC_VER
   	    << "HOSTNAME: " << (hostname ? hostname : "?") << endl

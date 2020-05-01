@@ -33,6 +33,12 @@
 *               cat, cp, cut, grep, head, mkdir, mv, nproc, sort, tail, which
 *
 * Release changes:
+*   3.8.2  05/01/2020 PD-3419  taxgroup is removed from the DNA files, dna_mutation parameter: organism
+*                     PD-3437  --mutation_all requires --organism
+*                              all warnings are printed to stderr
+*                              warnings are printed in bright yellow color; ERROR is printed in bright red color
+*                     PD-3363  WILDTYPE mutations map on the reference gene with offset
+*                              NOVEL is changed to UNKNOWN
 *   3.8.1  04/30/2020 PD-3419  dna_mutation: reporting gene symbol for novel mutations; taxgroup and genesymbol are added to the DNA files
 *   3.7.6  04/29/2020 PD-3419  dna_mutation: reporting gene symbol for novel mutations
 *   3.7.5  04/22/2020 PD-3427  -h prints the help message
@@ -98,6 +104,7 @@
 *                               Files AMRProt-point_mut.tab and AMR_DNA-<taxgroup>.tab: columns allele, symbol are removed
 *                               Files taxgroup.list and gpipe.tab are replaced by taxgroup.tab
 *   3.3.1  11/22/2019 PD-3206   New files: taxgroup.list, gpipe.tab; new option --list_organisms
+*   3.2.4  11/15/2019 PD-3191   dna_mutation.cpp: neighborhoodMismatch <= 0.04; good(): length >= min (refLen, 2 * flankingLen + 1)
 *   3.2.3  11/14/2019 PD-3192   Fixed error made by PD-3190
 *   3.2.3  11/13/2019 PD-3190   organisms for --gpipe
 *   3.2.3  11/12/2019 PD-3187   Sequence name is always from AMRProt, not from fam.tab
@@ -120,14 +127,14 @@ using namespace Common_sp;
 
 // PAR!
 // PD-3051
-#define DATA_VER_MIN "2020-04-02.1"  
+#define DATA_VER_MIN "2020-05-01.2"  
 
 
 
 namespace 
 {
-  
-  
+
+
 // PAR
 constexpr size_t threads_max_min = 1;  
 constexpr size_t threads_def = 4;
@@ -145,6 +152,21 @@ constexpr double partial_coverage_min_def = 0.5;
 "UPDATES\n" \
 "    Subscribe to the amrfinder-announce mailing list for database and software update notifications:\n" \
 "    https://www.ncbi.nlm.nih.gov/mailman/listinfo/amrfinder-announce"
+
+
+
+struct Warning : Singleton<Warning>
+{
+private:
+  Stderr& stderr;
+public:  
+  
+  Warning (Stderr &stderr_arg)
+    : stderr (stderr_arg)
+    { stderr << Color::code (Color::yellow, true) << "WARNING: "; }
+ ~Warning ()
+    { stderr << Color::code () << "\n"; }
+};
 
 		
 
@@ -202,14 +224,14 @@ struct ThisApplication : ShellApplication
   size_t get_threads_max_max () const
   {
   #if __APPLE__
-    // cerr << "Compiled for MacOS" << endl;
+    // stderr << "Compiled for MacOS" << "\n";
     int count;
     size_t count_len = sizeof(count);
     sysctlbyname("hw.logicalcpu", &count, &count_len, NULL, 0);
     // fprintf(stderr,"you have %i cpu cores", count);
     return count;
   #else
-    // cerr << "Compiled for Linux" << endl;
+    // stderr << "Compiled for Linux" << "\n";
     //exec ("nproc --all > " + tmp + ".nproc");
     //exec ("grep processor /proc/cpuinfo | tail -1 | awk '{print $3}' > " + tmp + ".nproc");
     exec ("grep -c processor /proc/cpuinfo > " + tmp + ".nproc");
@@ -274,6 +296,12 @@ struct ThisApplication : ShellApplication
 	  if (report_common && emptyArg (organism))
 		  throw runtime_error ("--report_common requires --organism");
 		  
+		// PD-3437
+	  if (! emptyArg (mutation_all) && emptyArg (organism))
+	  {
+	    Warning warning (stderr);
+		  stderr << "--mutation_all option used without -O/--organism option. No point mutations will be screened";
+		}
 
 		if (! emptyArg (output))
 		  try { OFStream f (unQuote (output)); }
@@ -299,8 +327,9 @@ struct ThisApplication : ShellApplication
       if (const char* s = getenv("CONDA_PREFIX")) {
         defaultDb = string (s) + string ("/share/amrfinderplus/data/latest");
       } else {
-        cerr << "WARNING: This was compiled for running under bioconda, but $CONDA_PREFIX was not found" << endl;
-        cerr << "Reverting to hard coded directory: " << CONDA_DB_DIR "/latest" << endl;
+        Warning warning (stderr);
+        stderr << "This was compiled for running under bioconda, but $CONDA_PREFIX was not found" << "\n";
+        stderr << "Reverting to hard coded directory: " << CONDA_DB_DIR "/latest";
         defaultDb = CONDA_DB_DIR "/latest";
       }
     #else
@@ -328,7 +357,8 @@ struct ThisApplication : ShellApplication
         throw runtime_error ("AMRFinder update option (-u/--update) only operates on the default database directory. The -d/--database option is not permitted");
       if (getenv ("AMRFINDER_DB"))
       {
-        cout << "WARNING: AMRFINDER_DB is set, but AMRFinder auto-update only downloads to the default database directory" << endl;
+        Warning warning (stderr);
+        stderr << "AMRFINDER_DB is set, but AMRFinder auto-update only downloads to the default database directory";
         db = defaultDb;
       }
   		const Dir dbDir (db);
@@ -338,10 +368,13 @@ struct ThisApplication : ShellApplication
   		  exec (fullProg ("amrfinder_update") + " -d " + shellQuote (dbDir. getParent ()) + ifS (quiet, " -q") + ifS (qc_on, " --debug") + " > " + logFName, logFName);
       }
       else
-        cout << "WARNING: Updating database directory works only for databases with the default data directory format." << endl
-             << "         Please see https://github.com/ncbi/amr/wiki for details." << endl
-             << "         Current database directory is: " << dbDir. get () << endl
-             << "         New database directories will be created as subdirectories of " << dbDir. getParent () << endl;
+      {
+        Warning warning (stderr);
+        stderr << "Updating database directory works only for databases with the default data directory format." << "\n"
+               << "         Please see https://github.com/ncbi/amr/wiki for details." << "\n"
+               << "         Current database directory is: " << dbDir. get () << "\n"
+               << "         New database directories will be created as subdirectories of " << dbDir. getParent ();
+      }
 		}
 
 
@@ -429,7 +462,10 @@ struct ThisApplication : ShellApplication
       if (! emptyArg (dna)  && ! getFileSize (unQuote (dna)))   emptyFiles << dna;
       if (! emptyArg (gff)  && ! getFileSize (unQuote (gff)))   emptyFiles << gff;      
       for (const string& emptyFile : emptyFiles)
-        stderr << "WARNING: Empty file: " << emptyFile << '\n';
+      {
+        Warning warning (stderr);
+        stderr << "Empty file: " << emptyFile;
+      }
     }
       
 
@@ -703,7 +739,7 @@ struct ThisApplication : ShellApplication
 		   )
 		{
       const string mutation_allS (emptyArg (mutation_all) ? "" : ("-mutation_all " + tmp + ".mutation_all.dna")); 
-			exec (fullProg ("dna_mutation") + tmp + ".blastn " + shellQuote (db + "/AMR_DNA-" + organism1 + ".tab") + " " + mutation_allS 
+			exec (fullProg ("dna_mutation") + tmp + ".blastn " + shellQuote (db + "/AMR_DNA-" + organism1 + ".tab") + " " + strQuote (organism1) + " " + mutation_allS 
 			      + " " + qcS + " -log " + logFName + " > " + tmp + ".amr-snp", logFName);
 			exec ("tail -n +2 " + tmp + ".amr-snp >> " + tmp + ".amr");
       if (! emptyArg (mutation_all))

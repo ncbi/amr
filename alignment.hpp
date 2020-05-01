@@ -65,6 +65,7 @@ struct Mutation : Root
   string reference;
 	string allele;
 	string gene;
+	int ref_pos {0};
 
 	
 	Mutation (size_t pos_arg,
@@ -78,7 +79,8 @@ private:
 	static void parse (const string &geneMutation,
 	                   string &reference,
 	                   string &allele,
-                     string &gene);
+                     string &gene,
+                     int &ref_pos);
 public:
   void saveText (ostream &os) const override
     { os << pos + 1 << ' ' << geneMutation << ' ' << name; }
@@ -93,7 +95,7 @@ public:
   size_t getStop () const
     { return pos + reference. size (); }
   string wildtype () const
-    { return gene + "_" + reference + to_string (pos) + reference; }
+    { return gene + "_" + reference + to_string (ref_pos) + reference; }
   bool operator< (const Mutation &other) const;
   bool operator== (const Mutation &other) const
     { return geneMutation == other. geneMutation; }
@@ -172,16 +174,7 @@ private:
   bool hasMutation () const
     { return mutation; }
 public:
-  string getMutationStr () const
-    { const string allele_ (allele. empty () 
-                              ? "DEL" 
-                              : allele == "*"
-                                  ? "STOP"
-                                  : allele
-                           );
-      const string reference_ (reference. empty () ? string (1, prev) : reference);
-      return reference_ + to_string (start_ref + ! reference. empty ()) + allele_; 
-    }
+  string getMutationStr () const;
   size_t getStop () const
     { return start + len; }
   bool operator< (const SeqChange &other) const;
@@ -234,6 +227,7 @@ struct Alignment : Root
   size_t refLen {0};  
   Mutation refMutation;
     // !empty() => original refSeq is the result of refMutation.apply() to the original refSeq
+//int ref_offset {0};
   
   // Alignment
   bool alProt {false};
