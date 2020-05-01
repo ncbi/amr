@@ -95,7 +95,7 @@ public:
   size_t getStop () const
     { return pos + reference. size (); }
   string wildtype () const
-    { return gene + "_" + reference + to_string (ref_pos) + reference; }
+    { return gene + "_" + reference + to_string (ref_pos + 1) + reference; }
   bool operator< (const Mutation &other) const;
   bool operator== (const Mutation &other) const
     { return geneMutation == other. geneMutation; }
