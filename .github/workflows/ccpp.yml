@@ -1,7 +1,9 @@
-name: C/C++ CI
+name: C++ CI
 
-on: [push]
-
+on: 
+    push:
+    repository_dispatch:
+        types: [linux-compile-test, install-test]
 jobs:
   build:
 

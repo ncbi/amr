@@ -1,12 +1,13 @@
-name: Mac bioconda test
+name: Mac bioconda
 on:
-    push:
+    push: 
         branches:
             - master
             - rc
     schedule:
         - cron: '30 3 * * *' # 3:30am everyday
-
+    repository_dispatch:
+        types: [mac-bioconda-test, install-test]
 jobs:
   build:
 
