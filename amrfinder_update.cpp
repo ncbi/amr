@@ -158,7 +158,7 @@ string Curl::read (const string &url)
 
 
 
-#if 1
+#if 0
   #define URL "https://ftp.ncbi.nlm.nih.gov/pathogen/Technical/AMRFinder_technical/test_database/"
 #else
   #define URL "https://ftp.ncbi.nlm.nih.gov/pathogen/Antimicrobial_resistance/AMRFinderPlus/database/"
