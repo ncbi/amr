@@ -388,7 +388,9 @@ bool SeqChange::matchesMutation (const Mutation& mut) const
   const size_t head = mut. pos - start_ref;
   const size_t tail = stop_ref - mut. getStop ();
   ASSERT (head + mut. reference. size () + tail == reference. size ());
-  ASSERT (reference. substr (head, mut. reference. size ()) == mut. reference);
+  const string ref_seg (reference. substr (head, mut. reference. size ()));
+  if (ref_seg != mut. reference)
+    throw runtime_error ("Reference sequence has " + strQuote (ref_seg) + ", but mutation is: " + mut. geneMutation);
   
   // PD-3267 
   // ??

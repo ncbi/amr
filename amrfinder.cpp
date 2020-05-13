@@ -33,6 +33,8 @@
 *               cat, cp, cut, grep, head, mkdir, mv, nproc, sort, tail, which
 *
 * Release changes:
+*   3.8.4  05/13/2020 PD-3447  Custom point mutation does not match the reference sequence
+*                              Text "*** ERROR ***" is not repeated twice
 *   3.8.3  05/01/2020          WILDTYPE mutations were reported as 0-based
 *   3.8.2  05/01/2020 PD-3419  taxgroup is removed from the DNA files, dna_mutation parameter: organism
 *                     PD-3437  --mutation_all requires --organism

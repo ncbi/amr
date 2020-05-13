@@ -193,7 +193,7 @@ namespace
 	const char* pwd      = getenv ("PWD");
 #endif
   const string errorS ("*** ERROR ***");
-  if (isLeft (msg, errorS))  // msg already is the result of errorExit()
+  if (contains (msg, errorS))  // msg already is the result of errorExit()
     *os << endl << msg << endl;
   else
   	*os << endl

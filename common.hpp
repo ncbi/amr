@@ -3254,10 +3254,12 @@ struct ItemGenerator
 {
   Progress prog;
   
+protected:
   ItemGenerator (size_t progress_n_max,
 	               size_t progress_displayPeriod)
 	  : prog (progress_n_max, progress_displayPeriod)
 	  {}
+public:
   virtual ~ItemGenerator ()
     {}
   
