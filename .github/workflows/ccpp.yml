@@ -15,6 +15,10 @@ jobs:
       run: sudo apt-get install -y hmmer ncbi-blast+ git libcurl4-openssl-dev build-essential curl
     - name: make
       run: make
+    - name: version
+      run: |
+          cat version.txt
+          ./amrfinder --version
     - name: download db
       run: ./amrfinder -u
     - name: make test
