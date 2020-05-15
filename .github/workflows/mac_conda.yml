@@ -1,8 +1,8 @@
 name: Mac bioconda
 on:
-    push: 
-        branches:
-            - master
+    # push: 
+        # branches:
+            # - master
     schedule:
         - cron: '30 3 * * *' # 3:30am everyday
     repository_dispatch:
