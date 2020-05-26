@@ -31,8 +31,9 @@
 *
 * Dependencies: NCBI BLAST, HMMer
 *               mkdir, ln
+*               curl.{h,c}
 *
-* Release changes:
+* Release changes: see amrfinder.cpp
 *
 */
 
@@ -80,7 +81,6 @@ struct Curl
 };
 
 	
-
 
 size_t write_stream_cb (char* ptr,
                         size_t size, 
@@ -258,10 +258,10 @@ void fetchAMRFile (Curl &curl,
 struct ThisApplication : ShellApplication
 {
   ThisApplication ()
-    : ShellApplication ("Update the data for AMRFinder from " URL "\n\
+    : ShellApplication ("Update the database for AMRFinder from " URL "\n\
 Requirements:\n\
 - the data/ directory contains subdirectories named by \"minor\" software versions (i.e., <major>.<minor>/);\n\
-- the \"minor\" directories contain subdirectories named by data versions.\
+- the \"minor\" directories contain subdirectories named by database versions.\
 ", false, true, true)
     {
     	addKey ("database", "Directory for all versions of AMRFinder databases", "$BASE/data", 'd', "DATABASE_DIR");
@@ -287,8 +287,41 @@ Requirements:\n\
         
     Stderr stderr (quiet);
     stderr << "Running: "<< getCommandLine () << '\n';
+	//stderr << "Current software minor version: " << curMinor << '\n'; 
     const Verbose vrb (qc_on);
     
+
+    Curl curl;    
+        
+    
+    stderr << "Looking up databases at " << URL << '\n';
+
+    // FTP site files
+    const string latest_minor (getLatestMinor (curl));
+    if (latest_minor. empty ())
+      throw runtime_error ("Cannot get the latest software minor version");
+  //stderr << "Latest software minor version: " << latest_minor << "\n";
+    
+    const string latest_version (getLatestDataVersion (curl, curMinor));
+    if (latest_version. empty ())
+      throw runtime_error ("Cannot get the latest database version for the current software");
+  //stderr << "Latest database version: " << latest_version << "\n";
+      
+    const string cur_latest_version (getLatestDataVersion (curl, latest_minor));
+    if (cur_latest_version. empty ())
+      throw runtime_error ("Cannot get the latest database version for the latest software (" + latest_minor + ")");
+
+    if (latest_version != cur_latest_version)     
+      stderr << "\nWARNING: A newer version of the database exists (" << cur_latest_version << "), but it requires "
+                "a newer version of the software (" << latest_minor << ") to install.\n"
+                "See https://github.com/ncbi/amr/wiki/Upgrading for more information.\n\n";
+                      
+    
+    findProg ("makeblastdb");
+    findProg ("hmmpress");
+    
+
+    // Users's files  
     string mainDirS;
     {
       const Dir mainDir (mainDirOrig);
@@ -297,32 +330,6 @@ Requirements:\n\
     if (! isRight (mainDirS, "/"))
       mainDirS += "/";    
 
-    findProg ("makeblastdb");
-    findProg ("hmmpress");
-    
-    Curl curl;    
-    
-    
-    // FTP site files
-    const string latest_minor (getLatestMinor (curl));
-    if (latest_minor. empty ())
-      throw runtime_error ("Cannot get the latest software version");
-    
-    const string latest_version (getLatestDataVersion (curl, curMinor));
-    if (latest_version. empty ())
-      throw runtime_error ("Cannot get the latest data version for the current software");
-      
-    const string cur_latest_version (getLatestDataVersion (curl, latest_minor));
-    if (cur_latest_version. empty ())
-      throw runtime_error ("Cannot get the latest data version for the latest software (" + latest_minor + ")");
-
-    if (latest_version != cur_latest_version)     
-      stderr << "\nWARNING: A newer version of the database exists (" << cur_latest_version << "), but it requires "
-                "a newer version of the software (" << latest_minor << ") to install.\n"
-                "See https://github.com/ncbi/amr/wiki/Upgrading for more information.\n\n";
-                      
-    
-    // Users's files  
     if (! directoryExists (mainDirS))
       exec ("mkdir -p " + shellQuote (mainDirS));
     

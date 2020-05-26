@@ -13,10 +13,8 @@ jobs:
           run: sudo apt-get install -y hmmer ncbi-blast+ curl build-essential
         - name: download
           run: bash -x .github/workflows/get_binary_release.sh
-        - name: where are we
-          run: |
-              pwd
-              ls -al
+        - name: software version
+          run: ./amrfinder --version
         - name: test protein
           run: |
               ./amrfinder --plus -p test_prot.fa -g test_prot.gff -O Escherichia > test_prot.got

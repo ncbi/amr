@@ -309,9 +309,10 @@ struct BlastAlignment : Alignment
   bool frameShift {false};
   
   // Reference protein
-  long gi {0};  
+//long gi {0};  
     // 0 <=> HMM method
   string refAccession; 
+    // empty() <=> HMM method
   size_t part {1};    
     // >= 1
     // <= parts
@@ -349,8 +350,8 @@ struct BlastAlignment : Alignment
 			    famId                       =                     rfindSplit (refName, '|');  // Reportable_vw.fam
 			    parts                       = (size_t) str2<int> (rfindSplit (refName, '|'));
 			    part                        = (size_t) str2<int> (rfindSplit (refName, '|'));
-			    refAccession               =                      rfindSplit (refName, '|');
-			    gi = str2<long> (refName);
+			    refAccession                =                     rfindSplit (refName, '|');
+			    str2<long> (refName);  // gi: dummy
   		    if (contains (refAccession, ':'))
   		    {
   		      QC_ASSERT (isMutation ());
@@ -367,7 +368,7 @@ struct BlastAlignment : Alignment
 			  {
 			  	throw runtime_error (string ("Bad AMRFinder database\n") + e. what ());
 			  }
-		    QC_ASSERT (gi > 0);
+		    QC_ASSERT (! refAccession. empty ());
 		    	    
 		    replace (product, '_', ' ');
 		    
@@ -428,7 +429,7 @@ struct BlastAlignment : Alignment
 		    	if (verbose ())
 		        cout << "Mutation protein found: " << refName << endl;
   	      QC_ASSERT (isMutation ());  	      
-  	      setSeqChanges (*refMutations, 0 /*flankingLen*/, mutation_all. get ());
+  	      setSeqChanges (*refMutations, 0 /*flankingLen*/ /*, mutation_all. get ()*/);
 		    }
 		  }
 		  catch (...)
@@ -449,6 +450,7 @@ struct BlastAlignment : Alignment
         ERROR_MSG (famId + " " + gene);
       ASSERT (other. good ());
     }
+#if 0
   explicit BlastAlignment (const Mutation& mut)
     : famId      (mut. gene)   
     , gene       (mut. gene)   
@@ -457,6 +459,7 @@ struct BlastAlignment : Alignment
       alProt     = true;
       seqChanges << SeqChange (this, & mut);
     }
+#endif
   void qc () const
     {
       if (! qc_on)
@@ -469,18 +472,18 @@ struct BlastAlignment : Alignment
 	    QC_ASSERT (part >= 1);
 	    QC_ASSERT (part <= parts);
 	    QC_ASSERT (! product. empty ());
-	    QC_ASSERT ((bool) gi == ! targetSeq. empty ());
-	    QC_ASSERT ((bool) gi == (bool) refLen);
-	    QC_ASSERT ((bool) gi == (bool) nident);
-	    QC_ASSERT ((bool) gi == ! refAccession. empty ());
-	    QC_IMPLY (! gi && ! isMutation (), ! getFam () -> hmm. empty () /*getHmmFam ()*/);
+	    QC_ASSERT (refAccession. empty () == targetSeq. empty ());
+	    QC_ASSERT (! refAccession. empty () == (bool) refLen);
+	    QC_ASSERT (! refAccession. empty () == (bool) nident);
+	  //QC_ASSERT ((bool) gi == ! refAccession. empty ());
+	    QC_IMPLY (refAccession. empty () && ! isMutation (), ! getFam () -> hmm. empty () /*getHmmFam ()*/);
 	    QC_IMPLY (targetProt, ! partialDna);
 	    QC_ASSERT (targetAlign);
 	    QC_IMPLY (targetProt, targetAlign == targetAlign_aa);
 	    QC_IMPLY (! targetProt, targetAlign == 3 * targetAlign_aa);
 	    QC_ASSERT (nident <= targetAlign_aa);
 	  //QC_IMPLY (! targetProt, cdss. empty ());
-	    QC_IMPLY (gi, targetAlign_aa <= targetSeq. size ());
+	    QC_IMPLY (! refAccession. empty (), targetAlign_aa <= targetSeq. size ());
 	    QC_IMPLY (! refMutation. empty (), isMutation ());
 	  #if 0
 	    if (targetProt)
@@ -496,7 +499,7 @@ struct BlastAlignment : Alignment
       const string na ("NA");
       const string proteinName (isMutation () 
                                   ? product /*string ()*/
-                                  : refExactlyMatched () || parts >= 2 || ! gi   // PD-3187, PD-3192
+                                  : refExactlyMatched () || parts >= 2 || refAccession. empty ()   // PD-3187, PD-3192
                                     ? product 
                                     : nvl (getFam () -> familyName, na)
                                );
@@ -522,7 +525,9 @@ struct BlastAlignment : Alignment
 	             << (empty () ? na : (cds. contig. empty () ? (targetStrand ? "+" : "-") : (cds. strand ? "+" : "-")));
 	        td << (isMutation ()
 			             ? mut 
-			                 ? mut->geneMutation
+			                 ? seqChange. empty ()
+                          ? mut->wildtype ()
+			                    : mut->geneMutation
 			                 : gene + "_" + seqChange. getMutationStr ()
 	                 : print_fam 
 			                 ? famId
@@ -531,9 +536,9 @@ struct BlastAlignment : Alignment
 	           <<   (isMutation ()
 	                   ? mut 
 	                       ? seqChange. empty ()
-	                           ? proteinName + " [" + (between (mut->pos, refStart, refEnd) ? "WILDTYPE" : "UNKNOWN") + "]"
+	                           ? proteinName + " [WILDTYPE]"
 	                           : mut->name
-	                       : proteinName + " [NOVEL]"
+	                       : proteinName + " [UNKNOWN]"
 	                   : proteinName 
 	                )
 	              + ifS (reportPseudo, ifS (frameShift, " " + frameShiftS))
@@ -551,7 +556,14 @@ struct BlastAlignment : Alignment
   	           << nvl (getFam () -> subclass, na);
 	        td << method
 	           << (targetProt ? targetLen : targetAlign_aa);  
-	        if (gi)
+	        if (refAccession. empty ())
+	          td << na 
+	             << na
+	             << na
+	             << na
+	             << na
+	             << na;
+	        else
 	          td << refLen
 	             << refCoverage () * 100.0  
 	             << pIdentity () * 100.0  // refIdentity
@@ -559,13 +571,6 @@ struct BlastAlignment : Alignment
 	             << refAccession
 	             << product
 	             ;
-	        else
-	          td << na 
-	             << na
-	             << na
-	             << na
-	             << na
-	             << na;
 	        // PD-775
 	        if (isMutation ())
 	          td << na
@@ -667,15 +672,15 @@ struct BlastAlignment : Alignment
         	             ? alleleReported () 
         	               ? "ALLELE"
         	               : "EXACT"  // PD-776
-        	             : gi
-        	                ? partial ()
+        	             : refAccession. empty ()
+        	                ? "HMM"
+        	                : partial ()
         	                  ? truncated (cds)
         	                    ? "PARTIAL_CONTIG_END"  // PD-2267
         	                    : "PARTIAL"
         	                  : isMutation ()
         	                    ? "POINT"
         	                    : "BLAST"
-        	                : "HMM"
         	           );
       // PD-2088, PD-2320
 	    if (   (   method == "BLAST" 
@@ -697,7 +702,7 @@ struct BlastAlignment : Alignment
   	         ;
 	  }	
   bool good () const
-    { if (! gi)
+    { if (refAccession. empty ())
         return true;
       if (! reportPseudo)
       {
@@ -959,7 +964,7 @@ struct Batch
   // Reference input
   map<string/*hmm*/,const Fam*> hmm2fam;
   uchar reportable_min {0};
-  Vector<long> suppress_prots;
+  StringVector suppress_prots;
 
   // Target input
   VectorOwn<BlastAlignment> blastAls;
@@ -1085,14 +1090,21 @@ struct Batch
 	  	  {
 	  	    if (isLeft (f. line, "#"))
 	  	      continue;
-	  	  	string organism_, accession, geneMutation, classS, subclass, name;
-					int pos;
-    	  	iss. reset (f. line);
-	  	  	iss >> organism_ >> accession >> pos >> geneMutation >> classS >> subclass >> name;
-	  	  	QC_ASSERT (pos > 0);
-	  	  	replace (organism_, '_', ' ');
-	  	  	if (organism_ == organism)
-	  	  		accession2mutations [accession] << move (Mutation ((size_t) pos, geneMutation, classS, subclass, name));
+	  	    try
+	  	    {
+  	  	  	string organism_, accession, geneMutation, classS, subclass, name;
+  					int pos;
+      	  	iss. reset (f. line);
+  	  	  	iss >> organism_ >> accession >> pos >> geneMutation >> classS >> subclass >> name;
+  	  	  	QC_ASSERT (pos > 0);
+  	  	  	replace (organism_, '_', ' ');
+  	  	  	if (organism_ == organism)
+  	  	  		accession2mutations [accession] << move (Mutation ((size_t) pos, geneMutation, classS, subclass, name));
+  	  	  }
+  	  	  catch (const exception &e)
+  	  	  {
+  	  	    throw runtime_error ("Reading " + strQuote (mutation_tab) + " line:\n" + f. line + "\n" + e. what ());
+  	  	  }
 	  	  }
 	  	  if (verbose ())
 	  	    PRINT (accession2mutations. size ());
@@ -1114,12 +1126,11 @@ struct Batch
   	    ifstream f (suppress_prot_FName);  	  	    
 	  	  while (! f. eof ())
 	  	  {
-	  	    long gi = 0;
-	  	    f >> gi;
-	  	    ASSERT (gi >= 0);
-	  	    if (gi == 0)
+	  	    string accver;
+	  	    f >> accver;
+	  	    if (accver. empty ())
 	  	      break;
-	  	    suppress_prots << gi;
+	  	    suppress_prots << accver;
   	    }
   	  }
   	  suppress_prots. sort ();
@@ -1305,6 +1316,7 @@ public:
   	  goodBlastAls << hmmAl->blastAl. get ();
   	}
   	
+  #if 0
   	// [UNKNOWN]
   	{
     	map<Mutation, const Mutation*> mutation2ptr;
@@ -1322,6 +1334,7 @@ public:
     	  goodBlastAls << al;
     	}
     }
+  #endif
   
     goodBlastAls. sort (BlastAlignment::less);
 
@@ -1344,34 +1357,34 @@ public:
     {
     	// Cf. BlastAlignment::saveText()
 	    TabDel td;
-	    td << "Protein identifier";  // targetName  // PD-2534  // 1
+	    td << "Protein identifier";                  //  1  // targetName  // PD-2534  
 	    if (cdsExist)  
 	      // Contig
-	      td << "Contig id"                                     // 2
-	         << "Start"    // targetStart                       // 3
-	         << "Stop"     // targetEnd                         // 4
-	         << "Strand";  // targetStrand                      // 5
-	    td << (print_fam ? "FAM.id" : "Gene symbol")            // 6
-	       << "Sequence name"
-	       << "Scope"  // PD-2825
+	      td << "Contig id"                          //  2
+	         << "Start"    // targetStart            //  3
+	         << "Stop"     // targetEnd              //  4
+	         << "Strand";  // targetStrand           //  5
+	    td << (print_fam ? "FAM.id" : "Gene symbol") //  6 or 2
+	       << "Sequence name"                        //  7 or 3
+	       << "Scope"  // PD-2825                    //  8 or 4
 	       // PD-1856
-	       << "Element type"
-	       << "Element subtype"
-	       << "Class"
-	       << "Subclass"
+	       << "Element type"                         //  9 or 5
+	       << "Element subtype"                      // 10 or 6
+	       << "Class"                                // 11 or 7
+	       << "Subclass"                             // 12 or 8
 	       //
-	       << "Method"
-	       << "Target length" 
+	       << "Method"                               // 13 or 9
+	       << "Target length"                        // 14 or 10
 	       //
-	       << "Reference sequence length"         // refLen
-	       << "% Coverage of reference sequence"  // queryCoverage
-	       << "% Identity to reference sequence"  
-	       << "Alignment length"                  // targetSeq. size ()
-	       << "Accession of closest sequence"     // refAccession
-	       << "Name of closest sequence"
+	       << "Reference sequence length"            // 15 or 11  // refLen
+	       << "% Coverage of reference sequence"     // 16 or 12  // queryCoverage
+	       << "% Identity to reference sequence"     // 17 or 13 
+	       << "Alignment length"                     // 18 or 14  // targetSeq. size ()
+	       << "Accession of closest sequence"        // 19 or 15  // refAccession
+	       << "Name of closest sequence"             // 20 or 16
 	       //
-	       << "HMM id"
-	       << "HMM description"
+	       << "HMM id"                               // 21 or 17
+	       << "HMM description"                      // 22 or 18
 	       ;
       if (cdsExist)
 	    	if (useCrossOrigin)
@@ -1393,7 +1406,7 @@ public:
        	  blastAl->qc ();
       	}
    	  else if (   blastAl->getFam () -> reportable >= reportable_min
-   	           && ! suppress_prots. containsFast (blastAl->gi)
+   	           && ! suppress_prots. containsFast (blastAl->refAccession)
    	          )
    	  {
     	  blastAl->saveText (os);
@@ -1503,13 +1516,14 @@ struct ThisApplication : Application
       addKey ("gff_match", ".gff-FASTA matching file for \"locus_tag\": \"<FASTA id> <locus_tag>\"");
       addFlag ("bed", "Browser Extensible Data format of the <gff> file");
       addFlag ("pgap", "Protein, genomic and GFF files are created by the NCBI PGAP");
+      addFlag ("lcl", "Nucleotide FASTA created by PGAP has \"lcl|\" prefix in accessions");  
       addKey ("dna_len", "File with lines: <dna id> <dna length>");
       addKey ("hmmdom", "HMM domain alignments");
       addKey ("hmmsearch", "Output of hmmsearch");
       addKey ("organism", "Taxonomy group for mutations");
       addKey ("mutation", "Mutations table");
       addKey ("mutation_all", "File to report all mutations");
-      addKey ("suppress_prot", "File with protein GIs to suppress");
+      addKey ("suppress_prot", "File with protein accessions to suppress");
       addKey ("ident_min", "Min. identity to the reference protein (0..1). -1 means use a curated threshold if it exists and " + toString (ident_min_def) + " otherwise", "-1");
       addKey ("coverage_min", "Min. coverage of the reference protein (0..1) for partial hits", toString (partial_coverage_min_def));
       addFlag ("skip_hmm_check", "Skip checking HMM for a BLAST hit");
@@ -1521,7 +1535,7 @@ struct ThisApplication : Application
       addFlag ("non_reportable", "Report non-reportable families");
       addFlag ("core", "Report only core reportale families");
       // Testing
-      addFlag ("nosame", "Exclude the same reference ptotein from the BLAST output (for testing)"); 
+      addFlag ("nosame", "Exclude the same reference protein accessions from the BLAST output (for testing)"); 
       addFlag ("noblast", "Exclude the BLAST output (for testing)"); 
       addFlag ("nohmm", "Exclude the HMMer output (for testing)"); 
       addFlag ("retain_blasts", "Retain all blast hits (for testing)");
@@ -1541,6 +1555,7 @@ struct ThisApplication : Application
     const string gffMatchFName        = getArg ("gff_match");
     const bool   bedP                 = getFlag ("bed");
     const bool   pgap                 = getFlag ("pgap");
+    const bool   lcl                  = getFlag ("lcl");
     const string dnaLenFName          = getArg ("dna_len");
     const string hmmDom               = getArg ("hmmdom");
     const string hmmsearch            = getArg ("hmmsearch");  
@@ -1619,7 +1634,7 @@ struct ThisApplication : Application
     	    }
     	    auto al = new BlastAlignment (f. line, true);
     	    al->qc ();  
-    	    if (nosame && toString (al->gi) == al->targetName)
+    	    if (nosame && al->refAccession == al->targetName)
     	      continue;
     	    if (al->good ())
     	      batch. blastAls << al;
@@ -1643,7 +1658,7 @@ struct ThisApplication : Application
     	    }
     	    auto al = new BlastAlignment (f. line, false);
     	    al->qc ();  
-    	    if (nosame && toString (al->gi) == al->targetName)
+    	    if (nosame && al->refAccession == al->targetName)
     	      continue;
     	    if (al->good ())
     	      batch. blastAls << al;
@@ -1736,7 +1751,7 @@ struct ThisApplication : Application
     	else
     	{
 	    	Annot::Gff gff;
-		    annot. reset (new Annot (gff, gffFName, false, ! gffMatchFName. empty (), pgap));
+		    annot. reset (new Annot (gff, gffFName, false, ! gffMatchFName. empty (), pgap, lcl));
 		  }
 		  ASSERT (annot. get ());
 	    map<string/*seqid*/,string/*locusTag*/> seqId2locusTag;

@@ -20,7 +20,7 @@
 *  warranties of performance, merchantability or fitness for any particular
 *  purpose.                                                                
 *                                                                          
-*  Please cite the author in any work or product based on this material.   
+*  Please cite NCBI in any work or product based on this material.   
 *
 * ===========================================================================
 *
@@ -33,7 +33,28 @@
 *               cat, cp, cut, grep, head, mkdir, mv, nproc, sort, tail, which
 *
 * Release changes:
-*                     PD-2328  Last columns of report are real HMM hits
+*   3.8.4  05/13/2020 PD-3447  Custom point mutation does not match the reference sequence
+*                              Text "*** ERROR ***" is not repeated twice
+*   3.8.3  05/01/2020          WILDTYPE mutations were reported as 0-based
+*   3.8.2  05/01/2020 PD-3419  taxgroup is removed from the DNA files, dna_mutation parameter: organism
+*                     PD-3437  --mutation_all requires --organism
+*                              all warnings are printed to stderr
+*                              warnings are printed in bright yellow color; ERROR is printed in bright red color
+*                     PD-3363  WILDTYPE mutations map on the reference gene with offset
+*                              NOVEL is changed to UNKNOWN
+*   3.8.1  04/30/2020 PD-3419  dna_mutation: reporting gene symbol for novel mutations; taxgroup and genesymbol are added to the DNA files
+*   3.7.6  04/29/2020 PD-3419  dna_mutation: reporting gene symbol for novel mutations
+*   3.7.5  04/22/2020 PD-3427  -h prints the help message
+*   3.7.4  04/14/2020 PD-3391  Mac Conda installation
+*   3.7.3  04/09/2020 PD-3416  Redundant QC check in alignment.cpp
+*   3.7.2  04/08/2020 PD-3363  "WILDTYPE" was not reported
+*   3.7.1  04/02/2020 PD-3154  GIs may be 0, accessions are main identifiers; file "AMRProt-suppress" is added accessions; DATA_VER_MIN is "2020-04-02.1"
+*   3.6.19 03/24/2020          Check of ">lcl|" is done only for the first sequence in FASTA
+*          03/24/2020 PD-3347  -lcl parameter in gff_check and amr_report
+*   3.6.18 03/17/2020 PD-3396  amr_report.cpp prints a better error message on missing sublcass in data
+*   3.6.17 03/12/2020          Software version is printed after software directory
+*   3.6.16 03/06/2020 PD-3363  --mutation_all: UNKNOWN are not reported
+*                     PD-2328  Last 2 columns of report are real HMM hits
 *   3.6.15 02/24/2020          "database" is printed to stderr in one line in a canonical form (without links)
 *   3.6.14 02/19/2020 PD-3363   --mutation_all: 4 types of mutations, adding DNA mutations
 *   3.6.13 02/13/2020 PD-3359,issue#23   ln -s <db>: uses path2canonical()
@@ -86,6 +107,7 @@
 *                               Files AMRProt-point_mut.tab and AMR_DNA-<taxgroup>.tab: columns allele, symbol are removed
 *                               Files taxgroup.list and gpipe.tab are replaced by taxgroup.tab
 *   3.3.1  11/22/2019 PD-3206   New files: taxgroup.list, gpipe.tab; new option --list_organisms
+*   3.2.4  11/15/2019 PD-3191   dna_mutation.cpp: neighborhoodMismatch <= 0.04; good(): length >= min (refLen, 2 * flankingLen + 1)
 *   3.2.3  11/14/2019 PD-3192   Fixed error made by PD-3190
 *   3.2.3  11/13/2019 PD-3190   organisms for --gpipe
 *   3.2.3  11/12/2019 PD-3187   Sequence name is always from AMRProt, not from fam.tab
@@ -108,14 +130,14 @@ using namespace Common_sp;
 
 // PAR!
 // PD-3051
-#define DATA_VER_MIN "2019-12-26.1"  
+#define DATA_VER_MIN "2020-05-01.2"  
 
 
 
 namespace 
 {
-  
-  
+
+
 // PAR
 constexpr size_t threads_max_min = 1;  
 constexpr size_t threads_def = 4;
@@ -134,6 +156,21 @@ constexpr double partial_coverage_min_def = 0.5;
 "    Subscribe to the amrfinder-announce mailing list for database and software update notifications:\n" \
 "    https://www.ncbi.nlm.nih.gov/mailman/listinfo/amrfinder-announce"
 
+
+
+struct Warning : Singleton<Warning>
+{
+private:
+  Stderr& stderr;
+public:  
+  
+  Warning (Stderr &stderr_arg)
+    : stderr (stderr_arg)
+    { stderr << Color::code (Color::yellow, true) << "WARNING: "; }
+ ~Warning ()
+    { stderr << Color::code () << "\n"; }
+};
+
 		
 
 // ThisApplication
@@ -150,6 +187,7 @@ struct ThisApplication : ShellApplication
       addFlag ("pgap", "Input files PROT_FASTA, NUC_FASTA and GFF_FILE are created by the NCBI PGAP");
     	addKey ("database", "Alternative directory with AMRFinder database. Default: $AMRFINDER_DB", "", 'd', "DATABASE_DIR");
     	addKey ("ident_min", "Minimum identity for nucleotide hit (0..1). -1 means use a curated threshold if it exists and " + toString (ident_min_def) + " otherwise", "-1", 'i', "MIN_IDENT");
+    	  // "nucleotide hit" --> "reference protein" ??
     	addKey ("coverage_min", "Minimum coverage of the reference protein (0..1)", toString (partial_coverage_min_def), 'c', "MIN_COV");
       addKey ("organism", "Taxonomy group. To see all possible taxonomy groups use the --list_organisms flag", "", 'O', "ORGANISM");
       addFlag ("list_organisms", "Print the list of all possible taxonomy groups for mutations identification and exit", 'l');
@@ -162,6 +200,7 @@ struct ThisApplication : ShellApplication
       addKey ("output", "Write output to OUTPUT_FILE instead of STDOUT", "", 'o', "OUTPUT_FILE");
       addFlag ("quiet", "Suppress messages to STDERR", 'q');
       addFlag ("gpipe_org", "NCBI internal GPipe organism names");
+    //addKey ("sample", "Sample name to be adde as the first column of the report", ""); 
     	addKey ("parm", "amr_report parameters for testing: -nosame -noblast -skip_hmm_check -bed", "", '\0', "PARM");
 	    version = SVN_REV;  
 	    // threads_max: do not include blast/hmmsearch's threads ??
@@ -188,13 +227,17 @@ struct ThisApplication : ShellApplication
   size_t get_threads_max_max () const
   {
   #if __APPLE__
+    // stderr << "Compiled for MacOS" << "\n";
     int count;
     size_t count_len = sizeof(count);
     sysctlbyname("hw.logicalcpu", &count, &count_len, NULL, 0);
     // fprintf(stderr,"you have %i cpu cores", count);
     return count;
   #else
-    exec ("nproc --all > " + tmp + ".nproc");
+    // stderr << "Compiled for Linux" << "\n";
+    //exec ("nproc --all > " + tmp + ".nproc");
+    //exec ("grep processor /proc/cpuinfo | tail -1 | awk '{print $3}' > " + tmp + ".nproc");
+    exec ("grep -c processor /proc/cpuinfo > " + tmp + ".nproc");
     const StringVector vec (tmp + ".nproc", (size_t) 1);
     QC_ASSERT (vec. size () == 1);
     return str2<size_t> (vec [0]);
@@ -242,6 +285,7 @@ struct ThisApplication : ShellApplication
     Stderr stderr (quiet);
     stderr << "Running: "<< getCommandLine () << '\n';
     stderr << "Software directory: " << shellQuote (execDir) << "\n";
+	  stderr << "Software version: " << version << '\n'; 
     
     if (threads_max < threads_max_min)
       throw runtime_error ("Number of threads cannot be less than " + to_string (threads_max_min));
@@ -255,6 +299,12 @@ struct ThisApplication : ShellApplication
 	  if (report_common && emptyArg (organism))
 		  throw runtime_error ("--report_common requires --organism");
 		  
+		// PD-3437
+	  if (! emptyArg (mutation_all) && emptyArg (organism))
+	  {
+	    Warning warning (stderr);
+		  stderr << "--mutation_all option used without -O/--organism option. No point mutations will be screened";
+		}
 
 		if (! emptyArg (output))
 		  try { OFStream f (unQuote (output)); }
@@ -274,15 +324,22 @@ struct ThisApplication : ShellApplication
     }
 
 
-    const string defaultDb (
-      #ifdef DEFAULT_DB_DIR
-        DEFAULT_DB_DIR "/latest"
-      #else
-        execDir + "data/latest"
-      #endif
-      );
-      
-
+    string defaultDb;
+    #ifdef CONDA_DB_DIR
+    // we're in condaland
+      if (const char* s = getenv("CONDA_PREFIX")) {
+        defaultDb = string (s) + string ("/share/amrfinderplus/data/latest");
+      } else {
+        Warning warning (stderr);
+        stderr << "This was compiled for running under bioconda, but $CONDA_PREFIX was not found" << "\n";
+        stderr << "Reverting to hard coded directory: " << CONDA_DB_DIR "/latest";
+        defaultDb = CONDA_DB_DIR "/latest";
+      }
+    #else
+    // not in condaland
+      defaultDb = execDir + "data/latest";
+    #endif
+        
 		// db
 		if (db. empty ())
 		{
@@ -303,7 +360,8 @@ struct ThisApplication : ShellApplication
         throw runtime_error ("AMRFinder update option (-u/--update) only operates on the default database directory. The -d/--database option is not permitted");
       if (getenv ("AMRFINDER_DB"))
       {
-        cout << "WARNING: AMRFINDER_DB is set, but AMRFinder auto-update only downloads to the default database directory" << endl;
+        Warning warning (stderr);
+        stderr << "AMRFINDER_DB is set, but AMRFinder auto-update only downloads to the default database directory";
         db = defaultDb;
       }
   		const Dir dbDir (db);
@@ -313,14 +371,17 @@ struct ThisApplication : ShellApplication
   		  exec (fullProg ("amrfinder_update") + " -d " + shellQuote (dbDir. getParent ()) + ifS (quiet, " -q") + ifS (qc_on, " --debug") + " > " + logFName, logFName);
       }
       else
-        cout << "WARNING: Updating database directory works only for databases with the default data directory format." << endl
-             << "Please see https://github.com/ncbi/amr/wiki for details." << endl
-             << "Current database directory is: " << dbDir. get () << endl
-             << "New database directories will be created as subdirectories of " << dbDir. getParent () << endl;
+      {
+        Warning warning (stderr);
+        stderr << "Updating database directory works only for databases with the default data directory format." << "\n"
+               << "         Please see https://github.com/ncbi/amr/wiki for details." << "\n"
+               << "         Current database directory is: " << dbDir. get () << "\n"
+               << "         New database directories will be created as subdirectories of " << dbDir. getParent ();
+      }
 		}
 
 
-    const string downloadLatestInstr ("\nTo download the latest version to the default directory run amrfinder -u");
+    const string downloadLatestInstr ("\nTo download the latest version to the default directory run: amrfinder -u");
     
 		if (! directoryExists (db))  // PD-2447
 		  throw runtime_error ("No valid AMRFinder database found." + ifS (! update, downloadLatestInstr));
@@ -342,7 +403,7 @@ struct ThisApplication : ShellApplication
   	  istringstream versionIss (version);
   		const SoftwareVersion softwareVersion (versionIss);
   		const SoftwareVersion softwareVersion_min (db + "/database_format_version.txt");
-  	  stderr << "Software version: " << softwareVersion. str () << '\n'; 
+  	//stderr << "Software version: " << softwareVersion. str () << '\n'; 
   		const DataVersion dataVersion (db + "/version.txt");
   		istringstream dataVersionIss (DATA_VER_MIN); 
   		const DataVersion dataVersion_min (dataVersionIss);  
@@ -404,7 +465,10 @@ struct ThisApplication : ShellApplication
       if (! emptyArg (dna)  && ! getFileSize (unQuote (dna)))   emptyFiles << dna;
       if (! emptyArg (gff)  && ! getFileSize (unQuote (gff)))   emptyFiles << gff;      
       for (const string& emptyFile : emptyFiles)
-        stderr << "WARNING! Empty file: " << emptyFile << '\n';
+      {
+        Warning warning (stderr);
+        stderr << "Empty file: " << emptyFile;
+      }
     }
       
 
@@ -477,9 +541,22 @@ struct ThisApplication : ShellApplication
     prog2dir ["amr_report"]  = execDir;	
     
     
+    bool lcl = false;
+    if (pgap && ! emptyArg (dna))  // PD-3347
+    {
+      LineInput f (unQuote (dna));
+      while (f. nextLine ())
+        if (isLeft (f. line, ">"))
+        {
+          lcl = isLeft (f. line, ">lcl|");
+          break;
+        }
+    }
+    
+    
     string amr_report_blastp;	
  		string amr_report_blastx;
-	  const string pgapS (ifS (pgap, " -pgap"));
+	  const string pgapS (ifS (pgap, " -pgap" + ifS (lcl, " -lcl")));
  		bool blastxChunks = false;
     {
       Threads th (threads_max - 1, true);  
@@ -636,13 +713,13 @@ struct ThisApplication : ShellApplication
 			while (f. nextLine ())
 			  if (! isLeft (f. line, "#"))
   			{
-  			  string org;
-  			  long gi = 0;
+  			  string org, accver;
+  			//long gi = 0;
   			  istringstream iss (f. line);
-  			  iss >> org >> gi;
-  			  QC_ASSERT (gi > 0);
+  			  iss >> org >> accver;
+  			  QC_ASSERT (! accver. empty ());
   			  if (org == organism1)
-  			    outF << gi << endl;
+  			    outF << accver << endl;
   			}
 	  }
 		
@@ -665,7 +742,7 @@ struct ThisApplication : ShellApplication
 		   )
 		{
       const string mutation_allS (emptyArg (mutation_all) ? "" : ("-mutation_all " + tmp + ".mutation_all.dna")); 
-			exec (fullProg ("dna_mutation") + tmp + ".blastn " + shellQuote (db + "/AMR_DNA-" + organism1 + ".tab") + " " + mutation_allS 
+			exec (fullProg ("dna_mutation") + tmp + ".blastn " + shellQuote (db + "/AMR_DNA-" + organism1 + ".tab") + " " + strQuote (organism1) + " " + mutation_allS 
 			      + " " + qcS + " -log " + logFName + " > " + tmp + ".amr-snp", logFName);
 			exec ("tail -n +2 " + tmp + ".amr-snp >> " + tmp + ".amr");
       if (! emptyArg (mutation_all))
@@ -675,14 +752,14 @@ struct ThisApplication : ShellApplication
     // PD-2244, PD-3230
     const string sortS (emptyArg (dna) && emptyArg (gff) ? "-k1,1 -k2,2" : "-k2,2 -k3,3n -k4,4n -k5,5 -k1,1 -k6,6");      
     // Sorting AMR report
-		exec ("head -1 "              + tmp + ".amr                      >  " + tmp + ".amr-out");
-		exec ("LANG=C && tail -n +2 " + tmp + ".amr | sort " + sortS + " >> " + tmp + ".amr-out");
+		exec ("head -1 "              + tmp + ".amr                             >  " + tmp + ".amr-out");
+		exec ("LANG=C && tail -n +2 " + tmp + ".amr | sort " + sortS + " | uniq >> " + tmp + ".amr-out");
 		exec ("mv " + tmp + ".amr-out " + tmp + ".amr");
     // Sorting mutation_all
     if (! emptyArg (mutation_all))
     {
-  		exec ("head -1 "              + tmp + ".mutation_all                      >  " + tmp + ".mutation_all-out");
-  		exec ("LANG=C && tail -n +2 " + tmp + ".mutation_all | sort " + sortS + " >> " + tmp + ".mutation_all-out");
+  		exec ("head -1 "              + tmp + ".mutation_all                             >  " + tmp + ".mutation_all-out");
+  		exec ("LANG=C && tail -n +2 " + tmp + ".mutation_all | sort " + sortS + " | uniq >> " + tmp + ".mutation_all-out");
   		exec ("mv " + tmp + ".mutation_all-out " + mutation_all);
     }
 		
