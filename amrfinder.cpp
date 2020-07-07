@@ -392,7 +392,7 @@ struct ThisApplication : ShellApplication
     if (list_organisms)
     {
       const StringVector organisms (db2organisms ());
-      cout << "Possible organisms: " + organisms. toString (", ") << endl;
+      cout << endl << "Available --organism options: " + organisms. toString (", ") << endl;
       return;
     }    		  
 
