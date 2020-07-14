@@ -1215,7 +1215,7 @@ StringVector::StringVector (const string &fName,
   }
   catch (const exception &e)
   {
-    throw runtime_error ("Loading file " + shellQuote (fName) + "\n" + e. what ());
+    throw runtime_error ("Reading file " + shellQuote (fName) + "\n" + e. what ());
   }  
 }
 
@@ -1563,10 +1563,7 @@ void Token::readInput (CharInput &in)
   qc ();
 
   if (verbose ())
-  {
-  	cout << type2str (type) << ' ';  
-  	cout << *this << ' ' << charNum << endl;
-  }
+  	cout << type2str (type) << ' ' << *this << ' ' << charNum + 1 << endl;
 }
 
 

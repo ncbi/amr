@@ -788,8 +788,12 @@ public:
 	      prefixIt++;
 	    }
     }
-  List<T>& operator<< (T t) 
+  List<T>& operator<< (const T &t) 
     { P::push_back (t); 
+    	return *this;
+    }    
+  List<T>& operator<< (T &&t) 
+    { P::push_back (move (t)); 
     	return *this;
     }    
   template <typename U/*:<T>*/>
@@ -803,12 +807,16 @@ public:
       	return *this;
       }
   T popFront ()
-    { const T t = P::front ();
+    { if (P::empty ())
+        throw range_error ("popFront() empty list");
+      const T t = P::front ();
       P::pop_front ();
       return t;
     }
   T popBack ()
-    { const T t = P::back ();
+    { if (P::empty ())
+        throw range_error ("popBack() empty list");
+      const T t = P::back ();
       P::pop_back ();
       return t;
     }
@@ -1061,6 +1069,11 @@ inline string shellQuote (string s)
   }
 
 bool fileExists (const string &fName);
+
+inline void checkFile (const string &fName)
+  { if (! fileExists (fName))
+      throw runtime_error ("File " + strQuote (fName) + " does not exist");
+  }
 
 streampos getFileSize (const string &fName);
 
@@ -1380,7 +1393,7 @@ public:
 	virtual bool empty () const
 	  { return true; }
   virtual void clear ()
-    {}
+    { throw logic_error ("Root::clear() is not implemented"); }
     // Postcondition: empty()
   virtual void read (istream &/*is*/)
     { throw logic_error ("Root::read() is not implemented"); }
@@ -1498,20 +1511,22 @@ public:
 	  {}
 	
 	
-	typename P::reference operator[] (size_t index)
+private:
+	void checkIndex (const string &operation,
+	                 size_t index) const
 	  {
 	  #ifndef NDEBUG
 	    if (index >= P::size ())
-	      throw range_error ("Vector assignment to index = " + to_string (index) + ", but size = " + to_string (P::size ()));
+	      throw range_error ("Vector " + operation + " operation: index = " + to_string (index) + ", but size = " + to_string (P::size ()));
 	  #endif
+	  }
+public:
+	typename P::reference operator[] (size_t index)
+	  { checkIndex ("assignment", index);
 	    return P::operator[] (index);
 	  }
 	typename P::const_reference operator[] (size_t index) const
-	  {
-	  #ifndef NDEBUG
-	    if (index >= P::size ())
-	      throw range_error ("Vector reading of index = " + to_string (index) + ", but size = " + to_string (P::size ()));
-	  #endif
+	  { checkIndex ("get", index);
 	    return P::operator[] (index);
 	  }
   void reserveInc (size_t inc)
@@ -1593,9 +1608,16 @@ public:
     { eraseMany (index, index + 1); }
   void eraseMany (size_t from,
                   size_t to)
-    { P::erase ( P::begin () + (ptrdiff_t) from
-    	         , P::begin () + (ptrdiff_t) to
-    	         ); 
+    { if (to < from)
+        throw logic_error ("Vector::eraseMany(): to < from");
+      if (to == from)
+        return;
+      checkIndex ("eraseMany", to - 1);
+      auto it1 = P::begin ();
+      std::advance (it1, from);
+      auto it2 = it1;
+      std::advance (it2, to - from);
+      P::erase (it1, it2);
     }
   void wipe ()
     { P::clear ();
@@ -1618,6 +1640,14 @@ public:
 	      std::swap (t, (*this) [(size_t) rand. get ((ulong) P::size ())]);
     	searchSorted = false;
 		}
+  void pop_back ()
+    { 
+    #ifndef NDEBUG
+      if (P::empty ())
+        throw range_error ("Empty vector pop_back");
+    #endif
+      P::pop_back ();
+    }
   T pop (size_t n = 1)
     { T t = T ();
       while (n)
@@ -2399,6 +2429,7 @@ template <typename T, typename U /* : T */>
 
 template <typename T>  
 struct RandomSet
+// Set stored in a vector for a random access
 {
 private:
   Vector<T> vec;
@@ -2444,7 +2475,6 @@ public:
     }
   const Vector<T>& getVec () const
     { return vec; }
-    // For a random access
 };
   
 
@@ -2742,6 +2772,8 @@ public:
 	void saveText (ostream &os) const override;
 	bool empty () const override
 	  { return type == eDelimiter && name. empty (); }
+	void clear () override
+	  { *this = Token (); }
 
 
 	static string type2str (Type type) 
@@ -3393,7 +3425,7 @@ struct Application : Singleton<Application>, Root
   const string description;
   const bool needsArg;
   const bool gnu;
-  string version {"1.0.0"};
+  string version {"0.0.0"};
   static constexpr const char* helpS {"help"};
   static constexpr const char* versionS {"version"};
   

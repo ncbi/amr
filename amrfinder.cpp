@@ -33,6 +33,8 @@
 *               cat, cp, cut, grep, head, mkdir, mv, nproc, sort, tail, which
 *
 * Release changes:
+*          07/13/2020 PD-3484  -l for old database versions
+*   3.8.5  07/10/2020 PD-3482  --ident_min instruction
 *   3.8.4  05/13/2020 PD-3447  Custom point mutation does not match the reference sequence
 *                              Text "*** ERROR ***" is not repeated twice
 *   3.8.3  05/01/2020          WILDTYPE mutations were reported as 0-based
@@ -187,7 +189,7 @@ struct ThisApplication : ShellApplication
       addFlag ("pgap", "Input files PROT_FASTA, NUC_FASTA and GFF_FILE are created by the NCBI PGAP");
     	addKey ("database", "Alternative directory with AMRFinder database. Default: $AMRFINDER_DB", "", 'd', "DATABASE_DIR");
     	addKey ("ident_min", "Minimum proportion of identical amino acids in alignment for hit (0..1). -1 means use a curated threshold if it exists and " + toString (ident_min_def) + " otherwise", "-1", 'i', "MIN_IDENT");
-    	  // "nucleotide hit" --> "reference protein" ??
+    	  // "PD-3482
     	addKey ("coverage_min", "Minimum coverage of the reference protein (0..1)", toString (partial_coverage_min_def), 'c', "MIN_COV");
       addKey ("organism", "Taxonomy group. To see all possible taxonomy groups use the --list_organisms flag", "", 'O', "ORGANISM");
       addFlag ("list_organisms", "Print the list of all possible taxonomy groups for mutations identification and exit", 'l');
@@ -248,8 +250,10 @@ struct ThisApplication : ShellApplication
 
   StringVector db2organisms () const
   {
-    exec ("tail -n +2 " + tmp + ".db/AMRProt-mutation.tab" + " | cut -f 1 > " + tmp + ".prot_org");
+		checkFile (tmp + ".db/taxgroup.tab");
+		checkFile (tmp + ".db/AMRProt-mutation.tab");
     exec ("tail -n +2 " + tmp + ".db/taxgroup.tab" + "         | cut -f 1 > " + tmp + ".tax_org");
+    exec ("tail -n +2 " + tmp + ".db/AMRProt-mutation.tab" + " | cut -f 1 > " + tmp + ".prot_org");
     exec ("cat " + tmp + ".prot_org " + tmp + ".tax_org | sort -u > " + tmp + ".org");
     return StringVector (tmp + ".org", (size_t) 100);  // PAR
   }
@@ -389,14 +393,6 @@ struct ThisApplication : ShellApplication
     exec ("ln -s " + shellQuote (path2canonical (db)) + " " + tmp + ".db");
 
 
-    if (list_organisms)
-    {
-      const StringVector organisms (db2organisms ());
-      cout << endl << "Available --organism options: " + organisms. toString (", ") << endl;
-      return;
-    }    		  
-
-		  
 		// PD-3051
 		try
 		{
@@ -419,6 +415,14 @@ struct ThisApplication : ShellApplication
     }
 
 
+    if (list_organisms)
+    {
+      const StringVector organisms (db2organisms ());
+      cout << endl << "Available --organism options: " + organisms. toString (", ") << endl;
+      return;
+    }    		  
+
+		  
     {
       string searchMode;
       StringVector includes;
@@ -523,7 +527,7 @@ struct ThisApplication : ShellApplication
       {
         const StringVector organisms (db2organisms ());
         if (! organisms. contains (organism1))
-          throw runtime_error ("Possible organisms: " + organisms. toString (", "));
+          throw runtime_error ("Possible organisms: " + organisms. toString (", "));  
       }
  	  }
 	  if (! organism1. empty ())
