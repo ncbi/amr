@@ -306,12 +306,12 @@ inline bool boolPow (bool x, bool power)
 
 // ebool - extended bool
 
-enum ebool {EFALSE = false, 
-            ETRUE = true, 
-            UBOOL = true + 1};
+enum ebool {efalse = false, 
+            etrue = true, 
+            enull = true + 1};
 
 inline ebool toEbool (bool b)
-  { return b ? ETRUE : EFALSE; }
+  { return b ? etrue : efalse; }
 
 
 inline bool operator<= (ebool a, ebool b)
@@ -320,10 +320,10 @@ inline bool operator<= (ebool a, ebool b)
   }
 
 inline void toggle (ebool &b)
-  { if (b == ETRUE)
-      b = EFALSE;
-    else if (b == EFALSE)
-      b = ETRUE;
+  { if (b == etrue)
+      b = efalse;
+    else if (b == efalse)
+      b = etrue;
   }
 
 
@@ -393,7 +393,7 @@ uint powInt (uint a,
 
 
 
-const size_t NO_INDEX = SIZE_MAX;
+constexpr size_t no_index = numeric_limits<size_t>::max ();
 
 
 
@@ -772,7 +772,7 @@ public:
 	  	  	return i;
 	  	  else
 	  	  	i++;
-	  	return NO_INDEX;
+	  	return no_index;
 	  }
   bool isPrefix (const List<T> &prefix) const
     { typename List<T>::const_iterator wholeIt  =      P::begin ();
@@ -1295,7 +1295,7 @@ template <typename Func, typename Res, typename... Args>
   	ASSERT (threads_max >= 1);
 		results. clear ();
 		results. reserve (threads_max);
-  	if (threads_max == 1)
+  	if (threads_max == 1 || i_max <= 1)
   	{
   		results. push_back (Res ());
     	func (0, i_max, results. front (), forward<Args>(args)...);
@@ -1566,7 +1566,7 @@ public:
           return n;
         else
           n++;
-      return NO_INDEX;
+      return no_index;
     }
   size_t countValue (const T &value) const
     { size_t n = 0;
@@ -1728,17 +1728,17 @@ public:
 
   size_t binSearch (const T &value,
                     bool exact = true) const
-    // Return: if exact then NO_INDEX or vec[Return] = value else min {i : vec[i] >= value}
+    // Return: if exact then no_index or vec[Return] = value else min {i : vec[i] >= value}
     { if (P::empty ())
-    	  return NO_INDEX;
+    	  return no_index;
     	checkSorted ();
     	size_t lo = 0;  // vec.at(lo) <= value
     	size_t hi = P::size () - 1;  
     	// lo <= hi
     	if (value < (*this) [lo])
-    	  return exact ? NO_INDEX : lo;
+    	  return exact ? no_index : lo;
     	if ((*this) [hi] < value)
-    	  return NO_INDEX;
+    	  return no_index;
     	// at(lo) <= value <= at(hi)
     	for (;;)
     	{
@@ -1757,11 +1757,11 @@ public:
 	    	return lo;
 	    if (! exact || (*this) [hi] == value)
 	    	return hi;
-	    return NO_INDEX;
+	    return no_index;
     }
   template <typename U /* : T */>
     bool containsFast (const U &value) const
-      { return binSearch (value) != NO_INDEX; }
+      { return binSearch (value) != no_index; }
   template <typename U /* : T */>
     bool containsFastAll (const Vector<U> &other) const
       { if (other. size () > P::size ())
@@ -1838,14 +1838,14 @@ public:
       
   size_t findDuplicate () const
     { if (P::size () <= 1)
-        return NO_INDEX;
+        return no_index;
       FOR_START (size_t, i, 1, P::size ())
         if ((*this) [i] == (*this) [i - 1])
           return i;
-      return NO_INDEX;
+      return no_index;
     }
   bool isUniq () const
-    { return findDuplicate () == NO_INDEX; }
+    { return findDuplicate () == no_index; }
   template <typename Equal /*bool equal (const T &a, const T &b)*/>
 	  void uniq (const Equal &equal)
 	    { if (P::size () <= 1)
@@ -2095,6 +2095,8 @@ public:
 
   bool empty () const final
     { return arr. empty (); }
+  size_t size () const
+    { return arr. size (); }
   Heap& operator<< (T item)
     { arr << item;
       increaseKey (arr. size () - 1);
@@ -2497,11 +2499,11 @@ public:
   size_t find (const T &t) const
     { if (const size_t* num = Common_sp::findPtr (elem2num, t))
         return *num;
-      return NO_INDEX;
+      return no_index;
     }
   size_t add (const T &t)
     { size_t num = find (t);
-      if (num == NO_INDEX)
+      if (num == no_index)
       { num2elem << t;
         num = num2elem. size () - 1;
         elem2num [t] = num;

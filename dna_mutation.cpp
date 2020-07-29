@@ -50,6 +50,7 @@ namespace
 
 map <string/*accession*/, Vector<Mutation>>  accession2mutations;
 unique_ptr<OFStream> mutation_all;  
+string input_name;
 
 
 
@@ -109,6 +110,8 @@ struct BlastnAlignment : Alignment
       {
         ASSERT (! (seqChange. empty () && ! seqChange. mutation));
         TabDel td (2, false);
+  	    if (! input_name. empty ())
+  	      td << input_name;;
         td << na  // PD-2534
            << nvl (targetName, na)
            << (empty () ? 0 : targetStart + 1)
@@ -211,6 +214,8 @@ struct Batch
     {
     	// Cf. BlastnAlignment::saveText()
 	    TabDel td;
+	    if (! input_name. empty ())
+	      td << "Name";
 	    td << "Protein identifier"   // targetName  // PD-2534
          // Contig
          << "Contig id"
@@ -267,6 +272,7 @@ struct ThisApplication : Application
       addPositional ("mutation", "Mutations table");
       addPositional ("organism", "Organism name");
       addKey ("mutation_all", "File to report all mutations");
+      addKey ("name", "Text to be added as the first column \"name\" to all rows of the report");
 	    version = SVN_REV;
     }
 
@@ -278,6 +284,7 @@ struct ThisApplication : Application
     const string mutation_tab       = getArg ("mutation");  
     const string organism           = getArg ("organism");  
     const string mutation_all_FName = getArg ("mutation_all");
+                 input_name         = getArg ("name");
     
     
     if (! mutation_all_FName. empty ())

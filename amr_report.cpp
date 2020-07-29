@@ -296,6 +296,8 @@ const string frameShiftS ("[frameshift]");
 
 unique_ptr<OFStream> mutation_all;
 
+string input_name;
+
 
 
 struct BlastAlignment : Alignment
@@ -517,6 +519,8 @@ struct BlastAlignment : Alignment
           const string method (empty () ? na : getMethod (cds));
           ASSERT (isMutation () == ! (seqChange. empty () && ! mut));
 	        TabDel td (2, false);
+    	    if (! input_name. empty ())
+    	      td << input_name;;
           td << (targetProt ? nvl(targetName, na) : na);  // PD-2534
 	        if (cdsExist)
 	          td << (empty () ? na : (cds. contig. empty () ? nvl (targetName,na)  : cds. contig))
@@ -1357,6 +1361,8 @@ public:
     {
     	// Cf. BlastAlignment::saveText()
 	    TabDel td;
+	    if (! input_name. empty ())
+	      td << "Name";
 	    td << "Protein identifier";                  //  1  // targetName  // PD-2534  
 	    if (cdsExist)  
 	      // Contig
@@ -1534,6 +1540,7 @@ struct ThisApplication : Application
       addFlag ("force_cds_report", "Report contig/start/stop/strand even if this information does not exist");
       addFlag ("non_reportable", "Report non-reportable families");
       addFlag ("core", "Report only core reportale families");
+      addKey ("name", "Text to be added as the first column \"name\" to all rows of the report");
       // Testing
       addFlag ("nosame", "Exclude the same reference protein accessions from the BLAST output (for testing)"); 
       addFlag ("noblast", "Exclude the BLAST output (for testing)"); 
@@ -1572,6 +1579,7 @@ struct ThisApplication : Application
     const bool   force_cds_report     = getFlag ("force_cds_report");
     const bool   non_reportable       = getFlag ("non_reportable");
     const bool   report_core_only     = getFlag ("core");
+                 input_name           = getArg ("name");
     const bool   nosame               = getFlag ("nosame");
     const bool   noblast              = getFlag ("noblast");
     const bool   nohmm                = getFlag ("nohmm");

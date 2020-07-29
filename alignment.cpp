@@ -414,9 +414,9 @@ bool normalizeSeq (const string &seq1,
   ASSERT (seq1. size () == seq2. size ());
   
   bool changed = false;
-  size_t start = NO_INDEX;
+  size_t start = no_index;
   FFOR (size_t, i, seq1. size ())
-    if (start == NO_INDEX)
+    if (start == no_index)
     {
       if (seq2 [i] == '-')
         start = i;
@@ -432,7 +432,7 @@ bool normalizeSeq (const string &seq1,
           changed = true;
         }
         else
-          start = NO_INDEX;
+          start = no_index;
       }
   ASSERT (seq1. size () == seq2. size ());
   
@@ -694,13 +694,13 @@ void Alignment::setSeqChanges (const Vector<Mutation> &refMutations,
   }
   
   // SeqChange::mutation
-	size_t start_ref_prev = NO_INDEX;
+	size_t start_ref_prev = no_index;
 	for (SeqChange& seqChange : seqChanges)
   {
     seqChange. qc ();
     if (verbose ())
       seqChange. saveText (cout);
-    IMPLY (start_ref_prev != NO_INDEX, start_ref_prev <= seqChange. start_ref);
+    IMPLY (start_ref_prev != no_index, start_ref_prev <= seqChange. start_ref);
     while (j < refMutations. size ())
     {
 		  const Mutation& mut = refMutations [j];

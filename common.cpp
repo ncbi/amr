@@ -854,7 +854,7 @@ size_t strMonth2num (const string& month)
     return (size_t) (m - 1);
   }
   
-	size_t i = NO_INDEX;
+	size_t i = no_index;
 	     if (month == "Jan")  i = 0;
   else if (month == "Feb")  i = 1;
   else if (month == "Mar")  i = 2;
@@ -1830,7 +1830,7 @@ string Csv::getWord ()
   QC_ASSERT (goodPos ());
   
   size_t start = pos;
-  size_t stop = NO_INDEX;
+  size_t stop = no_index;
   if (s [pos] == '\"')
   {
     pos++;
@@ -1841,7 +1841,7 @@ string Csv::getWord ()
   }
   
   findChar (',');
-  if (stop == NO_INDEX)
+  if (stop == no_index)
     stop = pos;
   pos++;
   

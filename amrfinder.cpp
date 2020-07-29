@@ -33,6 +33,7 @@
 *               cat, cp, cut, grep, head, mkdir, mv, nproc, sort, tail, which
 *
 * Release changes:
+*   3.8.6  07/29/2020 PD-3468  -name option
 *          07/13/2020 PD-3484  -l for old database versions
 *   3.8.5  07/10/2020 PD-3482  --ident_min instruction
 *   3.8.4  05/13/2020 PD-3447  Custom point mutation does not match the reference sequence
@@ -199,10 +200,10 @@ struct ThisApplication : ShellApplication
     	addKey ("mutation_all", "File to report all mutations", "", '\0', "MUT_ALL_FILE");
     	addKey ("blast_bin", "Directory for BLAST. Deafult: $BLAST_BIN", "", '\0', "BLAST_DIR");
     //addKey ("hmmer_bin" ??
+      addKey ("name", "Text to be added as the first column \"name\" to all rows of the report, for example it can be an assembly name", "", '\0', "NAME");
       addKey ("output", "Write output to OUTPUT_FILE instead of STDOUT", "", 'o', "OUTPUT_FILE");
       addFlag ("quiet", "Suppress messages to STDERR", 'q');
       addFlag ("gpipe_org", "NCBI internal GPipe organism names");
-    //addKey ("sample", "Sample name to be adde as the first column of the report", ""); 
     	addKey ("parm", "amr_report parameters for testing: -nosame -noblast -skip_hmm_check -bed", "", '\0', "PARM");
 	    version = SVN_REV;  
 	    // threads_max: do not include blast/hmmsearch's threads ??
@@ -277,6 +278,7 @@ struct ThisApplication : ShellApplication
     const bool   report_common   =             getFlag ("report_common");
     const string mutation_all    = shellQuote (getArg ("mutation_all"));  
           string blast_bin       =             getArg ("blast_bin");
+    const string input_name      = shellQuote (getArg ("name"));
     const string parm            =             getArg ("parm");  
     const string output          = shellQuote (getArg ("output"));
     const bool   quiet           =             getFlag ("quiet");
@@ -588,7 +590,7 @@ struct ThisApplication : ShellApplication
   			{
     			findProg ("blastp");  			
     			findProg ("hmmsearch");
-    		  exec (fullProg ("fasta_check") + prot + " -aa -hyphen " + qcS + " -log " + logFName, logFName);  
+    		  exec (fullProg ("fasta_check") + prot + " -aa -hyphen" + qcS + " -log " + logFName, logFName);  
     			
     			if (! emptyArg (gff) && ! contains (parm, "-bed"))
     			{
@@ -660,13 +662,13 @@ struct ThisApplication : ShellApplication
     		{
     			stderr << "Running blastx...\n";
     			findProg ("blastx");
-    		  exec (fullProg ("fasta_check") + dna + " -hyphen  -len "+ tmp + ".len " + qcS + " -log " + logFName, logFName); 
+    		  exec (fullProg ("fasta_check") + dna + " -hyphen  -len "+ tmp + ".len" + qcS + " -log " + logFName, logFName); 
     		  const size_t threadsAvailable = th. getAvailable ();
     		//ASSERT (threadsAvailable);
     		  if (threadsAvailable >= 2)
     		  {
       		  exec ("mkdir " + tmp + ".chunk");
-      		  exec (fullProg ("fasta2parts") + dna + " " + to_string (threadsAvailable) + " " + tmp + ".chunk " + qcS + " -log " + logFName, logFName);   // PAR
+      		  exec (fullProg ("fasta2parts") + dna + " " + to_string (threadsAvailable) + " " + tmp + ".chunk" + qcS + " -log " + logFName, logFName);   // PAR
       		  exec ("mkdir " + tmp + ".blastx_dir");
       		  FileItemGenerator fig (false, true, tmp + ".chunk");
       		  string item;
@@ -729,6 +731,7 @@ struct ThisApplication : ShellApplication
 		
 
     // ".amr"
+    const string nameS (emptyArg (input_name) ? "" : " -name " + input_name);
     {
       const string mutation_allS (emptyArg (mutation_all) ? "" : ("-mutation_all " + tmp + ".mutation_all"));      
       const string coreS (add_plus ? "" : " -core");
@@ -738,7 +741,7 @@ struct ThisApplication : ShellApplication
   		  + (ident == -1 ? string () : "  -ident_min "    + toString (ident)) 
   		  + "  -coverage_min " + toString (cov)
   		  + ifS (suppress_common, " -suppress_prot " + tmp + ".suppress_prot") + pgapS
-  		  + qcS + " " + parm + " -log " + logFName + " > " + tmp + ".amr", logFName);
+  		  + nameS + qcS + " " + parm + " -log " + logFName + " > " + tmp + ".amr", logFName);
   	}
 		if (   ! emptyArg (dna) 
 		    && ! organism1. empty ()
@@ -747,7 +750,7 @@ struct ThisApplication : ShellApplication
 		{
       const string mutation_allS (emptyArg (mutation_all) ? "" : ("-mutation_all " + tmp + ".mutation_all.dna")); 
 			exec (fullProg ("dna_mutation") + tmp + ".blastn " + shellQuote (db + "/AMR_DNA-" + organism1 + ".tab") + " " + strQuote (organism1) + " " + mutation_allS 
-			      + " " + qcS + " -log " + logFName + " > " + tmp + ".amr-snp", logFName);
+			      + nameS + qcS + " -log " + logFName + " > " + tmp + ".amr-snp", logFName);
 			exec ("tail -n +2 " + tmp + ".amr-snp >> " + tmp + ".amr");
       if (! emptyArg (mutation_all))
   			exec ("tail -n +2 " + tmp + ".mutation_all.dna >> " + tmp + ".mutation_all");
