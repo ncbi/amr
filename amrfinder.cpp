@@ -33,7 +33,8 @@
 *               cat, cp, cut, grep, head, mkdir, mv, nproc, sort, tail, which
 *
 * Release changes:
-*   3.8.6  07/29/2020 PD-3468  -name option
+*   3.8.7  08/03/2020 PD-3504  --protein_output, --nucleotide_output options by fasta_extract.cpp
+*   3.8.6  07/29/2020 PD-3468  --name option
 *          07/13/2020 PD-3484  -l for old database versions
 *   3.8.5  07/10/2020 PD-3482  --ident_min instruction
 *   3.8.4  05/13/2020 PD-3447  Custom point mutation does not match the reference sequence
@@ -184,8 +185,8 @@ struct ThisApplication : ShellApplication
     : ShellApplication (HELP, true, true, true)
     {
     	addFlag ("update", "Update the AMRFinder database", 'u');  // PD-2379
-    	addKey ("protein", "Protein FASTA file to search", "", 'p', "PROT_FASTA");
-    	addKey ("nucleotide", "Nucleotide FASTA file to search", "", 'n', "NUC_FASTA");
+    	addKey ("protein", "Input protein FASTA file", "", 'p', "PROT_FASTA");
+    	addKey ("nucleotide", "Input nucleotide FASTA file", "", 'n', "NUC_FASTA");
     	addKey ("gff", "GFF file for protein locations. Protein id should be in the attribute 'Name=<id>' (9th field) of the rows with type 'CDS' or 'gene' (3rd field).", "", 'g', "GFF_FILE");
       addFlag ("pgap", "Input files PROT_FASTA, NUC_FASTA and GFF_FILE are created by the NCBI PGAP");
     	addKey ("database", "Alternative directory with AMRFinder database. Default: $AMRFINDER_DB", "", 'd', "DATABASE_DIR");
@@ -202,6 +203,8 @@ struct ThisApplication : ShellApplication
     //addKey ("hmmer_bin" ??
       addKey ("name", "Text to be added as the first column \"name\" to all rows of the report, for example it can be an assembly name", "", '\0', "NAME");
       addKey ("output", "Write output to OUTPUT_FILE instead of STDOUT", "", 'o', "OUTPUT_FILE");
+      addKey ("protein_output", "Output protein FASTA file of reported proteins", "", '\0', "PROT_FASTA_OUT");
+      addKey ("nucleotide_output", "Output nucleotide FASTA file of reported nucleotide sequences", "", '\0', "NUC_FASTA_OUT");
       addFlag ("quiet", "Suppress messages to STDERR", 'q');
       addFlag ("gpipe_org", "NCBI internal GPipe organism names");
     	addKey ("parm", "amr_report parameters for testing: -nosame -noblast -skip_hmm_check -bed", "", '\0', "PARM");
@@ -281,6 +284,8 @@ struct ThisApplication : ShellApplication
     const string input_name      = shellQuote (getArg ("name"));
     const string parm            =             getArg ("parm");  
     const string output          = shellQuote (getArg ("output"));
+    const string prot_out        = shellQuote (getArg ("protein_output"));
+    const string dna_out         = shellQuote (getArg ("nucleotide_output"));
     const bool   quiet           =             getFlag ("quiet");
     const bool   gpipe_org       =             getFlag ("gpipe_org");
     
@@ -429,11 +434,12 @@ struct ThisApplication : ShellApplication
       string searchMode;
       StringVector includes;
       if (emptyArg (prot))
+      {
         if (emptyArg (dna))
         {
           if (update)
             return;
-  	  	  throw runtime_error ("Parameter --prot or --nucleotide must be present");
+  	  	  throw runtime_error ("Parameter --protein or --nucleotide must be present");
     		}
         else
         {
@@ -441,6 +447,7 @@ struct ThisApplication : ShellApplication
             throw runtime_error ("Parameter --gff is redundant");
           searchMode = "translated nucleotide";
         }
+      }
       else
       {
         searchMode = "protein";
@@ -452,10 +459,14 @@ struct ThisApplication : ShellApplication
         else
         {
       		if (emptyArg (gff))
-            throw runtime_error ("If parameters --prot and --nucleotide are present then parameter --gff must be present");
+            throw runtime_error ("If parameters --protein and --nucleotide are present then parameter --gff must be present");
           searchMode = "combined translated and protein";
         }
       }
+      if (emptyArg (prot) && ! emptyArg (prot_out))
+        throw runtime_error ("Parameter --protein must be present for --protein_out");
+      if (emptyArg (dna) && ! emptyArg (dna_out))
+        throw runtime_error ("Parameter --nucleotide must be present for --nucleotide_out");
       ASSERT (! searchMode. empty ());
       if (emptyArg (organism))
         includes << key2shortHelp ("organism") + " option to add mutation searches and suppress common proteins";
@@ -542,9 +553,10 @@ struct ThisApplication : ShellApplication
 		const string force_cds_report (! emptyArg (dna) && ! organism1. empty () ? "-force_cds_report" : "");  // Needed for dna_mutation
 		
 								  
-    prog2dir ["fasta_check"] = execDir;
-    prog2dir ["fasta2parts"] = execDir;
-    prog2dir ["amr_report"]  = execDir;	
+    prog2dir ["fasta_check"]   = execDir;
+    prog2dir ["fasta2parts"]   = execDir;
+    prog2dir ["amr_report"]    = execDir;	
+    prog2dir ["fasta_extract"] = execDir;
     
     
     bool lcl = false;
@@ -769,16 +781,29 @@ struct ThisApplication : ShellApplication
   		exec ("LANG=C && tail -n +2 " + tmp + ".mutation_all | sort " + sortS + " | uniq >> " + tmp + ".mutation_all-out");
   		exec ("mv " + tmp + ".mutation_all-out " + mutation_all);
     }
-		
-    // timing the run
-    const time_t end = time (NULL);
-    stderr << "AMRFinder took " << end - start << " seconds to complete\n";
 
 
 		if (emptyArg (output))
 		  exec ("cat " + tmp + ".amr");
 		else
 		  exec ("cp " + tmp + ".amr " + output);
+		  
+		  
+    if (! emptyArg (prot_out))
+    {
+      exec ("tail -n +2 " + tmp + ".amr | awk -F '\t' '$1 != \"NA\" {print $1, $6, $7};' | sort -u > " + tmp + ".prot_out");
+      exec (fullProg ("fasta_extract") + prot + " " + tmp + ".prot_out -aa" + qcS + " -log " + logFName + " > " + prot_out, logFName);  
+    }
+    if (! emptyArg (dna_out))
+    {
+      exec ("tail -n +2 " + tmp + ".amr | awk -F '\t' '$1 == \"NA\" {print $2, $3, $4, $5, $6, $7};' | sort -u > " + tmp + ".dna_out");
+      exec (fullProg ("fasta_extract") + dna + " " + tmp + ".dna_out" + qcS + " -log " + logFName + " > " + dna_out, logFName);  
+    }
+
+		
+    // timing the run
+    const time_t end = time (NULL);
+    stderr << "AMRFinder took " << end - start << " seconds to complete\n";
   }
 };
 

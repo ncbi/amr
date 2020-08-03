@@ -49,7 +49,7 @@ COMPILE.cpp= $(CXX) $(CPPFLAGS) $(SVNREV) $(DBDIR) -c
 
 .PHONY: all clean install release
 
-BINARIES= amr_report amrfinder amrfinder_update fasta_check fasta2parts gff_check dna_mutation 
+BINARIES= amr_report amrfinder amrfinder_update fasta_check fasta_extract fasta2parts gff_check dna_mutation 
 
 all:	$(BINARIES)
 
@@ -80,6 +80,11 @@ fasta_check.o:	common.hpp common.inc
 fasta_checkOBJS=fasta_check.o common.o 
 fasta_check:	$(fasta_checkOBJS)
 	$(CXX) -o $@ $(fasta_checkOBJS)
+
+fasta_extract.o:	common.hpp common.inc
+fasta_extractOBJS=fasta_extract.o common.o
+fasta_extract:	$(fasta_extractOBJS)
+	$(CXX) -o $@ $(fasta_extractOBJS)
 
 fasta2parts.o:	common.hpp common.inc
 fasta2partsOBJS=fasta2parts.o common.o

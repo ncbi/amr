@@ -4,6 +4,7 @@ data/
 amr_report
 amrfinder
 fasta_check
+fasta_extract
 dna_mutation
 gff_check
 amrfinder_update
