@@ -119,20 +119,21 @@ void process (const string &id,
     if (seg. isDna ())
       cout << ':' << seg. start + 1 << '-' << seg. stop << ' ' << "strand:" << (seg. strand ? '+' : '-');
     cout << ' ' << seg. genesymbol << ' ' << seg. name << endl;
+    string seq1 (seq);
     if (seg. isDna ())
     {
-      QC_ASSERT (seg. stop <= seq. size ());
-      seq = seq. substr (seg. start, seg. size ());
+      QC_ASSERT (seg. stop <= seq1. size ());
+      seq1 = seq1. substr (seg. start, seg. size ());
       if (! seg. strand)
       {
-        reverse (seq);
-        for (char &c : seq)
+        reverse (seq1);
+        for (char &c : seq1)
           c = complementaryNucleotide (c);
       }
     }
     constexpr size_t line_len = 60;  // PAR
-    for (size_t i = 0; i < seq. size (); i += line_len)
-      cout << seq. substr (i, line_len) << endl;
+    for (size_t i = 0; i < seq1. size (); i += line_len)
+      cout << seq1. substr (i, line_len) << endl;
   }
 }
 

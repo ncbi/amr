@@ -524,8 +524,8 @@ struct BlastAlignment : Alignment
           td << (targetProt ? nvl(targetName, na) : na);  // PD-2534
 	        if (cdsExist)
 	          td << (empty () ? na : (cds. contig. empty () ? nvl (targetName,na)  : cds. contig))
-	             << (empty () ? 0 : (cds. contig. empty () ? targetStart : cds. start) + 1)
-	             << (empty () ? 0 : (cds. contig. empty () ? targetEnd  : cds. stop))
+	             << (empty () ? 0  : (cds. contig. empty () ? targetStart : cds. start) + 1)
+	             << (empty () ? 0  : (cds. contig. empty () ? targetEnd  : cds. stop))
 	             << (empty () ? na : (cds. contig. empty () ? (targetStrand ? "+" : "-") : (cds. strand ? "+" : "-")));
 	        td << (isMutation ()
 			             ? mut 

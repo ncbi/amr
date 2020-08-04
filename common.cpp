@@ -3026,6 +3026,20 @@ string ShellApplication::fullProg (const string &progName) const
 
 
 
+string ShellApplication::exec2str (const string &cmd,
+                                   const string &tmpPrefix,
+                                   const string &logFName) const
+{
+  ASSERT (! contains (tmpPrefix, ' '));
+  const string out (tmp + "." + tmpPrefix);
+  exec (cmd + " > " + out, logFName);
+  const StringVector vec (out, (size_t) 1);
+  QC_ASSERT (vec. size () == 1);
+  return vec [0];  
+}
+
+
+
 }
 
 

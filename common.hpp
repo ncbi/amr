@@ -3623,6 +3623,11 @@ protected:
   string fullProg (const string &progName) const;
     // Return: shellQuote (directory + progName) + ' '
     // Requires: After findProg(progName)
+  string exec2str (const string &cmd,
+                   const string &tmpPrefix,
+                   const string &logFName = string()) const;
+    // Return: `cmd > <tmp>.tmpPredix && cat <tmp>.tmpPredix`
+    // Requires: cmd produces one line
 };
 #endif
 

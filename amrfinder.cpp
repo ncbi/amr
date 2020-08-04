@@ -30,9 +30,10 @@
 *   AMRFinder
 *
 * Dependencies: NCBI BLAST, HMMer
-*               cat, cp, cut, grep, head, mkdir, mv, nproc, sort, tail, which
+*               awk, cat, cp, cut, grep, head, mkdir, mv, nproc, sort, tail, which
 *
 * Release changes:
+*   3.8.8  08/04/2020          bug in fasta_extract.cpp, more output in --nucleotide_output
 *   3.8.7  08/03/2020 PD-3504  --protein_output, --nucleotide_output options by fasta_extract.cpp
 *   3.8.6  07/29/2020 PD-3468  --name option
 *          07/13/2020 PD-3484  -l for old database versions
@@ -243,10 +244,7 @@ struct ThisApplication : ShellApplication
     // stderr << "Compiled for Linux" << "\n";
     //exec ("nproc --all > " + tmp + ".nproc");
     //exec ("grep processor /proc/cpuinfo | tail -1 | awk '{print $3}' > " + tmp + ".nproc");
-    exec ("grep -c processor /proc/cpuinfo > " + tmp + ".nproc");
-    const StringVector vec (tmp + ".nproc", (size_t) 1);
-    QC_ASSERT (vec. size () == 1);
-    return str2<size_t> (vec [0]);
+    return str2<size_t> (exec2str ("grep -c processor /proc/cpuinfo", "nproc"));
   #endif
   }
 
@@ -260,6 +258,13 @@ struct ThisApplication : ShellApplication
     exec ("tail -n +2 " + tmp + ".db/AMRProt-mutation.tab" + " | cut -f 1 > " + tmp + ".prot_org");
     exec ("cat " + tmp + ".prot_org " + tmp + ".tax_org | sort -u > " + tmp + ".org");
     return StringVector (tmp + ".org", (size_t) 100);  // PAR
+  }
+  
+  
+  
+  string col2num (const string &colName) const
+  {
+    return exec2str ("head -1 " + tmp + ".amr | tr '\t' '\n' | grep -n \"" + colName + "\" | cut -f 1 -d ':'", "col");
   }
 
 
@@ -712,7 +717,7 @@ struct ThisApplication : ShellApplication
     			prog2dir ["dna_mutation"] = execDir;
     			stderr << "Running blastn...\n";
     			exec (fullProg ("blastn") + " -query " + dna + " -db " + tmp + ".db/AMR_DNA-" + organism1 + " -evalue 1e-20  -dust no  "
-    			  BLAST_FMT " -out " + tmp + ".blastn > " + logFName + " 2> " + logFName, logFName);
+    			        BLAST_FMT " -out " + tmp + ".blastn > " + logFName + " 2> " + logFName, logFName);
     		}
     		else
   		    exec ("cp /dev/null " + tmp + ".blastn");    		  
@@ -748,12 +753,12 @@ struct ThisApplication : ShellApplication
       const string mutation_allS (emptyArg (mutation_all) ? "" : ("-mutation_all " + tmp + ".mutation_all"));      
       const string coreS (add_plus ? "" : " -core");
   		exec (fullProg ("amr_report") + " -fam " + shellQuote (db + "/fam.tab") + "  " + amr_report_blastp + "  " + amr_report_blastx
-  		  + "  -organism " + strQuote (organism1) + "  -mutation " + shellQuote (db + "/AMRProt-mutation.tab") + " " + mutation_allS + " "
-  		  + force_cds_report + " -pseudo" + coreS
-  		  + (ident == -1 ? string () : "  -ident_min "    + toString (ident)) 
-  		  + "  -coverage_min " + toString (cov)
-  		  + ifS (suppress_common, " -suppress_prot " + tmp + ".suppress_prot") + pgapS
-  		  + nameS + qcS + " " + parm + " -log " + logFName + " > " + tmp + ".amr", logFName);
+        		  + "  -organism " + strQuote (organism1) + "  -mutation " + shellQuote (db + "/AMRProt-mutation.tab") + " " + mutation_allS + " "
+        		  + force_cds_report + " -pseudo" + coreS
+        		  + (ident == -1 ? string () : "  -ident_min "    + toString (ident)) 
+        		  + "  -coverage_min " + toString (cov)
+        		  + ifS (suppress_common, " -suppress_prot " + tmp + ".suppress_prot") + pgapS
+        		  + nameS + qcS + " " + parm + " -log " + logFName + " > " + tmp + ".amr", logFName);
   	}
 		if (   ! emptyArg (dna) 
 		    && ! organism1. empty ()
@@ -789,14 +794,24 @@ struct ThisApplication : ShellApplication
 		  exec ("cp " + tmp + ".amr " + output);
 		  
 		  
+    // Column names are from amr_report.cpp
     if (! emptyArg (prot_out))
     {
-      exec ("tail -n +2 " + tmp + ".amr | awk -F '\t' '$1 != \"NA\" {print $1, $6, $7};' | sort -u > " + tmp + ".prot_out");
+      const string protCol       (col2num ("Protein identifier"));
+      const string geneSymbolCol (col2num ("Gene symbol"));
+      const string seqNameCol    (col2num ("Sequence name"));
+      exec ("tail -n +2 " + tmp + ".amr | awk -F '\t' '$" + protCol + " != \"NA\" {print $" + protCol + ", $" + geneSymbolCol + ", $" + seqNameCol + "};' | sort -u > " + tmp + ".prot_out");
       exec (fullProg ("fasta_extract") + prot + " " + tmp + ".prot_out -aa" + qcS + " -log " + logFName + " > " + prot_out, logFName);  
     }
     if (! emptyArg (dna_out))
     {
-      exec ("tail -n +2 " + tmp + ".amr | awk -F '\t' '$1 == \"NA\" {print $2, $3, $4, $5, $6, $7};' | sort -u > " + tmp + ".dna_out");
+      const string contigCol     (col2num ("Contig id"));
+      const string startCol      (col2num ("Start"));
+      const string stopCol       (col2num ("Stop"));
+      const string strandCol     (col2num ("Strand"));
+      const string geneSymbolCol (col2num ("Gene symbol"));
+      const string seqNameCol    (col2num ("Sequence name"));
+      exec ("tail -n +2 " + tmp + ".amr | awk -F '\t' '$" + contigCol + " != \"NA\" {print $" + contigCol + ", $" + startCol + ", $" + stopCol + ", $" + strandCol + ", $" + geneSymbolCol + ", $" + seqNameCol + "};' | sort -u > " + tmp + ".dna_out");
       exec (fullProg ("fasta_extract") + dna + " " + tmp + ".dna_out" + qcS + " -log " + logFName + " > " + dna_out, logFName);  
     }
 
