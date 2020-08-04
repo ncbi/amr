@@ -22,7 +22,9 @@ jobs:
     - name: install AMRFinderPlus
       run: conda install -y -c bioconda ncbi-amrfinderplus
     - name: version?
-      run: amrfinder --version
+      run: |
+          source /usr/share/miniconda/bin/activate
+          amrfinder --version
     - name: download latest AMRFinderPlus database
       run: /usr/share/miniconda/bin/amrfinder -u
     - name: test protein

@@ -30,16 +30,24 @@ else
 endif
 SVNREV := -D'SVN_REV="$(VERSION_STRING)"'
 
-# make it possible to hard define a database directory
-
-# Define default paths
-# PREFIX ?= /usr/local
 INSTALL=install
+
+# make it possible to hard define a database directory
+# Define default paths
+# This is a little convoluted because I broke things and don't want
+# to change two different ways of defining the paths. This could
+# be simplified in a later release
+PREFIX ?= /usr/local
+ifneq '$(INSTALL_DIR)' ''
+	bindir=$(INSTALL_DIR)
+endif
+bindir ?= $(PREFIX)/bin
 ifneq '$(CONDA_DB_DIR)' ''
 	DBDIR := -D'CONDA_DB_DIR="$(CONDA_DB_DIR)"'
 endif
-
-bindir ?= $(PREFIX)/bin
+ifneq '$(DEFAULT_DB_DIR)' ''
+	DBDIR := -D'CONDA_DB_DIR="$(DEFAULT_DB_DIR)"'
+endif
 
 CPPFLAGS = -std=gnu++11 -pthread -malign-double -fno-math-errno -O3 
 
