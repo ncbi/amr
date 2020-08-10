@@ -1,6 +1,7 @@
 name: binary tarball
 
 on: 
+    workflow_dispatch:
     release:
     repository_dispatch:
         types: [linux-binary-test, install-test]
