@@ -3,7 +3,7 @@ name: binary tarball
 on: 
     release:
     repository_dispatch:
-        types: [linux-binary-test, install-test]
+        types: [linux-binary-test, install-test, workflow_dipatch]
 jobs:
   build:
     runs-on: ubuntu-latest
