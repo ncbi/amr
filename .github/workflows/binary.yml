@@ -1,8 +1,8 @@
 name: binary tarball
 
 on: 
-    workflow_dipatch : 
-    release:
+    workflow_dispatch
+    release
     repository_dispatch:
         types: 
             linux-binary-test
