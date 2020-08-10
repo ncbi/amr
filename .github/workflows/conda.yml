@@ -1,6 +1,7 @@
 name: Linux bioconda 
 
 on:
+    workflow_dispatch:
     schedule:
         - cron: '15 4 * * *' # 4:15am everyday
     repository_dispatch:
