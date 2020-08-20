@@ -166,6 +166,7 @@ struct BlastnAlignment : Alignment
 
   bool good () const
     { return targetSeq. size () >= min (refLen, 2 * flankingLen + 1); }
+#if 0
   bool operator< (const BlastnAlignment &other) const
     { LESS_PART (*this, other, targetName);
       LESS_PART (other, *this, pIdentity ());
@@ -173,6 +174,7 @@ struct BlastnAlignment : Alignment
       LESS_PART (*this, other, refName);
       return false;
     }
+#endif
 };
 
 
@@ -347,7 +349,7 @@ struct ThisApplication : Application
               SeqChange& seqChange2 = *iter;
               ASSERT (seqChange2. al == blastAl2);
             //ASSERT (seqChange2. mutation);
-              if (   seqChange1. start_target         == seqChange2. start_target 
+              if (   seqChange1. start_target == seqChange2. start_target 
                   && seqChange1. better (seqChange2)                
                  )
                 iter. erase ();

@@ -80,14 +80,17 @@
 #endif
 
 
-[[noreturn]] void errorThrow (const std::string &msg);
+namespace Common_sp
+{
+  [[noreturn]] void errorThrow (const std::string &msg);
+}
 
-#define ERROR_MSG(msg)                \
-  { if (! std::uncaught_exception ()) \
-    { std::ostringstream oss_;        \
-      oss_ << WHERE << ": " << (msg); \
-      errorThrow (oss_. str ());      \
-    } else {}                         \
+#define ERROR_MSG(msg)                      \
+  { if (! std::uncaught_exception ())       \
+    { std::ostringstream oss_;              \
+      oss_ << WHERE << ": " << (msg);       \
+      Common_sp::errorThrow (oss_. str ()); \
+    } else {}                               \
   }
 #define ERROR            ERROR_MSG ("")
 #define NOT_IMPLEMENTED  ERROR_MSG ("Not implemented: ")

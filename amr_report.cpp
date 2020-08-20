@@ -371,6 +371,7 @@ struct BlastAlignment : Alignment
 			  	throw runtime_error (string ("Bad AMRFinder database\n") + e. what ());
 			  }
 		    QC_ASSERT (! refAccession. empty ());
+		    refName = refAccession;
 		    	    
 		    replace (product, '_', ' ');
 		    
@@ -429,9 +430,11 @@ struct BlastAlignment : Alignment
 		    if (const Vector<Mutation>* refMutations = findPtr (accession2mutations, refAccession))
 		    {
 		    	if (verbose ())
-		        cout << "Mutation protein found: " << refName << endl;
+		        cout << "Mutation protein found: " << refAccession << endl << line << endl;
   	      QC_ASSERT (isMutation ());  	      
   	      setSeqChanges (*refMutations, 0 /*flankingLen*/ /*, mutation_all. get ()*/);
+  	      if (verbose ())
+  	        cout << endl;
 		    }
 		  }
 		  catch (...)
@@ -462,7 +465,7 @@ struct BlastAlignment : Alignment
       seqChanges << SeqChange (this, & mut);
     }
 #endif
-  void qc () const
+  void qc () const override
     {
       if (! qc_on)
         return;
@@ -496,7 +499,7 @@ struct BlastAlignment : Alignment
     #endif
 	    QC_IMPLY (! seqChanges. empty (), isMutation ());
     }
-  void saveText (ostream& os) const 
+  void saveText (ostream& os) const override
     { // PD-736, PD-774, PD-780, PD-799
       const string na ("NA");
       const string proteinName (isMutation () 
@@ -517,7 +520,7 @@ struct BlastAlignment : Alignment
 	      {
 	        const Mutation* mut = seqChange. mutation;
           const string method (empty () ? na : getMethod (cds));
-          ASSERT (isMutation () == ! (seqChange. empty () && ! mut));
+          IMPLY (! verbose (), isMutation () == ! (seqChange. empty () && ! mut));
 	        TabDel td (2, false);
     	    if (! input_name. empty ())
     	      td << input_name;;
@@ -628,7 +631,9 @@ struct BlastAlignment : Alignment
   Set<string> getMutationSymbols () const
     { Set<string> mutationSymbols;
       for (const SeqChange& seqChange : seqChanges)
-        if (seqChange. mutation)
+        if (   ! seqChange. empty () 
+            && seqChange. mutation
+           )
           mutationSymbols << seqChange. mutation->geneMutation;
       return mutationSymbols;
     }        
@@ -659,7 +664,7 @@ struct BlastAlignment : Alignment
                  );
     }
   bool truncated (const Locus &cds) const
-    { return    (missedDnaStart (cds) > 0 && (targetProt ? (cds. empty () ? false : cds. atContigStart ()) : targetStart            <= Locus::end_delta))
+    { return    (missedDnaStart (cds) > 0 && (targetProt ? (cds. empty () ? false : cds. atContigStart ()) : targetStart           <= Locus::end_delta))
              || (missedDnaStop  (cds) > 0 && (targetProt ? (cds. empty () ? false : cds. atContigStop  ()) : targetLen - targetEnd <= Locus::end_delta));
     }
   bool truncatedCds () const
@@ -746,7 +751,7 @@ private:
     { ASSERT (targetProt == other. targetProt);
     	return    targetStrand                     == other. targetStrand
              && targetStart + mismatchTailTarget >= other. targetStart 
-             && targetEnd                       <= other. targetEnd + mismatchTailTarget;	    
+             && targetEnd                        <= other. targetEnd + mismatchTailTarget;	    
     }
     // Requires: same targetName
   bool matchesCds (const BlastAlignment &other) const
@@ -806,18 +811,6 @@ private:
       {
 	    	if (targetName != other. targetName)
 	        return false;
-	      // PD-807
-	      if (   ! (targetProt && famId == other. famId)  // PD-2441
-	      	//&& ! sameTarget (other)
-	          && ! other. insideEq (*this)
-	      	  && !        insideEq (other)
-	      	 )
-	        return false;
-	    //if (targetProt)
-	      //{ LESS_PART (other, *this, isMutation ()); }
-	      LESS_PART (other, *this, refExactlyMatched ());  // PD-1261, PD-1678
-	      LESS_PART (other, *this, nident);
-	      LESS_PART (*this, other, refEffectiveLen ());
 	    }
 	    else
 	    { // PD-1902, PD-2139, PD-2313, PD-2320
@@ -825,27 +818,45 @@ private:
 	    	  return false;
 	    	if (! targetProt && ! other. matchesCds (*this))
 	    	  return false;
-				if (isMutation ())
-				{
-				  if (! other. isMutation ())
-				    return true;
-				  const Set<string> mutationSymbols      (       getMutationSymbols ());
-				  const Set<string> otherMutationSymbols (other. getMutationSymbols ());
-				  if (mutationSymbols == otherMutationSymbols)
-				    return targetProt;
-				  if (mutationSymbols. containsAll (otherMutationSymbols))
-				    return true;
-				  if (otherMutationSymbols. containsAll (mutationSymbols))
-				    return false;
-				}
-				else
-				{
+	    }
+      if (isMutation ())
+			{
+			  if (! other. isMutation ())
+			    return true;
+			  const Set<string> mutationSymbols      (       getMutationSymbols ());
+			  const Set<string> otherMutationSymbols (other. getMutationSymbols ());
+			  if (mutationSymbols == otherMutationSymbols && targetProt != other. targetProt)
+			    return targetProt;
+			  if (mutationSymbols. containsAll (otherMutationSymbols))
+			    return true;
+			  if (otherMutationSymbols. containsAll (mutationSymbols))
+			    return false;
+			}
+			else
+			{
+  	    if (targetProt == other. targetProt)  
+        {
+  	      // PD-807
+  	      if (   ! (targetProt && famId == other. famId)  // PD-2441
+  	      	//&& ! sameTarget (other)
+  	          && ! other. insideEq (*this)
+  	      	  && !        insideEq (other)
+  	      	 )
+  	        return false;
+  	    //if (targetProt)
+  	      //{ LESS_PART (other, *this, isMutation ()); }
+  	      LESS_PART (other, *this, refExactlyMatched ());  // PD-1261, PD-1678
+  	      LESS_PART (other, *this, nident);
+  	      LESS_PART (*this, other, refEffectiveLen ());
+  	    }
+  	    else
+  	    { 
   	      LESS_PART (other, *this, refExactlyMatched ());  
   	    //LESS_PART (other, *this, allele ());  // PD-2352
   	      LESS_PART (other, *this, alleleReported ());  
   	      LESS_PART (other, *this, targetProt);
   	    }
-	    }
+  	  }
       return true;
     }
 public:

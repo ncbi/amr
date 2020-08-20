@@ -33,6 +33,8 @@
 *               awk, cat, cp, cut, grep, head, mkdir, mv, nproc, sort, tail, which
 *
 * Release changes:
+*   3.8.10 08/20/2020 PD-3469  --force_update
+*   3.8.9  08/13/2020          BLAST -show_gis parameter is removed, more mutations are reported for --mutation_all
 *   3.8.8  08/04/2020          bug in fasta_extract.cpp, more output in --nucleotide_output
 *   3.8.7  08/03/2020 PD-3504  --protein_output, --nucleotide_output options by fasta_extract.cpp
 *   3.8.6  07/29/2020 PD-3468  --name option
@@ -186,6 +188,7 @@ struct ThisApplication : ShellApplication
     : ShellApplication (HELP, true, true, true)
     {
     	addFlag ("update", "Update the AMRFinder database", 'u');  // PD-2379
+    	addFlag ("force_update", "Force updating the AMRFinder database");  // PD-3469
     	addKey ("protein", "Input protein FASTA file", "", 'p', "PROT_FASTA");
     	addKey ("nucleotide", "Input nucleotide FASTA file", "", 'n', "NUC_FASTA");
     	addKey ("gff", "GFF file for protein locations. Protein id should be in the attribute 'Name=<id>' (9th field) of the rows with type 'CDS' or 'gene' (3rd field).", "", 'g', "GFF_FILE");
@@ -275,6 +278,7 @@ struct ThisApplication : ShellApplication
     const string dna             = shellQuote (getArg ("nucleotide"));
           string db              =             getArg ("database");
     const bool   update          =             getFlag ("update");
+    const bool   force_update    =             getFlag ("force_update");
     const string gff             = shellQuote (getArg ("gff"));
     const bool   pgap            =             getFlag ("pgap");
     const double ident           =             arg2double ("ident_min");
@@ -314,6 +318,8 @@ struct ThisApplication : ShellApplication
 		  
 	  if (report_common && emptyArg (organism))
 		  throw runtime_error ("--report_common requires --organism");
+	  if (report_common && ! add_plus)
+		  throw runtime_error ("--report_common requires --plus");
 		  
 		// PD-3437
 	  if (! emptyArg (mutation_all) && emptyArg (organism))
@@ -384,7 +390,8 @@ struct ThisApplication : ShellApplication
       if (! dbDir. items. empty () && dbDir. items. back () == "latest")
       {
         prog2dir ["amrfinder_update"] = execDir;
-  		  exec (fullProg ("amrfinder_update") + " -d " + shellQuote (dbDir. getParent ()) + ifS (quiet, " -q") + ifS (qc_on, " --debug") + " > " + logFName, logFName);
+  		  exec (fullProg ("amrfinder_update") + " -d " + shellQuote (dbDir. getParent ()) + ifS (force_update, " --force_update") 
+  		          + ifS (quiet, " -q") + ifS (qc_on, " --debug") + " > " + logFName, logFName);
       }
       else
       {
@@ -598,7 +605,7 @@ struct ThisApplication : ShellApplication
 
   		
   		// PD-2967
-  		const string blastp_par ("-show_gis  -comp_based_stats 0  -evalue 1e-10  ");
+  		const string blastp_par ("-comp_based_stats 0  -evalue 1e-10  ");  
   		  // was: -culling_limit 20  // PD-2967
   		if (! emptyArg (prot))
   		{

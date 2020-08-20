@@ -3545,8 +3545,12 @@ private:
 	void setPositional (List<Positional>::iterator &posIt,
 	                    const string &value);
 public:
-  virtual ~Application ()
-    {}
+ ~Application ()
+   { if (logPtr)
+  	 { delete logPtr;
+  	   logPtr = nullptr;
+     }
+   }
 
 
 protected:
@@ -3592,6 +3596,8 @@ struct ShellApplication : Application
   // Environment
   const bool useTmp;
   string tmp;
+    // Temporary file prefix
+    // If log is used then tmp is printed in the log file and the temporary files are not deleted 
   string execDir;
     // Ends with '/'
     // Physically real directory of the software

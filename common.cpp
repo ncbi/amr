@@ -49,17 +49,14 @@
 
 
 
-[[noreturn]] void errorThrow (const string &msg)
-{ 
-  throw std::logic_error (msg); 
-}
-
-
-
-
 namespace Common_sp
 {
  
+
+
+[[noreturn]] void errorThrow (const string &msg)
+  { throw std::logic_error (msg); }
+
 
 
 vector<string> programArgs;
@@ -1106,6 +1103,8 @@ void exec (const string &cmd,
 //Chronometer_OnePass cop (cmd);  
   if (verbose ())
   	cout << cmd << endl;
+  if (logPtr)
+  	*logPtr << cmd << endl;
   	
 	const int status = system (cmd. c_str ());  // pipefail's are not caught
 	if (status)
@@ -2901,11 +2900,13 @@ int Application::run (int argc,
       jRoot = nullptr;
     }
   
+  #if 0
   	if (! logFName. empty ())
   	{
   	  delete logPtr;
   	  logPtr = nullptr;
     }
+  #endif
 	}
 	catch (const std::exception &e) 
 	{ 
