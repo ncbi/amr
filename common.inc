@@ -91,13 +91,14 @@ namespace Common_sp
       oss_ << WHERE << ": " << (msg);       \
       Common_sp::errorThrow (oss_. str ()); \
     } else {}                               \
+    exit (1);                               \
   }
 #define ERROR            ERROR_MSG ("")
 #define NOT_IMPLEMENTED  ERROR_MSG ("Not implemented: ")
 #define NEVER_CALL       ERROR_MSG ("Never call: ")
 
 
-#define QC_ASSERT(cond)  if (! (cond)) ERROR_MSG (#cond) else {}
+#define QC_ASSERT(cond)  if (! (cond)) ERROR_MSG (#cond) else {}   // Must be the last statement in a function body
 
 
 // Logic errors

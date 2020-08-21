@@ -33,6 +33,7 @@
 *               awk, cat, cp, cut, grep, head, mkdir, mv, nproc, sort, tail, which
 *
 * Release changes:
+*   3.8.11 08/21/2020 PD-2407  --type
 *   3.8.10 08/20/2020 PD-3469  --force_update
 *   3.8.9  08/13/2020          BLAST -show_gis parameter is removed, more mutations are reported for --mutation_all
 *   3.8.8  08/04/2020          bug in fasta_extract.cpp, more output in --nucleotide_output
@@ -178,6 +179,13 @@ public:
     { stderr << Color::code () << "\n"; }
 };
 
+
+
+const StringVector all_types {"AMR", "STRESS", "VIRULENCE"};
+  // select id from FAM where [type] = 1
+
+
+
 		
 
 // ThisApplication
@@ -203,6 +211,8 @@ struct ThisApplication : ShellApplication
     	addFlag ("plus", "Add the plus genes to the report");  // PD-2789
       addFlag ("report_common", "Report proteins common to a taxonomy group");  // PD-2756
     	addKey ("mutation_all", "File to report all mutations", "", '\0', "MUT_ALL_FILE");
+    	addKey ("type", "Limit search to specific element types: " + all_types. toString (",") + ". A comma delimited list, case-insensitive", "", '\0', "TYPE");
+    	  // "Element type" is a column name in the report
     	addKey ("blast_bin", "Directory for BLAST. Deafult: $BLAST_BIN", "", '\0', "BLAST_DIR");
     //addKey ("hmmer_bin" ??
       addKey ("name", "Text to be added as the first column \"name\" to all rows of the report, for example it can be an assembly name", "", '\0', "NAME");
@@ -289,6 +299,7 @@ struct ThisApplication : ShellApplication
     const bool   add_plus        =             getFlag ("plus");
     const bool   report_common   =             getFlag ("report_common");
     const string mutation_all    = shellQuote (getArg ("mutation_all"));  
+    const string type            =             getArg ("type");
           string blast_bin       =             getArg ("blast_bin");
     const string input_name      = shellQuote (getArg ("name"));
     const string parm            =             getArg ("parm");  
@@ -321,11 +332,30 @@ struct ThisApplication : ShellApplication
 	  if (report_common && ! add_plus)
 		  throw runtime_error ("--report_common requires --plus");
 		  
+		if (force_update && ! update)
+		  throw runtime_error ("--force_update requires --update");
+		  
 		// PD-3437
 	  if (! emptyArg (mutation_all) && emptyArg (organism))
 	  {
 	    Warning warning (stderr);
 		  stderr << "--mutation_all option used without -O/--organism option. No point mutations will be screened";
+		}
+		
+    StringVector typeVec;
+		if (! type. empty ())
+		{
+		  const List<string> typeList (str2list (type, ','));
+		  for (string s: typeList)
+		  {
+		    trim (s);
+		    if (s. empty ())
+		      continue;
+		    strUpper (s);
+		    if (! all_types. contains (s))
+		      throw runtime_error ("Unknown element type " + strQuote (s));
+		    typeVec << s;
+		  }
 		}
 
 		if (! emptyArg (output))
@@ -780,18 +810,35 @@ struct ThisApplication : ShellApplication
   			exec ("tail -n +2 " + tmp + ".mutation_all.dna >> " + tmp + ".mutation_all");
 	  }
 
+    // Column names are from amr_report.cpp
+    string typeFilter;
+		if (! typeVec. empty ())
+		{
+      const string typeCol (col2num ("Element type"));
+      for (const string& t : typeVec)
+        typeFilter += " || $" + typeCol + " == \"" + t + "\"";
+    }
+
     // PD-2244, PD-3230
     const string sortS (emptyArg (dna) && emptyArg (gff) ? "-k1,1 -k2,2" : "-k2,2 -k3,3n -k4,4n -k5,5 -k1,1 -k6,6");      
     // Sorting AMR report
 		exec ("head -1 "              + tmp + ".amr                             >  " + tmp + ".amr-out");
 		exec ("LANG=C && tail -n +2 " + tmp + ".amr | sort " + sortS + " | uniq >> " + tmp + ".amr-out");
-		exec ("mv " + tmp + ".amr-out " + tmp + ".amr");
+		
+		if (! typeFilter. empty ())
+      exec ("awk -F '\t' 'NR == 1 " + typeFilter + "' " + tmp + ".amr-out > " + tmp + ".amr");
+		else
+  		exec ("mv " + tmp + ".amr-out " + tmp + ".amr");
+
     // Sorting mutation_all
     if (! emptyArg (mutation_all))
     {
   		exec ("head -1 "              + tmp + ".mutation_all                             >  " + tmp + ".mutation_all-out");
   		exec ("LANG=C && tail -n +2 " + tmp + ".mutation_all | sort " + sortS + " | uniq >> " + tmp + ".mutation_all-out");
-  		exec ("mv " + tmp + ".mutation_all-out " + mutation_all);
+  		if (! typeFilter. empty ())
+        exec ("awk -F '\t' 'NR == 1 " + typeFilter + "' " + tmp + ".mutation_all-out > " + mutation_all);
+  		else
+    		exec ("mv " + tmp + ".mutation_all-out " + mutation_all);
     }
 
 
@@ -799,9 +846,8 @@ struct ThisApplication : ShellApplication
 		  exec ("cat " + tmp + ".amr");
 		else
 		  exec ("cp " + tmp + ".amr " + output);
-		  
-		  
-    // Column names are from amr_report.cpp
+		  		  
+
     if (! emptyArg (prot_out))
     {
       const string protCol       (col2num ("Protein identifier"));

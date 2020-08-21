@@ -348,7 +348,7 @@ Requirements:\n\
         const StringVector version_new (tmp, (size_t) 100);
         if (   ! version_old. empty () 
             && ! version_new. empty ()
-            && version_old == version_new
+            && version_old. front () == version_new. front ()
            )
         {
           stderr << shellQuote (latestDir) << " contains the latest version: " << version_old. front () << '\n';
