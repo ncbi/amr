@@ -33,6 +33,7 @@
 *               awk, cat, cp, cut, grep, head, mkdir, mv, nproc, sort, tail, which
 *
 * Release changes:
+*   3.8.12 08/24/2020 PD-2394  fusion genes are reported to include both gene symbols on each line
 *   3.8.11 08/21/2020 PD-2407  --type
 *   3.8.10 08/20/2020 PD-3469  --force_update
 *   3.8.9  08/13/2020          BLAST -show_gis parameter is removed, more mutations are reported for --mutation_all

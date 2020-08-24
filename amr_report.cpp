@@ -298,6 +298,8 @@ unique_ptr<OFStream> mutation_all;
 
 string input_name;
 
+const string na ("NA");
+
 
 
 struct BlastAlignment : Alignment
@@ -320,6 +322,7 @@ struct BlastAlignment : Alignment
     // <= parts
   size_t parts {1};  
     // >= 1
+  const BlastAlignment* fusion {nullptr};
   // Table FAM
   string famId;  
   string gene;   
@@ -501,7 +504,6 @@ struct BlastAlignment : Alignment
     }
   void saveText (ostream& os) const override
     { // PD-736, PD-774, PD-780, PD-799
-      const string na ("NA");
       const string proteinName (isMutation () 
                                   ? product /*string ()*/
                                   : refExactlyMatched () || parts >= 2 || refAccession. empty ()   // PD-3187, PD-3192
@@ -538,7 +540,7 @@ struct BlastAlignment : Alignment
 			                 : gene + "_" + seqChange. getMutationStr ()
 	                 : print_fam 
 			                 ? famId
-			                 : (isLeft (method, "ALLELE") ? famId : nvl (getFam () -> genesymbol, na))
+			                 : getGeneSymbols ()
 	              )
 	           <<   (isMutation ()
 	                   ? mut 
@@ -675,6 +677,22 @@ struct BlastAlignment : Alignment
     }
   bool alleleReported () const
     { return refExactlyMatched () && allele () && (! targetProt || refLen == targetLen); }
+  string getGeneSymbol () const
+    { return alleleReported () /*isLeft (method, "ALLELE")*/ 
+               ? famId 
+               : nvl (getFam () -> genesymbol, na); 
+    }
+  string getGeneSymbols () const
+    { if (fusion)
+      {
+        string s1 (        getGeneSymbol ());
+        string s2 (fusion->getGeneSymbol ());
+        if (part == 2)
+          swap (s1, s2);
+        return s1 + "/" + s2;
+      }
+      return getGeneSymbol ();
+    }
 	string getMethod (const Locus &cds) const
 	  { //IMPLY (refExactlyMatched () && ! mutation_all. get (), ! isMutation ())
 	    string method (refExactlyMatched () 
@@ -893,9 +911,22 @@ public:
              ;
     }
   size_t getCdsStart () const
-    { return cdss. empty () 
-               ? 0
-               : cdss. front (). start;
+    { if (cdss. empty ())
+        return 0;
+      size_t start = numeric_limits<size_t>::max ();
+      for (const Locus& cds : cdss)
+        minimize (start, cds. start);
+      ASSERT (start != numeric_limits<size_t>::max ());
+      return start;
+    }
+  size_t getCdsStop () const
+    { if (cdss. empty ())
+        return 0;
+      size_t stop = 0;
+      for (const Locus& cds : cdss)
+        maximize (stop, cds. stop);
+      ASSERT (stop);
+      return stop;
     }
   void setTargetAlign ()
     { targetAlign = targetEnd - targetStart;
@@ -940,16 +971,29 @@ public:
     }
   static bool less (const BlastAlignment* a,
                     const BlastAlignment* b) 
-  { ASSERT (a);
-    ASSERT (b);
-    LESS_PART (*a, *b, targetName);
-    LESS_PART (*a, *b, targetStart);
-    LESS_PART (*a, *b, getCdsStart ());
-    LESS_PART (*a, *b, famId);
-    LESS_PART (*a, *b, refAccession);
-    LESS_PART (*b, *a, pIdentity ());
-    return false;
-  }
+    { ASSERT (a);
+      ASSERT (b);
+      LESS_PART (*a, *b, targetName);
+      LESS_PART (*a, *b, targetStart);
+      LESS_PART (*a, *b, targetEnd);
+      LESS_PART (*a, *b, getCdsStart ());
+      LESS_PART (*a, *b, getCdsStop ());
+      LESS_PART (*a, *b, refAccession);
+      LESS_PART (*a, *b, part);
+    //LESS_PART (*a, *b, famId);
+    //LESS_PART (*b, *a, pIdentity ());
+      return false;
+    }
+  bool sameMatch (const BlastAlignment* other) const
+    // Cf. less()
+    { ASSERT (other);
+      return    targetName     == other->targetName
+             && targetStart    == other->targetStart
+             && targetEnd      == other->targetEnd
+             && getCdsStart () == other->getCdsStart ()
+             && getCdsStop ()  == other->getCdsStop ()
+             && refAccession   == other->refAccession;
+    }
 };
 
 
@@ -1351,7 +1395,26 @@ public:
     }
   #endif
   
-    goodBlastAls. sort (BlastAlignment::less);
+    // PD-2394
+    // BlastAlignment::fusion
+    goodBlastAls. sort (BlastAlignment::less);  
+    {
+      const BlastAlignment* prev = nullptr;
+      for (const BlastAlignment* blastAl : goodBlastAls)
+      {
+        if (   prev 
+            && prev->sameMatch (blastAl)
+            && prev   ->part == 1
+            && blastAl->part == 2
+           )
+        {
+          QC_ASSERT (blastAl->parts == 2);
+          var_cast (prev)    -> fusion = blastAl;
+          var_cast (blastAl) -> fusion = prev;
+        }
+        prev = blastAl;
+      }
+    }
 
     if (verbose ())
     {

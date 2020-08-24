@@ -2699,12 +2699,14 @@ public:
       : runtime_error (what_arg)
       {}
   };
+  string errorText (const string &what,
+		                bool expected = true) const
+		{ return "Error at line " + to_string (lineNum + 1) + ", pos. " + to_string (charNum + 1)
+                + (what. empty () ? string () : (": " + what + ifS (expected, " is expected"))); 
+    }
   [[noreturn]] void error (const string &what,
 		                       bool expected = true) const
-		{ throw Error ("Error at line " + to_string (lineNum + 1) + ", pos. " + to_string (charNum + 1)
-		               + (what. empty () ? string () : (": " + what + ifS (expected, " is expected")))
-		              );
-		}
+		{ throw Error (errorText (what, expected)); }
 };
 	
 

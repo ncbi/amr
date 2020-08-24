@@ -1474,7 +1474,6 @@ string CharInput::getLine ()
 
 
 
-
 // Token
 
 void Token::readInput (CharInput &in)
