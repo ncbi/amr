@@ -33,6 +33,7 @@
 *               awk, cat, cp, cut, grep, head, mkdir, mv, nproc, sort, tail, which
 *
 * Release changes:
+*   3.8.13 08/25/2020 PD-2322  a complete nucleotide hit should be preferred to a partial protein hit
 *   3.8.12 08/24/2020 PD-2394  fusion genes are reported to include both gene symbols on each line
 *   3.8.11 08/21/2020 PD-2407  --type
 *   3.8.10 08/20/2020 PD-3469  --force_update

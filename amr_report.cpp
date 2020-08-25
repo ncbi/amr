@@ -718,7 +718,8 @@ struct BlastAlignment : Alignment
 	        && ! targetProt
 	       )
 	      method = "INTERNAL_STOP";	
-	    else if (method != "HMM")
+	    else 
+	    if (method != "HMM")
 	      method += (targetProt ? "P" : "X");	  
 	    return method;
 	  }
@@ -872,6 +873,7 @@ private:
   	      LESS_PART (other, *this, refExactlyMatched ());  
   	    //LESS_PART (other, *this, allele ());  // PD-2352
   	      LESS_PART (other, *this, alleleReported ());  
+  	      LESS_PART (*this, other, partial ());  // PD-2322
   	      LESS_PART (other, *this, targetProt);
   	    }
   	  }
