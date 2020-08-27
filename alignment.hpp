@@ -290,6 +290,19 @@ public:
              && nident == refLen 
              && nident == targetSeq. size ();
 	  }
+	bool getFrameShift (const Alignment &other,
+	                    size_t diff_max) const
+	  // Return: success
+	  // Input: diff_max: in bp
+	  // Requires: !targetProt, refProt, rightPart.refProt
+	  { return    nident >= other. nident
+	           && (          getFrameShift_right (other, diff_max) 
+	               || other. getFrameShift_right (*this, diff_max) 
+	              );
+	  }
+private:
+	bool getFrameShift_right (const Alignment &rightPart,
+	                          size_t diff_max) const;
 };
 
 

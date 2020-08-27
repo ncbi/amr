@@ -829,6 +829,55 @@ void Alignment::qc () const
 
 
 
+bool Alignment::getFrameShift_right (const Alignment &rightPart,
+                                     size_t diff_max) const
+{
+  ASSERT (! targetProt);
+  ASSERT (refProt);
+  ASSERT (rightPart. refProt);
+  
+  if (this == & rightPart)
+    return false;
+    
+  if (rightPart. targetProt)
+    return false;    
+    
+  if (   targetName   != rightPart. targetName
+      || refName      != rightPart. refName
+      || targetStrand != rightPart. targetStrand
+     )
+    return false;
+
+  if (   refStart     >= rightPart. refStart
+      || refEnd       >= rightPart. refEnd
+      || difference (rightPart. refStart, refEnd) > diff_max / 3
+     )
+    return false;
+    
+  if (targetStrand)
+  {
+    if (   targetStart >= rightPart. targetStart
+        || targetEnd   >= rightPart. targetEnd
+        || difference (rightPart. targetStart, targetEnd) > diff_max
+       )
+      return false;
+  }
+  else
+  {
+    if (   targetStart <= rightPart. targetStart
+        || targetEnd   <= rightPart. targetEnd
+        || difference (rightPart. targetEnd, targetStart) > diff_max
+       )
+      return false;
+  }  
+
+  if (targetStart % 3 == rightPart. targetStart % 3)
+    return false;
+          
+  return true;
+}
+
+
 
 }  // namespace
 
