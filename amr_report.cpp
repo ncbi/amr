@@ -313,8 +313,7 @@ struct BlastAlignment : Alignment
   bool frameShift {false};
   
   // Reference protein
-//long gi {0};  
-    // 0 <=> HMM method
+  bool fromHmm {false};
   string refAccession; 
     // empty() <=> HMM method
   size_t part {1};    
@@ -445,28 +444,39 @@ struct BlastAlignment : Alignment
 		  	throw;
 		  }
     }
-  explicit BlastAlignment (const HmmAlignment& other)
-    : famId      (other. fam->id)   
-    , gene       (other. fam->id)   
-    , product    (other. fam->familyName) 
-    , hmmAl      (& other)  
-    { targetName = other. sseqid;
+  BlastAlignment (const HmmAlignment& hmmAl_arg,
+                  const BlastAlignment* best)
+    : fromHmm    (true)
+    , famId      (hmmAl_arg. fam->id)   
+    , gene       (hmmAl_arg. fam->id)   
+    , product    (hmmAl_arg. fam->familyName) 
+    , hmmAl      (& hmmAl_arg)  
+    { ASSERT (hmmAl_arg. good ());
+      targetName = hmmAl_arg. sseqid;
       targetProt = true;
       alProt = true;
       if (allele ())
         ERROR_MSG (famId + " " + gene);
-      ASSERT (other. good ());
+      if (best)
+      {
+        targetSeq      = best->targetSeq;
+        targetStart    = best->targetStart;
+        targetEnd      = best->targetEnd;
+        targetLen      = best->targetLen;
+        targetStrand   = best->targetStrand;
+        refProt        = true;
+        refName        = best->refName;
+        refSeq         = best->refSeq;
+        refStart       = best->refStart;
+        refEnd         = best->refEnd;
+        refLen         = best->refLen;
+        alProt         = true;
+        nident         = best->nident;
+        targetAlign    = best->targetAlign;
+        targetAlign_aa = best->targetAlign_aa;
+        refAccession   = best->refAccession;
+      }
     }
-#if 0
-  explicit BlastAlignment (const Mutation& mut)
-    : famId      (mut. gene)   
-    , gene       (mut. gene)   
-    , resistance ("mutation")
-    { targetProt = true;
-      alProt     = true;
-      seqChanges << SeqChange (this, & mut);
-    }
-#endif
   void qc () const override
     {
       if (! qc_on)
@@ -479,6 +489,7 @@ struct BlastAlignment : Alignment
 	    QC_ASSERT (part >= 1);
 	    QC_ASSERT (part <= parts);
 	    QC_ASSERT (! product. empty ());
+	    QC_IMPLY (! fromHmm, ! refAccession. empty ());
 	    QC_ASSERT (refAccession. empty () == targetSeq. empty ());
 	    QC_ASSERT (! refAccession. empty () == (bool) refLen);
 	    QC_ASSERT (! refAccession. empty () == (bool) nident);
@@ -694,19 +705,19 @@ struct BlastAlignment : Alignment
     }
 	string getMethod (const Locus &cds) const
 	  { //IMPLY (refExactlyMatched () && ! mutation_all. get (), ! isMutation ())
-	    string method (refExactlyMatched () 
-        	             ? alleleReported () 
-        	               ? "ALLELE"
-        	               : "EXACT"  // PD-776
-        	             : refAccession. empty ()
-        	                ? "HMM"
-        	                : partial ()
-        	                  ? truncated (cds)
-        	                    ? "PARTIAL_CONTIG_END"  // PD-2267
-        	                    : "PARTIAL"
-        	                  : isMutation ()
-        	                    ? "POINT"
-        	                    : "BLAST"
+	    string method (fromHmm
+	                     ? "HMM"
+	                     : refExactlyMatched () 
+          	             ? alleleReported () 
+          	               ? "ALLELE"
+          	               : "EXACT"  // PD-776
+        	               : partial ()
+        	                 ? truncated (cds)
+        	                   ? "PARTIAL_CONTIG_END"  // PD-2267
+        	                   : "PARTIAL"
+        	                 : isMutation ()
+        	                   ? "POINT"
+        	                   : "BLAST"
         	           );
       // PD-2088, PD-2320
       bool suffix = true;
@@ -1241,7 +1252,6 @@ private:
     
     
   void blastParetoBetter ()
-  // BLAST: Pareto-better()  
   // Input: blastAls
   // Output: goodBlastAls
   {
@@ -1283,7 +1293,7 @@ public:
   // Input: blastAls, domains, hmmAls
 	// Output: goodBlastAls
 	{
-    // BlastAlign::frameShift
+    // BlastAlignment::frameShift
     for (auto& it : blastAls)
       for (Iter<VectorPtr<BlastAlignment>> iter (it. second); iter. next ();)
         if (! (*iter)->targetProt)
@@ -1296,6 +1306,7 @@ public:
               break;
             }
 
+    // BlastAlignment::good()
     for (auto& it : blastAls)
       for (Iter<VectorOwn<BlastAlignment>> iter (it. second); iter. next ();)
         if (! (*iter)->good ())
@@ -1869,22 +1880,33 @@ struct ThisApplication : Application
     	      delete hmmAl;
     	    	continue;
     	    }
-    	    auto al = new BlastAlignment (*hmmAl);
+   	      const BlastAlignment* bestBlastAl = nullptr;  // PD-3475
+    	    if (const VectorOwn<BlastAlignment>* blastAls_ = findPtr (batch. blastAls, hmmAl->sseqid))
+    	    {
+    	      size_t nident = 0;
+    	      for (const BlastAlignment* blastAl : *blastAls_)
+    	        if (maximize (nident, blastAl->nident))
+    	          bestBlastAl = blastAl;
+    	    }
+    	    auto al = new BlastAlignment (*hmmAl, bestBlastAl);
   	  	  hmmAl->blastAl. reset (al);
   	  	  if (verbose ())
   	  	    cout << al->targetName << " " << al->gene << endl;  
   	  	  const HmmAlignment::Domain domain = batch. domains [HmmAlignment::Pair (al->targetName, al->gene)];
   	  	  if (! domain. hmmLen)  
   	  	    continue;  // domain does not exist
-  	  	/*al->refLen      = domain. hmmLen;
-  	  	  al->refStart    = domain. hmmStart;
-  	  	  al->refEnd      = domain. hmmStop; */
-  	  	  al->targetLen   = domain. seqLen;
-  	  	  al->targetStart = domain. seqStart;
-  	  	  al->targetEnd   = domain. seqStop;
-  	  	  al->setTargetAlign ();
-  	  	  ASSERT (! al->refExactlyMatched ());
-  	  	  ASSERT (! al->partial ());
+  	  	  if (! bestBlastAl)
+  	  	  {
+    	  	/*al->refLen      = domain. hmmLen;
+    	  	  al->refStart    = domain. hmmStart;
+    	  	  al->refEnd      = domain. hmmStop; */
+    	  	  al->targetLen   = domain. seqLen;
+    	  	  al->targetStart = domain. seqStart;
+    	  	  al->targetEnd   = domain. seqStop;
+    	  	  al->setTargetAlign ();
+    	  	//ASSERT (! al->refExactlyMatched ());
+    	  	//ASSERT (! al->partial ());
+    	  }
   	  	  al->qc ();
   	      batch. hmmAls << hmmAl;
     	  }
