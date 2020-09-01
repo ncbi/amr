@@ -33,6 +33,7 @@
 *               awk, cat, cp, cut, grep, head, mkdir, mv, nproc, sort, tail, which
 *
 * Release changes:
+*   3.8.16 09/01/2020 PD-2322  a complete nucleotide hit is not preferred to a partial protein hit; stopCodon field is borrowed from BLASTX to BPASTP
 *   3.8.15 08/28/2020 PD-3475  Return BLAST alignment parameters for HMM-only hits where available
 *   3.8.14 08/27/2020 PD-3470  method FRAME_SHIFT, amr_report is faster
 *   3.8.13 08/25/2020 PD-2322  a complete nucleotide hit is preferred to a partial protein hit
@@ -824,6 +825,7 @@ struct ThisApplication : ShellApplication
     }
 
     // PD-2244, PD-3230
+    // use col2num() ??
     const string sortS (emptyArg (dna) && emptyArg (gff) ? "-k1,1 -k2,2" : "-k2,2 -k3,3n -k4,4n -k5,5 -k1,1 -k6,6");      
     // Sorting AMR report
 		exec ("head -1 "              + tmp + ".amr                             >  " + tmp + ".amr-out");

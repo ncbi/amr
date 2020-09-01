@@ -560,7 +560,7 @@ struct BlastAlignment : Alignment
 	                       : proteinName + " [UNKNOWN]"
 	                   : proteinName 
 	                )
-	            //+ ifS (reportPseudo, ifS (frameShift, " " + frameShiftS))
+	            //+ ifS (reportPseudo, ifS (stopCodon, " [STOP_CODON]"))  
 	           << (isMutation () || getFam () -> reportable >= 2 ? "core" : "plus");  // PD-2825
           // PD-1856
 	        if (isMutation ())
@@ -629,6 +629,8 @@ struct BlastAlignment : Alignment
   	             << '\t' << targetProt
   	             << '\t' << nident
   	             << '\t' << refMutation
+  	             << '\t' << stopCodon
+  	             << '\t' << frameShift
   	             << '\t';
 	          os << td. str () << endl;
 	        }
@@ -725,7 +727,7 @@ struct BlastAlignment : Alignment
     	        || method == "PARTIAL"
     	        || method == "PARTIAL_CONTIG_END"
     	       ) 
-	        && ! targetProt
+	      //&& ! targetProt
 	       )
 	    {
 	      if (stopCodon)
@@ -895,7 +897,7 @@ private:
   	      LESS_PART (other, *this, refExactlyMatched ());  
   	    //LESS_PART (other, *this, allele ());  // PD-2352
   	      LESS_PART (other, *this, alleleReported ());  
-  	      LESS_PART (*this, other, partial ());  // PD-2322
+  	    //LESS_PART (*this, other, partial ());  
   	      LESS_PART (other, *this, targetProt);
   	    }
   	  }
@@ -1285,6 +1287,20 @@ private:
   	if (verbose ())
   	  cout << "# Best Blasts: " << getSize (goodBlastAls) << endl;
   }
+
+
+  void setStopCodon (BlastAlignment &blastAlP)
+    { ASSERT (blastAlP. targetProt);
+      for (const Locus& cds : blastAlP. cdss)
+        if (const VectorOwn<BlastAlignment>* blastAlsX = findPtr (blastAls, cds. contig))
+          for (const BlastAlignment* blastAlX : *blastAlsX)
+            if (   ! blastAlX->targetProt 
+                && blastAlX->stopCodon
+                && blastAlP. better (*blastAlX)
+               )
+              blastAlP. stopCodon = true;
+    }
+
 public:
 	  	  
 
@@ -1302,7 +1318,6 @@ public:
             {
               iter. erase ();          
               var_cast (blastAl) -> frameShift = true;
-            //blastAl->saveText (cerr); 
               break;
             }
 
@@ -1314,6 +1329,25 @@ public:
   	if (verbose ())
   	  cout << "# Good Blasts: " << getSize (blastAls) << endl;
         
+	  // PD-2322
+    for (const auto& it : blastAls)
+   	  for (const BlastAlignment* blastAlP : it. second)
+        if (blastAlP->targetProt)
+          setStopCodon (* var_cast (blastAlP));
+ 	  for (const HmmAlignment* hmmAl : hmmAls)
+ 	  {
+ 	    const BlastAlignment* blastAl = hmmAl->blastAl. get ();
+ 	    ASSERT (blastAl);
+ 	    setStopCodon (* var_cast (blastAl));
+ 	  }
+ 	  if (verbose (-1))
+ 	  {
+ 	    cout << "After setStopCodon():" << endl;
+   	  for (const auto& it : blastAls)
+  		  for (const BlastAlignment* blastAl : it. second)
+  		    blastAl->saveText (cout);
+  	}
+ 	  
     if (retainBlasts)
     {
       ASSERT (goodBlastAls. empty ());
