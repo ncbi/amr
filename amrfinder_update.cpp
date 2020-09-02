@@ -30,7 +30,7 @@
 *   Updating of AMRFinder data
 *
 * Dependencies: NCBI BLAST, HMMer
-*               mkdir, ln
+*               ln, mkdir
 *               curl.{h,c}
 *
 * Release changes: see amrfinder.cpp

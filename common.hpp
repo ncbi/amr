@@ -3632,9 +3632,9 @@ protected:
     // Return: shellQuote (directory + progName) + ' '
     // Requires: After findProg(progName)
   string exec2str (const string &cmd,
-                   const string &tmpPrefix,
+                   const string &tmpName,
                    const string &logFName = string()) const;
-    // Return: `cmd > <tmp>.tmpPredix && cat <tmp>.tmpPredix`
+    // Return: `cmd > <tmp>.tmpName && cat <tmp>.tmpName`
     // Requires: cmd produces one line
 };
 #endif

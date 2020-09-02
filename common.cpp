@@ -3027,14 +3027,15 @@ string ShellApplication::fullProg (const string &progName) const
 
 
 string ShellApplication::exec2str (const string &cmd,
-                                   const string &tmpPrefix,
+                                   const string &tmpName,
                                    const string &logFName) const
 {
-  ASSERT (! contains (tmpPrefix, ' '));
-  const string out (tmp + "." + tmpPrefix);
+  ASSERT (! contains (tmpName, ' '));
+  const string out (tmp + "." + tmpName);
   exec (cmd + " > " + out, logFName);
   const StringVector vec (out, (size_t) 1);
-  QC_ASSERT (vec. size () == 1);
+  if (vec. size () != 1)
+    throw runtime_error (cmd + "\nOne line is expected");
   return vec [0];  
 }
 

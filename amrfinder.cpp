@@ -30,9 +30,10 @@
 *   AMRFinder
 *
 * Dependencies: NCBI BLAST, HMMer
-*               awk, cat, cp, cut, grep, head, mkdir, mv, nproc, sort, tail, which
+*               awk, cat, cp, cut, grep, head, ln, mkdir, mv, sort, tail, uniq, which
 *
 * Release changes:
+*   3.8.17 09/02/2020 PD-3528  ordering of rows in the report is broken with parameter --name
 *   3.8.16 09/01/2020 PD-2322  a complete nucleotide hit is not preferred to a partial protein hit; stopCodon field is borrowed from BLASTX to BPASTP
 *   3.8.15 08/28/2020 PD-3475  Return BLAST alignment parameters for HMM-only hits where available
 *   3.8.14 08/27/2020 PD-3470  method FRAME_SHIFT, amr_report is faster
@@ -281,9 +282,31 @@ struct ThisApplication : ShellApplication
   
   
   string col2num (const string &colName) const
+  // Return: number
+  // Input: tmp + ".amr": must have the header line
   {
     return exec2str ("head -1 " + tmp + ".amr | tr '\t' '\n' | grep -n \"" + colName + "\" | cut -f 1 -d ':'", "col");
   }
+  
+  
+  
+  struct SortField : Named
+  {
+    bool numeric {false};
+    
+    explicit SortField (const string &name_arg,
+                        bool numeric_arg = false)
+      : Named (name_arg)
+      , numeric (numeric_arg)
+      {
+        ASSERT (str2<int> (name) > 0);
+      }
+    void saveText (ostream &os) const
+      { os << "-k" << name << ',' << name;
+        if (numeric)
+          os << 'n';
+      }
+  };
 
 
 
@@ -741,10 +764,13 @@ struct ThisApplication : ShellApplication
       			th. exec (fullProg ("blastx") + "  -query " + dna + " -db " + tmp + ".db/AMRProt" + "  "
       			  + blastx_par + to_string (gencode) + " " BLAST_FMT
       			  " -out " + tmp + ".blastx > /dev/null 2> /dev/null", threadsAvailable);
-    		  amr_report_blastx = "-blastx " + tmp + ".blastx  -dna_len " + tmp + ".len";
     		}
     		else
+    		{
   		    exec ("cp /dev/null " + tmp + ".blastx");
+  		    exec ("cp /dev/null " + tmp + ".len");
+  		  }
+   		  amr_report_blastx = "-blastx " + tmp + ".blastx  -dna_len " + tmp + ".len";
   		}
 
 
@@ -789,7 +815,7 @@ struct ThisApplication : ShellApplication
 	  }
 		
 
-    // ".amr"
+    // tmp + ".amr", tmp + ".mutation_all"
     const string nameS (emptyArg (input_name) ? "" : " -name " + input_name);
     {
       const string mutation_allS (emptyArg (mutation_all) ? "" : ("-mutation_all " + tmp + ".mutation_all"));      
@@ -824,12 +850,23 @@ struct ThisApplication : ShellApplication
         typeFilter += " || $" + typeCol + " == \"" + t + "\"";
     }
 
-    // PD-2244, PD-3230
-    // use col2num() ??
-    const string sortS (emptyArg (dna) && emptyArg (gff) ? "-k1,1 -k2,2" : "-k2,2 -k3,3n -k4,4n -k5,5 -k1,1 -k6,6");      
     // Sorting AMR report
-		exec ("head -1 "              + tmp + ".amr                             >  " + tmp + ".amr-out");
-		exec ("LANG=C && tail -n +2 " + tmp + ".amr | sort " + sortS + " | uniq >> " + tmp + ".amr-out");
+    // PD-2244, PD-3230
+    string sortS;
+    {
+      Vector<SortField> sortFields;
+      if (! (emptyArg (dna) && emptyArg (gff)))
+        sortFields << SortField (col2num ("Contig id"))
+                   << SortField (col2num ("Start"), true)
+                   << SortField (col2num ("Stop"), true)
+                   << SortField (col2num ("Strand"));
+      sortFields << SortField (col2num ("Protein identifier"))
+                 << SortField (col2num ("Gene symbol"));
+      for (const SortField& sf : sortFields)
+        sortS += " " + sf. str ();
+    }
+		exec ("head -1 "              + tmp + ".amr                      >  " + tmp + ".amr-out");
+		exec ("LANG=C && tail -n +2 " + tmp + ".amr | sort " + sortS + " >> " + tmp + ".amr-out");
 		
 		if (! typeFilter. empty ())
       exec ("awk -F '\t' 'NR == 1 " + typeFilter + "' " + tmp + ".amr-out > " + tmp + ".amr");
