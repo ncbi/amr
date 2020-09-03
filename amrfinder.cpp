@@ -30,9 +30,10 @@
 *   AMRFinder
 *
 * Dependencies: NCBI BLAST, HMMer
-*               awk, cat, cp, cut, grep, head, ln, mkdir, mv, sort, tail, uniq, which
+*               awk, cat, cp, cut, grep, head, ln, mkdir, mv, sort, tail, uniq
 *
 * Release changes:
+*   3.8.18 09/03/2020 PD-3292  removed the dependece on "which"
 *   3.8.17 09/02/2020 PD-3528  ordering of rows in the report is broken with parameter --name
 *   3.8.16 09/01/2020 PD-2322  a complete nucleotide hit is not preferred to a partial protein hit; stopCodon field is borrowed from BLASTX to BPASTP
 *   3.8.15 08/28/2020 PD-3475  Return BLAST alignment parameters for HMM-only hits where available

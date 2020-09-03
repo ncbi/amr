@@ -185,7 +185,8 @@ namespace
 	
 	// time ??
 #ifndef _MSC_VER
-	const char* hostname = getenv ("HOSTNAME");//const char* shell    = getenv ("SHELL");
+	const char* hostname = getenv ("HOSTNAME");
+//const char* shell    = getenv ("SHELL");
 	const char* shell    = getenv ("SHELL");	
 	const char* pwd      = getenv ("PWD");
 #endif
@@ -1117,6 +1118,22 @@ void exec (const string &cmd,
 		throw runtime_error ("Command failed:\n" + cmd + "\nstatus = " + to_string (status));		
 	}
 }
+
+
+
+#ifndef _MSC_VER
+string which (const string &progName)
+{
+  ASSERT (! progName. empty ());
+
+  const List<string> paths (str2list (getenv ("PATH"), ':'));
+  for (const string& path : paths)
+    if (fileExists (path + "/" + progName))
+      return path + "/";
+
+  return string ();
+}
+#endif
 
 
 
@@ -2947,7 +2964,7 @@ void ShellApplication::initEnvironment ()
   // execDir, programName
 	execDir = getProgramDirName ();
 	if (execDir. empty ())
-		execDir = which (programArgs. front ());
+		execDir = this->which (programArgs. front ());
   if (! isRight (execDir, "/"))
     throw logic_error ("Cannot identify the directory of the executable");
   {
@@ -2974,22 +2991,6 @@ void ShellApplication::body () const
 
 
 
-string ShellApplication::which (const string &progName) const
-{
-	if (tmp. empty ())
-	  throw runtime_error ("Temporary file is needed");
-	
-	try { exec ("which " + shellQuote (progName) + " 1> " + tmp + ".src 2> /dev/null"); }
-	  catch (const runtime_error &)
-	    { return string (); }
-	    
-  const StringVector vec (tmp + ".src", (size_t) 1);  
-  QC_ASSERT (vec. size () == 1);
-	return getDirName (vec [0]);
-}
-
-	
-
 void ShellApplication::findProg (const string &progName) const
 {
 	ASSERT (! progName. empty ());
@@ -3001,7 +3002,7 @@ void ShellApplication::findProg (const string &progName) const
 	{
 		dir = fileExists (execDir + progName)
 		        ? execDir
-		        : which (progName);
+		        : this->which (progName);
 	  if (dir. empty ())
 	    throw runtime_error ("Binary " + shellQuote (progName) + " is not found.\nPlease make sure that " 
 	                         + shellQuote (progName) + " is in the same directory as " + shellQuote (Common_sp::programName) + " or is in your $PATH.");;

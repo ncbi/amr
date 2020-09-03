@@ -1241,6 +1241,11 @@ int getVerbosity ();
 void exec (const string &cmd,
            const string &logFName = string());
 
+#ifndef _MSC_VER
+  string which (const string &progName);
+    // Return: isRight(,"/") or empty() if there is no path
+#endif
+
 
 
 // Threads
@@ -3624,8 +3629,8 @@ private:
 protected:
   static bool emptyArg (const string &s)
     {	return s. empty () || s == "\'\'"; }
-  string which (const string &progName) const;
-    // Return: isRight(,"/") or empty()
+  string which (const string &progName) const
+    { return Common_sp::which (progName); }
   void findProg (const string &progName) const;
     // Output: prog2dir
   string fullProg (const string &progName) const;
