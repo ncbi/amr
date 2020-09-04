@@ -40,11 +40,15 @@
 #include <sstream>
 #include <cstring>
 #include <regex>
+#include <csignal>  
+
 #ifndef _MSC_VER
   #include <dirent.h>
-//#include <execinfo.h>
+  #ifdef __APPLE__
+    #include <sys/types.h>
+    #include <sys/sysctl.h>
+  #endif
 #endif
-#include <csignal>  
 
 
 
@@ -114,6 +118,31 @@ thread::id main_thread_id = get_thread_id ();
   
 bool isMainThread ()
   { return threads_max == 1 || get_thread_id () == main_thread_id; }
+
+
+
+#ifndef _MSC_VER
+size_t get_threads_max_max () 
+{
+#if __APPLE__
+  // stderr << "Compiled for MacOS" << "\n";
+  int count;
+  size_t count_len = sizeof(count);
+  sysctlbyname ("hw.logicalcpu", &count, &count_len, NULL, 0);
+  // fprintf(stderr,"you have %i cpu cores", count);
+  return count;
+#else
+  LineInput f ("/proc/cpuinfo");
+  size_t n = 0;
+  while (f. nextLine ())
+    if (isLeft (f. line, "processor"))
+      n++;
+  return n;
+#endif
+}
+#endif
+
+
 
 
 bool Chronometer::enabled = false;
@@ -1128,7 +1157,9 @@ string which (const string &progName)
 
   const List<string> paths (str2list (getenv ("PATH"), ':'));
   for (const string& path : paths)
-    if (fileExists (path + "/" + progName))
+    if (   ! path. empty () 
+        && fileExists (path + "/" + progName)
+       )
       return path + "/";
 
   return string ();

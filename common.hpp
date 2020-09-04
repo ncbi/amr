@@ -58,11 +58,6 @@
   #pragma warning (default : 4005)  
 #endif
 
-#ifdef __APPLE__
-  #include <sys/types.h>
-  #include <sys/sysctl.h>
-#endif
-
 #include <ctime>
 #include <cstring>
 #include <cmath>
@@ -129,6 +124,10 @@ extern size_t threads_max;
   // >= 1
 extern thread::id main_thread_id;
 bool isMainThread ();
+#ifndef _MSC_VER
+  size_t get_threads_max_max ();
+#endif
+
 
 
 [[noreturn]] void errorExit (const char* msg,

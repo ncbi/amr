@@ -30,9 +30,10 @@
 *   AMRFinder
 *
 * Dependencies: NCBI BLAST, HMMer
-*               awk, cat, cp, cut, grep, head, ln, mkdir, mv, sort, tail, uniq
+*               awk, cat, cp, cut, head, ln, mkdir, mv, sort, tail, uniq
 *
 * Release changes:
+*   3.8.19 09/04/2020 PD-3292  removed the dependece on "grep"
 *   3.8.18 09/03/2020 PD-3292  removed the dependece on "which"
 *   3.8.17 09/02/2020 PD-3528  ordering of rows in the report is broken with parameter --name
 *   3.8.16 09/01/2020 PD-2322  a complete nucleotide hit is not preferred to a partial protein hit; stopCodon field is borrowed from BLASTX to BPASTP
@@ -246,26 +247,15 @@ struct ThisApplication : ShellApplication
   bool blastThreadable (const string &blast) const
   {
     exec (fullProg (blast) + " -help > " + tmp + ".blast_help");
-    return ! system (("grep '^ *\\-num_threads' " + tmp + ".blast_help > /dev/null 2> /dev/null"). c_str ());
-  }
-
-
-
-  size_t get_threads_max_max () const
-  {
-  #if __APPLE__
-    // stderr << "Compiled for MacOS" << "\n";
-    int count;
-    size_t count_len = sizeof(count);
-    sysctlbyname("hw.logicalcpu", &count, &count_len, NULL, 0);
-    // fprintf(stderr,"you have %i cpu cores", count);
-    return count;
-  #else
-    // stderr << "Compiled for Linux" << "\n";
-    //exec ("nproc --all > " + tmp + ".nproc");
-    //exec ("grep processor /proc/cpuinfo | tail -1 | awk '{print $3}' > " + tmp + ".nproc");
-    return str2<size_t> (exec2str ("grep -c processor /proc/cpuinfo", "nproc"));
-  #endif
+    LineInput f (tmp + ".blast_help");
+    while (f. nextLine ())
+    {
+      trim (f. line);
+      if (contains (f. line, "-num_threads"))
+        return true;
+    }
+    return false;
+  //return ! system (("grep '^ *\\-num_threads' " + tmp + ".blast_help > /dev/null 2> /dev/null"). c_str ());
   }
 
 
@@ -286,7 +276,17 @@ struct ThisApplication : ShellApplication
   // Return: number
   // Input: tmp + ".amr": must have the header line
   {
-    return exec2str ("head -1 " + tmp + ".amr | tr '\t' '\n' | grep -n \"" + colName + "\" | cut -f 1 -d ':'", "col");
+    LineInput f (tmp + ".amr");
+    EXEC_ASSERT (f. nextLine ());
+    const List<string> columns (str2list (f. line, '\t'));
+    size_t n = 1;
+    for (const string& column : columns)
+      if (column == colName)
+        return to_string (n);
+      else
+        n++;
+    throw runtime_error ("Column " + strQuote (colName) + " not found in " + tmp + ".amr");    
+  //return exec2str ("head -1 " + tmp + ".amr | tr '\t' '\n' | grep -n \"" + colName + "\" | cut -f 1 -d ':'", "col");
   }
   
   
@@ -678,13 +678,31 @@ struct ThisApplication : ShellApplication
     			if (! emptyArg (gff) && ! contains (parm, "-bed"))
     			{
     			  string locus_tag;
-    			  const int status = system (("grep '^>.*\\[locus_tag=' " + prot + " > /dev/null"). c_str ());
-    			  const bool locus_tagP = (status == 0);
-    			  if (locus_tagP /*|| gpipe*/)
     			  {
-    			    locus_tag = " -locus_tag " + tmp + ".match";
-    			    gff_match = " -gff_match " + tmp + ".match";
-    			  }
+      			#if 0
+      			  const int status = system (("grep '^>.*\\[locus_tag=' " + prot + " > /dev/null"). c_str ());
+      			  const bool locus_tagP = (status == 0);
+      			#else
+      			  bool locus_tagP = false;
+      			  {
+        			  LineInput f (unQuote (prot));
+        			  while (f. nextLine ())
+        			    if (   ! f. line. empty () 
+        			        && f. line [0] == '>'
+        			        && contains (f. line, "[locus_tag=")
+        			       )
+        			    {
+        			      locus_tagP = true;
+        			      break;
+        			    }
+        			}
+      			#endif  
+      			  if (locus_tagP /*|| gpipe*/)
+      			  {
+      			    locus_tag = " -locus_tag " + tmp + ".match";
+      			    gff_match = " -gff_match " + tmp + ".match";
+      			  }
+      			}
     			  prog2dir ["gff_check"] = execDir;		
     			  string dnaPar;
     			  if (! emptyArg (dna))
