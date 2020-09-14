@@ -1570,7 +1570,7 @@ public:
 	         << "Start"    // targetStart            //  3
 	         << "Stop"     // targetEnd              //  4
 	         << "Strand";  // targetStrand           //  5
-	    td << (print_fam ? "FAM.id" : "Gene symbol") //  6 or 2
+	    td << "Gene symbol"                          //  6 or 2
 	       << "Sequence name"                        //  7 or 3
 	       << "Scope"  // PD-2825                    //  8 or 4
 	       // PD-1856

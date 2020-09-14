@@ -33,8 +33,10 @@
 *               awk, cat, cp, cut, head, ln, mkdir, mv, sort, tail, uniq
 *
 * Release changes:
-*   3.8.19 09/04/2020 PD-3292  removed the dependece on "grep"
-*   3.8.18 09/03/2020 PD-3292  removed the dependece on "which"
+*                              --force_update implies --update; -U
+*   3.8.20 09/14/2020 PD-3531  "--parm -print_fam" bug
+*   3.8.19 09/04/2020 PD-3292  removed the dependence on "grep"
+*   3.8.18 09/03/2020 PD-3292  removed the dependence on "which"
 *   3.8.17 09/02/2020 PD-3528  ordering of rows in the report is broken with parameter --name
 *   3.8.16 09/01/2020 PD-2322  a complete nucleotide hit is not preferred to a partial protein hit; stopCodon field is borrowed from BLASTX to BPASTP
 *   3.8.15 08/28/2020 PD-3475  Return BLAST alignment parameters for HMM-only hits where available
@@ -204,7 +206,7 @@ struct ThisApplication : ShellApplication
     : ShellApplication (HELP, true, true, true)
     {
     	addFlag ("update", "Update the AMRFinder database", 'u');  // PD-2379
-    	addFlag ("force_update", "Force updating the AMRFinder database");  // PD-3469
+    	addFlag ("force_update", "Force updating the AMRFinder database", 'U');  // PD-3469
     	addKey ("protein", "Input protein FASTA file", "", 'p', "PROT_FASTA");
     	addKey ("nucleotide", "Input nucleotide FASTA file", "", 'n', "NUC_FASTA");
     	addKey ("gff", "GFF file for protein locations. Protein id should be in the attribute 'Name=<id>' (9th field) of the rows with type 'CDS' or 'gene' (3rd field).", "", 'g', "GFF_FILE");
@@ -255,7 +257,6 @@ struct ThisApplication : ShellApplication
         return true;
     }
     return false;
-  //return ! system (("grep '^ *\\-num_threads' " + tmp + ".blast_help > /dev/null 2> /dev/null"). c_str ());
   }
 
 
@@ -286,7 +287,6 @@ struct ThisApplication : ShellApplication
       else
         n++;
     throw runtime_error ("Column " + strQuote (colName) + " not found in " + tmp + ".amr");    
-  //return exec2str ("head -1 " + tmp + ".amr | tr '\t' '\n' | grep -n \"" + colName + "\" | cut -f 1 -d ':'", "col");
   }
   
   
@@ -316,8 +316,8 @@ struct ThisApplication : ShellApplication
     const string prot            = shellQuote (getArg ("protein"));
     const string dna             = shellQuote (getArg ("nucleotide"));
           string db              =             getArg ("database");
-    const bool   update          =             getFlag ("update");
     const bool   force_update    =             getFlag ("force_update");
+    const bool   update          =             getFlag ("update") || force_update;
     const string gff             = shellQuote (getArg ("gff"));
     const bool   pgap            =             getFlag ("pgap");
     const double ident           =             arg2double ("ident_min");
@@ -361,8 +361,8 @@ struct ThisApplication : ShellApplication
 	  if (report_common && ! add_plus)
 		  throw runtime_error ("--report_common requires --plus");
 		  
-		if (force_update && ! update)
-		  throw runtime_error ("--force_update requires --update");
+	//if (force_update && ! update)
+		//throw runtime_error ("--force_update requires --update");
 		  
 		// PD-3437
 	  if (! emptyArg (mutation_all) && emptyArg (organism))
@@ -679,10 +679,6 @@ struct ThisApplication : ShellApplication
     			{
     			  string locus_tag;
     			  {
-      			#if 0
-      			  const int status = system (("grep '^>.*\\[locus_tag=' " + prot + " > /dev/null"). c_str ());
-      			  const bool locus_tagP = (status == 0);
-      			#else
       			  bool locus_tagP = false;
       			  {
         			  LineInput f (unQuote (prot));
@@ -696,7 +692,6 @@ struct ThisApplication : ShellApplication
         			      break;
         			    }
         			}
-      			#endif  
       			  if (locus_tagP /*|| gpipe*/)
       			  {
       			    locus_tag = " -locus_tag " + tmp + ".match";
