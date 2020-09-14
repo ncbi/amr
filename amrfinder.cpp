@@ -33,7 +33,8 @@
 *               awk, cat, cp, cut, head, ln, mkdir, mv, sort, tail, uniq
 *
 * Release changes:
-*                              --force_update implies --update; -U
+*   3.8.21 09/14/2020 PD-3536  point mutation merging bug
+*                     PD-3469  --force_update implies --update; -U
 *   3.8.20 09/14/2020 PD-3531  "--parm -print_fam" bug
 *   3.8.19 09/04/2020 PD-3292  removed the dependence on "grep"
 *   3.8.18 09/03/2020 PD-3292  removed the dependence on "which"

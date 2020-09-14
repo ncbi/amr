@@ -862,45 +862,39 @@ private:
 	    	if (! targetProt && ! other. matchesCds (*this))
 	    	  return false;
 	    }
-      if (isMutation ())
-			{
-			  if (! other. isMutation ())
-			    return true;
+      if (isMutation () && other. isMutation ())
+      {
 			  const Set<string> mutationSymbols      (       getMutationSymbols ());
 			  const Set<string> otherMutationSymbols (other. getMutationSymbols ());
 			  if (mutationSymbols == otherMutationSymbols && targetProt != other. targetProt)
 			    return targetProt;
 			  if (mutationSymbols. containsAll (otherMutationSymbols))
 			    return true;
-			  if (otherMutationSymbols. containsAll (mutationSymbols))
-			    return false;
+			  return false;  // PD-3536
 			}
-			else
-			{
-  	    if (targetProt == other. targetProt)  
-        {
-  	      // PD-807
-  	      if (   ! (targetProt && famId == other. famId)  // PD-2441
-  	      	//&& ! sameTarget (other)
-  	          && ! other. insideEq (*this)
-  	      	  && !        insideEq (other)
-  	      	 )
-  	        return false;
-  	    //if (targetProt)
-  	      //{ LESS_PART (other, *this, isMutation ()); }
-  	      LESS_PART (other, *this, refExactlyMatched ());  // PD-1261, PD-1678
-  	      LESS_PART (other, *this, nident);
-  	      LESS_PART (*this, other, refEffectiveLen ());
-  	    }
-  	    else
-  	    { 
-  	      LESS_PART (other, *this, refExactlyMatched ());  
-  	    //LESS_PART (other, *this, allele ());  // PD-2352
-  	      LESS_PART (other, *this, alleleReported ());  
-  	    //LESS_PART (*this, other, partial ());  
-  	      LESS_PART (other, *this, targetProt);
-  	    }
-  	  }
+	    if (targetProt == other. targetProt)  
+      {
+	      // PD-807
+	      if (   ! (targetProt && famId == other. famId)  // PD-2441
+	      	//&& ! sameTarget (other)
+	          && ! other. insideEq (*this)
+	      	  && !        insideEq (other)
+	      	 )
+	        return false;
+	    //if (targetProt)
+	      //{ LESS_PART (other, *this, isMutation ()); }
+	      LESS_PART (other, *this, refExactlyMatched ());  // PD-1261, PD-1678
+	      LESS_PART (other, *this, nident);
+	      LESS_PART (*this, other, refEffectiveLen ());
+	    }
+	    else
+	    { 
+	      LESS_PART (other, *this, refExactlyMatched ());  
+	    //LESS_PART (other, *this, allele ());  // PD-2352
+	      LESS_PART (other, *this, alleleReported ());  
+	    //LESS_PART (*this, other, partial ());  
+	      LESS_PART (other, *this, targetProt);
+	    }
       return true;
     }
 public:
