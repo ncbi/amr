@@ -850,7 +850,7 @@ bool Alignment::getFrameShift_right (const Alignment &rightPart,
 
   if (   refStart     >= rightPart. refStart
       || refEnd       >= rightPart. refEnd
-      || difference (rightPart. refStart, refEnd) > diff_max / 3
+      || refEnd + diff_max / 3 < rightPart. refStart
      )
     return false;
     
@@ -858,7 +858,7 @@ bool Alignment::getFrameShift_right (const Alignment &rightPart,
   {
     if (   targetStart >= rightPart. targetStart
         || targetEnd   >= rightPart. targetEnd
-        || difference (rightPart. targetStart, targetEnd) > diff_max
+        || targetEnd + diff_max < rightPart. targetStart
        )
       return false;
   }
@@ -866,7 +866,7 @@ bool Alignment::getFrameShift_right (const Alignment &rightPart,
   {
     if (   targetStart <= rightPart. targetStart
         || targetEnd   <= rightPart. targetEnd
-        || difference (rightPart. targetEnd, targetStart) > diff_max
+        || targetStart > rightPart. targetEnd + diff_max
        )
       return false;
   }  

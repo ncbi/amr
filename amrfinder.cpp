@@ -33,7 +33,8 @@
 *               awk, cat, cp, cut, head, ln, mkdir, mv, sort, tail, uniq
 *
 * Release changes:
-*   3.8.21 09/14/2020 PD-3536  point mutation merging bug
+*   3.8.22 09/15/2020 PD-3470  frameshift detection bug; preference of point mutation reference proteins 
+*   3.8.21 09/14/2020 PD-3536  point mutations merging bug
 *                     PD-3469  --force_update implies --update; -U
 *   3.8.20 09/14/2020 PD-3531  "--parm -print_fam" bug
 *   3.8.19 09/04/2020 PD-3292  removed the dependence on "grep"
@@ -665,7 +666,7 @@ struct ThisApplication : ShellApplication
 
   		
   		// PD-2967
-  		const string blastp_par ("-comp_based_stats 0  -evalue 1e-10  ");  
+  		const string blastp_par ("-comp_based_stats 0  -evalue 1e-10");  
   		  // was: -culling_limit 20  // PD-2967
   		if (! emptyArg (prot))
   		{
@@ -729,7 +730,7 @@ struct ThisApplication : ShellApplication
     			// " -task blastp-fast -word_size 6  -threshold 21 "  // PD-2303
     			string num_threads;
     			if (blastThreadable ("blastp") && prot_threads > 1)
-    			  num_threads = " -num_threads " + to_string (prot_threads);
+    			  num_threads = "  -num_threads " + to_string (prot_threads);
     			th. exec (fullProg ("blastp") + " -query " + prot + " -db " + tmp + ".db/AMRProt" +"  " 
     			  + blastp_par + num_threads + " " BLAST_FMT " -out " + tmp + ".blastp > /dev/null 2> /dev/null", prot_threads);
     			  

@@ -334,7 +334,6 @@ struct BlastAlignment : Alignment
   string product;  
   Vector<Locus> cdss;
   static constexpr size_t mismatchTail_aa = 10;  // PAR
-  size_t mismatchTailTarget {0};
   
   const HmmAlignment* hmmAl {nullptr};
 
@@ -420,10 +419,6 @@ struct BlastAlignment : Alignment
 		       )
 		      nident++;
 		    	    
-		    mismatchTailTarget = mismatchTail_aa;
-		    if (! targetProt)
-		      mismatchTailTarget *= 3;
-		      
 		    if (! targetProt)
 		      cdss << move (Locus (0, targetName, targetStart, targetEnd, targetStrand, partialDna, 0));
 	
@@ -623,14 +618,14 @@ struct BlastAlignment : Alignment
 	           )
 	        {
   	        if (verbose ())
-  	          os         << refExactlyMatched ()
-  	             << '\t' << allele ()
-  	             << '\t' << alleleReported ()
-  	             << '\t' << targetProt
-  	             << '\t' << nident
-  	             << '\t' << refMutation
-  	             << '\t' << stopCodon
-  	             << '\t' << frameShift
+  	          os         << refExactlyMatched ()  // 1
+  	             << '\t' << allele ()             // 2
+  	             << '\t' << alleleReported ()     // 3
+  	             << '\t' << targetProt            // 4
+  	             << '\t' << nident                // 5
+  	             << '\t' << refMutation           // 6
+  	             << '\t' << stopCodon             // 7
+  	             << '\t' << frameShift            // 8
   	             << '\t';
 	          os << td. str () << endl;
 	        }
@@ -780,21 +775,13 @@ struct BlastAlignment : Alignment
 	      return passBlastRule (completeBR);
     }
 private:
-#if 0
-  bool sameTarget (const BlastAlignment &other) const
-    // Symmetric
-    { ASSERT (targetProt == other. targetProt);
-    	return    targetStrand == other. targetStrand
-             && difference (targetStart, other. targetStart) <= mismatchTailTarget 
-             && difference (targetEnd,   other. targetEnd)   <= mismatchTailTarget;	    
-    }
-    // Requires: same targetName
-#endif
+  size_t mismatchTailTarget () const
+    { return (mismatchTail_aa + (frameShift ? 20 : 0)) * (targetProt ? 1 : 3); }
   bool insideEq (const BlastAlignment &other) const
     { ASSERT (targetProt == other. targetProt);
-    	return    targetStrand                     == other. targetStrand
-             && targetStart + mismatchTailTarget >= other. targetStart 
-             && targetEnd                        <= other. targetEnd + mismatchTailTarget;	    
+    	return    targetStrand                        == other. targetStrand
+             && targetStart + mismatchTailTarget () >= other. targetStart 
+             && targetEnd                           <= other. targetEnd + mismatchTailTarget ();
     }
     // Requires: same targetName
   bool matchesCds (const BlastAlignment &other) const
@@ -868,9 +855,10 @@ private:
 			  const Set<string> otherMutationSymbols (other. getMutationSymbols ());
 			  if (mutationSymbols == otherMutationSymbols && targetProt != other. targetProt)
 			    return targetProt;
-			  if (mutationSymbols. containsAll (otherMutationSymbols))
+			  if (   mutationSymbols. containsAll (otherMutationSymbols)
+			      && ! otherMutationSymbols. containsAll (mutationSymbols)
+			     )
 			    return true;
-			  return false;  // PD-3536
 			}
 	    if (targetProt == other. targetProt)  
       {
@@ -1305,15 +1293,34 @@ public:
 	{
     // BlastAlignment::frameShift
     for (auto& it : blastAls)
-      for (Iter<VectorPtr<BlastAlignment>> iter (it. second); iter. next ();)
-        if (! (*iter)->targetProt)
-      	  for (const BlastAlignment* blastAl : it. second)
-            if (! blastAl->targetProt && blastAl->getFrameShift (**iter, 60))  // PAR
+    {
+   	  for (const BlastAlignment* &blastAl1 : it. second)
+        if (! blastAl1->targetProt)
+        {
+          bool found = false;
+      	  for (const BlastAlignment* blastAl2 : it. second)
+      	  {
+            if (   blastAl2 
+                && ! blastAl2->targetProt 
+                && blastAl2->getFrameShift (*blastAl1, 60)  // PAR
+               )
             {
-              iter. erase ();          
-              var_cast (blastAl) -> frameShift = true;
-              break;
+              ASSERT (blastAl1 != blastAl2);
+              var_cast (blastAl2) -> frameShift = true;
+              if (verbose (-1))
+                blastAl2->saveText (cout);
+              found = true;
             }
+          }
+          if (found)
+          {
+            const BlastAlignment* blastAl_ = blastAl1;
+            delete blastAl_;
+            blastAl1 = nullptr;
+          }
+        }
+      it. second. filterValue ([] (const BlastAlignment* blastAl) { return ! blastAl; });
+    }
 
     // BlastAlignment::good()
     for (auto& it : blastAls)
@@ -1321,7 +1328,13 @@ public:
         if (! (*iter)->good ())
           delete iter. erase ();
   	if (verbose ())
+  	{
   	  cout << "# Good Blasts: " << getSize (blastAls) << endl;
+  	  if (verbose (-1))
+        for (const auto& it : blastAls)
+      	  for (const BlastAlignment* blastAl : it. second)
+            blastAl->saveText (cout);  	      
+  	}
         
 	  // PD-2322
     for (const auto& it : blastAls)
