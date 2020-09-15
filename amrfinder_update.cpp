@@ -352,7 +352,7 @@ Requirements:\n\
            )
         {
           stderr << shellQuote (latestDir) << " contains the latest version: " << version_old. front () << '\n';
-          stderr << "No update is done\n";
+          stderr << "Skipping update, use amrfinder --force_update to overwrite the existing database\n";
           return;
         }
       }
