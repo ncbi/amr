@@ -428,7 +428,7 @@ struct BlastAlignment : Alignment
 		    	if (verbose ())
 		        cout << "Mutation protein found: " << refAccession << endl << line << endl;
   	      QC_ASSERT (isMutation ());  	      
-  	      setSeqChanges (*refMutations, 0 /*flankingLen*/ /*, mutation_all. get ()*/);
+  	      setSeqChanges (*refMutations, 0);
   	      if (verbose ())
   	        cout << endl;
 		    }
@@ -523,7 +523,7 @@ struct BlastAlignment : Alignment
       if (seqChanges_. empty ())
         seqChanges_ << SeqChange ();
       for (const Locus& cds : cdss_)
-	      for (SeqChange& seqChange : seqChanges_)
+	      for (const SeqChange& seqChange : seqChanges_)
 	      {
 	        const Mutation* mut = seqChange. mutation;
           const string method (empty () ? na : getMethod (cds));
@@ -539,20 +539,20 @@ struct BlastAlignment : Alignment
 	             << (empty () ? na : (cds. contig. empty () ? (targetStrand ? "+" : "-") : (cds. strand ? "+" : "-")));
 	        td << (isMutation ()
 			             ? mut 
-			                 ? seqChange. empty ()
-                          ? mut->wildtype ()
-			                    : mut->geneMutation
-			                 : gene + "_" + seqChange. getMutationStr ()
+			               ? seqChange. empty ()
+                       ? mut->wildtype ()
+			                 : mut->geneMutation
+			               : gene + "_" + seqChange. getMutationStr ()
 	                 : print_fam 
-			                 ? famId
-			                 : getGeneSymbols ()
+			               ? famId
+			               : getGeneSymbols ()
 	              )
 	           <<   (isMutation ()
 	                   ? mut 
-	                       ? seqChange. empty ()
-	                           ? proteinName + " [WILDTYPE]"
-	                           : mut->name
-	                       : proteinName + " [UNKNOWN]"
+                       ? seqChange. empty ()
+                         ? proteinName + " [WILDTYPE]"
+                         : mut->name
+                       : proteinName + " [UNKNOWN]"
 	                   : proteinName 
 	                )
 	            //+ ifS (reportPseudo, ifS (stopCodon, " [STOP_CODON]"))  
@@ -849,7 +849,8 @@ private:
 	    	if (! targetProt && ! other. matchesCds (*this))
 	    	  return false;
 	    }
-      if (isMutation () && other. isMutation ())
+	  #if 0
+      if (isMutation () && other. isMutation ())  
       {
 			  const Set<string> mutationSymbols      (       getMutationSymbols ());
 			  const Set<string> otherMutationSymbols (other. getMutationSymbols ());
@@ -860,6 +861,7 @@ private:
 			     )
 			    return true;
 			}
+		#endif
 	    if (targetProt == other. targetProt)  
       {
 	      // PD-807
@@ -883,6 +885,13 @@ private:
 	    //LESS_PART (*this, other, partial ());  
 	      LESS_PART (other, *this, targetProt);
 	    }
+      if (isMutation () && other. isMutation ())  
+      {
+			  const Set<string> mutationSymbols      (       getMutationSymbols ());
+			  const Set<string> otherMutationSymbols (other. getMutationSymbols ());
+			  if (mutationSymbols == otherMutationSymbols && targetProt != other. targetProt)
+			    return targetProt;
+			}
       return true;
     }
 public:
@@ -1373,7 +1382,7 @@ public:
         //ASSERT (seqChange1. mutation);
           for (const BlastAlignment* blastAl2 : it. second)
           {
-            ASSERT (blastAl2->targetName   == blastAl1->targetName);
+            ASSERT (blastAl2->targetName == blastAl1->targetName);
             if (   blastAl2->targetStrand == blastAl1->targetStrand
                 && blastAl2 != blastAl1
                )  
@@ -1551,6 +1560,8 @@ public:
     if (verbose ())
     {
 	    cout << endl << "After process():" << endl;
+      if (mutation_all. get ())
+  	    *mutation_all << endl << "After process():" << endl;
    	  for (const auto& it : goodBlastAls)
   		  for (const BlastAlignment* blastAl : it. second)
   		  {

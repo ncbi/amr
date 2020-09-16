@@ -33,6 +33,7 @@
 *               awk, cat, cp, cut, head, ln, mkdir, mv, sort, tail, uniq
 *
 * Release changes:
+*   3.8.23 09/16/2020 PD-3536  simplifying point mutations preference
 *   3.8.22 09/15/2020 PD-3470  frameshift detection bug; preference of point mutation reference proteins 
 *   3.8.21 09/14/2020 PD-3536  point mutations merging bug
 *                     PD-3469  --force_update implies --update; -U
