@@ -33,6 +33,8 @@
 *               awk, cat, cp, cut, head, ln, mkdir, mv, sort, tail, uniq
 *
 * Release changes:
+*                              POINTX method with more SNPs is preferred over POINTP method
+*   3.8.24 09/21/2020 PD-3536  --pointmut_all reports all SNPs in a reference gene repetition
 *   3.8.23 09/16/2020 PD-3536  simplifying point mutations preference
 *   3.8.22 09/15/2020 PD-3470  frameshift detection bug; preference of point mutation reference proteins 
 *   3.8.21 09/14/2020 PD-3536  point mutations merging bug

@@ -137,6 +137,8 @@ struct SeqChange : Root
 	char prev {'\0'};
 	  
 	const Mutation* mutation {nullptr};
+	
+	const SeqChange* replacement {nullptr};
   
   
   SeqChange () = default;

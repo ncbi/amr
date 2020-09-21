@@ -614,7 +614,7 @@ struct BlastAlignment : Alignment
 		        }
 	        }
 	        if (   ! isMutation ()
-	            || (! seqChange. empty () && mut)  // resistant mutation
+	            || (! seqChange. empty () && mut && ! seqChange. replacement)  // resistant mutation
 	           )
 	        {
   	        if (verbose ())
@@ -708,6 +708,7 @@ struct BlastAlignment : Alignment
           	             ? alleleReported () 
           	               ? "ALLELE"
           	               : "EXACT"  // PD-776
+          	           #if 0
         	               : partial ()
         	                 ? truncated (cds)
         	                   ? "PARTIAL_CONTIG_END"  // PD-2267
@@ -715,6 +716,15 @@ struct BlastAlignment : Alignment
         	                 : isMutation ()
         	                   ? "POINT"
         	                   : "BLAST"
+        	             #else
+      	                 : isMutation ()
+      	                   ? "POINT"
+          	               : partial ()
+          	                 ? truncated (cds)
+          	                   ? "PARTIAL_CONTIG_END"  // PD-2267
+          	                   : "PARTIAL"
+        	                   : "BLAST"
+        	             #endif
         	           );
       // PD-2088, PD-2320
       bool suffix = true;
@@ -850,6 +860,7 @@ private:
 	    	  return false;
 	    }
 	  #if 0
+	    // Moved below
       if (isMutation () && other. isMutation ())  
       {
 			  const Set<string> mutationSymbols      (       getMutationSymbols ());
@@ -883,7 +894,7 @@ private:
 	    //LESS_PART (other, *this, allele ());  // PD-2352
 	      LESS_PART (other, *this, alleleReported ());  
 	    //LESS_PART (*this, other, partial ());  
-	      LESS_PART (other, *this, targetProt);
+	    //LESS_PART (other, *this, targetProt);  // moved below
 	    }
       if (isMutation () && other. isMutation ())  
       {
@@ -891,7 +902,16 @@ private:
 			  const Set<string> otherMutationSymbols (other. getMutationSymbols ());
 			  if (mutationSymbols == otherMutationSymbols && targetProt != other. targetProt)
 			    return targetProt;
+			  if (   mutationSymbols. containsAll (otherMutationSymbols)
+			      && ! otherMutationSymbols. containsAll (mutationSymbols)
+			     )
+			    return true;
+			  if (   otherMutationSymbols. containsAll (mutationSymbols)
+			      && ! mutationSymbols. containsAll (otherMutationSymbols)
+			     )
+			    return false;
 			}
+	    LESS_PART (other, *this, targetProt);
       return true;
     }
 public:
@@ -1386,15 +1406,17 @@ public:
             if (   blastAl2->targetStrand == blastAl1->targetStrand
                 && blastAl2 != blastAl1
                )  
-              for (Iter<Vector<SeqChange>> iter (var_cast (blastAl2) -> seqChanges); iter. next (); )
+            //for (Iter<Vector<SeqChange>> iter (var_cast (blastAl2) -> seqChanges); iter. next (); )
+              for (SeqChange& seqChange2 : var_cast (blastAl2) -> seqChanges)
               {
-                SeqChange& seqChange2 = *iter;
+              //SeqChange& seqChange2 = *iter;
               //ASSERT (seqChange2. mutation);
                 ASSERT (seqChange2. al == blastAl2);
                 if (   seqChange1. start_target == seqChange2. start_target 
                     && seqChange1. better (seqChange2)
                    )
-                  iter. erase ();
+                //iter. erase ();
+                  seqChange2. replacement = & seqChange1;
               }
           }
         }    

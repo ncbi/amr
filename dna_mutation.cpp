@@ -156,7 +156,7 @@ struct BlastnAlignment : Alignment
         // HMM
         td << na
            << na;
-        if (! seqChange. empty () && seqChange. mutation)  // resistant mutation
+        if (! seqChange. empty () && seqChange. mutation && ! seqChange. replacement)  // resistant mutation
           os << td. str () << endl;
         if (mutation_all. get ())
 	        *mutation_all << td. str () << endl;
@@ -343,16 +343,17 @@ struct ThisApplication : Application
               && blastAl2->targetStrand == blastAl1->targetStrand
               && blastAl2 != blastAl1
              )  
-          //for (SeqChange& seqChange2 : blastAl2. seqChanges)
-            for (Iter<Vector<SeqChange>> iter (var_cast (blastAl2) -> seqChanges); iter. next (); )
+          //for (Iter<Vector<SeqChange>> iter (var_cast (blastAl2) -> seqChanges); iter. next (); )
+            for (SeqChange& seqChange2 : var_cast (blastAl2) -> seqChanges)
             {
-              SeqChange& seqChange2 = *iter;
+            //SeqChange& seqChange2 = *iter;
               ASSERT (seqChange2. al == blastAl2);
             //ASSERT (seqChange2. mutation);
               if (   seqChange1. start_target == seqChange2. start_target 
                   && seqChange1. better (seqChange2)                
                  )
-                iter. erase ();
+              //iter. erase ();
+                seqChange2. replacement = & seqChange1;
             }
       }
 		
