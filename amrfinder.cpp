@@ -33,6 +33,7 @@
 *               awk, cat, cp, cut, head, ln, mkdir, mv, sort, tail, uniq
 *
 * Release changes:
+*   3.8.25 09/25/2020 PD-3547  identification of frameshifts is disabpled
 *                              POINTX method with more SNPs is preferred over POINTP method
 *   3.8.24 09/21/2020 PD-3536  --pointmut_all reports all SNPs in a reference gene repetition
 *   3.8.23 09/16/2020 PD-3536  simplifying point mutations preference

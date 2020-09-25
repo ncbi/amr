@@ -771,7 +771,7 @@ struct BlastAlignment : Alignment
            )
           return false;
       }
-      if (frameShift)
+      if (frameShift)  // ??
         return true;
   	  // PD-1032
 	    if (partial ())
@@ -1321,6 +1321,7 @@ public:
 	// Output: goodBlastAls
 	{
     // BlastAlignment::frameShift
+  #if 0  // PD-3547
     for (auto& it : blastAls)
     {
    	  for (const BlastAlignment* &blastAl1 : it. second)
@@ -1350,6 +1351,7 @@ public:
         }
       it. second. filterValue ([] (const BlastAlignment* blastAl) { return ! blastAl; });
     }
+  #endif
 
     // BlastAlignment::good()
     for (auto& it : blastAls)
@@ -1778,7 +1780,7 @@ struct ThisApplication : Application
       // Output
       addKey ("out", "Identifiers of the reported input proteins");
       addFlag ("print_fam", "Print the FAM.id instead of gene symbol"); 
-      addFlag ("pseudo", "Indicate pseudo-genes as method INTERNAL_STOP or FRAME_SHIFT"); 
+      addFlag ("pseudo", "Indicate pseudo-genes as method INTERNAL_STOP");  //  or FRAME_SHIFT
       addFlag ("force_cds_report", "Report contig/start/stop/strand even if this information does not exist");
       addFlag ("non_reportable", "Report non-reportable families");
       addFlag ("core", "Report only core reportale families");
@@ -1957,9 +1959,9 @@ struct ThisApplication : Application
    	      const BlastAlignment* bestBlastAl = nullptr;  // PD-3475
     	    if (const VectorOwn<BlastAlignment>* blastAls_ = findPtr (batch. blastAls, hmmAl->sseqid))
     	    {
-    	      size_t nident = 0;
+    	      size_t nident_max = 0;
     	      for (const BlastAlignment* blastAl : *blastAls_)
-    	        if (maximize (nident, blastAl->nident))
+    	        if (maximize (nident_max, blastAl->nident))
     	          bestBlastAl = blastAl;
     	    }
     	    auto al = new BlastAlignment (*hmmAl, bestBlastAl);
