@@ -410,10 +410,9 @@ struct BlastAlignment : Alignment
 		  //frameShift = contains (targetSeq, "/");  // Needs "blastall -p blastx ... "
 		    IMPLY (! targetProt, (targetEnd - targetStart) % 3 == 0);   // redundant ??
 		  	  
-		    // For BLASTX
 		  	// PD-1280
-		    if (   ! targetProt 
-		        && refStart == 0 
+		    if (   /*! targetProt   // PD-2381
+		        &&*/ refStart == 0 
 		        && charInSet (targetSeq [0], "LIV") 
 		        && nident < targetAlign_aa
 		       )
