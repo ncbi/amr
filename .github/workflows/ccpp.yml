@@ -24,7 +24,9 @@ jobs:
       run: ./amrfinder -u
     - name: make test
       run: make test
-    - name: make gitnub_binaries
+    - name: test for no-overwrite upload (PD-3469 / https://github.com/ncbi/amr/issues/16)
+      run: ./amrfinder -u | fgrep 'Skipping update, use amrfinder --force_update to overwrite the existing database'
+    - name: make github_binaries
       run: make github_binaries
     - uses: actions/upload-artifact@v2
       with:
