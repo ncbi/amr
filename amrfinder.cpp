@@ -33,6 +33,7 @@
 *               awk, cat, cp, cut, head, ln, mkdir, mv, sort, tail, uniq
 *
 * Release changes:
+*   3.8.27 09/28/2020 PD-2381  non-standard start codons are not changed in fusion proteins
 *   3.8.26 09/25/2020 PD-2381  proteins with non-standard start codons that are extended in the N-terminal direction are EXACTP
 *   3.8.25 09/25/2020 PD-3547  identification of frameshifts is disabled
 *                              POINTX method with more SNPs is preferred over POINTP method
