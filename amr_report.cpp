@@ -53,7 +53,8 @@ namespace
 {
 
 
-constexpr static double frac_delta = 1e-5;  // PAR      
+constexpr double frac_delta = 1e-5;  // PAR 
+constexpr size_t domain_min = 20;  // aa
   
 // PAR
 constexpr double ident_min_def = 0.9;
@@ -411,8 +412,8 @@ struct BlastAlignment : Alignment
 		    IMPLY (! targetProt, (targetEnd - targetStart) % 3 == 0);   // redundant ??
 		  	  
 		  	// PD-1280
-		    if (   /*! targetProt   // PD-2381
-		        &&*/ refStart == 0 
+		    if (   (! targetProt || targetStart < domain_min)  // PD-2381
+		        && refStart == 0 
 		        && charInSet (targetSeq [0], "LIV") 
 		        && nident < targetAlign_aa
 		       )
@@ -785,7 +786,7 @@ struct BlastAlignment : Alignment
     }
 private:
   size_t mismatchTailTarget () const
-    { return (mismatchTail_aa + (frameShift ? 20 : 0)) * (targetProt ? 1 : 3); }
+    { return (mismatchTail_aa + (frameShift ? domain_min : 0)) * (targetProt ? 1 : 3); }
   bool insideEq (const BlastAlignment &other) const
     { ASSERT (targetProt == other. targetProt);
     	return    targetStrand                        == other. targetStrand
