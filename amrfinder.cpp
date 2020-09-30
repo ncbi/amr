@@ -30,9 +30,11 @@
 *   AMRFinder
 *
 * Dependencies: NCBI BLAST, HMMer
-*               awk, cat, cp, cut, head, ln, mkdir, mv, sort, tail, uniq
+*               awk, cat, cp, cut, head, ln, mkdir, mv, sort, tail
 *
 * Release changes:
+*          09/30/2020 PD-2407  option --type is removed
+*   3.8.28 09/29/2020 PD-3292  dependence on "uniq" is removed
 *   3.8.27 09/28/2020 PD-2381  non-standard start codons are not changed in fusion proteins
 *   3.8.26 09/25/2020 PD-2381  proteins with non-standard start codons that are extended in the N-terminal direction are EXACTP
 *   3.8.25 09/25/2020 PD-3547  identification of frameshifts is disabled
@@ -199,7 +201,7 @@ public:
 
 
 
-const StringVector all_types {"AMR", "STRESS", "VIRULENCE"};
+//const StringVector all_types {"AMR", "STRESS", "VIRULENCE"};
   // select id from FAM where [type] = 1
 
 
@@ -229,7 +231,7 @@ struct ThisApplication : ShellApplication
     	addFlag ("plus", "Add the plus genes to the report");  // PD-2789
       addFlag ("report_common", "Report proteins common to a taxonomy group");  // PD-2756
     	addKey ("mutation_all", "File to report all mutations", "", '\0', "MUT_ALL_FILE");
-    	addKey ("type", "Limit search to specific element types: " + all_types. toString (",") + ". A comma delimited list, case-insensitive", "", '\0', "TYPE");
+    //addKey ("type", "Limit search to specific element types: " + all_types. toString (",") + ". A comma delimited list, case-insensitive", "", '\0', "TYPE");
     	  // "Element type" is a column name in the report
     	addKey ("blast_bin", "Directory for BLAST. Deafult: $BLAST_BIN", "", '\0', "BLAST_DIR");
     //addKey ("hmmer_bin" ??
@@ -336,7 +338,7 @@ struct ThisApplication : ShellApplication
     const bool   add_plus        =             getFlag ("plus");
     const bool   report_common   =             getFlag ("report_common");
     const string mutation_all    = shellQuote (getArg ("mutation_all"));  
-    const string type            =             getArg ("type");
+  //const string type            =             getArg ("type");
           string blast_bin       =             getArg ("blast_bin");
     const string input_name      = shellQuote (getArg ("name"));
     const string parm            =             getArg ("parm");  
@@ -378,7 +380,8 @@ struct ThisApplication : ShellApplication
 	    Warning warning (stderr);
 		  stderr << "--mutation_all option used without -O/--organism option. No point mutations will be screened";
 		}
-		
+
+  #if 0		
     StringVector typeVec;
 		if (! type. empty ())
 		{
@@ -394,6 +397,7 @@ struct ThisApplication : ShellApplication
 		    typeVec << s;
 		  }
 		}
+  #endif
 
 		if (! emptyArg (output))
 		  try { OFStream f (unQuote (output)); }
@@ -864,6 +868,8 @@ struct ThisApplication : ShellApplication
 	  }
 
     // Column names are from amr_report.cpp
+
+  #if 0
     string typeFilter;
 		if (! typeVec. empty ())
 		{
@@ -871,6 +877,7 @@ struct ThisApplication : ShellApplication
       for (const string& t : typeVec)
         typeFilter += " || $" + typeCol + " == \"" + t + "\"";
     }
+  #endif
 
     // Sorting AMR report
     // PD-2244, PD-3230
@@ -890,19 +897,24 @@ struct ThisApplication : ShellApplication
 		exec ("head -1 "              + tmp + ".amr                      >  " + tmp + ".amr-out");
 		exec ("LANG=C && tail -n +2 " + tmp + ".amr | sort " + sortS + " >> " + tmp + ".amr-out");
 		
+  #if 0
 		if (! typeFilter. empty ())
       exec ("awk -F '\t' 'NR == 1 " + typeFilter + "' " + tmp + ".amr-out > " + tmp + ".amr");
 		else
+	#endif
   		exec ("mv " + tmp + ".amr-out " + tmp + ".amr");
 
     // Sorting mutation_all
     if (! emptyArg (mutation_all))
     {
-  		exec ("head -1 "              + tmp + ".mutation_all                             >  " + tmp + ".mutation_all-out");
-  		exec ("LANG=C && tail -n +2 " + tmp + ".mutation_all | sort " + sortS + " | uniq >> " + tmp + ".mutation_all-out");
+  		exec ("head -1 "              + tmp + ".mutation_all                                >  " + tmp + ".mutation_all-out");
+  		exec ("LANG=C && tail -n +2 " + tmp + ".mutation_all | sort -u | sort " + sortS + " >> " + tmp + ".mutation_all-out");  
+  		  // "sort -u | sort <sortS>" replaces "sort <sortS> | uniq"
+    #if 0
   		if (! typeFilter. empty ())
         exec ("awk -F '\t' 'NR == 1 " + typeFilter + "' " + tmp + ".mutation_all-out > " + mutation_all);
   		else
+  	#endif
     		exec ("mv " + tmp + ".mutation_all-out " + mutation_all);
     }
 

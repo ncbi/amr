@@ -547,15 +547,14 @@ struct BlastAlignment : Alignment
 			               ? famId
 			               : getGeneSymbols ()
 	              )
-	           <<   (isMutation ()
-	                   ? mut 
-                       ? seqChange. empty ()
-                         ? proteinName + " [WILDTYPE]"
-                         : mut->name
-                       : proteinName + " [UNKNOWN]"
-	                   : proteinName 
-	                )
-	            //+ ifS (reportPseudo, ifS (stopCodon, " [STOP_CODON]"))  
+	           << (isMutation ()
+	                 ? mut 
+                     ? seqChange. empty ()
+                       ? proteinName + " [WILDTYPE]"
+                       : mut->name
+                     : proteinName + " [UNKNOWN]"
+	                 : proteinName 
+	              )
 	           << (isMutation () || getFam () -> reportable >= 2 ? "core" : "plus");  // PD-2825
           // PD-1856
 	        if (isMutation ())

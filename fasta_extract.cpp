@@ -46,6 +46,7 @@ namespace
   
   
 struct Segment
+// not circular
 {
   size_t start {0};
   size_t stop {0};
