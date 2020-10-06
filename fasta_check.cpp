@@ -148,7 +148,7 @@ struct ThisApplication : Application
   		
 	  ids. sort ();
 	  const size_t index = ids. findDuplicate ();
-	  if (index != NO_INDEX)
+	  if (index != no_index)
 	  	throw runtime_error ("Duplicate identifier: " + ids [index]);
   }
 };

@@ -30,7 +30,7 @@
 *   Updating of AMRFinder data
 *
 * Dependencies: NCBI BLAST, HMMer
-*               mkdir, ln
+*               ln, mkdir
 *               curl.{h,c}
 *
 * Release changes: see amrfinder.cpp
@@ -266,6 +266,7 @@ Requirements:\n\
     {
     	addKey ("database", "Directory for all versions of AMRFinder databases", "$BASE/data", 'd', "DATABASE_DIR");
     	  // Symbolic link ??
+    	addFlag ("force_update", "Force updating the AMRFinder database");  // PD-3469
       addFlag ("quiet", "Suppress messages to STDERR", 'q');
 	    version = SVN_REV;
 
@@ -281,8 +282,9 @@ Requirements:\n\
 
   void shellBody () const final
   {
-    const string mainDirOrig = getArg ("database");
-    const bool   quiet       = getFlag ("quiet");
+    const string mainDirOrig  = getArg ("database");
+    const bool   force_update = getFlag ("force_update");
+    const bool   quiet        = getFlag ("quiet");
     
         
     Stderr stderr (quiet);
@@ -333,15 +335,33 @@ Requirements:\n\
     if (! directoryExists (mainDirS))
       exec ("mkdir -p " + shellQuote (mainDirS));
     
+    const string versionFName ("version.txt");
+    const string urlDir (URL + curMinor + "/" + latest_version + "/");
+    
     const string latestDir (mainDirS + latest_version + "/");
     if (directoryExists (latestDir))
+    {
+      if (! force_update)
+      {
+        curl. download (urlDir + versionFName, tmp);
+        const StringVector version_old (latestDir + versionFName, (size_t) 100);
+        const StringVector version_new (tmp, (size_t) 100);
+        if (   ! version_old. empty () 
+            && ! version_new. empty ()
+            && version_old. front () == version_new. front ()
+           )
+        {
+          stderr << shellQuote (latestDir) << " contains the latest version: " << version_old. front () << '\n';
+          stderr << "Skipping update, use amrfinder --force_update to overwrite the existing database\n";
+          return;
+        }
+      }
       stderr << shellQuote (latestDir) << " already exists, overwriting what was there\n";
+    }
     else
       exec ("mkdir -p " + shellQuote (latestDir));
-
     
     stderr << "Downloading AMRFinder database version " << latest_version << " into " << shellQuote (latestDir) << "\n";
-    const string urlDir (URL + curMinor + "/" + latest_version + "/");
     fetchAMRFile (curl, urlDir, latestDir, "AMR.LIB");
     fetchAMRFile (curl, urlDir, latestDir, "AMRProt");
     fetchAMRFile (curl, urlDir, latestDir, "AMRProt-mutation.tab");
@@ -350,7 +370,7 @@ Requirements:\n\
     fetchAMRFile (curl, urlDir, latestDir, "database_format_version.txt");  // PD-3051 
     fetchAMRFile (curl, urlDir, latestDir, "fam.tab");
     fetchAMRFile (curl, urlDir, latestDir, "taxgroup.tab");
-    fetchAMRFile (curl, urlDir, latestDir, "version.txt");
+    fetchAMRFile (curl, urlDir, latestDir, versionFName);
     
     StringVector dnaPointMuts;
     {

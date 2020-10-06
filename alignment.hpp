@@ -137,6 +137,8 @@ struct SeqChange : Root
 	char prev {'\0'};
 	  
 	const Mutation* mutation {nullptr};
+	
+	const SeqChange* replacement {nullptr};
   
   
   SeqChange () = default;
@@ -182,6 +184,7 @@ public:
   bool finish (const string &refSeq,
                size_t flankingLen);
     // Return: good match
+    // Input: flankingLen: valid if > 0
 private:
   void setSeq ();
   void setStartStopRef ();
@@ -252,6 +255,7 @@ protected:
   void setSeqChanges (const Vector<Mutation> &refMutations,
                       size_t flankingLen/*,
                       bool allMutationsP*/);
+    // Input: flankingLen: valid if > 0
 public:
   bool empty () const override
     { return targetName. empty (); }
@@ -288,6 +292,19 @@ public:
              && nident == refLen 
              && nident == targetSeq. size ();
 	  }
+	bool getFrameShift (const Alignment &other,
+	                    size_t diff_max) const
+	  // Return: success
+	  // Input: diff_max: in bp
+	  // Requires: !targetProt, refProt, rightPart.refProt
+	  { return    nident >= other. nident
+	           && (          getFrameShift_right (other, diff_max) 
+	               || other. getFrameShift_right (*this, diff_max) 
+	              );
+	  }
+private:
+	bool getFrameShift_right (const Alignment &rightPart,
+	                          size_t diff_max) const;
 };
 
 
