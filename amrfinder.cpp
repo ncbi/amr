@@ -422,6 +422,11 @@ struct ThisApplication : ShellApplication
     // we're in condaland
       if (const char* s = getenv("CONDA_PREFIX")) {
         defaultDb = string (s) + string ("/share/amrfinderplus/data/latest");
+      } else if (const char* s = getenv("PREFIX")) {
+        Warning warning (stderr);
+        stderr << "This was compiled for running under bioconda, but $CONDA_PREFIX was not found" << "\n";
+        defaultDb = string (s) + string ("/share/amrfinderplus/data/latest");
+        stderr << "Reverting to $PREFIX: " << defaultDb;
       } else {
         Warning warning (stderr);
         stderr << "This was compiled for running under bioconda, but $CONDA_PREFIX was not found" << "\n";
