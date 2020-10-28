@@ -33,6 +33,7 @@
 *               awk, cat, cp, cut, head, ln, mkdir, mv, sort, tail
 *
 * Release changes:
+*   3.9.1  10/27/2020 PD-3583  AMRProt has a new field #8 "reportable"
 *          09/30/2020 PD-2407  option --type is removed
 *   3.8.28 09/29/2020 PD-3292  dependence on "uniq" is removed
 *   3.8.27 09/28/2020 PD-2381  non-standard start codons are not changed in fusion proteins
@@ -158,7 +159,7 @@ using namespace Common_sp;
 
 // PAR!
 // PD-3051
-#define DATA_VER_MIN "2020-05-01.2"  
+#define DATA_VER_MIN "2020-10-27.1"  
 
 
 
@@ -357,6 +358,9 @@ struct ThisApplication : ShellApplication
     stderr << "Software directory: " << shellQuote (execDir) << "\n";
 	  stderr << "Software version: " << version << '\n'; 
     
+    if (contains (input_name, '\t'))
+      throw runtime_error ("NAME cannot contain a tab character");
+
     if (threads_max < threads_max_min)
       throw runtime_error ("Number of threads cannot be less than " + to_string (threads_max_min));
     
@@ -421,11 +425,11 @@ struct ThisApplication : ShellApplication
     #ifdef CONDA_DB_DIR
     // we're in condaland
       if (const char* s = getenv("CONDA_PREFIX")) {
-        defaultDb = string (s) + string ("/share/amrfinderplus/data/latest");
+        defaultDb = string (s) + "/share/amrfinderplus/data/latest";
       } else if (const char* s = getenv("PREFIX")) {
         Warning warning (stderr);
         stderr << "This was compiled for running under bioconda, but $CONDA_PREFIX was not found" << "\n";
-        defaultDb = string (s) + string ("/share/amrfinderplus/data/latest");
+        defaultDb = string (s) + "/share/amrfinderplus/data/latest";
         stderr << "Reverting to $PREFIX: " << defaultDb;
       } else {
         Warning warning (stderr);

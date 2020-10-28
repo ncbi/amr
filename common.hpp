@@ -2922,6 +2922,8 @@ public:
 
 	  
 	bool next ();
+	uint getLineNum () const
+	  { return f. lineNum; }
 };
 
 
@@ -3628,8 +3630,6 @@ private:
 protected:
   static bool emptyArg (const string &s)
     {	return s. empty () || s == "\'\'"; }
-  string which (const string &progName) const
-    { return Common_sp::which (progName); }
   void findProg (const string &progName) const;
     // Output: prog2dir
   string fullProg (const string &progName) const;

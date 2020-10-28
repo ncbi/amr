@@ -82,16 +82,18 @@
 
 namespace Common_sp
 {
-  [[noreturn]] void errorThrow (const std::string &msg);
+  std::string getStack ();
 }
 
-#define ERROR_MSG(msg)                      \
-  { if (! std::uncaught_exception ())       \
-    { std::ostringstream oss_;              \
-      oss_ << WHERE << ": " << (msg);       \
-      Common_sp::errorThrow (oss_. str ()); \
-    } else {}                               \
-    exit (1);                               \
+#define ERROR_MSG(msg)                       \
+  { if (! std::uncaught_exception ())        \
+    { std::ostringstream oss_;               \
+      oss_ << WHERE << ": " << (msg);        \
+      oss_ << endl << "Stack:" << endl <<    \
+        Common_sp::getStack ();              \
+      throw std::logic_error (oss_. str ()); \
+    } else {}                                \
+    exit (1);                                \
   }
 #define ERROR            ERROR_MSG ("")
 #define NOT_IMPLEMENTED  ERROR_MSG ("Not implemented: ")

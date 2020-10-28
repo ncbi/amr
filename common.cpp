@@ -44,6 +44,7 @@
 
 #ifndef _MSC_VER
   #include <dirent.h>
+  #include <execinfo.h>
   #ifdef __APPLE__
     #include <sys/types.h>
     #include <sys/sysctl.h>
@@ -56,11 +57,6 @@
 namespace Common_sp
 {
  
-
-
-[[noreturn]] void errorThrow (const string &msg)
-  { throw std::logic_error (msg); }
-
 
 
 vector<string> programArgs;
@@ -251,26 +247,29 @@ namespace
 
 
 
-#if 0
-#ifndef _MSC_VER
 string getStack ()
+// Print function names: addr2line -f -C -e <progname>  -a <address>  // --> exec() ??
 {
+#ifdef _MSC_VER
+  return "Stack trace is not implemented";
+#else
   string s;
   constexpr size_t size = 100;  // PAR
   void* buffer [size];
   const int nptrs = backtrace (buffer, size);
+  if (nptrs <= 1)  // *this function must be the first one
+    errorExit (("backtrace size is " + to_string (nptrs)). c_str ());
   char** strings = backtrace_symbols (buffer, nptrs);
-  if (strings) 
-    FOR (int, j, nptrs)
-      s += string (strings [j]) + "\n";  // No function names ??
+  if (strings /*&& ! which ("addr2line"). empty ()*/) 
+    FOR_START (int, i, 1, nptrs)
+      s += string (strings [i]) + "\n";  
   else
     s = "Cannot get stack trace";
 //free (strings);
 
   return s;
+#endif
 }
-#endif
-#endif
 
 
 
@@ -2995,7 +2994,7 @@ void ShellApplication::initEnvironment ()
   // execDir, programName
 	execDir = getProgramDirName ();
 	if (execDir. empty ())
-		execDir = this->which (programArgs. front ());
+		execDir = which (programArgs. front ());
   if (! isRight (execDir, "/"))
     throw logic_error ("Cannot identify the directory of the executable");
   {
@@ -3033,7 +3032,7 @@ void ShellApplication::findProg (const string &progName) const
 	{
 		dir = fileExists (execDir + progName)
 		        ? execDir
-		        : this->which (progName);
+		        : which (progName);
 	  if (dir. empty ())
 	    throw runtime_error ("Binary " + shellQuote (progName) + " is not found.\nPlease make sure that " 
 	                         + shellQuote (progName) + " is in the same directory as " + shellQuote (Common_sp::programName) + " or is in your $PATH.");;

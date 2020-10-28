@@ -328,6 +328,7 @@ struct BlastAlignment : Alignment
   string gene;   
     // FAM.class  
   string resistance;
+  uchar reportable {0};
 
   BlastRule completeBR;
   BlastRule partialBR;
@@ -349,6 +350,7 @@ struct BlastAlignment : Alignment
         {	
 		      // refName	    
 			    product                     =                     rfindSplit (refName, '|'); 
+			    reportable                  = (uchar) str2<int>  (rfindSplit (refName, '|')); 
 			    resistance                  =                     rfindSplit (refName, '|'); 
 			    gene                        =                     rfindSplit (refName, '|');  // Reportable_vw.class
 			    famId                       =                     rfindSplit (refName, '|');  // Reportable_vw.fam
@@ -370,7 +372,7 @@ struct BlastAlignment : Alignment
 			  }
 			  catch (const exception &e)
 			  {
-			  	throw runtime_error (string ("Bad AMRFinder database\n") + e. what ());
+			  	throw runtime_error (string ("Bad AMRFinder database\n") + e. what () + "\n" + line);
 			  }
 		    QC_ASSERT (! refAccession. empty ());
 		    refName = refAccession;
@@ -555,7 +557,7 @@ struct BlastAlignment : Alignment
                      : proteinName + " [UNKNOWN]"
 	                 : proteinName 
 	              )
-	           << (isMutation () || getFam () -> reportable >= 2 ? "core" : "plus");  // PD-2825
+	           << (isMutation () || getFam () -> reportable >= 2 || alleleReportable () ? "core" : "plus");  // PD-2825
           // PD-1856
 	        if (isMutation ())
 	          td << "AMR"
@@ -683,6 +685,8 @@ struct BlastAlignment : Alignment
     }
   bool alleleReported () const
     { return refExactlyMatched () && allele () && (! targetProt || refLen == targetLen); }
+  bool alleleReportable () const  // PD-3583
+    { return refExactlyMatched () && allele () && reportable >= 2; }
   string getGeneSymbol () const
     { return alleleReported () /*isLeft (method, "ALLELE")*/ 
                ? famId 
@@ -1147,7 +1151,6 @@ struct Batch
     		    toProb (partialBR.  target_coverage);
     		    toProb (partialBR.  ref_coverage);
   	  	    const uchar reportable = (uchar) str2<int> (findSplit (f. line, '\t'));
-  	  	    QC_ASSERT (reportable <= 2);
   	  	    const string type     (findSplit (f. line, '\t'));
   	  	    const string subtype  (findSplit (f. line, '\t'));
   	  	    const string classS   (findSplit (f. line, '\t'));
@@ -1300,7 +1303,8 @@ private:
 
 
   void setStopCodon (BlastAlignment &blastAlP)
-    { ASSERT (blastAlP. targetProt);
+    { 
+      ASSERT (blastAlP. targetProt);
       for (const Locus& cds : blastAlP. cdss)
         if (const VectorOwn<BlastAlignment>* blastAlsX = findPtr (blastAls, cds. contig))
           for (const BlastAlignment* blastAlX : *blastAlsX)
@@ -1653,7 +1657,9 @@ public:
         	  blastAl->saveText (os);
          	  blastAl->qc ();
         	}
-     	  else if (   blastAl->getFam () -> reportable >= reportable_min
+     	  else if (   (   blastAl->getFam () -> reportable >= reportable_min
+     	               || blastAl->alleleReportable ()
+     	              )
      	           && ! suppress_prots. containsFast (blastAl->refAccession)
      	          )
      	  {
