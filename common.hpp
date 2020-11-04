@@ -874,7 +874,7 @@ template <typename T>
           || ! iss. eof ()
           || iss. fail ()
          )
-        throw runtime_error ("Converting " + strQuote (s));
+        throw runtime_error ("Cannot convert " + strQuote (s) + " to number");
       return i;
     }
 

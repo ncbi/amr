@@ -329,6 +329,8 @@ struct BlastAlignment : Alignment
     // FAM.class  
   string resistance;
   uchar reportable {0};
+  string classS;
+  string subclass;
 
   BlastRule completeBR;
   BlastRule partialBR;
@@ -350,6 +352,8 @@ struct BlastAlignment : Alignment
         {	
 		      // refName	    
 			    product                     =                     rfindSplit (refName, '|'); 
+			    classS                      =                     rfindSplit (refName, '|'); 
+			    subclass                    =                     rfindSplit (refName, '|'); 
 			    reportable                  = (uchar) str2<int>  (rfindSplit (refName, '|')); 
 			    resistance                  =                     rfindSplit (refName, '|'); 
 			    gene                        =                     rfindSplit (refName, '|');  // Reportable_vw.class
@@ -377,7 +381,9 @@ struct BlastAlignment : Alignment
 		    QC_ASSERT (! refAccession. empty ());
 		    refName = refAccession;
 		    	    
-		    replace (product, '_', ' ');
+		    replace (product,  '_', ' ');
+		    replace (classS,   '_', ' ');
+		    replace (subclass, '_', ' ');
 		    
         // BlastRule
         if (! isMutation ())
@@ -567,8 +573,8 @@ struct BlastAlignment : Alignment
 	        else
 	          td << nvl (getFam () -> type, na)  
   	           << nvl (getFam () -> subtype, na)
-  	           << nvl (getFam () -> classS, na)
-  	           << nvl (getFam () -> subclass, na);
+  	           << nvl (getClass (), na)
+  	           << nvl (getSubclass (), na);
 	        td << method
 	           << (targetProt ? targetLen : targetAlign_aa);  
 	        if (refAccession. empty ())
@@ -683,10 +689,12 @@ struct BlastAlignment : Alignment
           return true;
       return false;
     }
+  bool alleleMatch () const
+    { return refExactlyMatched () && allele (); }
   bool alleleReported () const
-    { return refExactlyMatched () && allele () && (! targetProt || refLen == targetLen); }
+    { return alleleMatch () && (! targetProt || refLen == targetLen); }
   bool alleleReportable () const  // PD-3583
-    { return refExactlyMatched () && allele () && reportable >= 2; }
+    { return alleleMatch () && reportable >= 2; }
   string getGeneSymbol () const
     { return alleleReported () /*isLeft (method, "ALLELE")*/ 
                ? famId 
@@ -754,6 +762,16 @@ struct BlastAlignment : Alignment
 	    return method;
 	  }
 	  // PD-736
+	string getSubclass () const
+	  { if (alleleMatch () && ! subclass. empty ())
+	      return subclass;
+	    return getFam () -> subclass;
+	  }
+	string getClass () const
+	  { if (alleleMatch () && ! subclass. empty ())  // class may be empty()
+	      return classS;
+	    return getFam () -> classS;
+	  }
 	bool passBlastRule (const BlastRule &br) const
 	  { return    pIdentity ()      >= br. ident        - frac_delta
   	         && refCoverage ()    >= br. ref_coverage - frac_delta
