@@ -227,9 +227,7 @@ struct HmmAlignment
     { QC_ASSERT (fam);
       QC_ASSERT (! fam->hmm. empty ());
     	return    score1 >= fam->tc1
-             && score2 >= fam->tc2
-           //&& fam->reportable
-             ; 
+             && score2 >= fam->tc2; 
     }
 private:
   bool betterEq (const HmmAlignment &other,
@@ -322,7 +320,8 @@ struct BlastAlignment : Alignment
     // <= parts
   size_t parts {1};  
     // >= 1
-  const BlastAlignment* fusion {nullptr};
+  VectorPtr<BlastAlignment> fusions;
+  bool fusionRedundant {false};
   // Table FAM
   string famId;  
   string gene;   
@@ -491,6 +490,11 @@ struct BlastAlignment : Alignment
 	    QC_ASSERT (! gene. empty ());
 	    QC_ASSERT (part >= 1);
 	    QC_ASSERT (part <= parts);
+	  //QC_IMPLY (part > 1, ! fusions. empty () || fusionRedundant);
+	    QC_IMPLY (isMutation (), fusions. empty () && ! fusionRedundant);
+	    QC_IMPLY (! fusions. empty (), fusions. size () >= 2);
+	    QC_IMPLY (! fusions. empty (), fusions. front () == this);
+	    QC_IMPLY (fusionRedundant, fusions. empty ());
 	    QC_ASSERT (! product. empty ());
 	    QC_IMPLY (! fromHmm, ! refAccession. empty ());
 	    QC_ASSERT (refAccession. empty () == targetSeq. empty ());
@@ -553,7 +557,7 @@ struct BlastAlignment : Alignment
 			               : gene + "_" + seqChange. getMutationStr ()
 	                 : print_fam 
 			               ? famId
-			               : getGeneSymbols ()
+			               : fusion2geneSymbols ()
 	              )
 	           << (isMutation ()
 	                 ? mut 
@@ -563,7 +567,7 @@ struct BlastAlignment : Alignment
                      : proteinName + " [UNKNOWN]"
 	                 : proteinName 
 	              )
-	           << (isMutation () || getFam () -> reportable >= 2 || alleleReportable () ? "core" : "plus");  // PD-2825
+	           << (isMutation () || fusion2core () ? "core" : "plus");  // PD-2825
           // PD-1856
 	        if (isMutation ())
 	          td << "AMR"
@@ -571,10 +575,10 @@ struct BlastAlignment : Alignment
 	             << (mut ? nvl (mut->classS,   na) : na)
 	             << (mut ? nvl (mut->subclass, na) : na);
 	        else
-	          td << nvl (getFam () -> type, na)  
-  	           << nvl (getFam () -> subtype, na)
-  	           << nvl (getClass (), na)
-  	           << nvl (getSubclass (), na);
+	          td << nvl (fusion2type (), na)  
+  	           << nvl (fusion2subtype (), na)
+  	           << nvl (fusion2class (), na)
+  	           << nvl (fusion2subclass (), na);
 	        td << method
 	           << (targetProt ? targetLen : targetAlign_aa);  
 	        if (refAccession. empty ())
@@ -598,10 +602,9 @@ struct BlastAlignment : Alignment
 	             << na;
 	        else 
 	        {
-	        //if (const Fam* f = getFam () -> getHmmFam ())
-	          if (hmmAl)
-  	          td << hmmAl->fam->hmm
-  	             << hmmAl->fam->familyName;
+	          if (const HmmAlignment* hmmAl_ = fusion2hmmAl ())
+  	          td << hmmAl_->fam->hmm
+  	             << hmmAl_->fam->familyName;
   	        else
   	        {
   	          td << na
@@ -633,6 +636,7 @@ struct BlastAlignment : Alignment
   	             << '\t' << refMutation           // 6
   	             << '\t' << stopCodon             // 7
   	             << '\t' << frameShift            // 8
+  	             << '\t' << resistance            // 9
   	             << '\t';
 	          os << td. str () << endl;
 	        }
@@ -695,22 +699,102 @@ struct BlastAlignment : Alignment
     { return alleleMatch () && (! targetProt || refLen == targetLen); }
   bool alleleReportable () const  // PD-3583
     { return alleleMatch () && reportable >= 2; }
+  uchar fusion2reportable () const
+    { if (fusions. empty ())
+        return getFam () -> reportable;
+      uchar reportable_max = 0;
+      for (const BlastAlignment* fusion : fusions)
+        maximize (reportable_max, fusion->getFam () -> reportable);
+      return reportable_max;
+    }
   string getGeneSymbol () const
     { return alleleReported () /*isLeft (method, "ALLELE")*/ 
                ? famId 
                : nvl (getFam () -> genesymbol, na); 
     }
-  string getGeneSymbols () const
-    { if (fusion)
-      {
-        string s1 (        getGeneSymbol ());
-        string s2 (fusion->getGeneSymbol ());
-        if (part == 2)
-          swap (s1, s2);
-        return s1 + "/" + s2;
+  string fusion2geneSymbols () const
+    { if (fusions. empty ())
+        return getGeneSymbol ();
+      string s;
+      for (const BlastAlignment* fusion : fusions)
+      { if (! s. empty ())
+          s += "/";
+        s += fusion->getGeneSymbol ();
       }
-      return getGeneSymbol ();
+      return s;
     }
+  bool isCore () const 
+    { return fusion2reportable () >= 2 || alleleReportable (); }
+  bool fusion2core () const
+    { if (fusions. empty ())
+        return isCore ();
+      for (const BlastAlignment* fusion : fusions)
+        if (fusion->isCore ())
+          return true;
+      return false;
+    }
+  string getType () const
+    { return getFam () -> type; }
+  string fusion2type () const
+    { if (fusions. empty ())
+        return getType ();
+      StringVector vec;
+      for (const BlastAlignment* fusion : fusions)
+        vec << fusion->getType ();
+      vec. sort ();
+      vec. uniq ();
+      return vec. toString ("/");
+    }    
+  string getSubtype () const
+    { return getFam () -> subtype; }
+  string fusion2subtype () const
+    { if (fusions. empty ())
+        return getSubtype ();
+      StringVector vec;
+      for (const BlastAlignment* fusion : fusions)
+        vec << fusion->getSubtype ();
+      vec. sort ();
+      vec. uniq ();
+      return vec. toString ("/");
+    }    
+	string getClass () const
+	  { if (alleleMatch () && ! subclass. empty ())  // class may be empty()
+	      return classS;
+	    return getFam () -> classS;
+	  }
+  string fusion2class () const
+    { if (fusions. empty ())
+        return getClass ();
+      StringVector vec;
+      for (const BlastAlignment* fusion : fusions)
+        vec << move (StringVector (fusion->getClass (), '/'));
+      vec. sort ();
+      vec. uniq ();
+      return vec. toString ("/");
+    }    
+	string getSubclass () const
+	  { if (alleleMatch () && ! subclass. empty ())
+	      return subclass;
+	    return getFam () -> subclass;
+	  }
+  string fusion2subclass () const
+    { if (fusions. empty ())
+        return getSubclass ();
+      StringVector vec;
+      for (const BlastAlignment* fusion : fusions)
+        vec << move (StringVector (fusion->getSubclass (), '/'));
+      vec. sort ();
+      vec. uniq ();
+      return vec. toString ("/");
+    }    
+  const HmmAlignment* fusion2hmmAl () const
+    { if (fusions. empty ())
+        return hmmAl;
+      for (const BlastAlignment* fusion : fusions)
+        if (fusion->hmmAl)
+          return fusion->hmmAl;
+      return nullptr;
+    }    
 	string getMethod (const Locus &cds) const
 	  { //IMPLY (refExactlyMatched () && ! mutation_all. get (), ! isMutation ())
 	    string method (fromHmm
@@ -762,16 +846,6 @@ struct BlastAlignment : Alignment
 	    return method;
 	  }
 	  // PD-736
-	string getSubclass () const
-	  { if (alleleMatch () && ! subclass. empty ())
-	      return subclass;
-	    return getFam () -> subclass;
-	  }
-	string getClass () const
-	  { if (alleleMatch () && ! subclass. empty ())  // class may be empty()
-	      return classS;
-	    return getFam () -> classS;
-	  }
 	bool passBlastRule (const BlastRule &br) const
 	  { return    pIdentity ()      >= br. ident        - frac_delta
   	         && refCoverage ()    >= br. ref_coverage - frac_delta
@@ -1046,8 +1120,7 @@ public:
     // Cf. less()
     { ASSERT (other);
       ASSERT (targetName     == other->targetName);
-      return    /*targetName     == other->targetName
-             &&*/ targetStart    == other->targetStart
+      return    targetStart    == other->targetStart
              && targetEnd      == other->targetEnd
              && getCdsStart () == other->getCdsStart ()
              && getCdsStop ()  == other->getCdsStop ()
@@ -1578,25 +1651,36 @@ public:
   #endif
   
     // PD-2394
-    // BlastAlignment::fusion
+    // BlastAlignment::{fusions,fusionRedundant}
  	  for (auto& it : goodBlastAls)
  	  {
  	    auto& goodBlastAls_ = it. second;
       goodBlastAls_. sort (BlastAlignment::less);  
       {
         const BlastAlignment* prev = nullptr;
+        const BlastAlignment* fusionMain = nullptr;
         for (const BlastAlignment* blastAl : goodBlastAls_)
         {
+          if (blastAl->isMutation ())
+            continue;
           if (   prev 
               && prev->sameMatch (blastAl)
-              && prev   ->part == 1
-              && blastAl->part == 2
              )
           {
-            QC_ASSERT (blastAl->parts == 2);
-            var_cast (prev)    -> fusion = blastAl;
-            var_cast (blastAl) -> fusion = prev;
+            QC_ASSERT (blastAl->parts == prev->parts);
+            QC_ASSERT (blastAl->parts >= 2);
+            QC_ASSERT (blastAl->part > prev->part);
+            if (! fusionMain)
+            {
+              fusionMain = prev;
+              var_cast (fusionMain) -> fusions << fusionMain;
+            }
+            ASSERT (fusionMain);
+            var_cast (fusionMain) -> fusions << blastAl;
+            var_cast (blastAl) -> fusionRedundant = true;
           }
+          else
+            fusionMain = nullptr;
           prev = blastAl;
         }
       }
@@ -1675,10 +1759,11 @@ public:
         	  blastAl->saveText (os);
          	  blastAl->qc ();
         	}
-     	  else if (   (   blastAl->getFam () -> reportable >= reportable_min
+     	  else if (   (   blastAl->fusion2reportable () >= reportable_min
      	               || blastAl->alleleReportable ()
      	              )
      	           && ! suppress_prots. containsFast (blastAl->refAccession)
+     	           && ! blastAl->fusionRedundant
      	          )
      	  {
       	  blastAl->saveText (os);
@@ -1696,7 +1781,7 @@ public:
     	for (const BlastAlignment* blastAl : it. second)
     	  if (   blastAl->targetProt
     	  	  && ! blastAl->isMutation ()
-    	  	  && blastAl->getFam () -> reportable >= reportable_min
+    	  	  && blastAl->fusion2reportable () >= reportable_min
     	  	 )
           os << blastAl->targetName << endl;
 	}
