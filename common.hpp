@@ -1597,6 +1597,14 @@ public:
       	return *this;
       }
   template <typename U/*:<T>*/>
+    Vector<T>& operator<< (vector<U> &&other)
+      { reserveInc (other. size ());
+        for (U& t : other)
+          P::push_back (move (t));
+        searchSorted = false;
+      	return *this;
+      }
+  template <typename U/*:<T>*/>
     Vector<T>& operator<< (const list<U> &other)
       { reserveInc (other. size ());
         P::insert (P::end (), other. begin (), other. end ());
@@ -2023,7 +2031,7 @@ public:
   StringVector (const string &fName,
                 size_t reserve_size);
   explicit StringVector (const string &s, 
-                         char c = ' ');
+                         char sep = ' ');
 
 
   string toString (const string& sep) const

@@ -1268,11 +1268,11 @@ StringVector::StringVector (const string &fName,
 
 
 StringVector::StringVector (const string &s,
-                            char c)
+                            char sep)
 {
 	string s1 (s);
 	while (! s1. empty ())
-	  *this << move (findSplit (s1, c));
+	  *this << move (findSplit (s1, sep));
 }
 
 

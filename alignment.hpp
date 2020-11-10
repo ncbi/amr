@@ -83,7 +83,11 @@ private:
                      int &ref_pos);
 public:
   void saveText (ostream &os) const override
-    { os << pos + 1 << ' ' << geneMutation << ' ' << name; }
+    { if (empty ())
+        os << "empty";
+      else
+        os << pos + 1 << ' ' << geneMutation << ' ' << name; 
+    }
   void print (ostream &os) const override
     { saveText (os); 
       os << endl;

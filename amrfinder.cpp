@@ -33,7 +33,8 @@
 *               awk, cat, cp, cut, head, ln, mkdir, mv, sort, tail
 *
 * Release changes:
-*   3.9.2  11/04/2020 PD-3590  AMRProt has new fields #9 and #10 "subclass" and "class"
+*   3.9.3  11/05/2020 PD-3577  Merge lines for bifunctional proteins
+*   3.9.2  11/04/2020 PD-3590  AMRProt has new fields #9 and #10: "subclass" and "class"
 *   3.9.1  10/27/2020 PD-3583  AMRProt has a new field #8 "reportable"
 *          09/30/2020 PD-2407  option --type is removed
 *   3.8.28 09/29/2020 PD-3292  dependence on "uniq" is removed
