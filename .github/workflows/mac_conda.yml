@@ -1,8 +1,6 @@
 name: Mac bioconda
 on:
-    # push: 
-        # branches:
-            # - master
+    workflow_dispatch:
     schedule:
         - cron: '30 3 * * *' # 3:30am everyday
     repository_dispatch:
@@ -20,10 +18,13 @@ jobs:
           bash ./Miniconda3-latest-MacOSX-x86_64.sh -b -p /Users/runner/miniconda3
           source /Users/runner/miniconda3/bin/activate
           conda init
+          conda config --add channels defaults
+          conda config --add channels bioconda
+          conda config --add channels conda-forge
     - name: install AMRFinderPlus
       run: |
           source /Users/runner/miniconda3/bin/activate
-          conda install -y -c bioconda ncbi-amrfinderplus
+          conda install -y ncbi-amrfinderplus
     - name: version
       run: |
           source /Users/runner/miniconda3/bin/activate

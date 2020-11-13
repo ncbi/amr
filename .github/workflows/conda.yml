@@ -1,6 +1,7 @@
 name: Linux bioconda 
 
 on:
+    workflow_dispatch:
     schedule:
         - cron: '15 4 * * *' # 4:15am everyday
     repository_dispatch:
@@ -19,14 +20,19 @@ jobs:
       run: |
           bash ./Miniconda3-latest-Linux-x86_64.sh -b -p /home/runner/miniconda3
           source /home/runner/miniconda3/bin/activate
+          conda config --add channels defaults
+          conda config --add channels bioconda
+          conda config --add channels conda-forge
     - name: install AMRFinderPlus
-      run: conda install -y -c bioconda ncbi-amrfinderplus
+      run: conda install -y ncbi-amrfinderplus
     - name: version?
       run: |
           source /usr/share/miniconda/bin/activate
           amrfinder --version
     - name: download latest AMRFinderPlus database
-      run: /usr/share/miniconda/bin/amrfinder -u
+      run: |
+          source /home/runner/miniconda3/bin/activate
+          /usr/share/miniconda/bin/amrfinder -u
     - name: test protein
       run: |
           source /usr/share/miniconda/bin/activate

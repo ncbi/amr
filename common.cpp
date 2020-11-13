@@ -40,19 +40,16 @@
 #include <sstream>
 #include <cstring>
 #include <regex>
-#ifndef _MSC_VER
-  #include <dirent.h>
-//#include <execinfo.h>
-#endif
 #include <csignal>  
 
-
-
-
-[[noreturn]] void errorThrow (const string &msg)
-{ 
-  throw std::logic_error (msg); 
-}
+#ifndef _MSC_VER
+  #include <dirent.h>
+  #include <execinfo.h>
+  #ifdef __APPLE__
+    #include <sys/types.h>
+    #include <sys/sysctl.h>
+  #endif
+#endif
 
 
 
@@ -117,6 +114,31 @@ thread::id main_thread_id = get_thread_id ();
   
 bool isMainThread ()
   { return threads_max == 1 || get_thread_id () == main_thread_id; }
+
+
+
+#ifndef _MSC_VER
+size_t get_threads_max_max () 
+{
+#if __APPLE__
+  // stderr << "Compiled for MacOS" << "\n";
+  int count;
+  size_t count_len = sizeof(count);
+  sysctlbyname ("hw.logicalcpu", &count, &count_len, NULL, 0);
+  // fprintf(stderr,"you have %i cpu cores", count);
+  return count;
+#else
+  LineInput f ("/proc/cpuinfo");
+  size_t n = 0;
+  while (f. nextLine ())
+    if (isLeft (f. line, "processor"))
+      n++;
+  return n;
+#endif
+}
+#endif
+
+
 
 
 bool Chronometer::enabled = false;
@@ -188,7 +210,8 @@ namespace
 	
 	// time ??
 #ifndef _MSC_VER
-	const char* hostname = getenv ("HOSTNAME");//const char* shell    = getenv ("SHELL");
+	const char* hostname = getenv ("HOSTNAME");
+//const char* shell    = getenv ("SHELL");
 	const char* shell    = getenv ("SHELL");	
 	const char* pwd      = getenv ("PWD");
 #endif
@@ -224,26 +247,29 @@ namespace
 
 
 
-#if 0
-#ifndef _MSC_VER
 string getStack ()
+// Print function names: addr2line -f -C -e <progname>  -a <address>  // --> exec() ??
 {
+#ifdef _MSC_VER
+  return "Stack trace is not implemented";
+#else
   string s;
   constexpr size_t size = 100;  // PAR
   void* buffer [size];
   const int nptrs = backtrace (buffer, size);
+  if (nptrs <= 1)  // *this function must be the first one
+    errorExit (("backtrace size is " + to_string (nptrs)). c_str ());
   char** strings = backtrace_symbols (buffer, nptrs);
-  if (strings) 
-    FOR (int, j, nptrs)
-      s += string (strings [j]) + "\n";  // No function names ??
+  if (strings /*&& ! which ("addr2line"). empty ()*/) 
+    FOR_START (int, i, 1, nptrs)
+      s += string (strings [i]) + "\n";  
   else
     s = "Cannot get stack trace";
 //free (strings);
 
   return s;
+#endif
 }
-#endif
-#endif
 
 
 
@@ -854,7 +880,7 @@ size_t strMonth2num (const string& month)
     return (size_t) (m - 1);
   }
   
-	size_t i = NO_INDEX;
+	size_t i = no_index;
 	     if (month == "Jan")  i = 0;
   else if (month == "Feb")  i = 1;
   else if (month == "Mar")  i = 2;
@@ -1106,6 +1132,8 @@ void exec (const string &cmd,
 //Chronometer_OnePass cop (cmd);  
   if (verbose ())
   	cout << cmd << endl;
+  if (logPtr)
+  	*logPtr << cmd << endl;
   	
 	const int status = system (cmd. c_str ());  // pipefail's are not caught
 	if (status)
@@ -1118,6 +1146,24 @@ void exec (const string &cmd,
 		throw runtime_error ("Command failed:\n" + cmd + "\nstatus = " + to_string (status));		
 	}
 }
+
+
+
+#ifndef _MSC_VER
+string which (const string &progName)
+{
+  ASSERT (! progName. empty ());
+
+  const List<string> paths (str2list (getenv ("PATH"), ':'));
+  for (const string& path : paths)
+    if (   ! path. empty () 
+        && fileExists (path + "/" + progName)
+       )
+      return path + "/";
+
+  return string ();
+}
+#endif
 
 
 
@@ -1215,18 +1261,18 @@ StringVector::StringVector (const string &fName,
   }
   catch (const exception &e)
   {
-    throw runtime_error ("Loading file " + shellQuote (fName) + "\n" + e. what ());
+    throw runtime_error ("Reading file " + shellQuote (fName) + "\n" + e. what ());
   }  
 }
 
 
 
 StringVector::StringVector (const string &s,
-                            char c)
+                            char sep)
 {
 	string s1 (s);
 	while (! s1. empty ())
-	  *this << move (findSplit (s1, c));
+	  *this << move (findSplit (s1, sep));
 }
 
 
@@ -1475,7 +1521,6 @@ string CharInput::getLine ()
 
 
 
-
 // Token
 
 void Token::readInput (CharInput &in)
@@ -1563,10 +1608,7 @@ void Token::readInput (CharInput &in)
   qc ();
 
   if (verbose ())
-  {
-  	cout << type2str (type) << ' ';  
-  	cout << *this << ' ' << charNum << endl;
-  }
+  	cout << type2str (type) << ' ' << *this << ' ' << charNum + 1 << endl;
 }
 
 
@@ -1833,7 +1875,7 @@ string Csv::getWord ()
   QC_ASSERT (goodPos ());
   
   size_t start = pos;
-  size_t stop = NO_INDEX;
+  size_t stop = no_index;
   if (s [pos] == '\"')
   {
     pos++;
@@ -1844,7 +1886,7 @@ string Csv::getWord ()
   }
   
   findChar (',');
-  if (stop == NO_INDEX)
+  if (stop == no_index)
     stop = pos;
   pos++;
   
@@ -2904,11 +2946,13 @@ int Application::run (int argc,
       jRoot = nullptr;
     }
   
+  #if 0
   	if (! logFName. empty ())
   	{
   	  delete logPtr;
   	  logPtr = nullptr;
     }
+  #endif
 	}
 	catch (const std::exception &e) 
 	{ 
@@ -2977,22 +3021,6 @@ void ShellApplication::body () const
 
 
 
-string ShellApplication::which (const string &progName) const
-{
-	if (tmp. empty ())
-	  throw runtime_error ("Temporary file is needed");
-	
-	try { exec ("which " + shellQuote (progName) + " 1> " + tmp + ".src 2> /dev/null"); }
-	  catch (const runtime_error &)
-	    { return string (); }
-	    
-  const StringVector vec (tmp + ".src", (size_t) 1);  
-  QC_ASSERT (vec. size () == 1);
-	return getDirName (vec [0]);
-}
-
-	
-
 void ShellApplication::findProg (const string &progName) const
 {
 	ASSERT (! progName. empty ());
@@ -3026,6 +3054,21 @@ string ShellApplication::fullProg (const string &progName) const
 }
 #endif
 
+
+
+
+string ShellApplication::exec2str (const string &cmd,
+                                   const string &tmpName,
+                                   const string &logFName) const
+{
+  ASSERT (! contains (tmpName, ' '));
+  const string out (tmp + "." + tmpName);
+  exec (cmd + " > " + out, logFName);
+  const StringVector vec (out, (size_t) 1);
+  if (vec. size () != 1)
+    throw runtime_error (cmd + "\nOne line is expected");
+  return vec [0];  
+}
 
 
 
