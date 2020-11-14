@@ -31,6 +31,7 @@ jobs:
           amrfinder --version
     - name: download latest AMRFinderPlus database
       run: |
+          source /usr/share/miniconda/bin/activate
           echo CONDA_PREFIX = $CONDA_PREFIX
           /usr/share/miniconda/bin/amrfinder --force_update
     - name: test protein
