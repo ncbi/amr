@@ -32,7 +32,7 @@ jobs:
     - name: download latest AMRFinderPlus database
       run: |
           source /home/runner/miniconda3/bin/activate
-          /usr/share/miniconda/bin/amrfinder -u
+          /usr/share/miniconda/bin/amrfinder --force_update
     - name: test protein
       run: |
           source /usr/share/miniconda/bin/activate
