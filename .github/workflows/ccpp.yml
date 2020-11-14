@@ -29,3 +29,7 @@ jobs:
     - name: make github_binaries
       run: make github_binaries
     - uses: actions/upload-artifact@v2
+      with:
+          name: release-binary
+          path: amrfinder_binaries_v*.tar.gz
+
