@@ -30,7 +30,9 @@ jobs:
           source /Users/runner/miniconda3/bin/activate
           amrfinder --version
     - name: Download AMRFinderPlus database
-      run: /Users/runner/miniconda3/bin/amrfinder -u
+      run: |
+          source /Users/runner/miniconda3/bin/activate
+          /Users/runner/miniconda3/bin/amrfinder -u
     - name: test protein
       run: |
           source /Users/runner/miniconda3/bin/activate
