@@ -33,6 +33,7 @@
 *               awk, cat, cp, cut, head, ln, mkdir, mv, sort, tail
 *
 * Release changes:
+*   3.9.4  11/16/2020 PD-3609  ($TMPDIR or "/tmp") + "/XXXXXX"
 *   3.9.3  11/05/2020 PD-3577  Merge lines for bifunctional proteins
 *   3.9.2  11/04/2020 PD-3590  AMRProt has new fields #9 and #10: "subclass" and "class"
 *   3.9.1  10/27/2020 PD-3583  AMRProt has a new field #8 "reportable"
@@ -443,6 +444,7 @@ struct ThisApplication : ShellApplication
     // not in condaland
       defaultDb = execDir + "data/latest";
     #endif
+    ASSERT (isRight (defaultDb, "/latest"));
         
 		// db
 		if (db. empty ())

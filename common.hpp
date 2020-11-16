@@ -1602,6 +1602,7 @@ public:
         for (U& t : other)
           P::push_back (move (t));
         searchSorted = false;
+        other. clear ();
       	return *this;
       }
   template <typename U/*:<T>*/>
@@ -3612,7 +3613,7 @@ struct ShellApplication : Application
   // Environment
   const bool useTmp;
   string tmp;
-    // Temporary file prefix
+    // Temporary file prefix: ($TMPDIR or "/tmp") + "/XXXXXX"
     // If log is used then tmp is printed in the log file and the temporary files are not deleted 
   string execDir;
     // Ends with '/'
