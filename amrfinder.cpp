@@ -30,9 +30,11 @@
 *   AMRFinder
 *
 * Dependencies: NCBI BLAST, HMMer
-*               awk, cat, cp, cut, head, ln, mkdir, mv, sort, tail
+*               cat, cp, cut, head, ln, mkdir, mv, sort, tail
 *
 * Release changes:
+*   3.9.5  11/18/2020 PD-3292  dependence on awk is removed
+*                              --help prints instruction on $TMPDIR
 *   3.9.4  11/16/2020 PD-3609  ($TMPDIR or "/tmp") + "/XXXXXX"
 *   3.9.3  11/05/2020 PD-3577  Merge lines for bifunctional proteins
 *   3.9.2  11/04/2020 PD-3590  AMRProt has new fields #9 and #10: "subclass" and "class"
@@ -190,27 +192,6 @@ constexpr double partial_coverage_min_def = 0.5;
 
 
 
-struct Warning : Singleton<Warning>
-{
-private:
-  Stderr& stderr;
-public:  
-  
-  Warning (Stderr &stderr_arg)
-    : stderr (stderr_arg)
-    { stderr << Color::code (Color::yellow, true) << "WARNING: "; }
- ~Warning ()
-    { stderr << Color::code () << "\n"; }
-};
-
-
-
-//const StringVector all_types {"AMR", "STRESS", "VIRULENCE"};
-  // select id from FAM where [type] = 1
-
-
-
-		
 
 // ThisApplication
 
@@ -450,7 +431,7 @@ struct ThisApplication : ShellApplication
 		if (db. empty ())
 		{
     	if (const char* s = getenv ("AMRFINDER_DB"))
-    		db = string (s);
+    		db = s;
     	else
 			  db = defaultDb;
 		}
@@ -882,16 +863,6 @@ struct ThisApplication : ShellApplication
 
     // Column names are from amr_report.cpp
 
-  #if 0
-    string typeFilter;
-		if (! typeVec. empty ())
-		{
-      const string typeCol (col2num ("Element type"));
-      for (const string& t : typeVec)
-        typeFilter += " || $" + typeCol + " == \"" + t + "\"";
-    }
-  #endif
-
     // Sorting AMR report
     // PD-2244, PD-3230
     string sortS;
@@ -909,13 +880,7 @@ struct ThisApplication : ShellApplication
     }
 		exec ("head -1 "              + tmp + ".amr                      >  " + tmp + ".amr-out");
 		exec ("LANG=C && tail -n +2 " + tmp + ".amr | sort " + sortS + " >> " + tmp + ".amr-out");
-		
-  #if 0
-		if (! typeFilter. empty ())
-      exec ("awk -F '\t' 'NR == 1 " + typeFilter + "' " + tmp + ".amr-out > " + tmp + ".amr");
-		else
-	#endif
-  		exec ("mv " + tmp + ".amr-out " + tmp + ".amr");
+ 		exec ("mv " + tmp + ".amr-out " + tmp + ".amr");
 
     // Sorting mutation_all
     if (! emptyArg (mutation_all))
@@ -923,12 +888,7 @@ struct ThisApplication : ShellApplication
   		exec ("head -1 "              + tmp + ".mutation_all                                >  " + tmp + ".mutation_all-out");
   		exec ("LANG=C && tail -n +2 " + tmp + ".mutation_all | sort -u | sort " + sortS + " >> " + tmp + ".mutation_all-out");  
   		  // "sort -u | sort <sortS>" replaces "sort <sortS> | uniq"
-    #if 0
-  		if (! typeFilter. empty ())
-        exec ("awk -F '\t' 'NR == 1 " + typeFilter + "' " + tmp + ".mutation_all-out > " + mutation_all);
-  		else
-  	#endif
-    		exec ("mv " + tmp + ".mutation_all-out " + mutation_all);
+   		exec ("mv " + tmp + ".mutation_all-out " + mutation_all);
     }
 
 
@@ -940,14 +900,25 @@ struct ThisApplication : ShellApplication
 
     if (! emptyArg (prot_out))
     {
+    #if 0
       const string protCol       (col2num ("Protein identifier"));
       const string geneSymbolCol (col2num ("Gene symbol"));
       const string seqNameCol    (col2num ("Sequence name"));
       exec ("tail -n +2 " + tmp + ".amr | awk -F '\t' '$" + protCol + " != \"NA\" {print $" + protCol + ", $" + geneSymbolCol + ", $" + seqNameCol + "};' | sort -u > " + tmp + ".prot_out");
+    #else
+      TextTable t (tmp + ".amr");
+      t. filterColumns (StringVector {"Protein identifier", "Gene symbol", "Sequence name"});
+      t. rows. filterValue ([] (const StringVector& row) { return row [0] == "NA"; });
+      t. header. clear ();
+      t. rows. sort ();
+      t. rows. uniq ();
+      t. saveFile (tmp + ".prot_out");
+    #endif
       exec (fullProg ("fasta_extract") + prot + " " + tmp + ".prot_out -aa" + qcS + " -log " + logFName + " > " + prot_out, logFName);  
     }
     if (! emptyArg (dna_out))
     {
+    #if 0
       const string contigCol     (col2num ("Contig id"));
       const string startCol      (col2num ("Start"));
       const string stopCol       (col2num ("Stop"));
@@ -955,6 +926,15 @@ struct ThisApplication : ShellApplication
       const string geneSymbolCol (col2num ("Gene symbol"));
       const string seqNameCol    (col2num ("Sequence name"));
       exec ("tail -n +2 " + tmp + ".amr | awk -F '\t' '$" + contigCol + " != \"NA\" {print $" + contigCol + ", $" + startCol + ", $" + stopCol + ", $" + strandCol + ", $" + geneSymbolCol + ", $" + seqNameCol + "};' | sort -u > " + tmp + ".dna_out");
+    #else
+      TextTable t (tmp + ".amr");
+      t. filterColumns (StringVector {"Contig id", "Start", "Stop", "Strand", "Gene symbol", "Sequence name"});
+      t. rows. filterValue ([] (const StringVector& row) { return row [0] == "NA"; });
+      t. header. clear ();
+      t. rows. sort ();
+      t. rows. uniq ();
+      t. saveFile (tmp + ".dna_out");
+    #endif
       exec (fullProg ("fasta_extract") + dna + " " + tmp + ".dna_out" + qcS + " -log " + logFName + " > " + dna_out, logFName);  
     }
 

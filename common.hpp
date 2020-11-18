@@ -1486,8 +1486,13 @@ typedef int (*CompareInt) (const void*, const void*);
 template <typename T>
   ostream& operator<< (ostream &os,
                        const vector<T> &ts)
-    { for (const auto& t : ts)
-        os << t << endl;
+    { bool first = true;
+      for (const auto& t : ts)
+      { if (! first)
+          os << '\t';
+        os << t;
+        first = false;
+      }
       return os;
     }
 
@@ -1686,7 +1691,7 @@ public:
         for (size_t i = 0, end_ = P::size (); i < end_; i++)
         { const size_t j = i - toDelete;
           if (j != i)
-            (*this) [j] = (*this) [i];
+            (*this) [j] = move ((*this) [i]);
           if (cond (j))
             toDelete++;
         }
@@ -1701,7 +1706,7 @@ public:
         for (size_t i = 0, end_ = P::size (); i < end_; i++)
         { const size_t j = i - toDelete;
           if (j != i)
-            (*this) [j] = (*this) [i];
+            (*this) [j] = move ((*this) [i]);
           if (cond ((*this) [j]))
             toDelete++;
         }
@@ -2977,6 +2982,21 @@ struct Stderr : Singleton<Stderr>
 
 
 
+struct Warning : Singleton<Warning>
+{
+private:
+  Stderr& stderr;
+public:  
+  
+  Warning (Stderr &stderr_arg)
+    : stderr (stderr_arg)
+    { stderr << Color::code (Color::yellow, true) << "WARNING: "; }
+ ~Warning ()
+    { stderr << Color::code () << "\n"; }
+};
+
+
+
 struct Csv : Root
 // Line of Excel .csv-file
 {
@@ -3037,6 +3057,34 @@ public:
 
 
 
+
+struct TextTable : Root
+// Tab-delimited table with a header
+{
+  bool pound {false};
+    // In the beginning of header
+  StringVector header;
+    // size() = number of columns
+    // Can be clear()'ed
+  Vector<StringVector> rows;
+    // StringVector::size() = header.size()
+    
+
+  explicit TextTable (const string &fName);
+  void saveText (ostream &os) const override;    
+        
+  
+  size_t col2index (const string &columnName) const
+    { const size_t i = header. indexOf (columnName);
+      if (i == no_index)
+        throw runtime_error ("Cannot find column name " + strQuote (columnName));
+      return i;
+    }
+  void filterColumns (StringVector&& newHeader);
+};
+
+
+		
 
 // Json
 
@@ -3594,7 +3642,7 @@ protected:
   virtual void initEnvironment ()
     {}
   string getInstruction () const;
-  string getHelp () const;
+  virtual string getHelp () const;
 public:
   int run (int argc, 
            const char* argv []);
@@ -3633,6 +3681,7 @@ struct ShellApplication : Application
 
 protected:
   void initEnvironment () override;
+  string getHelp () const override;
 private:
   void body () const final;
   virtual void shellBody () const = 0;

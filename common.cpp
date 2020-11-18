@@ -1913,6 +1913,79 @@ StringVector csvLine2vec (const string &line)
 
 
 
+// TextTable
+
+TextTable::TextTable (const string &fName)
+{
+  LineInput f (fName);
+
+  if (! f. nextLine ())
+    throw runtime_error ("Cannot read the header of " + strQuote (fName));
+  if (! f. line. empty () && f. line. front () == '#')
+  {
+    pound = true;
+    f. line. erase (0, 1);
+  }
+  header = move (StringVector (f. line, '\t'));
+  {
+    const size_t i = header. indexOf (string ());
+    if (i != no_index)
+      throw runtime_error ("Column name " + to_string (i) + " is empty");
+  }
+  {
+    StringVector h (header);
+    h. sort ();
+    const size_t i = h. findDuplicate ();
+    if (i != no_index)
+      throw runtime_error ("Duplicate column name: " + strQuote (h [i]));
+  }
+
+  while (f. nextLine ())
+  {
+    StringVector line (f. line, '\t');
+    if (line. size () != header. size ())
+      throw runtime_error ("Header has " + to_string (header. size ()) + " items, but line has " + to_string (line. size ()) + " items:\n" + f. line);
+    rows << move (line);
+  }
+}
+
+
+
+void TextTable::saveText (ostream &os) const
+{ 
+  if (! header. empty ())
+  { 
+    if (pound)
+      os << '#';
+    os << header << endl;
+  }
+  
+  for (const StringVector& row : rows)
+    os << row << endl;
+}
+
+    
+  
+void TextTable::filterColumns (StringVector&& newHeader)
+{
+  Vector<size_t> indexes;  indexes. reserve (newHeader. size ());
+  for (const string &s : newHeader)
+    indexes << col2index (s);
+
+  header = move (newHeader);
+
+  for (StringVector& row : rows)
+  {
+    StringVector newRow;  newRow. reserve (indexes. size ());
+    for (const size_t i : indexes)
+      newRow << row [i];
+    row = move (newRow);
+  }
+}
+
+
+
+
 // Json
 
 Json::Json (JsonContainer* parent,
@@ -2232,7 +2305,7 @@ FileItemGenerator::FileItemGenerator (size_t progress_displayPeriod,
     ASSERT (lsfName [0]);
     const int res = system (("ls -a " + fName + " > " + lsfName). c_str ());
     if (res)
-      throw runtime_error ("Command ls failed: status = " + to_string (res));
+      throw runtime_error ("Command \"ls\" failed: status = " + to_string (res));
     fName = lsfName;
   #endif
   }      
@@ -3012,6 +3085,16 @@ void ShellApplication::initEnvironment ()
   for (Key& key : keys)
     if (! key. flag)
       replaceStr (key. defaultValue, "$BASE", execDir_);
+}
+
+
+
+string ShellApplication::getHelp () const 
+{
+  string help (Application::getHelp ());
+  if (useTmp)
+    help += "\n\nTemporary directory used is $TMPDIR or \"/tmp\"";
+  return help;
 }
 
 
