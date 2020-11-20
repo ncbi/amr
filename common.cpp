@@ -856,7 +856,8 @@ streampos getFileSize (const string &fName)
   QC_ASSERT (start >= 0); 
 
   f. seekg (0, ios_base::end);
-  QC_ASSERT (f. good ());
+  if (! f. good ())
+    throw runtime_error ("Cannot go to the beginning of the file " + shellQuote (fName));
 
   const streampos end = f. tellg ();
   QC_ASSERT (end >= 0); 
@@ -3018,14 +3019,6 @@ int Application::run (int argc,
       delete jRoot;
       jRoot = nullptr;
     }
-  
-  #if 0
-  	if (! logFName. empty ())
-  	{
-  	  delete logPtr;
-  	  logPtr = nullptr;
-    }
-  #endif
 	}
 	catch (const std::exception &e) 
 	{ 

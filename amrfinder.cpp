@@ -33,6 +33,8 @@
 *               cat, cp, cut, head, ln, mkdir, mv, sort, tail
 *
 * Release changes:
+*   3.9.6  11/20/2020 PD-3613  --dir
+*                              prepare_fasta_extract()
 *   3.9.5  11/18/2020 PD-3292  dependence on awk is removed
 *                              --help prints instruction on $TMPDIR
 *   3.9.4  11/16/2020 PD-3609  ($TMPDIR or "/tmp") + "/XXXXXX"
@@ -202,6 +204,7 @@ struct ThisApplication : ShellApplication
     {
     	addFlag ("update", "Update the AMRFinder database", 'u');  // PD-2379
     	addFlag ("force_update", "Force updating the AMRFinder database", 'U');  // PD-3469
+    	addKey ("dir", "Common directory of the --protein, --nucleotide and --gff files", "", '\0', "DIRECTORY");
     	addKey ("protein", "Input protein FASTA file", "", 'p', "PROT_FASTA");
     	addKey ("nucleotide", "Input nucleotide FASTA file", "", 'n', "NUC_FASTA");
     	addKey ("gff", "GFF file for protein locations. Protein id should be in the attribute 'Name=<id>' (9th field) of the rows with type 'CDS' or 'gene' (3rd field).", "", 'g', "GFF_FILE");
@@ -306,14 +309,29 @@ struct ThisApplication : ShellApplication
 
 
 
+  void prepare_fasta_extract (StringVector &&columns,
+                              const string &tmpSuf) const
+  {
+    TextTable t (tmp + ".amr");
+    t. filterColumns (move (columns));
+    t. rows. filterValue ([] (const StringVector& row) { return row [0] == "NA"; });
+    t. header. clear ();
+    t. rows. sort ();
+    t. rows. uniq ();
+    t. saveFile (tmp + "." + tmpSuf);
+  }
+
+
+
   void shellBody () const final
   {
-    const string prot            = shellQuote (getArg ("protein"));
-    const string dna             = shellQuote (getArg ("nucleotide"));
-          string db              =             getArg ("database");
     const bool   force_update    =             getFlag ("force_update");
     const bool   update          =             getFlag ("update") || force_update;
-    const string gff             = shellQuote (getArg ("gff"));
+    const string dir             =    appendS (getArg ("dir"), "/"); 
+    const string prot            = shellQuote (prependS (getArg ("protein"),    dir));
+    const string dna             = shellQuote (prependS (getArg ("nucleotide"), dir));
+    const string gff             = shellQuote (prependS (getArg ("gff"),        dir));
+          string db              =             getArg ("database");
     const bool   pgap            =             getFlag ("pgap");
     const double ident           =             arg2double ("ident_min");
     const double cov             =             arg2double ("coverage_min");
@@ -900,41 +918,12 @@ struct ThisApplication : ShellApplication
 
     if (! emptyArg (prot_out))
     {
-    #if 0
-      const string protCol       (col2num ("Protein identifier"));
-      const string geneSymbolCol (col2num ("Gene symbol"));
-      const string seqNameCol    (col2num ("Sequence name"));
-      exec ("tail -n +2 " + tmp + ".amr | awk -F '\t' '$" + protCol + " != \"NA\" {print $" + protCol + ", $" + geneSymbolCol + ", $" + seqNameCol + "};' | sort -u > " + tmp + ".prot_out");
-    #else
-      TextTable t (tmp + ".amr");
-      t. filterColumns (StringVector {"Protein identifier", "Gene symbol", "Sequence name"});
-      t. rows. filterValue ([] (const StringVector& row) { return row [0] == "NA"; });
-      t. header. clear ();
-      t. rows. sort ();
-      t. rows. uniq ();
-      t. saveFile (tmp + ".prot_out");
-    #endif
+      prepare_fasta_extract (StringVector {"Protein identifier", "Gene symbol", "Sequence name"}, "prot_out");
       exec (fullProg ("fasta_extract") + prot + " " + tmp + ".prot_out -aa" + qcS + " -log " + logFName + " > " + prot_out, logFName);  
     }
     if (! emptyArg (dna_out))
     {
-    #if 0
-      const string contigCol     (col2num ("Contig id"));
-      const string startCol      (col2num ("Start"));
-      const string stopCol       (col2num ("Stop"));
-      const string strandCol     (col2num ("Strand"));
-      const string geneSymbolCol (col2num ("Gene symbol"));
-      const string seqNameCol    (col2num ("Sequence name"));
-      exec ("tail -n +2 " + tmp + ".amr | awk -F '\t' '$" + contigCol + " != \"NA\" {print $" + contigCol + ", $" + startCol + ", $" + stopCol + ", $" + strandCol + ", $" + geneSymbolCol + ", $" + seqNameCol + "};' | sort -u > " + tmp + ".dna_out");
-    #else
-      TextTable t (tmp + ".amr");
-      t. filterColumns (StringVector {"Contig id", "Start", "Stop", "Strand", "Gene symbol", "Sequence name"});
-      t. rows. filterValue ([] (const StringVector& row) { return row [0] == "NA"; });
-      t. header. clear ();
-      t. rows. sort ();
-      t. rows. uniq ();
-      t. saveFile (tmp + ".dna_out");
-    #endif
+      prepare_fasta_extract (StringVector {"Contig id", "Start", "Stop", "Strand", "Gene symbol", "Sequence name"}, "dna_out");
       exec (fullProg ("fasta_extract") + dna + " " + tmp + ".dna_out" + qcS + " -log " + logFName + " > " + dna_out, logFName);  
     }
 
