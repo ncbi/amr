@@ -76,6 +76,7 @@ struct ThisApplication : Application
     LineInput f (fName); 
     while (f. nextLine ())
     {
+      trimTrailing (f. line);
       if (f. line. empty ())
       	continue;
     	if (   f. line [0] == '>'

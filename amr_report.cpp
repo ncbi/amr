@@ -767,7 +767,7 @@ struct BlastAlignment : Alignment
         return getClass ();
       StringVector vec;
       for (const BlastAlignment* fusion : fusions)
-        vec << move (StringVector (fusion->getClass (), '/'));
+        vec << move (StringVector (fusion->getClass (), '/', true));
       vec. sort ();
       vec. uniq ();
       return vec. toString ("/");
@@ -782,7 +782,7 @@ struct BlastAlignment : Alignment
         return getSubclass ();
       StringVector vec;
       for (const BlastAlignment* fusion : fusions)
-        vec << move (StringVector (fusion->getSubclass (), '/'));
+        vec << move (StringVector (fusion->getSubclass (), '/', true));
       vec. sort ();
       vec. uniq ();
       return vec. toString ("/");

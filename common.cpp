@@ -45,8 +45,9 @@
 #ifndef _MSC_VER
   #include <dirent.h>
   #include <execinfo.h>
+  #include <sys/types.h>
+  #include <sys/stat.h>
   #ifdef __APPLE__
-    #include <sys/types.h>
     #include <sys/sysctl.h>
   #endif
 #endif
@@ -790,16 +791,40 @@ bool directoryExists (const string &dirName)
   }
   return yes;
 }
+
+
+
+void createDirectory (const string &dirName,
+                      bool createAncestors)
+{
+  const mode_t m = 0777;  
+  if (createAncestors)
+  {
+    const Dir dir (dirName);
+    Dir ancestorDir;
+    for (const string& s : dir. items)
+    {
+      ancestorDir. items << s;
+      const string ancestorPath (ancestorDir. get ());
+      if (! directoryExists (ancestorPath))
+        if (mkdir (ancestorPath. c_str (), m) != 0)
+          throw runtime_error ("Cannot create directory " + strQuote (ancestorPath));
+    }
+  }
+  else
+    if (mkdir (dirName. c_str (), m) != 0)
+      throw runtime_error ("Cannot create directory " + strQuote (dirName));
+}
 #endif
 
 
 
 
-Dir::Dir (const string &name)
+Dir::Dir (const string &dirName)
 {
-  ASSERT (! name. empty ());
+  ASSERT (! dirName. empty ());
   
-  items = str2list (name, fileSlash);
+  items = str2list (dirName, fileSlash);
 
   auto it = items. begin (); 
   while (it != items. end ())
@@ -1234,7 +1259,8 @@ void Named::qc () const
     return;
   Root::qc ();
     
-  QC_ASSERT (goodName (name));
+  if (! goodName (name))
+    throw runtime_error ("Bad name: " + strQuote (name));
 }
 
 
@@ -1269,11 +1295,48 @@ StringVector::StringVector (const string &fName,
 
 
 StringVector::StringVector (const string &s,
-                            char sep)
+                            char sep,
+                            bool trimP)
 {
 	string s1 (s);
 	while (! s1. empty ())
 	  *this << move (findSplit (s1, sep));
+	if (! s. empty () && s. back () == sep)
+	  *this << string ();
+	  
+	if (trimP)
+	  for (string& member : *this)
+	    trim (member);
+}
+
+
+
+
+string StringVector::toString (const string& sep) const
+{ 
+  ASSERT (! sep. empty ());
+  
+  string res;
+  for (const string& s : *this)
+  { 
+    if (! res. empty ())
+      res += sep;
+    res += s;
+  }
+  return res;
+}
+
+
+
+bool StringVector::same (const StringVector &vec,
+                         const Vector<size_t> &indexes) const
+{
+  ASSERT (size () == vec. size ());
+
+  for (const size_t i : indexes)
+    if ((*this) [i] != vec [i])
+      return false;
+  return true;
 }
 
 
@@ -1403,7 +1466,7 @@ bool LineInput::nextLine ()
       if (pos != string::npos)
         line. erase (pos);
     }
-    trimTrailing (line); 
+  //trimTrailing (line); 
 
   	eof = is->eof ();
   	lineNum++;
@@ -1916,6 +1979,19 @@ StringVector csvLine2vec (const string &line)
 
 // TextTable
 
+void TextTable::Header::qc () const
+{
+  if (! qc_on)
+    return;
+    
+  Named::qc ();
+    
+  QC_IMPLY (scientific, numeric);
+  QC_IMPLY (decimals, numeric);
+}
+
+
+
 TextTable::TextTable (const string &fName)
 {
   LineInput f (fName);
@@ -1927,26 +2003,103 @@ TextTable::TextTable (const string &fName)
     pound = true;
     f. line. erase (0, 1);
   }
-  header = move (StringVector (f. line, '\t'));
   {
-    const size_t i = header. indexOf (string ());
-    if (i != no_index)
-      throw runtime_error ("Column name " + to_string (i) + " is empty");
-  }
-  {
-    StringVector h (header);
-    h. sort ();
-    const size_t i = h. findDuplicate ();
-    if (i != no_index)
-      throw runtime_error ("Duplicate column name: " + strQuote (h [i]));
+    StringVector h (f. line, '\t', true);
+    for (string& s : h)
+      header << move (Header (move (s)));
   }
 
   while (f. nextLine ())
   {
-    StringVector line (f. line, '\t');
-    if (line. size () != header. size ())
-      throw runtime_error ("Header has " + to_string (header. size ()) + " items, but line has " + to_string (line. size ()) + " items:\n" + f. line);
+    StringVector line (f. line, '\t', true);
     rows << move (line);
+    ASSERT (line. empty ());
+  }
+  
+  setHeader ();
+}
+
+
+
+void TextTable::setHeader ()
+{
+  size_t row_num = 0;
+  for (const StringVector& row : rows)
+  {
+    row_num++;
+    if (row. size () != header. size ())
+      throw runtime_error ("Row " + to_string (row_num) + " contains " + to_string (rows. size ()) + " fields whereas table has " + to_string (header. size ()) + " columns");
+    FFOR (size_t, i, row. size ())
+    {
+      const string& field = row [i];
+      if (field. empty ())
+        continue;
+      Header& h = header [i];
+      if (! h. numeric)
+        continue;
+      {
+        char* endptr = nullptr;
+        strtod (field. c_str (), & endptr);
+        if (endptr != field. c_str () + field. size ())
+        {
+          h. numeric = false;
+          h. scientific = false;
+          h. decimals = 0;
+        }
+      }
+      if (h. numeric)
+      {
+        string s (field);
+        strUpper (s);
+        const size_t ePos     = s. find ('E');
+        const size_t pointPos = s. find ('.');
+        if (ePos == string::npos)
+        {
+          if (pointPos != string::npos)
+            maximize (h. decimals, (streamoff) (s. size () - pointPos - 1));
+        }
+        else
+        {
+          h. scientific = true;
+          if (pointPos != string::npos && ePos > pointPos)
+            maximize (h. decimals, (streamoff) (ePos - pointPos - 1));
+        }
+      }
+    }
+  }
+}
+
+
+
+void TextTable::qc () const
+{
+  if (! qc_on)
+    return;
+
+  {    
+    StringVector v;  v. reserve (header. size ());
+    for (const Header& h : header)
+    {
+      h. qc ();
+      v << h. name;
+    }
+    v. sort ();
+    const size_t i = v. findDuplicate ();
+    if (i != no_index)
+      throw runtime_error ("Duplicate column name: " + strQuote (v [i]));
+  }
+  
+  FFOR (size_t, i, rows. size ())
+  {
+    if (rows [i]. size () != header. size ())
+      throw runtime_error ("Row " + to_string (i + 1) + " contains " + to_string (rows [i]. size ()) + " fields whereas table has " + to_string (header. size ()) + " columns");
+    for (const string& field : rows [i])
+    {
+      if (contains (field, '\t'))
+        throw runtime_error ("Field " + strQuote (header [i]. name) + " of row " + to_string (i + 1) + " contains a tab character");
+      if (contains (field, '\n'))
+        throw runtime_error ("Field " + strQuote (header [i]. name) + " of row " + to_string (i + 1) + " contains an EOL character");
+    }
   }
 }
 
@@ -1954,26 +2107,88 @@ TextTable::TextTable (const string &fName)
 
 void TextTable::saveText (ostream &os) const
 { 
-  if (! header. empty ())
+  if (saveHeader)
   { 
     if (pound)
       os << '#';
-    os << header << endl;
+    bool first = true;
+    for (const Header& h : header)
+    {
+      if (! first)
+        os << '\t';
+      os << h. name;
+      first = false;
+    }
+    os << endl;
   }
   
   for (const StringVector& row : rows)
-    os << row << endl;
+  {
+    save (os, row, '\t');
+    os << endl;
+  }
 }
 
     
   
-void TextTable::filterColumns (StringVector&& newHeader)
+void TextTable::printHeader (ostream &os) const
 {
-  Vector<size_t> indexes;  indexes. reserve (newHeader. size ());
-  for (const string &s : newHeader)
-    indexes << col2index (s);
+  for (const Header& h : header)
+  {
+    h. saveText (os);
+    os << endl;
+  }
+}
 
-  header = move (newHeader);
+
+
+size_t TextTable::col2index_ (const string &columnName) const
+{ 
+  FFOR (size_t, i, header. size ())
+    if (header [i]. name == columnName)
+      return i;
+  return no_index;
+}
+
+
+
+int TextTable::compare (const StringVector& row1,
+                        const StringVector& row2,
+                        size_t column) const
+{
+  if (header [column]. numeric)
+  {
+    const double a = stod (row1 [column]);
+    const double b = stod (row2 [column]);
+    if (a < b)
+      return -1;
+    if (a > b)
+      return 1;
+    return 0;
+  }
+  
+  const string& a = row1 [column];
+  const string& b = row2 [column];
+  if (a < b)
+    return -1;
+  if (a > b)
+    return 1;
+
+  return 0;
+}
+
+
+
+void TextTable::filterColumns (const StringVector &newColumnNames)
+{
+  const Vector<size_t> indexes (columns2indexes (newColumnNames));
+
+  {  
+    Vector<Header> newHeader;  newHeader. reserve (indexes. size ());
+    for (const size_t i : indexes)
+      newHeader << header [i];
+    header = move (newHeader);
+  }
 
   for (StringVector& row : rows)
   {
@@ -1983,6 +2198,69 @@ void TextTable::filterColumns (StringVector&& newHeader)
     row = move (newRow);
   }
 }
+
+
+
+void TextTable::group (const StringVector &by,
+                       const StringVector &sum)
+{
+  const Vector<size_t> byIndex  (columns2indexes (by));
+  const Vector<size_t> sumIndex (columns2indexes (sum));
+  
+  const auto lt = [&byIndex,this] (const StringVector &a, const StringVector &b) 
+                    { for (const size_t i : byIndex) 
+                        switch (this->compare (a, b, i))
+                        { case -1: return true;
+                          case  1: return false;
+                        }
+                      // Tie resolution
+                      FFOR (size_t, i, a. size ())
+                        switch (this->compare (a, b, i))
+                        { case -1: return true;
+                          case  1: return false;
+                        }
+                      return false;
+                    };
+  Common_sp::sort (rows, lt);
+  
+  size_t i = 0;  
+  FFOR_START (size_t, j, 1, rows. size ())
+  {
+    ASSERT (i < j);
+    if (rows [i]. same (rows [j], byIndex))
+      merge (i, j, sumIndex);
+    else
+    {
+      i++;
+      if (i < j)
+        rows [i] = move (rows [j]);
+    }
+  }
+
+  ASSERT (rows. size () >= i);
+  FFOR (size_t, k, rows. size () - i)
+    rows. pop_back ();
+}
+
+
+
+void TextTable::merge (size_t toIndex,
+                       size_t fromIndex,
+                       const Vector<size_t> &sum) 
+{
+  StringVector& to = rows [toIndex];
+  const StringVector& from = rows [fromIndex];
+  for (const size_t i : sum)
+  {
+    const Header& h = header [i];
+    ASSERT (h. numeric);
+    ostringstream oss;
+    ONumber on (oss, h. decimals, h. scientific);
+    oss << stod (to [i]) + stod (from [i]);
+    to [i] = oss. str ();
+  }
+}
+
 
 
 

@@ -30,9 +30,10 @@
 *   AMRFinder
 *
 * Dependencies: NCBI BLAST, HMMer
-*               cat, cp, cut, head, ln, mkdir, mv, sort, tail
+*               cat, cp, cut, head, ln, mv, sort, tail
 *
 * Release changes:
+*   3.9.7  12/03/2020 PD-3292  dependence on "mkdir" is removed
 *   3.9.6  11/20/2020 PD-3613  --dir
 *                              prepare_fasta_extract()
 *   3.9.5  11/18/2020 PD-3292  dependence on awk is removed
@@ -313,11 +314,13 @@ struct ThisApplication : ShellApplication
                               const string &tmpSuf) const
   {
     TextTable t (tmp + ".amr");
+    t. qc ();
     t. filterColumns (move (columns));
     t. rows. filterValue ([] (const StringVector& row) { return row [0] == "NA"; });
-    t. header. clear ();
     t. rows. sort ();
     t. rows. uniq ();
+    t. saveHeader = false;
+    t. qc ();
     t. saveFile (tmp + "." + tmpSuf);
   }
 
@@ -787,9 +790,11 @@ struct ThisApplication : ShellApplication
     		//ASSERT (threadsAvailable);
     		  if (threadsAvailable >= 2)
     		  {
-      		  exec ("mkdir " + tmp + ".chunk");
+      		//exec ("mkdir " + tmp + ".chunk");
+      		  createDirectory (tmp + ".chunk", false);
       		  exec (fullProg ("fasta2parts") + dna + " " + to_string (threadsAvailable) + " " + tmp + ".chunk" + qcS + " -log " + logFName, logFName);   // PAR
-      		  exec ("mkdir " + tmp + ".blastx_dir");
+      		//exec ("mkdir " + tmp + ".blastx_dir");
+      		  createDirectory (tmp + ".blastx_dir", false);
       		  FileItemGenerator fig (false, true, tmp + ".chunk");
       		  string item;
       		  while (fig. next (item))
