@@ -30,10 +30,14 @@ jobs:
           source /usr/share/miniconda/bin/activate
           amrfinder --version
     - name: download latest AMRFinderPlus database
-      run: /usr/share/miniconda/bin/amrfinder -u
+      run: |
+          source /usr/share/miniconda/bin/activate
+          echo CONDA_PREFIX = $CONDA_PREFIX
+          /usr/share/miniconda/bin/amrfinder --force_update
     - name: test protein
       run: |
           source /usr/share/miniconda/bin/activate
+          echo CONDA_PREFIX = $CONDA_PREFIX
           amrfinder --plus -p test_prot.fa -g test_prot.gff -O Escherichia > test_prot.got
           diff test_prot.expected test_prot.got
     - name: test dna
