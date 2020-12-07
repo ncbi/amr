@@ -58,11 +58,6 @@
   #pragma warning (default : 4005)  
 #endif
 
-#ifdef __APPLE__
-  #include <sys/types.h>
-  #include <sys/sysctl.h>
-#endif
-
 #include <ctime>
 #include <cstring>
 #include <cmath>
@@ -129,6 +124,10 @@ extern size_t threads_max;
   // >= 1
 extern thread::id main_thread_id;
 bool isMainThread ();
+#ifndef _MSC_VER
+  size_t get_threads_max_max ();
+#endif
+
 
 
 [[noreturn]] void errorExit (const char* msg,
@@ -151,6 +150,28 @@ protected:
 };
 
 
+
+#ifndef _MSC_VER
+  struct Color
+  {
+    enum Type { none    =  0
+              , black   = 30
+              , red     = 31 	
+              , green   = 32
+              , yellow  = 33
+              , blue    = 34 	
+              , magenta = 35 	
+              , cyan    = 36 	
+              , white   = 37
+              };
+              
+    static string code (Type color = none, 
+                        bool bright = false)
+      { return string ("\033[") + (bright ? "1;" : "") + to_string (color) + "m"; }
+  };
+#endif
+  
+  
 
 class ONumber
 {
@@ -284,12 +305,12 @@ inline bool boolPow (bool x, bool power)
 
 // ebool - extended bool
 
-enum ebool {EFALSE = false, 
-            ETRUE = true, 
-            UBOOL = true + 1};
+enum ebool {efalse = false, 
+            etrue = true, 
+            enull = true + 1};
 
 inline ebool toEbool (bool b)
-  { return b ? ETRUE : EFALSE; }
+  { return b ? etrue : efalse; }
 
 
 inline bool operator<= (ebool a, ebool b)
@@ -298,10 +319,10 @@ inline bool operator<= (ebool a, ebool b)
   }
 
 inline void toggle (ebool &b)
-  { if (b == ETRUE)
-      b = EFALSE;
-    else if (b == EFALSE)
-      b = ETRUE;
+  { if (b == etrue)
+      b = efalse;
+    else if (b == efalse)
+      b = etrue;
   }
 
 
@@ -371,7 +392,7 @@ uint powInt (uint a,
 
 
 
-const size_t NO_INDEX = SIZE_MAX;
+constexpr size_t no_index = numeric_limits<size_t>::max ();
 
 
 
@@ -695,13 +716,17 @@ template <typename From, typename What>
           from. erase (x);
     }
 
-
-template <typename T>
-  ostream& operator<< (ostream &os,
-                       const list<T> &ts)
-    { for (const auto& t : ts)
-        os << t << endl;
-      return os;
+template <typename T /*container*/>
+  void save (ostream &os,
+             const T &container,
+             char sep)
+    { bool first = true;
+      for (const auto& t : container)
+      { if (! first)
+          os << sep;
+        os << t;
+        first = false;
+      }
     }
 
 
@@ -750,7 +775,7 @@ public:
 	  	  	return i;
 	  	  else
 	  	  	i++;
-	  	return NO_INDEX;
+	  	return no_index;
 	  }
   bool isPrefix (const List<T> &prefix) const
     { typename List<T>::const_iterator wholeIt  =      P::begin ();
@@ -766,8 +791,12 @@ public:
 	      prefixIt++;
 	    }
     }
-  List<T>& operator<< (T t) 
+  List<T>& operator<< (const T &t) 
     { P::push_back (t); 
+    	return *this;
+    }    
+  List<T>& operator<< (T &&t) 
+    { P::push_back (move (t)); 
     	return *this;
     }    
   template <typename U/*:<T>*/>
@@ -781,12 +810,16 @@ public:
       	return *this;
       }
   T popFront ()
-    { const T t = P::front ();
+    { if (P::empty ())
+        throw range_error ("popFront() empty list");
+      const T t = P::front ();
       P::pop_front ();
       return t;
     }
   T popBack ()
-    { const T t = P::back ();
+    { if (P::empty ())
+        throw range_error ("popBack() empty list");
+      const T t = P::back ();
       P::pop_back ();
       return t;
     }
@@ -805,6 +838,14 @@ inline string ifS (bool cond,
 inline string nvl (const string& s,
                    const string& nullS = "-")
   { return s. empty () ? nullS : s; }
+  	
+inline string appendS (const string &s,
+                       const string &suffix)
+  { return s. empty () ? string () : (s + suffix); }
+  	
+inline string prependS (const string &s,
+                        const string &prefix)
+  { return s. empty () ? string () : (prefix + s); }
   	
 inline bool isQuoted (const string &s,
                       char quote = '\"')
@@ -845,7 +886,7 @@ template <typename T>
           || ! iss. eof ()
           || iss. fail ()
          )
-        throw runtime_error ("Converting " + strQuote (s));
+        throw runtime_error ("Cannot convert " + strQuote (s) + " to number");
       return i;
     }
 
@@ -1040,6 +1081,11 @@ inline string shellQuote (string s)
 
 bool fileExists (const string &fName);
 
+inline void checkFile (const string &fName)
+  { if (! fileExists (fName))
+      throw runtime_error ("File " + strQuote (fName) + " does not exist");
+  }
+
 streampos getFileSize (const string &fName);
 
 inline void removeFile (const string &fName)
@@ -1063,6 +1109,9 @@ inline string path2canonical (const string &path)
 
 #ifndef _MSC_VER
   bool directoryExists (const string &dirName);
+  
+  void createDirectory (const string &dirName,
+                        bool createAncestors);
 #endif
 
 
@@ -1072,7 +1121,8 @@ struct Dir
     // Simplified: contains no redundant "", ".", ".."
     // items.front().empty (): root
 
-  explicit Dir (const string &name);
+  explicit Dir (const string &dirName);
+  Dir () = default;
     
   string get () const
     { return items. empty () 
@@ -1206,6 +1256,11 @@ int getVerbosity ();
 void exec (const string &cmd,
            const string &logFName = string());
 
+#ifndef _MSC_VER
+  string which (const string &progName);
+    // Return: isRight(,"/") or empty() if there is no path
+#endif
+
 
 
 // Threads
@@ -1260,7 +1315,7 @@ template <typename Func, typename Res, typename... Args>
   	ASSERT (threads_max >= 1);
 		results. clear ();
 		results. reserve (threads_max);
-  	if (threads_max == 1)
+  	if (threads_max == 1 || i_max <= 1)
   	{
   		results. push_back (Res ());
     	func (0, i_max, results. front (), forward<Args>(args)...);
@@ -1358,7 +1413,7 @@ public:
 	virtual bool empty () const
 	  { return true; }
   virtual void clear ()
-    {}
+    { throw logic_error ("Root::clear() is not implemented"); }
     // Postcondition: empty()
   virtual void read (istream &/*is*/)
     { throw logic_error ("Root::read() is not implemented"); }
@@ -1445,16 +1500,6 @@ typedef int (*CompareInt) (const void*, const void*);
 
 
 template <typename T>
-  ostream& operator<< (ostream &os,
-                       const vector<T> &ts)
-    { for (const auto& t : ts)
-        os << t << endl;
-      return os;
-    }
-
-
-
-template <typename T>
 struct Vector : vector<T>
 {
 private:
@@ -1476,20 +1521,22 @@ public:
 	  {}
 	
 	
-	typename P::reference operator[] (size_t index)
+private:
+	void checkIndex (const string &operation,
+	                 size_t index) const
 	  {
 	  #ifndef NDEBUG
 	    if (index >= P::size ())
-	      throw range_error ("Vector assignment to index = " + to_string (index) + ", but size = " + to_string (P::size ()));
+	      throw range_error ("Vector " + operation + " operation: index = " + to_string (index) + ", but size = " + to_string (P::size ()));
 	  #endif
+	  }
+public:
+	typename P::reference operator[] (size_t index)
+	  { checkIndex ("assignment", index);
 	    return P::operator[] (index);
 	  }
 	typename P::const_reference operator[] (size_t index) const
-	  {
-	  #ifndef NDEBUG
-	    if (index >= P::size ())
-	      throw range_error ("Vector reading of index = " + to_string (index) + ", but size = " + to_string (P::size ()));
-	  #endif
+	  { checkIndex ("get", index);
 	    return P::operator[] (index);
 	  }
   void reserveInc (size_t inc)
@@ -1529,7 +1576,7 @@ public:
           return n;
         else
           n++;
-      return NO_INDEX;
+      return no_index;
     }
   size_t countValue (const T &value) const
     { size_t n = 0;
@@ -1556,6 +1603,15 @@ public:
       	return *this;
       }
   template <typename U/*:<T>*/>
+    Vector<T>& operator<< (vector<U> &&other)
+      { reserveInc (other. size ());
+        for (U& t : other)
+          P::push_back (move (t));
+        searchSorted = false;
+        other. clear ();
+      	return *this;
+      }
+  template <typename U/*:<T>*/>
     Vector<T>& operator<< (const list<U> &other)
       { reserveInc (other. size ());
         P::insert (P::end (), other. begin (), other. end ());
@@ -1571,9 +1627,16 @@ public:
     { eraseMany (index, index + 1); }
   void eraseMany (size_t from,
                   size_t to)
-    { P::erase ( P::begin () + (ptrdiff_t) from
-    	         , P::begin () + (ptrdiff_t) to
-    	         ); 
+    { if (to < from)
+        throw logic_error ("Vector::eraseMany(): to < from");
+      if (to == from)
+        return;
+      checkIndex ("eraseMany", to - 1);
+      auto it1 = P::begin ();
+      std::advance (it1, from);
+      auto it2 = it1;
+      std::advance (it2, to - from);
+      P::erase (it1, it2);
     }
   void wipe ()
     { P::clear ();
@@ -1596,6 +1659,14 @@ public:
 	      std::swap (t, (*this) [(size_t) rand. get ((ulong) P::size ())]);
     	searchSorted = false;
 		}
+  void pop_back ()
+    { 
+    #ifndef NDEBUG
+      if (P::empty ())
+        throw range_error ("Empty vector pop_back");
+    #endif
+      P::pop_back ();
+    }
   T pop (size_t n = 1)
     { T t = T ();
       while (n)
@@ -1621,7 +1692,7 @@ public:
         for (size_t i = 0, end_ = P::size (); i < end_; i++)
         { const size_t j = i - toDelete;
           if (j != i)
-            (*this) [j] = (*this) [i];
+            (*this) [j] = move ((*this) [i]);
           if (cond (j))
             toDelete++;
         }
@@ -1636,7 +1707,7 @@ public:
         for (size_t i = 0, end_ = P::size (); i < end_; i++)
         { const size_t j = i - toDelete;
           if (j != i)
-            (*this) [j] = (*this) [i];
+            (*this) [j] = move ((*this) [i]);
           if (cond ((*this) [j]))
             toDelete++;
         }
@@ -1676,17 +1747,17 @@ public:
 
   size_t binSearch (const T &value,
                     bool exact = true) const
-    // Return: if exact then NO_INDEX or vec[Return] = value else min {i : vec[i] >= value}
+    // Return: if exact then no_index or vec[Return] = value else min {i : vec[i] >= value}
     { if (P::empty ())
-    	  return NO_INDEX;
+    	  return no_index;
     	checkSorted ();
     	size_t lo = 0;  // vec.at(lo) <= value
     	size_t hi = P::size () - 1;  
     	// lo <= hi
     	if (value < (*this) [lo])
-    	  return exact ? NO_INDEX : lo;
+    	  return exact ? no_index : lo;
     	if ((*this) [hi] < value)
-    	  return NO_INDEX;
+    	  return no_index;
     	// at(lo) <= value <= at(hi)
     	for (;;)
     	{
@@ -1705,11 +1776,11 @@ public:
 	    	return lo;
 	    if (! exact || (*this) [hi] == value)
 	    	return hi;
-	    return NO_INDEX;
+	    return no_index;
     }
   template <typename U /* : T */>
     bool containsFast (const U &value) const
-      { return binSearch (value) != NO_INDEX; }
+      { return binSearch (value) != no_index; }
   template <typename U /* : T */>
     bool containsFastAll (const Vector<U> &other) const
       { if (other. size () > P::size ())
@@ -1786,14 +1857,14 @@ public:
       
   size_t findDuplicate () const
     { if (P::size () <= 1)
-        return NO_INDEX;
+        return no_index;
       FOR_START (size_t, i, 1, P::size ())
         if ((*this) [i] == (*this) [i - 1])
           return i;
-      return NO_INDEX;
+      return no_index;
     }
   bool isUniq () const
-    { return findDuplicate () == NO_INDEX; }
+    { return findDuplicate () == no_index; }
   template <typename Equal /*bool equal (const T &a, const T &b)*/>
 	  void uniq (const Equal &equal)
 	    { if (P::size () <= 1)
@@ -1967,18 +2038,13 @@ public:
   StringVector (const string &fName,
                 size_t reserve_size);
   explicit StringVector (const string &s, 
-                         char c = ' ');
+                         char sep,
+                         bool trimP);
 
 
-  string toString (const string& sep) const
-    { string res;
-  	  for (const string& s : *this)
-  	  { if (! res. empty ())
-  	      res += sep;
-  	    res += s;
-  	  }
-  	  return res;
-  	}
+  string toString (const string& sep) const;
+  bool same (const StringVector &vec,
+             const Vector<size_t> &indexes) const;
 };
 
 
@@ -2043,6 +2109,8 @@ public:
 
   bool empty () const final
     { return arr. empty (); }
+  size_t size () const
+    { return arr. size (); }
   Heap& operator<< (T item)
     { arr << item;
       increaseKey (arr. size () - 1);
@@ -2377,6 +2445,7 @@ template <typename T, typename U /* : T */>
 
 template <typename T>  
 struct RandomSet
+// Set stored in a vector for a random access
 {
 private:
   Vector<T> vec;
@@ -2422,7 +2491,6 @@ public:
     }
   const Vector<T>& getVec () const
     { return vec; }
-    // For a random access
 };
   
 
@@ -2445,11 +2513,11 @@ public:
   size_t find (const T &t) const
     { if (const size_t* num = Common_sp::findPtr (elem2num, t))
         return *num;
-      return NO_INDEX;
+      return no_index;
     }
   size_t add (const T &t)
     { size_t num = find (t);
-      if (num == NO_INDEX)
+      if (num == no_index)
       { num2elem << t;
         num = num2elem. size () - 1;
         elem2num [t] = num;
@@ -2645,12 +2713,14 @@ public:
       : runtime_error (what_arg)
       {}
   };
+  string errorText (const string &what,
+		                bool expected = true) const
+		{ return "Error at line " + to_string (lineNum + 1) + ", pos. " + to_string (charNum + 1)
+                + (what. empty () ? string () : (": " + what + ifS (expected, " is expected"))); 
+    }
   [[noreturn]] void error (const string &what,
 		                       bool expected = true) const
-		{ throw Error ("Error at line " + to_string (lineNum + 1) + ", pos. " + to_string (charNum + 1)
-		               + (what. empty () ? string () : (": " + what + ifS (expected, " is expected")))
-		              );
-		}
+		{ throw Error (errorText (what, expected)); }
 };
 	
 
@@ -2720,6 +2790,8 @@ public:
 	void saveText (ostream &os) const override;
 	bool empty () const override
 	  { return type == eDelimiter && name. empty (); }
+	void clear () override
+	  { *this = Token (); }
 
 
 	static string type2str (Type type) 
@@ -2860,6 +2932,8 @@ public:
 
 	  
 	bool next ();
+	uint getLineNum () const
+	  { return f. lineNum; }
 };
 
 
@@ -2901,6 +2975,23 @@ struct Stderr : Singleton<Stderr>
         return *this;
       }
 };
+
+
+
+#ifndef _MSC_VER
+  struct Warning : Singleton<Warning>
+  {
+  private:
+    Stderr& stderr;
+  public:  
+    
+    Warning (Stderr &stderr_arg)
+      : stderr (stderr_arg)
+      { stderr << Color::code (Color::yellow, true) << "WARNING: "; }
+   ~Warning ()
+      { stderr << Color::code () << "\n"; }
+  };
+#endif
 
 
 
@@ -2964,6 +3055,79 @@ public:
 
 
 
+
+struct TextTable : Root
+// Tab-delimited table with a header
+{
+  bool pound {false};
+    // '#' in the beginning of header
+  bool saveHeader {true};
+  struct Header : Named
+  { 
+    // Type
+    bool numeric {true};
+    // Valid if numeric
+    bool scientific {false};
+    streamsize decimals {0};
+    explicit Header (const string &name_arg)
+      : Named (name_arg)
+      {}
+    void qc () const override;
+    void saveText (ostream& os) const override
+      { os << name << ' ' << (numeric ? ((scientific ? "float" : "int") + string ("(") + to_string (decimals) + ")") : "char"); }
+  };
+  Vector<Header> header;
+    // size() = number of columns
+  Vector<StringVector> rows;
+    // StringVector::size() = header.size()
+
+    
+
+  explicit TextTable (const string &fName);
+private:
+  void setHeader ();
+public:
+  void qc () const override;
+  void saveText (ostream &os) const override;    
+        
+  
+  void printHeader (ostream &os) const;
+private:
+  size_t col2index_ (const string &columnName) const;
+public:
+  size_t col2index (const string &columnName) const
+  { const size_t i = col2index_ (columnName);
+    if (i == no_index)
+      throw runtime_error ("Cannot find column name " + strQuote (columnName));
+    return i;
+  }
+  Vector<size_t> columns2indexes (const StringVector &columns) const
+    { Vector<size_t> indexes;  indexes. reserve (columns. size ());
+      for (const string &s : columns)
+        indexes << col2index (s);
+      return indexes;
+    }
+  bool hasColumn (const string &columnName) const
+    { return col2index_ (columnName) != no_index; }
+private:
+  int compare (const StringVector& row1,
+               const StringVector& row2,
+               size_t column) const;
+public:
+  void filterColumns (const StringVector &newColumnNames);
+    // Input: newColumnNames: in header::name's
+    //          can be repeated
+    //          ordered
+  void group (const StringVector &by,
+              const StringVector &sum);
+private:
+  void merge (size_t toIndex,
+              size_t fromIndex,
+              const Vector<size_t> &sum);
+};
+
+
+		
 
 // Json
 
@@ -3232,10 +3396,12 @@ struct ItemGenerator
 {
   Progress prog;
   
+protected:
   ItemGenerator (size_t progress_n_max,
 	               size_t progress_displayPeriod)
 	  : prog (progress_n_max, progress_displayPeriod)
 	  {}
+public:
   virtual ~ItemGenerator ()
     {}
   
@@ -3369,7 +3535,7 @@ struct Application : Singleton<Application>, Root
   const string description;
   const bool needsArg;
   const bool gnu;
-  string version {"1.0.0"};
+  string version {"0.0.0"};
   static constexpr const char* helpS {"help"};
   static constexpr const char* versionS {"version"};
   
@@ -3487,8 +3653,12 @@ private:
 	void setPositional (List<Positional>::iterator &posIt,
 	                    const string &value);
 public:
-  virtual ~Application ()
-    {}
+ ~Application ()
+   { if (logPtr)
+  	 { delete logPtr;
+  	   logPtr = nullptr;
+     }
+   }
 
 
 protected:
@@ -3515,7 +3685,7 @@ protected:
   virtual void initEnvironment ()
     {}
   string getInstruction () const;
-  string getHelp () const;
+  virtual string getHelp () const;
 public:
   int run (int argc, 
            const char* argv []);
@@ -3534,6 +3704,8 @@ struct ShellApplication : Application
   // Environment
   const bool useTmp;
   string tmp;
+    // Temporary file prefix: ($TMPDIR or "/tmp") + "/XXXXXX"
+    // If log is used then tmp is printed in the log file and the temporary files are not deleted 
   string execDir;
     // Ends with '/'
     // Physically real directory of the software
@@ -3552,19 +3724,23 @@ struct ShellApplication : Application
 
 protected:
   void initEnvironment () override;
+  string getHelp () const override;
 private:
   void body () const final;
   virtual void shellBody () const = 0;
 protected:
   static bool emptyArg (const string &s)
     {	return s. empty () || s == "\'\'"; }
-  string which (const string &progName) const;
-    // Return: isRight(,"/") or empty()
   void findProg (const string &progName) const;
     // Output: prog2dir
   string fullProg (const string &progName) const;
     // Return: shellQuote (directory + progName) + ' '
     // Requires: After findProg(progName)
+  string exec2str (const string &cmd,
+                   const string &tmpName,
+                   const string &logFName = string()) const;
+    // Return: `cmd > <tmp>.tmpName && cat <tmp>.tmpName`
+    // Requires: cmd produces one line
 };
 #endif
 

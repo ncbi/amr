@@ -29,8 +29,7 @@
 * File Description:
 *   Identification of mutations at DNA level
 *
-* Release changes:
-*   3.2.4 11/15/2019 PD-3191  neighborhoodMismatch <= 0.04; good(): length >= min (refLen, 2 * flankingLen + 1)
+* Release changes: see amrfinder.cpp
 *
 */
    
@@ -51,6 +50,7 @@ namespace
 
 map <string/*accession*/, Vector<Mutation>>  accession2mutations;
 unique_ptr<OFStream> mutation_all;  
+string input_name;
 
 
 
@@ -58,30 +58,36 @@ struct BlastnAlignment : Alignment
 {
 	// PD-2001
  	static constexpr const size_t flankingLen = 200;  // PAR  
+  string organism;
   string refAccessionFrag;
   string product;
   string gene;
   
 
-  explicit BlastnAlignment (const string &line)
+  BlastnAlignment (const string &line,
+                   const string &organism_arg)
     : Alignment (line, false, false)
+    , organism (organism_arg)
     {
+	    replace (organism, '_', ' ');
       try
       {
+        // refName =      NC_022347.1@23S_ribosomal_RNA@23S@-159:1040292-1037381
+        //           accesion_version@gene_name@gene_symbol@offset:start-stop
 	      ASSERT (! refName. empty ());
-	      string s (refName);
-	      refAccessionFrag = findSplit (s, '@');
-	      product = findSplit (s, ':');
+	      // PD-3419
+	      {
+  	      string s (refName);
+  	      refAccessionFrag =       findSplit (s, '@');
+  	      product          =       findSplit (s, '@');
+  	      gene             =       findSplit (s, ':');
+  	    //ref_offset       = stoi (findSplit (s, ':'));
+  	      refAccessionFrag += ":" + s;
+  	    }
 	      replace (product, '_', ' ');
-	      QC_ASSERT (! s. empty ());
-	      refAccessionFrag += ":" + s;
-	      
-	      s = product;
-	      gene = findSplit (s);
-	      QC_ASSERT (! gene. empty ());
-
+	      qc ();
   	    if (const Vector<Mutation>* refMutations = findPtr (accession2mutations, refName))
-  	      setSeqChanges (*refMutations, flankingLen /*, mutation_all. get ()*/);
+  	      setSeqChanges (*refMutations, flankingLen);
 		  }
 		  catch (...)
 		  {
@@ -89,34 +95,39 @@ struct BlastnAlignment : Alignment
 		  	throw;
 		  }
     }
-#if 0
-  explicit BlastnAlignment (const Mutation& mut)
-    : gene (mut. gene)   
-    { targetProt = false;
-      alProt     = false;
-      seqChanges << SeqChange (this, & mut);
+  void qc () const override
+    { if (! qc_on)
+        return;
+      Alignment::qc ();
+      QC_ASSERT (! refAccessionFrag. empty ());
+      QC_ASSERT (! product. empty ());
+      QC_ASSERT (! gene. empty ());
+      QC_ASSERT (! organism. empty ());
     }
-#endif
-  void saveText (ostream& os) const 
+  void saveText (ostream& os) const override
     { const string na ("NA");
       for (const SeqChange& seqChange : seqChanges)
       {
         ASSERT (! (seqChange. empty () && ! seqChange. mutation));
         TabDel td (2, false);
+  	    if (! input_name. empty ())
+  	      td << input_name;;
         td << na  // PD-2534
            << nvl (targetName, na)
            << (empty () ? 0 : targetStart + 1)
            << (empty () ? 0 : targetEnd)
            << (empty () ? na : (targetStrand ? "+" : "-"))
            << (seqChange. mutation
-                 ? seqChange. mutation->geneMutation
+                 ? seqChange. empty ()
+                   ? seqChange. mutation->wildtype ()
+                   : seqChange. mutation->geneMutation
                  : gene + "_" + seqChange. getMutationStr ()
               )
            << (seqChange. mutation
                  ? seqChange. empty ()
-                     ? product + " [WILDTYPE]"
+                     ? organism + " " + product + " [WILDTYPE]"
                      : seqChange. mutation->name
-                 : product + " [NOVEL]"
+                 : organism + " " + product + " [UNKNOWN]"
               )
            << "core"  // PD-2825
            // PD-1856
@@ -145,7 +156,7 @@ struct BlastnAlignment : Alignment
         // HMM
         td << na
            << na;
-        if (! seqChange. empty () && seqChange. mutation)  // resistant mutation
+        if (! seqChange. empty () && seqChange. mutation && ! seqChange. replacement)  // resistant mutation
           os << td. str () << endl;
         if (mutation_all. get ())
 	        *mutation_all << td. str () << endl;
@@ -155,6 +166,7 @@ struct BlastnAlignment : Alignment
 
   bool good () const
     { return targetSeq. size () >= min (refLen, 2 * flankingLen + 1); }
+#if 0
   bool operator< (const BlastnAlignment &other) const
     { LESS_PART (*this, other, targetName);
       LESS_PART (other, *this, pIdentity ());
@@ -162,6 +174,7 @@ struct BlastnAlignment : Alignment
       LESS_PART (*this, other, refName);
       return false;
     }
+#endif
 };
 
 
@@ -203,6 +216,8 @@ struct Batch
     {
     	// Cf. BlastnAlignment::saveText()
 	    TabDel td;
+	    if (! input_name. empty ())
+	      td << "Name";
 	    td << "Protein identifier"   // targetName  // PD-2534
          // Contig
          << "Contig id"
@@ -257,7 +272,9 @@ struct ThisApplication : Application
     {
       addPositional ("blastn", string ("blastn output in the format: ") + Alignment::format + ". sseqid is the 1st column of <mutation_tab> table");  
       addPositional ("mutation", "Mutations table");
+      addPositional ("organism", "Organism name");
       addKey ("mutation_all", "File to report all mutations");
+      addKey ("name", "Text to be added as the first column \"name\" to all rows of the report");
 	    version = SVN_REV;
     }
 
@@ -267,7 +284,9 @@ struct ThisApplication : Application
   {
     const string blastnFName        = getArg ("blastn");
     const string mutation_tab       = getArg ("mutation");  
+    const string organism           = getArg ("organism");  
     const string mutation_all_FName = getArg ("mutation_all");
+                 input_name         = getArg ("name");
     
     
     if (! mutation_all_FName. empty ())
@@ -287,7 +306,7 @@ struct ThisApplication : Application
   	      if (verbose ())
   	        cout << f. line << endl;  
   	    }
-  	    auto al = new BlastnAlignment (f. line);
+  	    auto al = new BlastnAlignment (f. line, organism);
   	    al->qc ();  
   	    if (al->good ())
   	      batch. blastAls << al;
@@ -324,16 +343,17 @@ struct ThisApplication : Application
               && blastAl2->targetStrand == blastAl1->targetStrand
               && blastAl2 != blastAl1
              )  
-          //for (SeqChange& seqChange2 : blastAl2. seqChanges)
-            for (Iter<Vector<SeqChange>> iter (var_cast (blastAl2) -> seqChanges); iter. next (); )
+          //for (Iter<Vector<SeqChange>> iter (var_cast (blastAl2) -> seqChanges); iter. next (); )
+            for (SeqChange& seqChange2 : var_cast (blastAl2) -> seqChanges)
             {
-              SeqChange& seqChange2 = *iter;
+            //SeqChange& seqChange2 = *iter;
               ASSERT (seqChange2. al == blastAl2);
             //ASSERT (seqChange2. mutation);
-              if (   seqChange1. start_target         == seqChange2. start_target 
+              if (   seqChange1. start_target == seqChange2. start_target 
                   && seqChange1. better (seqChange2)                
                  )
-                iter. erase ();
+              //iter. erase ();
+                seqChange2. replacement = & seqChange1;
             }
       }
 		

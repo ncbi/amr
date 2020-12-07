@@ -1,7 +1,10 @@
-name: C/C++ CI
+name: C++ CI
 
-on: [push]
-
+on: 
+    workflow_dispatch:
+    push:
+    repository_dispatch:
+        types: [linux-compile-test, install-test]
 jobs:
   build:
 
@@ -13,7 +16,20 @@ jobs:
       run: sudo apt-get install -y hmmer ncbi-blast+ git libcurl4-openssl-dev build-essential curl
     - name: make
       run: make
+    - name: version
+      run: |
+          cat version.txt
+          ./amrfinder --version
     - name: download db
       run: ./amrfinder -u
     - name: make test
       run: make test
+    - name: test for no-overwrite database update (PD-3469 / https://github.com/ncbi/amr/issues/16)
+      run: ./amrfinder -u 2>&1 | fgrep 'Skipping update, use amrfinder --force_update to overwrite the existing database'
+    - name: make github_binaries
+      run: make github_binaries
+    - uses: actions/upload-artifact@v2
+      with:
+          name: release-binary
+          path: amrfinder_binaries_v*.tar.gz
+

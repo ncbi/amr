@@ -81,6 +81,7 @@ struct ThisApplication : Application
     string errorS;
     while (f. nextLine ())
     {
+      trimTrailing (f. line);
       if (f. line. empty ())
       	continue;
     	errorS = "File " + fName + ", line " + toString (f. lineNum) + ": ";
@@ -148,7 +149,7 @@ struct ThisApplication : Application
   		
 	  ids. sort ();
 	  const size_t index = ids. findDuplicate ();
-	  if (index != NO_INDEX)
+	  if (index != no_index)
 	  	throw runtime_error ("Duplicate identifier: " + ids [index]);
   }
 };

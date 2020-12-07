@@ -55,17 +55,17 @@ struct Mutation : Root
 	  // = start of reference
 	// !empty()
 	string geneMutation;
-	  // Depends on the above
 	string classS;
 	string subclass;
 	string name;
 	  // Species binomial + resistance
 	
-	// Replacement
+  // Function of geneMutation
   // Upper-case
   string reference;
 	string allele;
 	string gene;
+	int ref_pos {0};
 
 	
 	Mutation (size_t pos_arg,
@@ -79,10 +79,15 @@ private:
 	static void parse (const string &geneMutation,
 	                   string &reference,
 	                   string &allele,
-                     string &gene);
+                     string &gene,
+                     int &ref_pos);
 public:
   void saveText (ostream &os) const override
-    { os << pos + 1 << ' ' << geneMutation << ' ' << name; }
+    { if (empty ())
+        os << "empty";
+      else
+        os << pos + 1 << ' ' << geneMutation << ' ' << name; 
+    }
   void print (ostream &os) const override
     { saveText (os); 
       os << endl;
@@ -93,6 +98,8 @@ public:
 
   size_t getStop () const
     { return pos + reference. size (); }
+  string wildtype () const
+    { return gene + "_" + reference + to_string (ref_pos + 1) + reference; }
   bool operator< (const Mutation &other) const;
   bool operator== (const Mutation &other) const
     { return geneMutation == other. geneMutation; }
@@ -119,6 +126,8 @@ struct SeqChange : Root
   // In alignment
   size_t start {0};
   size_t len {0};
+  
+  // No '-'
   string reference;
     // Insertion => !empty() by artifically decrementing start and incrementing len
   string allele;
@@ -132,21 +141,23 @@ struct SeqChange : Root
 	char prev {'\0'};
 	  
 	const Mutation* mutation {nullptr};
+	
+	const SeqChange* replacement {nullptr};
   
   
   SeqChange () = default;
   explicit SeqChange (const Alignment* al_arg)
     : al (al_arg)
     {}
-#if 0
   SeqChange (const Alignment* al_arg,
              const Mutation* mutation_arg)
     : al (al_arg)
     , mutation (checkPtr (mutation_arg))
     {}
-#endif
+#if 0
   SeqChange (const Alignment* al_arg,
              size_t targetStopPos);    
+#endif
   void qc () const override;
   void saveText (ostream &os) const override
     { os        << start + 1 
@@ -169,16 +180,7 @@ private:
   bool hasMutation () const
     { return mutation; }
 public:
-  string getMutationStr () const
-    { const string allele_ (allele. empty () 
-                              ? "DEL" 
-                              : allele == "*"
-                                  ? "STOP"
-                                  : allele
-                           );
-      const string reference_ (reference. empty () ? string (1, prev) : reference);
-      return reference_ + to_string (start_ref + ! reference. empty ()) + allele_; 
-    }
+  string getMutationStr () const;
   size_t getStop () const
     { return start + len; }
   bool operator< (const SeqChange &other) const;
@@ -186,6 +188,7 @@ public:
   bool finish (const string &refSeq,
                size_t flankingLen);
     // Return: good match
+    // Input: flankingLen: valid if > 0
 private:
   void setSeq ();
   void setStartStopRef ();
@@ -231,6 +234,7 @@ struct Alignment : Root
   size_t refLen {0};  
   Mutation refMutation;
     // !empty() => original refSeq is the result of refMutation.apply() to the original refSeq
+//int ref_offset {0};
   
   // Alignment
   bool alProt {false};
@@ -255,6 +259,7 @@ protected:
   void setSeqChanges (const Vector<Mutation> &refMutations,
                       size_t flankingLen/*,
                       bool allMutationsP*/);
+    // Input: flankingLen: valid if > 0
 public:
   bool empty () const override
     { return targetName. empty (); }
@@ -291,6 +296,19 @@ public:
              && nident == refLen 
              && nident == targetSeq. size ();
 	  }
+	bool getFrameShift (const Alignment &other,
+	                    size_t diff_max) const
+	  // Return: success
+	  // Input: diff_max: in bp
+	  // Requires: !targetProt, refProt, rightPart.refProt
+	  { return    nident >= other. nident
+	           && (          getFrameShift_right (other, diff_max) 
+	               || other. getFrameShift_right (*this, diff_max) 
+	              );
+	  }
+private:
+	bool getFrameShift_right (const Alignment &rightPart,
+	                          size_t diff_max) const;
 };
 
 

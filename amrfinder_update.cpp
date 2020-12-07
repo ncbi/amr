@@ -30,7 +30,7 @@
 *   Updating of AMRFinder data
 *
 * Dependencies: NCBI BLAST, HMMer
-*               mkdir, ln
+*               ln
 *               curl.{h,c}
 *
 * Release changes: see amrfinder.cpp
@@ -169,9 +169,12 @@ string Curl::read (const string &url)
 string getLatestMinor (Curl &curl)
 // Return: empty() <=> failure
 {
-  StringVector dir (curl. read (URL), '\n');
+  StringVector dir (curl. read (URL), '\n', true);
   if (verbose ())
-    cout << dir << endl;
+  {
+    save (cout, dir, '\t'); 
+    cout << endl;
+  }
     
   Vector<SoftwareVersion> vers;  
   for (string& line : dir)
@@ -206,9 +209,12 @@ string getLatestDataVersion (Curl &curl,
                              const string &minor)
 // Return: empty() <=> failure
 {
-  StringVector dir (curl. read (URL + minor + "/"), '\n');
+  StringVector dir (curl. read (URL + minor + "/"), '\n', true);
   if (verbose ())
-    cout << dir << endl;
+  {
+    save (cout, dir, '\t');
+    cout << endl;
+  }
     
   Vector<DataVersion> dataVersions;  
   for (string& line : dir)
@@ -258,14 +264,15 @@ void fetchAMRFile (Curl &curl,
 struct ThisApplication : ShellApplication
 {
   ThisApplication ()
-    : ShellApplication ("Update the data for AMRFinder from " URL "\n\
+    : ShellApplication ("Update the database for AMRFinder from " URL "\n\
 Requirements:\n\
 - the data/ directory contains subdirectories named by \"minor\" software versions (i.e., <major>.<minor>/);\n\
-- the \"minor\" directories contain subdirectories named by data versions.\
+- the \"minor\" directories contain subdirectories named by database versions.\
 ", false, true, true)
     {
     	addKey ("database", "Directory for all versions of AMRFinder databases", "$BASE/data", 'd', "DATABASE_DIR");
     	  // Symbolic link ??
+    	addFlag ("force_update", "Force updating the AMRFinder database");  // PD-3469
       addFlag ("quiet", "Suppress messages to STDERR", 'q');
 	    version = SVN_REV;
 
@@ -281,14 +288,48 @@ Requirements:\n\
 
   void shellBody () const final
   {
-    const string mainDirOrig = getArg ("database");
-    const bool   quiet       = getFlag ("quiet");
+    const string mainDirOrig  = getArg ("database");
+    const bool   force_update = getFlag ("force_update");
+    const bool   quiet        = getFlag ("quiet");
     
         
     Stderr stderr (quiet);
     stderr << "Running: "<< getCommandLine () << '\n';
+	//stderr << "Current software minor version: " << curMinor << '\n'; 
     const Verbose vrb (qc_on);
     
+
+    Curl curl;    
+        
+    
+    stderr << "Looking up databases at " << URL << '\n';
+
+    // FTP site files
+    const string latest_minor (getLatestMinor (curl));
+    if (latest_minor. empty ())
+      throw runtime_error ("Cannot get the latest software minor version");
+  //stderr << "Latest software minor version: " << latest_minor << "\n";
+    
+    const string latest_version (getLatestDataVersion (curl, curMinor));
+    if (latest_version. empty ())
+      throw runtime_error ("Cannot get the latest database version for the current software");
+  //stderr << "Latest database version: " << latest_version << "\n";
+      
+    const string cur_latest_version (getLatestDataVersion (curl, latest_minor));
+    if (cur_latest_version. empty ())
+      throw runtime_error ("Cannot get the latest database version for the latest software (" + latest_minor + ")");
+
+    if (latest_version != cur_latest_version)     
+      stderr << "\nWARNING: A newer version of the database exists (" << cur_latest_version << "), but it requires "
+                "a newer version of the software (" << latest_minor << ") to install.\n"
+                "See https://github.com/ncbi/amr/wiki/Upgrading for more information.\n\n";
+                      
+    
+    findProg ("makeblastdb");
+    findProg ("hmmpress");
+    
+
+    // Users's files  
     string mainDirS;
     {
       const Dir mainDir (mainDirOrig);
@@ -297,44 +338,38 @@ Requirements:\n\
     if (! isRight (mainDirS, "/"))
       mainDirS += "/";    
 
-    findProg ("makeblastdb");
-    findProg ("hmmpress");
-    
-    Curl curl;    
-    
-    
-    // FTP site files
-    const string latest_minor (getLatestMinor (curl));
-    if (latest_minor. empty ())
-      throw runtime_error ("Cannot get the latest software version");
-    
-    const string latest_version (getLatestDataVersion (curl, curMinor));
-    if (latest_version. empty ())
-      throw runtime_error ("Cannot get the latest data version for the current software");
-      
-    const string cur_latest_version (getLatestDataVersion (curl, latest_minor));
-    if (cur_latest_version. empty ())
-      throw runtime_error ("Cannot get the latest data version for the latest software (" + latest_minor + ")");
-
-    if (latest_version != cur_latest_version)     
-      stderr << "\nWARNING: A newer version of the database exists (" << cur_latest_version << "), but it requires "
-                "a newer version of the software (" << latest_minor << ") to install.\n"
-                "See https://github.com/ncbi/amr/wiki/Upgrading for more information.\n\n";
-                      
-    
-    // Users's files  
     if (! directoryExists (mainDirS))
-      exec ("mkdir -p " + shellQuote (mainDirS));
+    //exec ("mkdir -p " + shellQuote (mainDirS));
+      createDirectory (mainDirS, true);
+    
+    const string versionFName ("version.txt");
+    const string urlDir (URL + curMinor + "/" + latest_version + "/");
     
     const string latestDir (mainDirS + latest_version + "/");
     if (directoryExists (latestDir))
+    {
+      if (! force_update)
+      {
+        curl. download (urlDir + versionFName, tmp);
+        const StringVector version_old (latestDir + versionFName, (size_t) 100);
+        const StringVector version_new (tmp, (size_t) 100);
+        if (   ! version_old. empty () 
+            && ! version_new. empty ()
+            && version_old. front () == version_new. front ()
+           )
+        {
+          stderr << shellQuote (latestDir) << " contains the latest version: " << version_old. front () << '\n';
+          stderr << "Skipping update, use amrfinder --force_update to overwrite the existing database\n";
+          return;
+        }
+      }
       stderr << shellQuote (latestDir) << " already exists, overwriting what was there\n";
+    }
     else
-      exec ("mkdir -p " + shellQuote (latestDir));
-
+    //exec ("mkdir -p " + shellQuote (latestDir));
+      createDirectory (latestDir, true);
     
     stderr << "Downloading AMRFinder database version " << latest_version << " into " << shellQuote (latestDir) << "\n";
-    const string urlDir (URL + curMinor + "/" + latest_version + "/");
     fetchAMRFile (curl, urlDir, latestDir, "AMR.LIB");
     fetchAMRFile (curl, urlDir, latestDir, "AMRProt");
     fetchAMRFile (curl, urlDir, latestDir, "AMRProt-mutation.tab");
@@ -343,7 +378,7 @@ Requirements:\n\
     fetchAMRFile (curl, urlDir, latestDir, "database_format_version.txt");  // PD-3051 
     fetchAMRFile (curl, urlDir, latestDir, "fam.tab");
     fetchAMRFile (curl, urlDir, latestDir, "taxgroup.tab");
-    fetchAMRFile (curl, urlDir, latestDir, "version.txt");
+    fetchAMRFile (curl, urlDir, latestDir, versionFName);
     
     StringVector dnaPointMuts;
     {
