@@ -277,24 +277,24 @@ string getStack ()
 namespace
 {
 	
-uint powInt_ (uint a,
-              uint b)
+size_t powInt_ (size_t a,
+                size_t b)
 // Input: a: !0, != 1
 {
 	if (! b)
 		return 1;
 	if (b == 1)
 		return a;
-	const uint half = b / 2;
-	const uint res = powInt_ (a, half);
+	const size_t half = b / 2;
+	const size_t res = powInt_ (a, half);
 	return res * res * (divisible (b, 2) ? 1 : a);
 }
 	
 }
 
 
-uint powInt (uint a,
-             uint b)
+size_t powInt (size_t a,
+               size_t b)
 {
 	if (a)
 		if (a == 1)
@@ -871,7 +871,7 @@ Dir::Dir (const string &dirName)
 
 
 
-streampos getFileSize (const string &fName)
+streamsize getFileSize (const string &fName)
 {
   ifstream f (fName, ifstream::binary);
   if (! f. good ())
@@ -889,7 +889,11 @@ streampos getFileSize (const string &fName)
 
   if (end < start)
     throw runtime_error ("Bad file " + shellQuote (fName));    
-  return end - start; 
+  const streampos len = end - start;
+  ASSERT (len >= 0);
+  QC_ASSERT (len <= (streampos) numeric_limits<streamsize>::max());
+  
+  return (streamsize) len; 
 }
 
 
@@ -1237,6 +1241,55 @@ Threads::~Threads ()
 
 
 
+
+// Xml::Tag
+
+Xml::Tag::Tag (Xml::File &f_arg,
+               const string &name_arg)
+: name (name_arg)
+, f (f_arg)
+{ 
+  ASSERT (! contains (name, ' '));
+  if (f. printOffset)
+  {
+    f. print ("\n");
+    f. offset++;
+    FOR (size_t, i, f. offset * File::offset_spaces)
+      f . print (" ");
+  }
+  f. print ("<" + name + ">");
+}
+
+
+
+Xml::Tag::~Tag ()
+{ 
+  if (f. printOffset && f. printBrief)
+  {
+    f. offset--;
+    return;
+  }
+  
+  if (f. printOffset)
+  {
+    f. print ("\n");
+    FOR (size_t, i, f. offset * File::offset_spaces)
+      f . print (" ");
+    f. offset--;
+  }
+  f. print ("</" + name + ">");
+  if (! f. printOffset)
+    f. print ("\n");
+}
+
+
+
+
+unique_ptr<Xml::File> cxml;
+  
+
+
+
 // Root
 
 void Root::saveFile (const string &fName) const
@@ -1339,6 +1392,48 @@ bool StringVector::same (const StringVector &vec,
   return true;
 }
 
+
+
+
+
+bool inc (vector<bool> &v)
+{
+  const size_t s = v. size ();
+
+  size_t i = 0;
+  while (i < s && v [i])
+  {
+    v [i] = false;
+    i++;
+  }
+  if (i == s)
+    return false;
+
+  v [i] = true;
+  
+  return true;
+}
+
+
+
+bool inc (vector<size_t> &indexes,
+          const vector<size_t> &indexes_max)
+{
+  ASSERT (indexes. size () == indexes_max. size ());
+
+  FFOR (size_t, i, indexes. size ())
+  {
+    ASSERT (indexes [i] <= indexes_max [i]);
+    if (indexes [i] < indexes_max [i])
+    {
+      indexes [i] ++;
+      return true;
+    }
+    indexes [i] = 0;
+  }
+
+  return false;
+}
 
 
 
@@ -1716,16 +1811,23 @@ void Token::saveText (ostream &os) const
   switch (type)
 	{ 
 	  case eName:      
-	  case eDateTime:
-	                   os          << name;          break;
-		case eText:      os << quote << name << quote; break;
-		case eInteger:   os          << n;             break;
+	  case eDateTime:  os << name; 
+	                   break;
+		case eText:      if (quote)
+		                   os << quote;
+		                 os << name;
+		                 if (quote)
+		                   os << quote; 
+		                 break;
+		case eInteger:   os << n;             
+		                 break;
 		case eDouble:    { 
 		                   const ONumber on (os, decimals, scientific); 
 		                   os << d; 
 		                 } 
 		                 break;
-		case eDelimiter: os          << name;          break;
+		case eDelimiter: os << name;          
+		                 break;
  		default: throw runtime_error ("Token: Unknown type");
 	}
 }
@@ -2028,7 +2130,7 @@ void TextTable::setHeader ()
   {
     row_num++;
     if (row. size () != header. size ())
-      throw runtime_error ("Row " + to_string (row_num) + " contains " + to_string (rows. size ()) + " fields whereas table has " + to_string (header. size ()) + " columns");
+      throw runtime_error ("Row " + to_string (row_num) + " contains " + to_string (row. size ()) + " fields whereas table has " + to_string (header. size ()) + " columns");
     FFOR (size_t, i, row. size ())
     {
       const string& field = row [i];
@@ -2452,7 +2554,7 @@ JsonArray::JsonArray (CharInput& in,
 
 
 
-void JsonArray::print (ostream& os) const
+void JsonArray::saveText (ostream& os) const
 { 
   os << "[";
   bool first = true;
@@ -2461,7 +2563,7 @@ void JsonArray::print (ostream& os) const
     ASSERT (j);
     if (! first)
       os << ",";
-    j->print (os);
+    j->saveText (os);
     first = false;
   }
   os << "]";
@@ -2530,7 +2632,7 @@ JsonMap::~JsonMap ()
 
 
 
-void JsonMap::print (ostream& os) const
+void JsonMap::saveText (ostream& os) const
 { 
   os << "{";
   bool first = true;
@@ -2541,7 +2643,7 @@ void JsonMap::print (ostream& os) const
     os << toStr (it. first) << ":";
     const Json* j = it. second;
     ASSERT (j);
-    j->print (os);
+    j->saveText (os);
     first = false;
   }
   os << "}";
@@ -2558,6 +2660,7 @@ JsonMap* jRoot = nullptr;
 // Offset
 
 size_t Offset::size = 0;
+
 
 
 
@@ -3293,7 +3396,7 @@ int Application::run (int argc,
   	{
   	  ASSERT (jRoot);
   		OFStream f (jsonFName);
-      jRoot->print (f);
+      jRoot->saveText (f);
       delete jRoot;
       jRoot = nullptr;
     }

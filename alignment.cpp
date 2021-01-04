@@ -707,7 +707,8 @@ void Alignment::setSeqChanges (const Vector<Mutation> &refMutations,
 		  if (verbose ())
 		  {
 		    cout << "Processing Mutation: ";
-		    mut. print (cout);
+		    mut. saveText (cout);
+		    cout << endl;
 		  }
 	  #if 0
 		  if (mut. pos < seqChange. start_ref)
@@ -722,7 +723,8 @@ void Alignment::setSeqChanges (const Vector<Mutation> &refMutations,
 		  	if (verbose ())
 		  	{
 		  	  cout << "Found: ";
-		  	  mut. print (cout);
+		  	  mut. saveText (cout);
+		  	  cout << endl;
 		  	}
 		  }
 	    j++;

@@ -364,8 +364,8 @@ template <typename T/*:integer*/>
       return x % 2 == 0; 
     }
 
-inline bool divisible (uint n,
-                       uint divisor)
+inline bool divisible (size_t n,
+                       size_t divisor)
   { return ! (n % divisor); }
   
 inline uint remainder (int n, uint div)
@@ -385,8 +385,8 @@ inline uint gcd (uint a,
 		return gcd (b, a % b);
 	}
 
-uint powInt (uint a,
-             uint b);
+size_t powInt (size_t a,
+               size_t b);
   // Return: a^b
   // Time: O(log(b))
 
@@ -1086,7 +1086,7 @@ inline void checkFile (const string &fName)
       throw runtime_error ("File " + strQuote (fName) + " does not exist");
   }
 
-streampos getFileSize (const string &fName);
+streamsize getFileSize (const string &fName);
 
 inline void removeFile (const string &fName)
   { if (std::remove (fName. c_str ()))
@@ -1369,13 +1369,78 @@ struct Unverbose
   
 
 
-
 struct Json;
 struct JsonContainer;
 
 
 
 class Notype {};
+
+
+
+
+struct Xml
+{
+  struct File;
+
+
+  struct Tag
+  {
+  private:
+    const string name;
+    File &f;
+  public:
+
+    Tag (File &f_arg,
+         const string &name_arg);
+   ~Tag ();
+  };
+  
+  
+  struct File
+  {
+  private:
+    ostream& os;
+    size_t offset {0};
+    friend Tag;
+  public:
+    static constexpr size_t offset_spaces {2};  // PAR
+    const bool printOffset;
+    const bool printBrief;
+    const Tag tag;
+
+
+    File (ostream &os_arg,
+          bool printOffset_arg,
+          bool printBrief_arg,
+          const string &tagName)
+      : os (init (os_arg))
+      , printOffset (printOffset_arg)
+      , printBrief (printBrief_arg)
+      , tag (*this, tagName)
+      {}
+  private:
+    static ostream& init (ostream &os_arg)
+      { os_arg << "<?xml version=\"1.0\" encoding=\"ISO-8859-1\" ?>" << endl;  // PAR
+        return os_arg;
+      }
+  public:
+
+
+    void print (const string &s)
+      { os << s; }
+    template <typename T>
+      File& operator<< (const T &t)
+        { os << t;
+          return *this;
+        }
+  };
+};
+
+
+
+extern unique_ptr<Xml::File> cxml;
+  
 
 
 
@@ -1395,7 +1460,6 @@ public:
     // Input: qc_on
   virtual void saveText (ostream& /*os*/) const 
     { throw logic_error ("Root::saveText() is not implemented"); }
-    // Parsable output
   void saveFile (const string &fName) const;
     // if fName.empty() then do nothing
     // Invokes: saveText()
@@ -1404,9 +1468,8 @@ public:
       saveText (oss);
       return oss. str ();
     }
-  virtual void print (ostream& os) const
-    { saveText (os); }
-    // Human-friendly
+  virtual void saveXml (Xml::File& /*f*/) const 
+    { throw logic_error ("Root::saveXml() is not implemented"); }
   virtual Json* toJson (JsonContainer* /*parent_arg*/,
                         const string& /*name_arg*/) const
     { throw logic_error ("Root::toJson() is not implemented"); }
@@ -1426,8 +1489,9 @@ inline ostream& operator<< (ostream &os,
                             const Root &r) 
   { r. saveText (os);
     return os;
-  }
-  
+  }  
+
+
 
 
 template <typename T /*Root*/> 
@@ -2046,6 +2110,16 @@ public:
   bool same (const StringVector &vec,
              const Vector<size_t> &indexes) const;
 };
+
+
+
+// Search
+// Return: false <=> incrementations are exhausted
+bool inc (vector<bool> &v);
+  // Update: v
+bool inc (vector<size_t> &indexes,
+          const vector<size_t> &indexes_max);
+  // Update: indexes
 
 
 
@@ -2740,6 +2814,7 @@ struct Token : Root
 	  // eText => embracing quote's are removed
 	  // Valid if !empty()
 	char quote {'\0'};
+	  // '\0': no quote
 	long long n {0};
 	double d {0.0};
   // Valid if eDouble
@@ -2995,6 +3070,21 @@ struct Stderr : Singleton<Stderr>
 
 
 
+// Binary streams
+// File content is platform-dependent
+
+template <typename T>
+  inline void writeBin (ostream &f,
+                        const T &t)
+    { f. write (reinterpret_cast <const char*> (& t), sizeof (t)); }
+
+template <typename T>
+  inline void readBin (istream &f,
+                       T &t)
+    { f. read (reinterpret_cast <char*> (& t), sizeof (t)); }
+
+  
+
 struct Csv : Root
 // Line of Excel .csv-file
 {
@@ -3147,7 +3237,7 @@ protected:
         const string& name);
   Json () = default;
 public:  
-  void print (ostream& os) const override = 0;
+  void saveText (ostream& os) const override = 0;
   
   virtual const JsonNull* asJsonNull () const
     { return nullptr; }  
@@ -3195,7 +3285,7 @@ struct JsonNull : Json
                      const string& name = noString)
     : Json (parent, name)
     {}    
-  void print (ostream& os) const final
+  void saveText (ostream& os) const final
     { os << "null"; }
 
   const JsonNull* asJsonNull () const final
@@ -3213,7 +3303,7 @@ struct JsonString : Json
     : Json (parent, name)
     , s (s_arg)
     {}
-  void print (ostream& os) const final
+  void saveText (ostream& os) const final
     { os << toStr (s); }
 
   const JsonString* asJsonString () const final
@@ -3231,7 +3321,7 @@ struct JsonInt : Json
     : Json (parent, name)
     , n (n_arg)
     {}
-  void print (ostream& os) const final
+  void saveText (ostream& os) const final
     { os << n; }
 
   const JsonInt* asJsonInt () const final
@@ -3254,7 +3344,7 @@ struct JsonDouble : Json
     , decimals (decimals_arg == numeric_limits<streamsize>::max() ? double2decimals (n_arg) : decimals_arg)
     {}
     // decimals_arg = -1: default
-  void print (ostream& os) const final
+  void saveText (ostream& os) const final
     { const ONumber on (os, (streamsize) decimals, scientific);
     	if (n == n)
         os << n; 
@@ -3277,7 +3367,7 @@ struct JsonBoolean : Json
     : Json (parent, name)
     , b (b_arg)
     {}
-  void print (ostream& os) const final
+  void saveText (ostream& os) const final
     { os << (b ? "true" : "false"); }
 
   const JsonBoolean* asJsonBoolean () const final
@@ -3313,7 +3403,7 @@ private:
              JsonContainer* parent,
              const string& name);
 public:
-  void print (ostream& os) const final;
+  void saveText (ostream& os) const final;
 
   const JsonArray* asJsonArray () const final
     { return this; }
@@ -3347,7 +3437,7 @@ private:
   void parse (CharInput& in);
 public:
  ~JsonMap ();
-  void print (ostream& os) const final;
+  void saveText (ostream& os) const final;
 
   const JsonMap* asJsonMap () const final
     { return this; }
@@ -3385,7 +3475,6 @@ public:
   static void newLn (ostream &os) 
     { os << endl << string (size, ' '); }
 };
-
 
 
 

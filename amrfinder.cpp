@@ -33,6 +33,7 @@
 *               cat, cp, cut, head, ln, mv, sort, tail
 *
 * Release changes:
+*   3.9.8  01/04/2021 PD-3613  --dir is removed
 *   3.9.7  12/03/2020 PD-3292  dependence on "mkdir" is removed
 *   3.9.6  11/20/2020 PD-3613  --dir
 *                              prepare_fasta_extract()
@@ -165,6 +166,9 @@ using namespace Common_sp;
 
 
 
+#undef DIR  // PD-3613
+
+
 // PAR!
 // PD-3051
 #define DATA_VER_MIN "2020-11-04.1"  
@@ -205,7 +209,9 @@ struct ThisApplication : ShellApplication
     {
     	addFlag ("update", "Update the AMRFinder database", 'u');  // PD-2379
     	addFlag ("force_update", "Force updating the AMRFinder database", 'U');  // PD-3469
-    	addKey ("dir", "Common directory of the --protein, --nucleotide and --gff files", "", '\0', "DIRECTORY");
+    #ifdef DIR
+      addKey ("dir", "Common directory of the --protein, --nucleotide and --gff files", "", '\0', "DIRECTORY");
+    #endif
     	addKey ("protein", "Input protein FASTA file", "", 'p', "PROT_FASTA");
     	addKey ("nucleotide", "Input nucleotide FASTA file", "", 'n', "NUC_FASTA");
     	addKey ("gff", "GFF file for protein locations. Protein id should be in the attribute 'Name=<id>' (9th field) of the rows with type 'CDS' or 'gene' (3rd field).", "", 'g', "GFF_FILE");
@@ -330,7 +336,12 @@ struct ThisApplication : ShellApplication
   {
     const bool   force_update    =             getFlag ("force_update");
     const bool   update          =             getFlag ("update") || force_update;
-    const string dir             =    appendS (getArg ("dir"), "/"); 
+    const string dir             =    
+  #ifdef DIR
+                                   appendS (getArg ("dir"), "/"); 
+  #else
+                                   "";
+  #endif
     const string prot            = shellQuote (prependS (getArg ("protein"),    dir));
     const string dna             = shellQuote (prependS (getArg ("nucleotide"), dir));
     const string gff             = shellQuote (prependS (getArg ("gff"),        dir));
@@ -790,10 +801,8 @@ struct ThisApplication : ShellApplication
     		//ASSERT (threadsAvailable);
     		  if (threadsAvailable >= 2)
     		  {
-      		//exec ("mkdir " + tmp + ".chunk");
       		  createDirectory (tmp + ".chunk", false);
       		  exec (fullProg ("fasta2parts") + dna + " " + to_string (threadsAvailable) + " " + tmp + ".chunk" + qcS + " -log " + logFName, logFName);   // PAR
-      		//exec ("mkdir " + tmp + ".blastx_dir");
       		  createDirectory (tmp + ".blastx_dir", false);
       		  FileItemGenerator fig (false, true, tmp + ".chunk");
       		  string item;

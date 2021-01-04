@@ -339,7 +339,6 @@ Requirements:\n\
       mainDirS += "/";    
 
     if (! directoryExists (mainDirS))
-    //exec ("mkdir -p " + shellQuote (mainDirS));
       createDirectory (mainDirS, true);
     
     const string versionFName ("version.txt");
@@ -366,7 +365,6 @@ Requirements:\n\
       stderr << shellQuote (latestDir) << " already exists, overwriting what was there\n";
     }
     else
-    //exec ("mkdir -p " + shellQuote (latestDir));
       createDirectory (latestDir, true);
     
     stderr << "Downloading AMRFinder database version " << latest_version << " into " << shellQuote (latestDir) << "\n";

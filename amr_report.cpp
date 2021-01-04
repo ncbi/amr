@@ -500,7 +500,6 @@ struct BlastAlignment : Alignment
 	    QC_ASSERT (refAccession. empty () == targetSeq. empty ());
 	    QC_ASSERT (! refAccession. empty () == (bool) refLen);
 	    QC_ASSERT (! refAccession. empty () == (bool) nident);
-	  //QC_ASSERT ((bool) gi == ! refAccession. empty ());
 	    QC_IMPLY (refAccession. empty () && ! isMutation (), ! getFam () -> hmm. empty () /*getHmmFam ()*/);
 	    QC_IMPLY (targetProt, ! partialDna);
 	    QC_ASSERT (targetAlign);
