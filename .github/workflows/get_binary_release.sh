@@ -16,6 +16,9 @@ get_tarball_url() {
 release=$(get_latest_release ncbi/amr)
 URL=$(get_tarball_url ncbi/amr)
 
+>&2 echo "Downloading AMRFinderPlus version $release"
+>&2 echo "Binaries from $URL"
+
 # download and unpack AMRFinder binaries
     curl --silent -L -O $URL
     tarball_name=$(echo $URL | perl -pe 's#^.*/(.*)#\1#')

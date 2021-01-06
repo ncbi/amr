@@ -88,10 +88,6 @@ public:
       else
         os << pos + 1 << ' ' << geneMutation << ' ' << name; 
     }
-  void print (ostream &os) const override
-    { saveText (os); 
-      os << endl;
-    }
   bool empty () const override
     { return geneMutation. empty (); }
 

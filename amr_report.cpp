@@ -500,7 +500,6 @@ struct BlastAlignment : Alignment
 	    QC_ASSERT (refAccession. empty () == targetSeq. empty ());
 	    QC_ASSERT (! refAccession. empty () == (bool) refLen);
 	    QC_ASSERT (! refAccession. empty () == (bool) nident);
-	  //QC_ASSERT ((bool) gi == ! refAccession. empty ());
 	    QC_IMPLY (refAccession. empty () && ! isMutation (), ! getFam () -> hmm. empty () /*getHmmFam ()*/);
 	    QC_IMPLY (targetProt, ! partialDna);
 	    QC_ASSERT (targetAlign);
@@ -767,7 +766,7 @@ struct BlastAlignment : Alignment
         return getClass ();
       StringVector vec;
       for (const BlastAlignment* fusion : fusions)
-        vec << move (StringVector (fusion->getClass (), '/'));
+        vec << move (StringVector (fusion->getClass (), '/', true));
       vec. sort ();
       vec. uniq ();
       return vec. toString ("/");
@@ -782,7 +781,7 @@ struct BlastAlignment : Alignment
         return getSubclass ();
       StringVector vec;
       for (const BlastAlignment* fusion : fusions)
-        vec << move (StringVector (fusion->getSubclass (), '/'));
+        vec << move (StringVector (fusion->getSubclass (), '/', true));
       vec. sort ();
       vec. uniq ();
       return vec. toString ("/");

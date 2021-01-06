@@ -45,8 +45,9 @@
 #ifndef _MSC_VER
   #include <dirent.h>
   #include <execinfo.h>
+  #include <sys/types.h>
+  #include <sys/stat.h>
   #ifdef __APPLE__
-    #include <sys/types.h>
     #include <sys/sysctl.h>
   #endif
 #endif
@@ -276,24 +277,24 @@ string getStack ()
 namespace
 {
 	
-uint powInt_ (uint a,
-              uint b)
+size_t powInt_ (size_t a,
+                size_t b)
 // Input: a: !0, != 1
 {
 	if (! b)
 		return 1;
 	if (b == 1)
 		return a;
-	const uint half = b / 2;
-	const uint res = powInt_ (a, half);
+	const size_t half = b / 2;
+	const size_t res = powInt_ (a, half);
 	return res * res * (divisible (b, 2) ? 1 : a);
 }
 	
 }
 
 
-uint powInt (uint a,
-             uint b)
+size_t powInt (size_t a,
+               size_t b)
 {
 	if (a)
 		if (a == 1)
@@ -790,16 +791,40 @@ bool directoryExists (const string &dirName)
   }
   return yes;
 }
+
+
+
+void createDirectory (const string &dirName,
+                      bool createAncestors)
+{
+  const mode_t m = 0777;  
+  if (createAncestors)
+  {
+    const Dir dir (dirName);
+    Dir ancestorDir;
+    for (const string& s : dir. items)
+    {
+      ancestorDir. items << s;
+      const string ancestorPath (ancestorDir. get ());
+      if (! directoryExists (ancestorPath))
+        if (mkdir (ancestorPath. c_str (), m) != 0)
+          throw runtime_error ("Cannot create directory " + strQuote (ancestorPath));
+    }
+  }
+  else
+    if (mkdir (dirName. c_str (), m) != 0)
+      throw runtime_error ("Cannot create directory " + strQuote (dirName));
+}
 #endif
 
 
 
 
-Dir::Dir (const string &name)
+Dir::Dir (const string &dirName)
 {
-  ASSERT (! name. empty ());
+  ASSERT (! dirName. empty ());
   
-  items = str2list (name, fileSlash);
+  items = str2list (dirName, fileSlash);
 
   auto it = items. begin (); 
   while (it != items. end ())
@@ -846,7 +871,7 @@ Dir::Dir (const string &name)
 
 
 
-streampos getFileSize (const string &fName)
+streamsize getFileSize (const string &fName)
 {
   ifstream f (fName, ifstream::binary);
   if (! f. good ())
@@ -856,14 +881,19 @@ streampos getFileSize (const string &fName)
   QC_ASSERT (start >= 0); 
 
   f. seekg (0, ios_base::end);
-  QC_ASSERT (f. good ());
+  if (! f. good ())
+    throw runtime_error ("Cannot go to the beginning of the file " + shellQuote (fName));
 
   const streampos end = f. tellg ();
   QC_ASSERT (end >= 0); 
 
   if (end < start)
     throw runtime_error ("Bad file " + shellQuote (fName));    
-  return end - start; 
+  const streampos len = end - start;
+  ASSERT (len >= 0);
+  QC_ASSERT (len <= (streampos) numeric_limits<streamsize>::max());
+  
+  return (streamsize) len; 
 }
 
 
@@ -1211,6 +1241,55 @@ Threads::~Threads ()
 
 
 
+
+// Xml::Tag
+
+Xml::Tag::Tag (Xml::File &f_arg,
+               const string &name_arg)
+: name (name_arg)
+, f (f_arg)
+{ 
+  ASSERT (! contains (name, ' '));
+  if (f. printOffset)
+  {
+    f. print ("\n");
+    f. offset++;
+    FOR (size_t, i, f. offset * File::offset_spaces)
+      f . print (" ");
+  }
+  f. print ("<" + name + ">");
+}
+
+
+
+Xml::Tag::~Tag ()
+{ 
+  if (f. printOffset && f. printBrief)
+  {
+    f. offset--;
+    return;
+  }
+  
+  if (f. printOffset)
+  {
+    f. print ("\n");
+    FOR (size_t, i, f. offset * File::offset_spaces)
+      f . print (" ");
+    f. offset--;
+  }
+  f. print ("</" + name + ">");
+  if (! f. printOffset)
+    f. print ("\n");
+}
+
+
+
+
+unique_ptr<Xml::File> cxml;
+  
+
+
+
 // Root
 
 void Root::saveFile (const string &fName) const
@@ -1233,7 +1312,8 @@ void Named::qc () const
     return;
   Root::qc ();
     
-  QC_ASSERT (goodName (name));
+  if (! goodName (name))
+    throw runtime_error ("Bad name: " + strQuote (name));
 }
 
 
@@ -1268,13 +1348,92 @@ StringVector::StringVector (const string &fName,
 
 
 StringVector::StringVector (const string &s,
-                            char sep)
+                            char sep,
+                            bool trimP)
 {
 	string s1 (s);
 	while (! s1. empty ())
 	  *this << move (findSplit (s1, sep));
+	if (! s. empty () && s. back () == sep)
+	  *this << string ();
+	  
+	if (trimP)
+	  for (string& member : *this)
+	    trim (member);
 }
 
+
+
+
+string StringVector::toString (const string& sep) const
+{ 
+  ASSERT (! sep. empty ());
+  
+  string res;
+  for (const string& s : *this)
+  { 
+    if (! res. empty ())
+      res += sep;
+    res += s;
+  }
+  return res;
+}
+
+
+
+bool StringVector::same (const StringVector &vec,
+                         const Vector<size_t> &indexes) const
+{
+  ASSERT (size () == vec. size ());
+
+  for (const size_t i : indexes)
+    if ((*this) [i] != vec [i])
+      return false;
+  return true;
+}
+
+
+
+
+
+bool inc (vector<bool> &v)
+{
+  const size_t s = v. size ();
+
+  size_t i = 0;
+  while (i < s && v [i])
+  {
+    v [i] = false;
+    i++;
+  }
+  if (i == s)
+    return false;
+
+  v [i] = true;
+  
+  return true;
+}
+
+
+
+bool inc (vector<size_t> &indexes,
+          const vector<size_t> &indexes_max)
+{
+  ASSERT (indexes. size () == indexes_max. size ());
+
+  FFOR (size_t, i, indexes. size ())
+  {
+    ASSERT (indexes [i] <= indexes_max [i]);
+    if (indexes [i] < indexes_max [i])
+    {
+      indexes [i] ++;
+      return true;
+    }
+    indexes [i] = 0;
+  }
+
+  return false;
+}
 
 
 
@@ -1402,7 +1561,7 @@ bool LineInput::nextLine ()
       if (pos != string::npos)
         line. erase (pos);
     }
-    trimTrailing (line); 
+  //trimTrailing (line); 
 
   	eof = is->eof ();
   	lineNum++;
@@ -1652,16 +1811,23 @@ void Token::saveText (ostream &os) const
   switch (type)
 	{ 
 	  case eName:      
-	  case eDateTime:
-	                   os          << name;          break;
-		case eText:      os << quote << name << quote; break;
-		case eInteger:   os          << n;             break;
+	  case eDateTime:  os << name; 
+	                   break;
+		case eText:      if (quote)
+		                   os << quote;
+		                 os << name;
+		                 if (quote)
+		                   os << quote; 
+		                 break;
+		case eInteger:   os << n;             
+		                 break;
 		case eDouble:    { 
 		                   const ONumber on (os, decimals, scientific); 
 		                   os << d; 
 		                 } 
 		                 break;
-		case eDelimiter: os          << name;          break;
+		case eDelimiter: os << name;          
+		                 break;
  		default: throw runtime_error ("Token: Unknown type");
 	}
 }
@@ -1913,6 +2079,294 @@ StringVector csvLine2vec (const string &line)
 
 
 
+// TextTable
+
+void TextTable::Header::qc () const
+{
+  if (! qc_on)
+    return;
+    
+  Named::qc ();
+    
+  QC_IMPLY (scientific, numeric);
+  QC_IMPLY (decimals, numeric);
+}
+
+
+
+TextTable::TextTable (const string &fName)
+{
+  LineInput f (fName);
+
+  if (! f. nextLine ())
+    throw runtime_error ("Cannot read the header of " + strQuote (fName));
+  if (! f. line. empty () && f. line. front () == '#')
+  {
+    pound = true;
+    f. line. erase (0, 1);
+  }
+  {
+    StringVector h (f. line, '\t', true);
+    for (string& s : h)
+      header << move (Header (move (s)));
+  }
+
+  while (f. nextLine ())
+  {
+    StringVector line (f. line, '\t', true);
+    rows << move (line);
+    ASSERT (line. empty ());
+  }
+  
+  setHeader ();
+}
+
+
+
+void TextTable::setHeader ()
+{
+  size_t row_num = 0;
+  for (const StringVector& row : rows)
+  {
+    row_num++;
+    if (row. size () != header. size ())
+      throw runtime_error ("Row " + to_string (row_num) + " contains " + to_string (row. size ()) + " fields whereas table has " + to_string (header. size ()) + " columns");
+    FFOR (size_t, i, row. size ())
+    {
+      const string& field = row [i];
+      if (field. empty ())
+        continue;
+      Header& h = header [i];
+      if (! h. numeric)
+        continue;
+      {
+        char* endptr = nullptr;
+        strtod (field. c_str (), & endptr);
+        if (endptr != field. c_str () + field. size ())
+        {
+          h. numeric = false;
+          h. scientific = false;
+          h. decimals = 0;
+        }
+      }
+      if (h. numeric)
+      {
+        string s (field);
+        strUpper (s);
+        const size_t ePos     = s. find ('E');
+        const size_t pointPos = s. find ('.');
+        if (ePos == string::npos)
+        {
+          if (pointPos != string::npos)
+            maximize (h. decimals, (streamoff) (s. size () - pointPos - 1));
+        }
+        else
+        {
+          h. scientific = true;
+          if (pointPos != string::npos && ePos > pointPos)
+            maximize (h. decimals, (streamoff) (ePos - pointPos - 1));
+        }
+      }
+    }
+  }
+}
+
+
+
+void TextTable::qc () const
+{
+  if (! qc_on)
+    return;
+
+  {    
+    StringVector v;  v. reserve (header. size ());
+    for (const Header& h : header)
+    {
+      h. qc ();
+      v << h. name;
+    }
+    v. sort ();
+    const size_t i = v. findDuplicate ();
+    if (i != no_index)
+      throw runtime_error ("Duplicate column name: " + strQuote (v [i]));
+  }
+  
+  FFOR (size_t, i, rows. size ())
+  {
+    if (rows [i]. size () != header. size ())
+      throw runtime_error ("Row " + to_string (i + 1) + " contains " + to_string (rows [i]. size ()) + " fields whereas table has " + to_string (header. size ()) + " columns");
+    for (const string& field : rows [i])
+    {
+      if (contains (field, '\t'))
+        throw runtime_error ("Field " + strQuote (header [i]. name) + " of row " + to_string (i + 1) + " contains a tab character");
+      if (contains (field, '\n'))
+        throw runtime_error ("Field " + strQuote (header [i]. name) + " of row " + to_string (i + 1) + " contains an EOL character");
+    }
+  }
+}
+
+
+
+void TextTable::saveText (ostream &os) const
+{ 
+  if (saveHeader)
+  { 
+    if (pound)
+      os << '#';
+    bool first = true;
+    for (const Header& h : header)
+    {
+      if (! first)
+        os << '\t';
+      os << h. name;
+      first = false;
+    }
+    os << endl;
+  }
+  
+  for (const StringVector& row : rows)
+  {
+    save (os, row, '\t');
+    os << endl;
+  }
+}
+
+    
+  
+void TextTable::printHeader (ostream &os) const
+{
+  for (const Header& h : header)
+  {
+    h. saveText (os);
+    os << endl;
+  }
+}
+
+
+
+size_t TextTable::col2index_ (const string &columnName) const
+{ 
+  FFOR (size_t, i, header. size ())
+    if (header [i]. name == columnName)
+      return i;
+  return no_index;
+}
+
+
+
+int TextTable::compare (const StringVector& row1,
+                        const StringVector& row2,
+                        size_t column) const
+{
+  if (header [column]. numeric)
+  {
+    const double a = stod (row1 [column]);
+    const double b = stod (row2 [column]);
+    if (a < b)
+      return -1;
+    if (a > b)
+      return 1;
+    return 0;
+  }
+  
+  const string& a = row1 [column];
+  const string& b = row2 [column];
+  if (a < b)
+    return -1;
+  if (a > b)
+    return 1;
+
+  return 0;
+}
+
+
+
+void TextTable::filterColumns (const StringVector &newColumnNames)
+{
+  const Vector<size_t> indexes (columns2indexes (newColumnNames));
+
+  {  
+    Vector<Header> newHeader;  newHeader. reserve (indexes. size ());
+    for (const size_t i : indexes)
+      newHeader << header [i];
+    header = move (newHeader);
+  }
+
+  for (StringVector& row : rows)
+  {
+    StringVector newRow;  newRow. reserve (indexes. size ());
+    for (const size_t i : indexes)
+      newRow << row [i];
+    row = move (newRow);
+  }
+}
+
+
+
+void TextTable::group (const StringVector &by,
+                       const StringVector &sum)
+{
+  const Vector<size_t> byIndex  (columns2indexes (by));
+  const Vector<size_t> sumIndex (columns2indexes (sum));
+  
+  const auto lt = [&byIndex,this] (const StringVector &a, const StringVector &b) 
+                    { for (const size_t i : byIndex) 
+                        switch (this->compare (a, b, i))
+                        { case -1: return true;
+                          case  1: return false;
+                        }
+                      // Tie resolution
+                      FFOR (size_t, i, a. size ())
+                        switch (this->compare (a, b, i))
+                        { case -1: return true;
+                          case  1: return false;
+                        }
+                      return false;
+                    };
+  Common_sp::sort (rows, lt);
+  
+  size_t i = 0;  
+  FFOR_START (size_t, j, 1, rows. size ())
+  {
+    ASSERT (i < j);
+    if (rows [i]. same (rows [j], byIndex))
+      merge (i, j, sumIndex);
+    else
+    {
+      i++;
+      if (i < j)
+        rows [i] = move (rows [j]);
+    }
+  }
+
+  ASSERT (rows. size () >= i);
+  FFOR (size_t, k, rows. size () - i)
+    rows. pop_back ();
+}
+
+
+
+void TextTable::merge (size_t toIndex,
+                       size_t fromIndex,
+                       const Vector<size_t> &sum) 
+{
+  StringVector& to = rows [toIndex];
+  const StringVector& from = rows [fromIndex];
+  for (const size_t i : sum)
+  {
+    const Header& h = header [i];
+    ASSERT (h. numeric);
+    ostringstream oss;
+    ONumber on (oss, h. decimals, h. scientific);
+    oss << stod (to [i]) + stod (from [i]);
+    to [i] = oss. str ();
+  }
+}
+
+
+
+
+
 // Json
 
 Json::Json (JsonContainer* parent,
@@ -2100,7 +2554,7 @@ JsonArray::JsonArray (CharInput& in,
 
 
 
-void JsonArray::print (ostream& os) const
+void JsonArray::saveText (ostream& os) const
 { 
   os << "[";
   bool first = true;
@@ -2109,7 +2563,7 @@ void JsonArray::print (ostream& os) const
     ASSERT (j);
     if (! first)
       os << ",";
-    j->print (os);
+    j->saveText (os);
     first = false;
   }
   os << "]";
@@ -2178,7 +2632,7 @@ JsonMap::~JsonMap ()
 
 
 
-void JsonMap::print (ostream& os) const
+void JsonMap::saveText (ostream& os) const
 { 
   os << "{";
   bool first = true;
@@ -2189,7 +2643,7 @@ void JsonMap::print (ostream& os) const
     os << toStr (it. first) << ":";
     const Json* j = it. second;
     ASSERT (j);
-    j->print (os);
+    j->saveText (os);
     first = false;
   }
   os << "}";
@@ -2206,6 +2660,7 @@ JsonMap* jRoot = nullptr;
 // Offset
 
 size_t Offset::size = 0;
+
 
 
 
@@ -2232,7 +2687,7 @@ FileItemGenerator::FileItemGenerator (size_t progress_displayPeriod,
     ASSERT (lsfName [0]);
     const int res = system (("ls -a " + fName + " > " + lsfName). c_str ());
     if (res)
-      throw runtime_error ("Command ls failed: status = " + to_string (res));
+      throw runtime_error ("Command \"ls\" failed: status = " + to_string (res));
     fName = lsfName;
   #endif
   }      
@@ -2941,18 +3396,10 @@ int Application::run (int argc,
   	{
   	  ASSERT (jRoot);
   		OFStream f (jsonFName);
-      jRoot->print (f);
+      jRoot->saveText (f);
       delete jRoot;
       jRoot = nullptr;
     }
-  
-  #if 0
-  	if (! logFName. empty ())
-  	{
-  	  delete logPtr;
-  	  logPtr = nullptr;
-    }
-  #endif
 	}
 	catch (const std::exception &e) 
 	{ 
@@ -2984,9 +3431,13 @@ void ShellApplication::initEnvironment ()
   // tmp
   if (useTmp)
   {
-    char templateS [] = {'/', 't', 'm', 'p', '/', 'X', 'X', 'X', 'X', 'X', 'X', '\0'}; 
-    EXEC_ASSERT (mkstemp (templateS) != -1);
-    tmp = templateS;
+    if (const char* s = getenv ("TMPDIR"))
+      tmp = s;
+    else
+      tmp = "/tmp";
+    tmp += "/XXXXXX";
+    if (mkstemp (var_cast (tmp. c_str ())) == -1)
+      throw runtime_error ("Error creating a temporary file");
   	if (tmp. empty ())
   		throw runtime_error ("Cannot create a temporary file");
   }
@@ -3008,6 +3459,16 @@ void ShellApplication::initEnvironment ()
   for (Key& key : keys)
     if (! key. flag)
       replaceStr (key. defaultValue, "$BASE", execDir_);
+}
+
+
+
+string ShellApplication::getHelp () const 
+{
+  string help (Application::getHelp ());
+  if (useTmp)
+    help += "\n\nTemporary directory used is $TMPDIR or \"/tmp\"";
+  return help;
 }
 
 
