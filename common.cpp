@@ -2158,13 +2158,13 @@ void TextTable::setHeader ()
         if (ePos == string::npos)
         {
           if (pointPos != string::npos)
-            maximize (h. decimals, (streamoff) (s. size () - pointPos - 1));
+            maximize<streamsize> (h. decimals, (streamoff) (s. size () - pointPos - 1));
         }
         else
         {
           h. scientific = true;
           if (pointPos != string::npos && ePos > pointPos)
-            maximize (h. decimals, (streamoff) (ePos - pointPos - 1));
+            maximize<streamsize> (h. decimals, (streamoff) (ePos - pointPos - 1));
         }
       }
     }
