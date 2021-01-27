@@ -33,6 +33,7 @@
 *               cat, cp, cut, head, ln, mv, sort, tail
 *
 * Release changes:
+*   3.9.9  01/27/2021 PD-3674  crash for a custom database
 *   3.9.8  01/04/2021 PD-3613  --dir is removed
 *   3.9.7  12/03/2020 PD-3292  dependence on "mkdir" is removed
 *   3.9.6  11/20/2020 PD-3613  --dir

@@ -312,7 +312,7 @@ struct BlastAlignment : Alignment
   bool frameShift {false};
   
   // Reference protein
-  bool fromHmm {false};
+  const bool fromHmm;
   string refAccession; 
     // empty() <=> HMM method
   size_t part {1};    
@@ -344,6 +344,7 @@ struct BlastAlignment : Alignment
   BlastAlignment (const string &line,
                   bool targetProt_arg)
     : Alignment (line, targetProt_arg, true)
+    , fromHmm (false)
     {
     	try 
     	{
@@ -1661,6 +1662,8 @@ public:
         for (const BlastAlignment* blastAl : goodBlastAls_)
         {
           if (blastAl->isMutation ())
+            continue;
+          if (blastAl->fromHmm)
             continue;
           if (   prev 
               && prev->sameMatch (blastAl)

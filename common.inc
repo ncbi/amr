@@ -74,9 +74,9 @@
 
 #define WHERE  "\"" __FILE__ "\", line " << __LINE__
 #ifdef _MSC_VER
-  #define FUNC  std::string (__FUNCSIG__) + ": "
+  #define FUNC  std::string (__FUNCSIG__) + ":\n"
 #else
-  #define FUNC  std::string (__PRETTY_FUNCTION__) + ": "
+  #define FUNC  std::string (__PRETTY_FUNCTION__) + ":\n"
 #endif
 
 
