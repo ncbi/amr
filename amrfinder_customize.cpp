@@ -62,13 +62,12 @@ struct ThisApplication : ShellApplication
       addKey ("database_out", "Customized AMRFinder database directory (output)", "", 'o', "DATABASE_OUT_DIR");
       addKey ("prot", "\
 Protein FASTA file with header lines: >protein_identifier gene_symbol\n\
-    where gene_symbol is a new family id or an existing family id which is in the column \"fam_id\" of DATABASE_IN_DIR/fam.tab", "", 'p', "PROT");
+    where gene_symbol is a new family id or an existing family id in the column \"fam_id\" of DATABASE_IN_DIR/fam.tab", "", 'p', "PROT");
       addKey ("metadata", "\
-Protein sequence metadata tab-delimited file for new gene symbols with the header:\n\
+Protein sequence metadata tab-delimited file for new non-mutation gene symbols with the header:\n\
         #gene_symbol\treportable\ttype\tsubtype\tclass\tsubclass\tprotein_name\n"
-    //   0            1          2     3        4      5         6
-"    where reportable: 1 - plus, 2 - core\n\
-          type = AMR, subtype = POINT for protein point mutations", "", 'm', "METADATA");
+    //   0            1           2     3        4      5         6
+"    where reportable: 1 - plus, 2 - core", "", 'm', "METADATA");
       addKey ("mutation", "\
 Protein mutations tab-delimited file with the header:\n\
         #protein_identifier\tgene_symbol\torganism\tmutation\tclass\tsubclass\tmutated_protein_name\n"
