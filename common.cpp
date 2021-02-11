@@ -207,7 +207,7 @@ namespace
                              bool segmFault)
 // alloc() may not work
 { 
-	ostream* os = logPtr ? logPtr : & cerr; 
+	ostream* os = logPtr ? logPtr : & cout; 
 	
 	// time ??
 #ifndef _MSC_VER
@@ -1573,7 +1573,7 @@ bool LineInput::nextLine ()
   }
   catch (const exception &e)
   {
-    throw runtime_error ("Reading line " + to_string (lineNum) + ":\n" + line + "\n" + e. what ());
+    throw runtime_error ("Reading line " + to_string (lineNum + 1) + ":\n" + line + "\n" + e. what ());
   }
 }
 
@@ -1592,6 +1592,7 @@ bool ObjectInput::next (Root &row)
 	  return false;
 
 	row. read (*is);
+	row. qc ();
 	lineNum++;
 
  	eof = is->eof ();
@@ -1604,7 +1605,6 @@ bool ObjectInput::next (Root &row)
 	prog ();
 	
   ASSERT (is->peek () == '\n');
-	row. qc ();
 
   skipLine (*is);
 
@@ -2095,11 +2095,12 @@ void TextTable::Header::qc () const
 
 
 TextTable::TextTable (const string &fName)
+: Named (fName)
 {
   LineInput f (fName);
 
   if (! f. nextLine ())
-    throw runtime_error ("Cannot read the header of " + strQuote (fName));
+    throw Error (*this, "Cannot read the table header");
   if (! f. line. empty () && f. line. front () == '#')
   {
     pound = true;
@@ -2125,13 +2126,13 @@ TextTable::TextTable (const string &fName)
 
 void TextTable::setHeader ()
 {
-  size_t row_num = 0;
+  RowNum row_num = 0;
   for (const StringVector& row : rows)
   {
     row_num++;
     if (row. size () != header. size ())
-      throw runtime_error ("Row " + to_string (row_num) + " contains " + to_string (row. size ()) + " fields whereas table has " + to_string (header. size ()) + " columns");
-    FFOR (size_t, i, row. size ())
+      throw Error (*this, "Row " + to_string (row_num) + " contains " + to_string (row. size ()) + " fields whereas table has " + to_string (header. size ()) + " columns");
+    FFOR (RowNum, i, row. size ())
     {
       const string& field = row [i];
       if (field. empty ())
@@ -2177,6 +2178,7 @@ void TextTable::qc () const
 {
   if (! qc_on)
     return;
+  Named::qc ();
 
   {    
     StringVector v;  v. reserve (header. size ());
@@ -2188,19 +2190,19 @@ void TextTable::qc () const
     v. sort ();
     const size_t i = v. findDuplicate ();
     if (i != no_index)
-      throw runtime_error ("Duplicate column name: " + strQuote (v [i]));
+      throw Error (*this, "Duplicate column name: " + strQuote (v [i]));
   }
   
-  FFOR (size_t, i, rows. size ())
+  FFOR (RowNum, i, rows. size ())
   {
     if (rows [i]. size () != header. size ())
-      throw runtime_error ("Row " + to_string (i + 1) + " contains " + to_string (rows [i]. size ()) + " fields whereas table has " + to_string (header. size ()) + " columns");
+      throw Error (*this, "Row " + to_string (i + 1) + " contains " + to_string (rows [i]. size ()) + " fields whereas table has " + to_string (header. size ()) + " columns");
     for (const string& field : rows [i])
     {
       if (contains (field, '\t'))
-        throw runtime_error ("Field " + strQuote (header [i]. name) + " of row " + to_string (i + 1) + " contains a tab character");
+        throw Error (*this, "Field " + strQuote (header [i]. name) + " of row " + to_string (i + 1) + " contains a tab character");
       if (contains (field, '\n'))
-        throw runtime_error ("Field " + strQuote (header [i]. name) + " of row " + to_string (i + 1) + " contains an EOL character");
+        throw Error (*this, "Field " + strQuote (header [i]. name) + " of row " + to_string (i + 1) + " contains an EOL character");
     }
   }
 }
@@ -2325,8 +2327,8 @@ void TextTable::group (const StringVector &by,
                     };
   Common_sp::sort (rows, lt);
   
-  size_t i = 0;  
-  FFOR_START (size_t, j, 1, rows. size ())
+  RowNum i = 0;  
+  FFOR_START (RowNum, j, 1, rows. size ())
   {
     ASSERT (i < j);
     if (rows [i]. same (rows [j], byIndex))
@@ -2340,14 +2342,14 @@ void TextTable::group (const StringVector &by,
   }
 
   ASSERT (rows. size () >= i);
-  FFOR (size_t, k, rows. size () - i)
+  FFOR (RowNum, k, rows. size () - i)
     rows. pop_back ();
 }
 
 
 
-void TextTable::merge (size_t toIndex,
-                       size_t fromIndex,
+void TextTable::merge (RowNum toIndex,
+                       RowNum fromIndex,
                        const Vector<size_t> &sum) 
 {
   StringVector& to = rows [toIndex];
@@ -2363,6 +2365,54 @@ void TextTable::merge (size_t toIndex,
   }
 }
 
+
+
+void TextTable::indexes2values (const Vector<size_t> &indexes,
+                                RowNum row_num,
+                                StringVector &values) const
+{
+  values. clear ();
+  values. reserve (indexes. size ());
+  const StringVector& row = rows [row_num];    
+  FFOR (size_t, i, indexes. size ())
+    values << row [indexes [i]];
+}
+
+
+
+TextTable::RowNum TextTable::find (const Vector<size_t> &indexes,
+                                   const StringVector &targetValues,
+                                   RowNum row_num_start) const
+{
+  ASSERT (indexes. size () == targetValues. size ());
+  ASSERT (row_num_start != no_index);
+  StringVector values;
+  FOR_START (RowNum, i, row_num_start, rows. size ())
+  {
+    indexes2values (indexes, i, values);
+    if (values == targetValues)
+      return i;
+  }
+  return no_index;
+}
+
+
+
+TextTable::Key::Key (const TextTable &tab,
+                     const StringVector &columns)
+: indexes (tab. columns2indexes (columns))
+{
+  data. rehash (tab. rows. size ());
+  StringVector values;  
+  FFOR (RowNum, i, tab. rows. size ())
+  {
+    tab. indexes2values (indexes, i, values);
+    if (data. find (values) != data. end ())
+      throw Error (tab, "Duplicate key " + values. toString (",") + " for the key on " + columns. toString (","));
+    ASSERT (i != no_index);
+    data [values] = i;
+  }  
+}
 
 
 
@@ -2679,7 +2729,7 @@ FileItemGenerator::FileItemGenerator (size_t progress_displayPeriod,
     trimSuffix (fName,  "/");
 	  char lsfName [4096] = {'\0'};
   #ifdef _MSC_VER
-    throw runtime_error ("Windows");  // ??
+    NOT_IMPLEMENTED;
   #else
     strcpy (lsfName, P_tmpdir);
     strcat (lsfName, "/XXXXXX");

@@ -1,0 +1,3 @@
+#protein_identifier	gene_symbol	organism	mutation	class	subclass	mutated_protein_name
+mexR_acc	mexR	Pseudomonas aeruginosa	V126E	FLUOROQUINOLONE	FLUOROQUINOLONE	Pseudomonas aeruginosa multidrug resistance operon repressor MexR
+mexR_acc	mexR	Pseudomonas aeruginosa	V126A	FLUOROQUINOLONE	FLUOROQUINOLONE	Pseudomonas aeruginosa multidrug resistance operon repressor MexR

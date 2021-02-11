@@ -57,7 +57,7 @@ COMPILE.cpp= $(CXX) $(CPPFLAGS) $(SVNREV) $(DBDIR) -c
 
 .PHONY: all clean install release
 
-BINARIES= amr_report amrfinder amrfinder_update fasta_check fasta_extract fasta2parts gff_check dna_mutation 
+BINARIES= amr_report amrfinder amrfinder_customize amrfinder_update fasta_check fasta_extract fasta2parts gff_check dna_mutation 
 
 all:	$(BINARIES)
 
@@ -78,6 +78,11 @@ amrfinder.o:  common.hpp common.inc
 amrfinderOBJS=amrfinder.o common.o
 amrfinder:	$(amrfinderOBJS)
 	$(CXX) -o $@ $(amrfinderOBJS) -pthread $(DBDIR)
+
+amrfinder_customize.o:  common.hpp common.inc 
+amrfinder_customizeOBJS=amrfinder_customize.o common.o
+amrfinder_customize:      $(amrfinder_customizeOBJS)
+	$(CXX) -o $@ $(amrfinder_customizeOBJS)
 
 amrfinder_update.o:  common.hpp common.inc 
 amrfinder_updateOBJS=amrfinder_update.o common.o

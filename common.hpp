@@ -870,7 +870,7 @@ inline bool isSpace (char c)
 bool strBlank (const string &s);
 
 template <typename T>
-  string toString (const T t)
+  string toString (const T &t)
     { ostringstream oss;
       oss << t;
       return oss. str ();
@@ -1088,10 +1088,12 @@ inline void checkFile (const string &fName)
 
 streamsize getFileSize (const string &fName);
 
-inline void removeFile (const string &fName)
-  { if (std::remove (fName. c_str ()))
-      throw runtime_error ("Cannot remove file + " + shellQuote (fName));
-  }
+#ifndef _MSC_VER
+  inline void removeFile (const string &fName)
+    { if (::remove (fName. c_str ()))
+        throw runtime_error ("Cannot remove file + " + shellQuote (fName));
+    }
+#endif
   
 inline string path2canonical (const string &path)
   { if (char* p = realpath (path. c_str (), nullptr))
@@ -2101,14 +2103,28 @@ public:
     {}
   StringVector (const string &fName,
                 size_t reserve_size);
-  explicit StringVector (const string &s, 
-                         char sep,
-                         bool trimP);
+  StringVector (const string &s, 
+                char sep,
+                bool trimP);
+  explicit StringVector (size_t n)
+    : P (n, string ())
+    {}
 
 
   string toString (const string& sep) const;
   bool same (const StringVector &vec,
              const Vector<size_t> &indexes) const;
+
+
+  struct Hasher 
+  {
+    size_t operator () (const StringVector& vec) const 
+    { size_t ret = 0;
+      for (const string& s : vec) 
+        ret ^= hash<string>() (s);
+      return ret;
+    }
+  };
 };
 
 
@@ -3146,8 +3162,9 @@ public:
 
 
 
-struct TextTable : Root
+struct TextTable : Named
 // Tab-delimited table with a header
+// name: file name
 {
   bool pound {false};
     // '#' in the beginning of header
@@ -3170,7 +3187,17 @@ struct TextTable : Root
     // size() = number of columns
   Vector<StringVector> rows;
     // StringVector::size() = header.size()
+  typedef  size_t  RowNum;
+    // no_index <=> no row
 
+    
+  struct Error : runtime_error
+  {
+    Error (const TextTable &tab,
+           const string &what)
+      : runtime_error (what + "\nIn table file: " + tab. name)
+      {}
+  };
     
 
   explicit TextTable (const string &fName);
@@ -3188,7 +3215,7 @@ public:
   size_t col2index (const string &columnName) const
   { const size_t i = col2index_ (columnName);
     if (i == no_index)
-      throw runtime_error ("Cannot find column name " + strQuote (columnName));
+      throw Error (*this, "Cannot find column name " + strQuote (columnName));
     return i;
   }
   Vector<size_t> columns2indexes (const StringVector &columns) const
@@ -3211,9 +3238,34 @@ public:
   void group (const StringVector &by,
               const StringVector &sum);
 private:
-  void merge (size_t toIndex,
-              size_t fromIndex,
+  void merge (RowNum toIndex,
+              RowNum fromIndex,
               const Vector<size_t> &sum);
+public:
+  void indexes2values (const Vector<size_t> &indexes,
+                       RowNum row_num,
+                       StringVector &values) const;
+    // Output: values
+  RowNum find (const Vector<size_t> &indexes,
+               const StringVector &targetValues,
+               RowNum row_num_start) const;
+
+
+  struct Key
+  {
+    const Vector<size_t> indexes;
+    unordered_map<StringVector,RowNum,StringVector::Hasher> data;
+
+    Key (const TextTable &tab,
+         const StringVector &columns);
+         
+    RowNum find (const StringVector &values) const
+      { const auto& it = data. find (values);
+        if (it != data. end ())
+          return it->second;
+        return no_index;
+      }
+  };
 };
 
 
