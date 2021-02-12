@@ -59,7 +59,7 @@ struct ThisApplication : ShellApplication
     : ShellApplication ("Create a custom database for AMRFinder", true, true, false)
     {
     	addKey ("database_in", "Directory of the original AMRFinder database", "$BASE/data", 'd', "DATABASE_IN_DIR");
-      addKey ("database_out", "Customized AMRFinder database directory (output)", "", 'o', "DATABASE_OUT_DIR");
+      addKey ("database_out", "Customized AMRFinder database directory for output", "", 'o', "DATABASE_OUT_DIR");
       addKey ("prot", "\
 Protein FASTA file with header lines: >protein_identifier gene_symbol\n\
     where gene_symbol is a new family id or an existing family id in the column \"fam_id\" of DATABASE_IN_DIR/fam.tab", "", 'p', "PROT");
@@ -94,6 +94,17 @@ Protein mutations tab-delimited file with the header:\n\
     stderr << "Running: "<< getCommandLine () << '\n';
     const Verbose vrb (qc_on);
     const string qcS (qc_on ? " -qc" : "");
+
+    if (dbDirIn. empty ())
+      throw runtime_error ("Parameter -database_in is not specified");
+    if (dbDirOut. empty ())
+      throw runtime_error ("Parameter -database_out is not specified");
+    if (protFName. empty ())
+      throw runtime_error ("Parameter -prot is not specified");
+    if (metaFName. empty ())
+      throw runtime_error ("Parameter -metadata is not specified");
+    if (pmFName. empty ())
+      throw runtime_error ("Parameter -mutation is not specified");
     
     if (! directoryExists (dbDirIn))
       throw runtime_error ("Input database directory " + dbDirIn + " does not exist");
