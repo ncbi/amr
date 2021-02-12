@@ -46,11 +46,13 @@
 #include "common.hpp"
 using namespace Common_sp;
 
+#if 0
 /* Needed for fix to skip directories */
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
 /* End */
+#endif
 
 namespace 
 {
@@ -126,16 +128,24 @@ Protein mutations tab-delimited file with the header:\n\
     {
       FileItemGenerator fileGen (0, true, dbDirIn);
       string fName;
-      struct stat s;
+    //struct stat s;
       while (fileGen. next (fName))
       {
-        if (stat((dbDirIn + "/" + fName).c_str(), &s) == 0) {
-          if (S_ISREG(s.st_mode)) {
-            stderr << ".";
-            exec ("cp " + dbDirIn + "/" + fName + " " + dbDirOut + "/");
-          } 
-        } else {
-          throw runtime_error ("Error reading " + dbDirIn + "/" + fName);
+        const string path (dbDirIn + "/" + fName);
+        if (! directoryExists (path))
+        {
+        #if 0
+          if (stat(path.c_str(), &s) == 0) {
+            if (S_ISREG(s.st_mode)) {
+        #endif
+              stderr << ".";
+              exec ("cp " + path + " " + dbDirOut + "/");
+        #if 0
+            } 
+          } else {
+            throw runtime_error ("Error copying " + path);
+          }
+        #endif
         }
       }
       stderr << "\n";

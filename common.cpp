@@ -207,7 +207,7 @@ namespace
                              bool segmFault)
 // alloc() may not work
 { 
-	ostream* os = logPtr ? logPtr : & cout; 
+	ostream* os = logPtr ? logPtr : & cerr; 
 	
 	// time ??
 #ifndef _MSC_VER
@@ -3199,14 +3199,14 @@ string Application::getHelp () const
 
   if (! positionals. empty ())
   {
-	  instr += "\n\nOBLIGATORY PARAMETERS:";
+	  instr += "\n\nPOSITIONAL PARAMETERS:";
 	  for (const Positional& p : positionals)
 	    instr += "\n" + p. str () + par + p. description;
 	}
 
   if (! keys. empty ())
   {
-	  instr += "\n\nOPTIONAL PARAMETERS:";
+	  instr += "\n\nNAMED PARAMETERS:";
 	  for (const Key& key : keys)
 	  {
 	    instr += "\n" + key. getShortHelp () + par + key. description;
