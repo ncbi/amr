@@ -46,7 +46,11 @@
 #include "common.hpp"
 using namespace Common_sp;
 
-
+/* Needed for fix to skip directories */
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+/* End */
 
 namespace 
 {
@@ -111,10 +115,17 @@ Protein mutations tab-delimited file with the header:\n\
     {
       FileItemGenerator fileGen (0, true, dbDirIn);
       string fName;
+      struct stat s;
       while (fileGen. next (fName))
       {
-        stderr << ".";
-        exec ("cp " + dbDirIn + "/" + fName + " " + dbDirOut + "/");
+        if (stat((dbDirIn + "/" + fName).c_str(), &s) == 0) {
+          if (S_ISREG(s.st_mode)) {
+            stderr << ".";
+            exec ("cp " + dbDirIn + "/" + fName + " " + dbDirOut + "/");
+          } 
+        } else {
+          throw runtime_error ("Error reading " + dbDirIn + "/" + fName);
+        }
       }
       stderr << "\n";
     }
@@ -237,6 +248,7 @@ Protein mutations tab-delimited file with the header:\n\
         else
           fOut << fIn. line << endl;
     }
+    stderr << "Rebuilding database ...\n";
 	  exec (fullProg ("makeblastdb") + " -in " + dbDirOut + "/AMRProt" + "  -dbtype prot  -logfile /dev/null");  
     
    
