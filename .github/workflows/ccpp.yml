@@ -29,8 +29,8 @@ jobs:
       run: make test
     - name: test for no-overwrite database update (PD-3469 / https://github.com/ncbi/amr/issues/16)
       run: ./amrfinder -u 2>&1 | fgrep 'Skipping update, use amrfinder --force_update to overwrite the existing database'
-	- name: test amrfinder_customize
-	  run: make test_customdb
+    - name: test amrfinder_customize
+      run: make test_customdb
   make_distribution:
     - name: make github_binaries
       run: make github_binaries
