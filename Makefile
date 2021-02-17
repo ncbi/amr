@@ -179,13 +179,14 @@ src_dist:
 	if [ -e $(SRC_DIST).tar.gz ]; then rm $(SRC_DIST).tar.gz; fi
 	tar cvfz $(SRC_DIST).tar.gz $(DISTFILES)
 
-test : $(DISTFILES) Makefile *.cpp *.hpp *.inc test_dna.fa test_prot.fa test_prot.gff test_dna.fa test_dna.expected test_prot.expected test_both.expected
+test : $(DISTFILES) Makefile amrfinder test_dna.fa test_prot.fa test_prot.gff test_dna.fa test_dna.expected test_prot.expected test_both.expected
 	# curl -O https://raw.githubusercontent.com/ncbi/amr/master/test_dna.fa \
 	# 	-O https://raw.githubusercontent.com/ncbi/amr/master/test_prot.fa \
 	# 	-O https://raw.githubusercontent.com/ncbi/amr/master/test_prot.gff \
 	# 	-O https://raw.githubusercontent.com/ncbi/amr/master/test_both.expected \
 	# 	-O https://raw.githubusercontent.com/ncbi/amr/master/test_dna.expected \
 	# 	-O https://raw.githubusercontent.com/ncbi/amr/master/test_prot.expected
+	./amrfinder -u
 	./amrfinder --plus -p test_prot.fa -g test_prot.gff -O Escherichia > test_prot.got
 	diff test_prot.expected test_prot.got
 	./amrfinder --plus -n test_dna.fa -O Escherichia --mutation_all test_dna_mut_all.got > test_dna.got
@@ -193,4 +194,13 @@ test : $(DISTFILES) Makefile *.cpp *.hpp *.inc test_dna.fa test_prot.fa test_pro
 	# diff test_dna_mut_all.expected test_dna_mut_all.got
 	./amrfinder --plus -n test_dna.fa -p test_prot.fa -g test_prot.gff -O Escherichia > test_both.got
 	diff test_both.expected test_both.got
+	echo "OK"
 
+# note that the following will only work if DBDIR is not set which means it will not work for bioconda
+test_customdb : amrfinder_customize amrfinder
+	./amrfinder -u
+	./amrfinder_customize -d data/latest -o data/customdb -p custom.fa -m custom.meta -t custom.pm
+	./amrfinder -d data/customdb -p custom_test.fa -O Pseudomonas_aeruginosa > custom_test.got
+	diff custom_test.expected custom_test.got
+	rm -r data/customdb # clean up
+	echo "OK"
