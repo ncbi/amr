@@ -30,7 +30,7 @@
 *   Updating of AMRFinder data
 *
 * Dependencies: NCBI BLAST, HMMer
-*               ln, mkdir
+*               ln
 *               curl.{h,c}
 *
 * Release changes: see amrfinder.cpp
@@ -169,9 +169,12 @@ string Curl::read (const string &url)
 string getLatestMinor (Curl &curl)
 // Return: empty() <=> failure
 {
-  StringVector dir (curl. read (URL), '\n');
+  StringVector dir (curl. read (URL), '\n', true);
   if (verbose ())
-    cout << dir << endl;
+  {
+    save (cout, dir, '\t'); 
+    cout << endl;
+  }
     
   Vector<SoftwareVersion> vers;  
   for (string& line : dir)
@@ -206,9 +209,12 @@ string getLatestDataVersion (Curl &curl,
                              const string &minor)
 // Return: empty() <=> failure
 {
-  StringVector dir (curl. read (URL + minor + "/"), '\n');
+  StringVector dir (curl. read (URL + minor + "/"), '\n', true);
   if (verbose ())
-    cout << dir << endl;
+  {
+    save (cout, dir, '\t');
+    cout << endl;
+  }
     
   Vector<DataVersion> dataVersions;  
   for (string& line : dir)
@@ -333,7 +339,7 @@ Requirements:\n\
       mainDirS += "/";    
 
     if (! directoryExists (mainDirS))
-      exec ("mkdir -p " + shellQuote (mainDirS));
+      createDirectory (mainDirS, true);
     
     const string versionFName ("version.txt");
     const string urlDir (URL + curMinor + "/" + latest_version + "/");
@@ -359,7 +365,7 @@ Requirements:\n\
       stderr << shellQuote (latestDir) << " already exists, overwriting what was there\n";
     }
     else
-      exec ("mkdir -p " + shellQuote (latestDir));
+      createDirectory (latestDir, true);
     
     stderr << "Downloading AMRFinder database version " << latest_version << " into " << shellQuote (latestDir) << "\n";
     fetchAMRFile (curl, urlDir, latestDir, "AMR.LIB");

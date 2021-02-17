@@ -312,7 +312,7 @@ struct BlastAlignment : Alignment
   bool frameShift {false};
   
   // Reference protein
-  bool fromHmm {false};
+  const bool fromHmm;
   string refAccession; 
     // empty() <=> HMM method
   size_t part {1};    
@@ -344,6 +344,7 @@ struct BlastAlignment : Alignment
   BlastAlignment (const string &line,
                   bool targetProt_arg)
     : Alignment (line, targetProt_arg, true)
+    , fromHmm (false)
     {
     	try 
     	{
@@ -500,7 +501,6 @@ struct BlastAlignment : Alignment
 	    QC_ASSERT (refAccession. empty () == targetSeq. empty ());
 	    QC_ASSERT (! refAccession. empty () == (bool) refLen);
 	    QC_ASSERT (! refAccession. empty () == (bool) nident);
-	  //QC_ASSERT ((bool) gi == ! refAccession. empty ());
 	    QC_IMPLY (refAccession. empty () && ! isMutation (), ! getFam () -> hmm. empty () /*getHmmFam ()*/);
 	    QC_IMPLY (targetProt, ! partialDna);
 	    QC_ASSERT (targetAlign);
@@ -767,7 +767,7 @@ struct BlastAlignment : Alignment
         return getClass ();
       StringVector vec;
       for (const BlastAlignment* fusion : fusions)
-        vec << move (StringVector (fusion->getClass (), '/'));
+        vec << move (StringVector (fusion->getClass (), '/', true));
       vec. sort ();
       vec. uniq ();
       return vec. toString ("/");
@@ -782,7 +782,7 @@ struct BlastAlignment : Alignment
         return getSubclass ();
       StringVector vec;
       for (const BlastAlignment* fusion : fusions)
-        vec << move (StringVector (fusion->getSubclass (), '/'));
+        vec << move (StringVector (fusion->getSubclass (), '/', true));
       vec. sort ();
       vec. uniq ();
       return vec. toString ("/");
@@ -1662,6 +1662,8 @@ public:
         for (const BlastAlignment* blastAl : goodBlastAls_)
         {
           if (blastAl->isMutation ())
+            continue;
+          if (blastAl->fromHmm)
             continue;
           if (   prev 
               && prev->sameMatch (blastAl)

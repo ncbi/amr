@@ -209,6 +209,7 @@ Line format for nucleotide sequences : <id> <start (>=1)> <stop (>= start)> <str
     string seq;
     while (f. nextLine ())
     {
+      trimTrailing (f. line);
       if (f. line. empty ())
       	continue;
     	if (f. line [0] == '>')

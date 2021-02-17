@@ -103,37 +103,40 @@ struct ThisApplication : Application
     		string line_orig;
      		string fastaId;
 			  while (f. nextLine ())
-			    if (! f. line. empty ())
-			    	if (f. line [0] == '>')
-			    	{
-			    		line_orig = f. line;
-			    		iss. reset (f. line. substr (1));
-			    		fastaId. clear ();
-		    		  iss >> fastaId;
-		    		  QC_ASSERT (! fastaId. empty ());
-		    		  // gffId
-		    			string gffId (fastaId);
-			    		if (! locus_tagFName. empty ())
-			    		{
-			    			const size_t pos = f. line. find (locus_tagS);
-			    			if (pos == string::npos)
-			    				throw runtime_error (__FILE__ ": " + strQuote (locus_tagS) + " is not found in: " + line_orig);
-			    			gffId = f. line. substr (pos + locus_tagS. size ());
-			    			const size_t end = gffId. find (']');
-			    			if (end == string::npos)
-			    				throw runtime_error (__FILE__ ": ']' is not found after " + strQuote (locus_tagS) + " in: " + line_orig);
-			    		  gffId. erase (end);
-			    		}
-			    		ASSERT (! contains (fastaId, ' '));
-			    		if (contains (gffId, ' '))
-			    			throw runtime_error (__FILE__ ": " + strQuote (gffId) + " contains space");
-			    		if (gffId. empty ())
-			    			throw runtime_error (__FILE__ ": No protein identifier in: " + line_orig);
-		    			gffIds << gffId;
-		    			fastaIds << fastaId;
-		    			if (outF. is_open ())
-		    				outF << fastaId << '\t' << gffId << endl;
-			    	}
+			  {
+          trimTrailing (f. line);
+			    if (f. line. empty ())
+			      continue;
+		    	if (f. line [0] != '>')
+		    	  continue;
+	    		line_orig = f. line;
+	    		iss. reset (f. line. substr (1));
+	    		fastaId. clear ();
+    		  iss >> fastaId;
+    		  QC_ASSERT (! fastaId. empty ());
+    		  // gffId
+    			string gffId (fastaId);
+	    		if (! locus_tagFName. empty ())
+	    		{
+	    			const size_t pos = f. line. find (locus_tagS);
+	    			if (pos == string::npos)
+	    				throw runtime_error (__FILE__ ": " + strQuote (locus_tagS) + " is not found in: " + line_orig);
+	    			gffId = f. line. substr (pos + locus_tagS. size ());
+	    			const size_t end = gffId. find (']');
+	    			if (end == string::npos)
+	    				throw runtime_error (__FILE__ ": ']' is not found after " + strQuote (locus_tagS) + " in: " + line_orig);
+	    		  gffId. erase (end);
+	    		}
+	    		ASSERT (! contains (fastaId, ' '));
+	    		if (contains (gffId, ' '))
+	    			throw runtime_error (__FILE__ ": " + strQuote (gffId) + " contains space");
+	    		if (gffId. empty ())
+	    			throw runtime_error (__FILE__ ": No protein identifier in: " + line_orig);
+    			gffIds << gffId;
+    			fastaIds << fastaId;
+    			if (outF. is_open ())
+    				outF << fastaId << '\t' << gffId << endl;
+			  }
 			  const size_t n = fastaIds. size ();
 			  fastaIds. sort ();
 			  fastaIds. uniq ();

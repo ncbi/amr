@@ -12,24 +12,30 @@ jobs:
     
     steps:
     - uses: actions/checkout@v1
-    - name: prep
-      run: sudo apt-get install -y hmmer ncbi-blast+ git libcurl4-openssl-dev build-essential curl
+    - name: prerequisites
+      run: |
+          sudo apt-get update
+          sudo apt-get install -y hmmer ncbi-blast+ git libcurl4-openssl-dev build-essential curl
     - name: make
       run: make
     - name: version
       run: |
           cat version.txt
           ./amrfinder --version
+  test:
     - name: download db
       run: ./amrfinder -u
     - name: make test
       run: make test
     - name: test for no-overwrite database update (PD-3469 / https://github.com/ncbi/amr/issues/16)
       run: ./amrfinder -u 2>&1 | fgrep 'Skipping update, use amrfinder --force_update to overwrite the existing database'
+    - name: test amrfinder_customize
+      run: make test_customdb
+  make_distribution:
     - name: make github_binaries
       run: make github_binaries
     - uses: actions/upload-artifact@v2
       with:
           name: release-binary
           path: amrfinder_binaries_v*.tar.gz
-
+test:
