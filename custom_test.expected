@@ -1,0 +1,4 @@
+Protein identifier	Gene symbol	Sequence name	Scope	Element type	Element subtype	Class	Subclass	Method	Target length	Reference sequence length	% Coverage of reference sequence	% Identity to reference sequence	Alignment length	Accession of closest sequence	Name of closest sequence	HMM id	HMM description
+aac6p_me_acc	aac(6')-novel	Aminoglycoside modifying enzyme AAC(6')-novel	core	AMR	AMR	AMINOGLYCOSIDE	AMINOGLYCOSIDE	EXACTP	184	184	100.00	100.00	184	aac6p_me_acc	Aminoglycoside modifying enzyme AAC(6')-novel	NF033074.0	AAC(6')-Ib family aminoglycoside 6'-N-acetyltransferase
+mexR_acc_mut	mexR_V126E	Pseudomonas aeruginosa multidrug resistance operon repressor MexR	core	AMR	POINT	FLUOROQUINOLONE	FLUOROQUINOLONE	POINTP	147	148	99.32	99.32	147	mexR_acc	WILDTYPE NAME	NA	NA
+vanG	vanG	D-alanine--D-serine ligase VanG	core	AMR	AMR	GLYCOPEPTIDE	VANCOMYCIN	EXACTP	349	349	100.00	100.00	349	WP_063856695.1	D-alanine--D-serine ligase VanG	NF000091.3	D-alanine--D-serine ligase VanG
