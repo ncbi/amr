@@ -33,6 +33,7 @@
 *               cat, cp, cut, head, ln, mv, sort, tail
 *
 * Release changes:
+*   3.10.1 02/17/2021 PD-3679  AMRProt-susceptible.tab
 *   3.9.10 02/16/2021 PD-3694  message about missing "latest/" symbolic link; amrfinder_update.cpp: createLatestLink()
 *   3.9.9  01/27/2021 PD-3674  crash for a custom database
 *   3.9.8  01/04/2021 PD-3613  --dir is removed
@@ -173,7 +174,7 @@ using namespace Common_sp;
 
 // PAR!
 // PD-3051
-#define DATA_VER_MIN "2020-11-04.1"  
+#define DATA_VER_MIN "2021-02-18.1"  
 
 
 
@@ -272,9 +273,11 @@ struct ThisApplication : ShellApplication
   {
 		checkFile (tmp + ".db/taxgroup.tab");
 		checkFile (tmp + ".db/AMRProt-mutation.tab");
-    exec ("tail -n +2 " + tmp + ".db/taxgroup.tab" + "         | cut -f 1 > " + tmp + ".tax_org");
-    exec ("tail -n +2 " + tmp + ".db/AMRProt-mutation.tab" + " | cut -f 1 > " + tmp + ".prot_org");
-    exec ("cat " + tmp + ".prot_org " + tmp + ".tax_org | sort -u > " + tmp + ".org");
+		checkFile (tmp + ".db/AMRProt-susceptible.tab");
+    exec ("tail -n +2 " + tmp + ".db/taxgroup.tab" + "            | cut -f 1 > " + tmp + ".tax_org");
+    exec ("tail -n +2 " + tmp + ".db/AMRProt-mutation.tab" + "    | cut -f 1 > " + tmp + ".prot_org");
+    exec ("tail -n +2 " + tmp + ".db/AMRProt-susceptible.tab" + " | cut -f 1 > " + tmp + ".susc_org");
+    exec ("cat " + tmp + ".tax_org " + tmp + ".prot_org " + tmp + ".susc_org | sort -u > " + tmp + ".org");
     return StringVector (tmp + ".org", (size_t) 100);  // PAR
   }
   
@@ -875,7 +878,10 @@ struct ThisApplication : ShellApplication
       const string mutation_allS (emptyArg (mutation_all) ? "" : ("-mutation_all " + tmp + ".mutation_all"));      
       const string coreS (add_plus ? "" : " -core");
   		exec (fullProg ("amr_report") + " -fam " + shellQuote (db + "/fam.tab") + "  " + amr_report_blastp + "  " + amr_report_blastx
-        		  + "  -organism " + strQuote (organism1) + "  -mutation " + shellQuote (db + "/AMRProt-mutation.tab") + " " + mutation_allS + " "
+        		  + "  -organism " + strQuote (organism1) 
+        		  + "  -mutation "    + shellQuote (db + "/AMRProt-mutation.tab") 
+        		  + "  -susceptible " + shellQuote (db + "/AMRProt-susceptible.tab") 
+        		  + " " + mutation_allS + " "
         		  + force_cds_report + " -pseudo" + coreS
         		  + (ident == -1 ? string () : "  -ident_min "    + toString (ident)) 
         		  + "  -coverage_min " + toString (cov)
