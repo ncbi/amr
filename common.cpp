@@ -2722,7 +2722,7 @@ FileItemGenerator::FileItemGenerator (size_t progress_displayPeriod,
                                       const string& fName_arg)
 : ItemGenerator (0, progress_displayPeriod)
 , isDir (isDir_arg)
-, fName( fName_arg)
+, fName (fName_arg)
 { 
   if (isDir)
   { 

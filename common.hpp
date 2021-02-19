@@ -1117,14 +1117,17 @@ inline string path2canonical (const string &path)
 #endif
 
 
+
 struct Dir
 {
   List<string> items;
     // Simplified: contains no redundant "", ".", ".."
     // items.front().empty (): root
 
+
   explicit Dir (const string &dirName);
   Dir () = default;
+
     
   string get () const
     { return items. empty () 
@@ -1188,6 +1191,7 @@ private:
 	  // 0 < seed < max_
 public:
 	
+
 	explicit Rand (ulong seed_arg = 1)
   	{ setSeed (seed_arg); }
 	void setSeed (ulong seed_arg)
@@ -1195,6 +1199,7 @@ public:
 	    qc ();
     }
     // Input: seed_arg > 0
+
 	  
 	ulong get (ulong max);
     // Return: in 0 .. max - 1
@@ -1276,9 +1281,11 @@ private:
 	const bool quiet;
 public:
 
+
   explicit Threads (size_t threadsToStart_arg,
                     bool quiet_arg = false);
  ~Threads ();
+
   	
 	static bool empty () 
 	  { return ! threadsToStart; }
@@ -1351,13 +1358,15 @@ template <typename Func, typename Res, typename... Args>
 
 class Verbose
 {
-	int verbose_old;
+	const int verbose_old;
 public:
+
 	
 	explicit Verbose (int verbose_arg);
 	Verbose ();
 	  // Increase verbosity
  ~Verbose ();
+
  
   static bool enabled ()
     { return isMainThread () /*Threads::empty ()*/; }
@@ -1502,6 +1511,7 @@ template <typename T /*Root*/>
   private:
   	typedef  unique_ptr<T>  P;
   public:
+    
   
   	explicit AutoPtr (T* t = nullptr) 
   	  : P (t)
@@ -1534,6 +1544,7 @@ struct Named : Root
 {
   string name;
     // !empty(), no spaces at the ends, printable ASCII characeters
+
 
   Named () = default;
   explicit Named (const string &name_arg)
@@ -2057,6 +2068,7 @@ private:
 	typedef  VectorPtr<T>  P;
 public:
 
+
   VectorOwn () = default;
 	VectorOwn (const VectorOwn<T> &other) 
 	  : P ()
@@ -2076,6 +2088,7 @@ public:
 	  { P::operator= (other); }
  ~VectorOwn ()
     { P::deleteData (); }
+
 
   VectorOwn<T>& operator<< (const T* value)
     { P::operator<< (value); 
@@ -2543,6 +2556,7 @@ private:
   // Same elements
 public:
   
+
   RandomSet () = default;
   void reset (size_t num)
     { vec. clear ();  vec. reserve (num);
@@ -2554,6 +2568,7 @@ public:
       if (vec. size () != um. size ())
         throw logic_error ("RandomSet: qc");
     }
+
     
   // Time: O(1)
   bool empty () const
@@ -2593,10 +2608,12 @@ private:
   unordered_map<T,size_t> elem2num;
 public:
   
+
   explicit Enumerate (size_t n)
     { num2elem. reserve (n);
       elem2num. rehash (n);
     }
+
     
   size_t size () const
     { return num2elem. size (); }
@@ -2624,12 +2641,12 @@ private:
 	static size_t beingUsed;
 public:
 
-	size_t n_max {0};
+	const size_t n_max;
 	  // 0 <=> unknown
-	bool active;
+	bool active {false};
+	const size_t displayPeriod;
 	size_t n {0};
 	string step;
-	size_t displayPeriod {0};
 	
 
 	explicit Progress (size_t n_max_arg = 0,
@@ -3005,8 +3022,8 @@ private:
 	LineInput f;
 	Istringstream iss;
 public:
-  bool sameAllowed {false};
-	bool orderNames {false};
+  const bool sameAllowed;
+	const bool orderNames;
   	// true => name1 < name2
 	string name1;
 	string name2;
@@ -3050,7 +3067,7 @@ struct OFStream : ofstream
 
 struct Stderr : Singleton<Stderr>
 {
-  bool quiet {false};
+  const bool quiet;
 
   
   explicit Stderr (bool quiet_arg)
@@ -3076,7 +3093,7 @@ struct Stderr : Singleton<Stderr>
     Stderr& stderr;
   public:  
     
-    Warning (Stderr &stderr_arg)
+    explicit Warning (Stderr &stderr_arg)
       : stderr (stderr_arg)
       { stderr << Color::code (Color::yellow, true) << "WARNING: "; }
    ~Warning ()
@@ -3140,7 +3157,7 @@ struct TabDel
 {
 private:
   ostringstream tabDel;
-  ONumber on;
+  const ONumber on;
 public:
   
   explicit TabDel (streamsize precision = 6,
@@ -3282,6 +3299,7 @@ struct JsonArray;
 struct JsonMap;
   
 
+
 struct Json : Root, Nocopy  // Heaponly
 {
 protected:
@@ -3291,6 +3309,7 @@ protected:
 public:  
   void saveText (ostream& os) const override = 0;
   
+
   virtual const JsonNull* asJsonNull () const
     { return nullptr; }  
   virtual const JsonString* asJsonString () const
@@ -3331,6 +3350,7 @@ public:
 };
 
 
+
 struct JsonNull : Json
 {
   explicit JsonNull (JsonContainer* parent,
@@ -3340,14 +3360,17 @@ struct JsonNull : Json
   void saveText (ostream& os) const final
     { os << "null"; }
 
+
   const JsonNull* asJsonNull () const final
     { return this; }  
 };
 
 
+
 struct JsonString : Json
 {
-  string s;
+  const string s;
+
 
   JsonString (const string& s_arg,
               JsonContainer* parent,
@@ -3358,14 +3381,16 @@ struct JsonString : Json
   void saveText (ostream& os) const final
     { os << toStr (s); }
 
+
   const JsonString* asJsonString () const final
     { return this; }  
 };
 
 
+
 struct JsonInt : Json
 {
-  long long n {0};
+  const long long n;
   
   JsonInt (long long n_arg,
            JsonContainer* parent,
@@ -3376,16 +3401,19 @@ struct JsonInt : Json
   void saveText (ostream& os) const final
     { os << n; }
 
+
   const JsonInt* asJsonInt () const final
     { return this; }  
 };
 
 
+
 struct JsonDouble : Json
 {
-  double n {0.0};
-  streamsize decimals {0};
+  const double n;
+  const streamsize decimals;
   bool scientific {false};
+
 
   JsonDouble (double n_arg,
               streamsize decimals_arg,
@@ -3404,14 +3432,17 @@ struct JsonDouble : Json
         os << "null";  // NaN
     }      
 
+
   const JsonDouble* asJsonDouble () const final
     { return this; }  
 };
 
 
+
 struct JsonBoolean : Json
 {
-  bool b {false};
+  const bool b;
+  
 
   JsonBoolean (bool b_arg,
                JsonContainer* parent,
@@ -3422,9 +3453,11 @@ struct JsonBoolean : Json
   void saveText (ostream& os) const final
     { os << (b ? "true" : "false"); }
 
+
   const JsonBoolean* asJsonBoolean () const final
     { return this; }  
 };
+
 
 
 struct JsonContainer : Json
@@ -3439,12 +3472,14 @@ public:
 };
 
 
+
 struct JsonArray : JsonContainer
 {
   friend struct Json;
 private:
   VectorOwn<Json> data;
 public:
+  
 
   explicit JsonArray (JsonContainer* parent,
                       const string& name = noString)
@@ -3457,12 +3492,14 @@ private:
 public:
   void saveText (ostream& os) const final;
 
+
   const JsonArray* asJsonArray () const final
     { return this; }
     
   size_t size () const
     { return data. size (); }
 };
+
 
 
 struct JsonMap : JsonContainer
@@ -3472,6 +3509,7 @@ private:
   typedef  map <string, const Json*>  Map;
   Map data;
 public:
+  
   
   explicit JsonMap (JsonContainer* parent,
                     const string& name = noString)
@@ -3491,6 +3529,7 @@ public:
  ~JsonMap ();
   void saveText (ostream& os) const final;
 
+
   const JsonMap* asJsonMap () const final
     { return this; }
     
@@ -3508,6 +3547,7 @@ extern JsonMap* jRoot;
 
 
 
+
 //
 
 struct Offset 
@@ -3519,10 +3559,12 @@ private:
 public:
 	static constexpr size_t delta = 2;
 
+
 	Offset ()
   	{ size += delta; }
  ~Offset () 
   	{ size -= delta; }
+
 
   static void newLn (ostream &os) 
     { os << endl << string (size, ' '); }
@@ -3537,6 +3579,7 @@ struct ItemGenerator
 {
   Progress prog;
   
+  
 protected:
   ItemGenerator (size_t progress_n_max,
 	               size_t progress_displayPeriod)
@@ -3545,6 +3588,7 @@ protected:
 public:
   virtual ~ItemGenerator ()
     {}
+  
   
   virtual bool next (string &item) = 0;
     // Return: false <=> end of items
@@ -3562,6 +3606,7 @@ private:
   ifstream f;
 public:
   
+  
   FileItemGenerator (size_t progress_displayPeriod,
                      bool isDir_arg,
                      const string& fName_arg);
@@ -3569,6 +3614,7 @@ public:
     { if (isDir)
 	      remove (fName. c_str ());
 	  }
+  
   
   bool next (string &item) final;
 };
@@ -3582,11 +3628,13 @@ private:
   size_t i {0};
 public:
   
+  
   NumberItemGenerator (size_t progress_displayPeriod,
                        const string& name)
     : ItemGenerator (str2<size_t> (name), progress_displayPeriod)
     , n (prog. n_max)
     {}
+  
   
   bool next (string &item) final
     { if (i == n)
