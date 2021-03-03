@@ -30,9 +30,19 @@
 *   AMRFinder
 *
 * Dependencies: NCBI BLAST, HMMer
-*               awk, cat, cp, cut, head, ln, mkdir, mv, sort, tail
+*               cat, cp, cut, head, ln, mv, sort, tail
 *
 * Release changes:
+*   3.10.1 02/17/2021 PD-3679  AMRProt-susceptible.tab
+*   3.9.10 02/16/2021 PD-3694  message about missing "latest/" symbolic link; amrfinder_update.cpp: createLatestLink()
+*   3.9.9  01/27/2021 PD-3674  crash for a custom database
+*   3.9.8  01/04/2021 PD-3613  --dir is removed
+*   3.9.7  12/03/2020 PD-3292  dependence on "mkdir" is removed
+*   3.9.6  11/20/2020 PD-3613  --dir
+*                              prepare_fasta_extract()
+*   3.9.5  11/18/2020 PD-3292  dependence on awk is removed
+*                              --help prints instruction on $TMPDIR
+*   3.9.4  11/16/2020 PD-3609  ($TMPDIR or "/tmp") + "/XXXXXX"
 *   3.9.3  11/05/2020 PD-3577  Merge lines for bifunctional proteins
 *   3.9.2  11/04/2020 PD-3590  AMRProt has new fields #9 and #10: "subclass" and "class"
 *   3.9.1  10/27/2020 PD-3583  AMRProt has a new field #8 "reportable"
@@ -159,9 +169,12 @@ using namespace Common_sp;
 
 
 
+#undef DIR  // PD-3613
+
+
 // PAR!
 // PD-3051
-#define DATA_VER_MIN "2020-11-04.1"  
+#define DATA_VER_MIN "2021-02-18.1"  
 
 
 
@@ -189,27 +202,6 @@ constexpr double partial_coverage_min_def = 0.5;
 
 
 
-struct Warning : Singleton<Warning>
-{
-private:
-  Stderr& stderr;
-public:  
-  
-  Warning (Stderr &stderr_arg)
-    : stderr (stderr_arg)
-    { stderr << Color::code (Color::yellow, true) << "WARNING: "; }
- ~Warning ()
-    { stderr << Color::code () << "\n"; }
-};
-
-
-
-//const StringVector all_types {"AMR", "STRESS", "VIRULENCE"};
-  // select id from FAM where [type] = 1
-
-
-
-		
 
 // ThisApplication
 
@@ -220,6 +212,9 @@ struct ThisApplication : ShellApplication
     {
     	addFlag ("update", "Update the AMRFinder database", 'u');  // PD-2379
     	addFlag ("force_update", "Force updating the AMRFinder database", 'U');  // PD-3469
+    #ifdef DIR
+      addKey ("dir", "Common directory of the --protein, --nucleotide and --gff files", "", '\0', "DIRECTORY");
+    #endif
     	addKey ("protein", "Input protein FASTA file", "", 'p', "PROT_FASTA");
     	addKey ("nucleotide", "Input nucleotide FASTA file", "", 'n', "NUC_FASTA");
     	addKey ("gff", "GFF file for protein locations. Protein id should be in the attribute 'Name=<id>' (9th field) of the rows with type 'CDS' or 'gene' (3rd field).", "", 'g', "GFF_FILE");
@@ -278,9 +273,11 @@ struct ThisApplication : ShellApplication
   {
 		checkFile (tmp + ".db/taxgroup.tab");
 		checkFile (tmp + ".db/AMRProt-mutation.tab");
-    exec ("tail -n +2 " + tmp + ".db/taxgroup.tab" + "         | cut -f 1 > " + tmp + ".tax_org");
-    exec ("tail -n +2 " + tmp + ".db/AMRProt-mutation.tab" + " | cut -f 1 > " + tmp + ".prot_org");
-    exec ("cat " + tmp + ".prot_org " + tmp + ".tax_org | sort -u > " + tmp + ".org");
+		checkFile (tmp + ".db/AMRProt-susceptible.tab");
+    exec ("tail -n +2 " + tmp + ".db/taxgroup.tab" + "            | cut -f 1 > " + tmp + ".tax_org");
+    exec ("tail -n +2 " + tmp + ".db/AMRProt-mutation.tab" + "    | cut -f 1 > " + tmp + ".prot_org");
+    exec ("tail -n +2 " + tmp + ".db/AMRProt-susceptible.tab" + " | cut -f 1 > " + tmp + ".susc_org");
+    exec ("cat " + tmp + ".tax_org " + tmp + ".prot_org " + tmp + ".susc_org | sort -u > " + tmp + ".org");
     return StringVector (tmp + ".org", (size_t) 100);  // PAR
   }
   
@@ -324,14 +321,36 @@ struct ThisApplication : ShellApplication
 
 
 
+  void prepare_fasta_extract (StringVector &&columns,
+                              const string &tmpSuf) const
+  {
+    TextTable t (tmp + ".amr");
+    t. qc ();
+    t. filterColumns (move (columns));
+    t. rows. filterValue ([] (const StringVector& row) { return row [0] == "NA"; });
+    t. rows. sort ();
+    t. rows. uniq ();
+    t. saveHeader = false;
+    t. qc ();
+    t. saveFile (tmp + "." + tmpSuf);
+  }
+
+
+
   void shellBody () const final
   {
-    const string prot            = shellQuote (getArg ("protein"));
-    const string dna             = shellQuote (getArg ("nucleotide"));
-          string db              =             getArg ("database");
     const bool   force_update    =             getFlag ("force_update");
     const bool   update          =             getFlag ("update") || force_update;
-    const string gff             = shellQuote (getArg ("gff"));
+    const string dir             =    
+  #ifdef DIR
+                                   appendS (getArg ("dir"), "/"); 
+  #else
+                                   "";
+  #endif
+    const string prot            = shellQuote (prependS (getArg ("protein"),    dir));
+    const string dna             = shellQuote (prependS (getArg ("nucleotide"), dir));
+    const string gff             = shellQuote (prependS (getArg ("gff"),        dir));
+          string db              =             getArg ("database");
     const bool   pgap            =             getFlag ("pgap");
     const double ident           =             arg2double ("ident_min");
     const double cov             =             arg2double ("coverage_min");
@@ -383,7 +402,7 @@ struct ThisApplication : ShellApplication
 		// PD-3437
 	  if (! emptyArg (mutation_all) && emptyArg (organism))
 	  {
-	    Warning warning (stderr);
+	    const Warning warning (stderr);
 		  stderr << "--mutation_all option used without -O/--organism option. No point mutations will be screened";
 		}
 
@@ -429,12 +448,12 @@ struct ThisApplication : ShellApplication
       if (const char* s = getenv("CONDA_PREFIX")) {
         defaultDb = string (s) + "/share/amrfinderplus/data/latest";
       } else if (const char* s = getenv("PREFIX")) {
-        Warning warning (stderr);
+        const Warning warning (stderr);
         stderr << "This was compiled for running under bioconda, but $CONDA_PREFIX was not found" << "\n";
         defaultDb = string (s) + "/share/amrfinderplus/data/latest";
         stderr << "Reverting to $PREFIX: " << defaultDb;
       } else {
-        Warning warning (stderr);
+        const Warning warning (stderr);
         stderr << "This was compiled for running under bioconda, but $CONDA_PREFIX was not found" << "\n";
         stderr << "Reverting to hard coded directory: " << CONDA_DB_DIR "/latest";
         defaultDb = CONDA_DB_DIR "/latest";
@@ -443,12 +462,13 @@ struct ThisApplication : ShellApplication
     // not in condaland
       defaultDb = execDir + "data/latest";
     #endif
+    ASSERT (isRight (defaultDb, "/latest"));
         
 		// db
 		if (db. empty ())
 		{
     	if (const char* s = getenv ("AMRFINDER_DB"))
-    		db = string (s);
+    		db = s;
     	else
 			  db = defaultDb;
 		}
@@ -464,7 +484,7 @@ struct ThisApplication : ShellApplication
         throw runtime_error ("AMRFinder update option (-u/--update) only operates on the default database directory. The -d/--database option is not permitted");
       if (getenv ("AMRFINDER_DB"))
       {
-        Warning warning (stderr);
+        const Warning warning (stderr);
         stderr << "AMRFINDER_DB is set, but AMRFinder auto-update only downloads to the default database directory";
         db = defaultDb;
       }
@@ -477,7 +497,7 @@ struct ThisApplication : ShellApplication
       }
       else
       {
-        Warning warning (stderr);
+        const Warning warning (stderr);
         stderr << "Updating database directory works only for databases with the default data directory format." << "\n"
                << "         Please see https://github.com/ncbi/amr/wiki for details." << "\n"
                << "         Current database directory is: " << dbDir. get () << "\n"
@@ -489,7 +509,7 @@ struct ThisApplication : ShellApplication
     const string downloadLatestInstr ("\nTo download the latest version to the default directory run: amrfinder -u");
     
 		if (! directoryExists (db))  // PD-2447
-		  throw runtime_error ("No valid AMRFinder database found." + ifS (! update, downloadLatestInstr));
+		  throw runtime_error ("No valid AMRFinder database found.\nSymbolic link is not found: " + db + ifS (! update, downloadLatestInstr));
 		stderr << "Database directory: " << shellQuote (path2canonical (db)) << "\n";		
     exec ("ln -s " + shellQuote (path2canonical (db)) + " " + tmp + ".db");
 
@@ -577,7 +597,7 @@ struct ThisApplication : ShellApplication
       if (! emptyArg (gff)  && ! getFileSize (unQuote (gff)))   emptyFiles << gff;      
       for (const string& emptyFile : emptyFiles)
       {
-        Warning warning (stderr);
+        const Warning warning (stderr);
         stderr << "Empty file: " << emptyFile;
       }
     }
@@ -786,9 +806,9 @@ struct ThisApplication : ShellApplication
     		//ASSERT (threadsAvailable);
     		  if (threadsAvailable >= 2)
     		  {
-      		  exec ("mkdir " + tmp + ".chunk");
+      		  createDirectory (tmp + ".chunk", false);
       		  exec (fullProg ("fasta2parts") + dna + " " + to_string (threadsAvailable) + " " + tmp + ".chunk" + qcS + " -log " + logFName, logFName);   // PAR
-      		  exec ("mkdir " + tmp + ".blastx_dir");
+      		  createDirectory (tmp + ".blastx_dir", false);
       		  FileItemGenerator fig (false, true, tmp + ".chunk");
       		  string item;
       		  while (fig. next (item))
@@ -858,7 +878,10 @@ struct ThisApplication : ShellApplication
       const string mutation_allS (emptyArg (mutation_all) ? "" : ("-mutation_all " + tmp + ".mutation_all"));      
       const string coreS (add_plus ? "" : " -core");
   		exec (fullProg ("amr_report") + " -fam " + shellQuote (db + "/fam.tab") + "  " + amr_report_blastp + "  " + amr_report_blastx
-        		  + "  -organism " + strQuote (organism1) + "  -mutation " + shellQuote (db + "/AMRProt-mutation.tab") + " " + mutation_allS + " "
+        		  + "  -organism " + strQuote (organism1) 
+        		  + "  -mutation "    + shellQuote (db + "/AMRProt-mutation.tab") 
+        		  + "  -susceptible " + shellQuote (db + "/AMRProt-susceptible.tab") 
+        		  + " " + mutation_allS + " "
         		  + force_cds_report + " -pseudo" + coreS
         		  + (ident == -1 ? string () : "  -ident_min "    + toString (ident)) 
         		  + "  -coverage_min " + toString (cov)
@@ -880,16 +903,6 @@ struct ThisApplication : ShellApplication
 
     // Column names are from amr_report.cpp
 
-  #if 0
-    string typeFilter;
-		if (! typeVec. empty ())
-		{
-      const string typeCol (col2num ("Element type"));
-      for (const string& t : typeVec)
-        typeFilter += " || $" + typeCol + " == \"" + t + "\"";
-    }
-  #endif
-
     // Sorting AMR report
     // PD-2244, PD-3230
     string sortS;
@@ -907,13 +920,7 @@ struct ThisApplication : ShellApplication
     }
 		exec ("head -1 "              + tmp + ".amr                      >  " + tmp + ".amr-out");
 		exec ("LANG=C && tail -n +2 " + tmp + ".amr | sort " + sortS + " >> " + tmp + ".amr-out");
-		
-  #if 0
-		if (! typeFilter. empty ())
-      exec ("awk -F '\t' 'NR == 1 " + typeFilter + "' " + tmp + ".amr-out > " + tmp + ".amr");
-		else
-	#endif
-  		exec ("mv " + tmp + ".amr-out " + tmp + ".amr");
+ 		exec ("mv " + tmp + ".amr-out " + tmp + ".amr");
 
     // Sorting mutation_all
     if (! emptyArg (mutation_all))
@@ -921,12 +928,7 @@ struct ThisApplication : ShellApplication
   		exec ("head -1 "              + tmp + ".mutation_all                                >  " + tmp + ".mutation_all-out");
   		exec ("LANG=C && tail -n +2 " + tmp + ".mutation_all | sort -u | sort " + sortS + " >> " + tmp + ".mutation_all-out");  
   		  // "sort -u | sort <sortS>" replaces "sort <sortS> | uniq"
-    #if 0
-  		if (! typeFilter. empty ())
-        exec ("awk -F '\t' 'NR == 1 " + typeFilter + "' " + tmp + ".mutation_all-out > " + mutation_all);
-  		else
-  	#endif
-    		exec ("mv " + tmp + ".mutation_all-out " + mutation_all);
+   		exec ("mv " + tmp + ".mutation_all-out " + mutation_all);
     }
 
 
@@ -938,21 +940,12 @@ struct ThisApplication : ShellApplication
 
     if (! emptyArg (prot_out))
     {
-      const string protCol       (col2num ("Protein identifier"));
-      const string geneSymbolCol (col2num ("Gene symbol"));
-      const string seqNameCol    (col2num ("Sequence name"));
-      exec ("tail -n +2 " + tmp + ".amr | awk -F '\t' '$" + protCol + " != \"NA\" {print $" + protCol + ", $" + geneSymbolCol + ", $" + seqNameCol + "};' | sort -u > " + tmp + ".prot_out");
+      prepare_fasta_extract (StringVector {"Protein identifier", "Gene symbol", "Sequence name"}, "prot_out");
       exec (fullProg ("fasta_extract") + prot + " " + tmp + ".prot_out -aa" + qcS + " -log " + logFName + " > " + prot_out, logFName);  
     }
     if (! emptyArg (dna_out))
     {
-      const string contigCol     (col2num ("Contig id"));
-      const string startCol      (col2num ("Start"));
-      const string stopCol       (col2num ("Stop"));
-      const string strandCol     (col2num ("Strand"));
-      const string geneSymbolCol (col2num ("Gene symbol"));
-      const string seqNameCol    (col2num ("Sequence name"));
-      exec ("tail -n +2 " + tmp + ".amr | awk -F '\t' '$" + contigCol + " != \"NA\" {print $" + contigCol + ", $" + startCol + ", $" + stopCol + ", $" + strandCol + ", $" + geneSymbolCol + ", $" + seqNameCol + "};' | sort -u > " + tmp + ".dna_out");
+      prepare_fasta_extract (StringVector {"Contig id", "Start", "Stop", "Strand", "Gene symbol", "Sequence name"}, "dna_out");
       exec (fullProg ("fasta_extract") + dna + " " + tmp + ".dna_out" + qcS + " -log " + logFName + " > " + dna_out, logFName);  
     }
 

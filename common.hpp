@@ -364,8 +364,8 @@ template <typename T/*:integer*/>
       return x % 2 == 0; 
     }
 
-inline bool divisible (uint n,
-                       uint divisor)
+inline bool divisible (size_t n,
+                       size_t divisor)
   { return ! (n % divisor); }
   
 inline uint remainder (int n, uint div)
@@ -385,8 +385,8 @@ inline uint gcd (uint a,
 		return gcd (b, a % b);
 	}
 
-uint powInt (uint a,
-             uint b);
+size_t powInt (size_t a,
+               size_t b);
   // Return: a^b
   // Time: O(log(b))
 
@@ -716,13 +716,17 @@ template <typename From, typename What>
           from. erase (x);
     }
 
-
-template <typename T>
-  ostream& operator<< (ostream &os,
-                       const list<T> &ts)
-    { for (const auto& t : ts)
-        os << t << endl;
-      return os;
+template <typename T /*container*/>
+  void save (ostream &os,
+             const T &container,
+             char sep)
+    { bool first = true;
+      for (const auto& t : container)
+      { if (! first)
+          os << sep;
+        os << t;
+        first = false;
+      }
     }
 
 
@@ -835,6 +839,14 @@ inline string nvl (const string& s,
                    const string& nullS = "-")
   { return s. empty () ? nullS : s; }
   	
+inline string appendS (const string &s,
+                       const string &suffix)
+  { return s. empty () ? string () : (s + suffix); }
+  	
+inline string prependS (const string &s,
+                        const string &prefix)
+  { return s. empty () ? string () : (prefix + s); }
+  	
 inline bool isQuoted (const string &s,
                       char quote = '\"')
   { return ! s. empty () && s [0] == quote && s [s. size () - 1] == quote; }
@@ -858,7 +870,7 @@ inline bool isSpace (char c)
 bool strBlank (const string &s);
 
 template <typename T>
-  string toString (const T t)
+  string toString (const T &t)
     { ostringstream oss;
       oss << t;
       return oss. str ();
@@ -1074,12 +1086,14 @@ inline void checkFile (const string &fName)
       throw runtime_error ("File " + strQuote (fName) + " does not exist");
   }
 
-streampos getFileSize (const string &fName);
+streamsize getFileSize (const string &fName);
 
-inline void removeFile (const string &fName)
-  { if (std::remove (fName. c_str ()))
-      throw runtime_error ("Cannot remove file + " + shellQuote (fName));
-  }
+#ifndef _MSC_VER
+  inline void removeFile (const string &fName)
+    { if (::remove (fName. c_str ()))
+        throw runtime_error ("Cannot remove file + " + shellQuote (fName));
+    }
+#endif
   
 inline string path2canonical (const string &path)
   { if (char* p = realpath (path. c_str (), nullptr))
@@ -1097,7 +1111,11 @@ inline string path2canonical (const string &path)
 
 #ifndef _MSC_VER
   bool directoryExists (const string &dirName);
+  
+  void createDirectory (const string &dirName,
+                        bool createAncestors);
 #endif
+
 
 
 struct Dir
@@ -1106,7 +1124,10 @@ struct Dir
     // Simplified: contains no redundant "", ".", ".."
     // items.front().empty (): root
 
-  explicit Dir (const string &name);
+
+  explicit Dir (const string &dirName);
+  Dir () = default;
+
     
   string get () const
     { return items. empty () 
@@ -1170,6 +1191,7 @@ private:
 	  // 0 < seed < max_
 public:
 	
+
 	explicit Rand (ulong seed_arg = 1)
   	{ setSeed (seed_arg); }
 	void setSeed (ulong seed_arg)
@@ -1177,6 +1199,7 @@ public:
 	    qc ();
     }
     // Input: seed_arg > 0
+
 	  
 	ulong get (ulong max);
     // Return: in 0 .. max - 1
@@ -1258,9 +1281,11 @@ private:
 	const bool quiet;
 public:
 
+
   explicit Threads (size_t threadsToStart_arg,
                     bool quiet_arg = false);
  ~Threads ();
+
   	
 	static bool empty () 
 	  { return ! threadsToStart; }
@@ -1333,13 +1358,15 @@ template <typename Func, typename Res, typename... Args>
 
 class Verbose
 {
-	int verbose_old;
+	const int verbose_old;
 public:
+
 	
 	explicit Verbose (int verbose_arg);
 	Verbose ();
 	  // Increase verbosity
  ~Verbose ();
+
  
   static bool enabled ()
     { return isMainThread () /*Threads::empty ()*/; }
@@ -1353,13 +1380,78 @@ struct Unverbose
   
 
 
-
 struct Json;
 struct JsonContainer;
 
 
 
 class Notype {};
+
+
+
+
+struct Xml
+{
+  struct File;
+
+
+  struct Tag
+  {
+  private:
+    const string name;
+    File &f;
+  public:
+
+    Tag (File &f_arg,
+         const string &name_arg);
+   ~Tag ();
+  };
+  
+  
+  struct File
+  {
+  private:
+    ostream& os;
+    size_t offset {0};
+    friend Tag;
+  public:
+    static constexpr size_t offset_spaces {2};  // PAR
+    const bool printOffset;
+    const bool printBrief;
+    const Tag tag;
+
+
+    File (ostream &os_arg,
+          bool printOffset_arg,
+          bool printBrief_arg,
+          const string &tagName)
+      : os (init (os_arg))
+      , printOffset (printOffset_arg)
+      , printBrief (printBrief_arg)
+      , tag (*this, tagName)
+      {}
+  private:
+    static ostream& init (ostream &os_arg)
+      { os_arg << "<?xml version=\"1.0\" encoding=\"ISO-8859-1\" ?>" << endl;  // PAR
+        return os_arg;
+      }
+  public:
+
+
+    void print (const string &s)
+      { os << s; }
+    template <typename T>
+      File& operator<< (const T &t)
+        { os << t;
+          return *this;
+        }
+  };
+};
+
+
+
+extern unique_ptr<Xml::File> cxml;
+  
 
 
 
@@ -1379,7 +1471,6 @@ public:
     // Input: qc_on
   virtual void saveText (ostream& /*os*/) const 
     { throw logic_error ("Root::saveText() is not implemented"); }
-    // Parsable output
   void saveFile (const string &fName) const;
     // if fName.empty() then do nothing
     // Invokes: saveText()
@@ -1388,9 +1479,8 @@ public:
       saveText (oss);
       return oss. str ();
     }
-  virtual void print (ostream& os) const
-    { saveText (os); }
-    // Human-friendly
+  virtual void saveXml (Xml::File& /*f*/) const 
+    { throw logic_error ("Root::saveXml() is not implemented"); }
   virtual Json* toJson (JsonContainer* /*parent_arg*/,
                         const string& /*name_arg*/) const
     { throw logic_error ("Root::toJson() is not implemented"); }
@@ -1410,8 +1500,9 @@ inline ostream& operator<< (ostream &os,
                             const Root &r) 
   { r. saveText (os);
     return os;
-  }
-  
+  }  
+
+
 
 
 template <typename T /*Root*/> 
@@ -1420,6 +1511,7 @@ template <typename T /*Root*/>
   private:
   	typedef  unique_ptr<T>  P;
   public:
+    
   
   	explicit AutoPtr (T* t = nullptr) 
   	  : P (t)
@@ -1453,6 +1545,7 @@ struct Named : Root
   string name;
     // !empty(), no spaces at the ends, printable ASCII characeters
 
+
   Named () = default;
   explicit Named (const string &name_arg)
     : name (name_arg) 
@@ -1480,16 +1573,6 @@ inline string named2name (const Named* n)
 
 
 typedef int (*CompareInt) (const void*, const void*);
-
-
-
-template <typename T>
-  ostream& operator<< (ostream &os,
-                       const vector<T> &ts)
-    { for (const auto& t : ts)
-        os << t << endl;
-      return os;
-    }
 
 
 
@@ -1602,6 +1685,7 @@ public:
         for (U& t : other)
           P::push_back (move (t));
         searchSorted = false;
+        other. clear ();
       	return *this;
       }
   template <typename U/*:<T>*/>
@@ -1685,7 +1769,7 @@ public:
         for (size_t i = 0, end_ = P::size (); i < end_; i++)
         { const size_t j = i - toDelete;
           if (j != i)
-            (*this) [j] = (*this) [i];
+            (*this) [j] = move ((*this) [i]);
           if (cond (j))
             toDelete++;
         }
@@ -1700,7 +1784,7 @@ public:
         for (size_t i = 0, end_ = P::size (); i < end_; i++)
         { const size_t j = i - toDelete;
           if (j != i)
-            (*this) [j] = (*this) [i];
+            (*this) [j] = move ((*this) [i]);
           if (cond ((*this) [j]))
             toDelete++;
         }
@@ -1984,6 +2068,7 @@ private:
 	typedef  VectorPtr<T>  P;
 public:
 
+
   VectorOwn () = default;
 	VectorOwn (const VectorOwn<T> &other) 
 	  : P ()
@@ -2003,6 +2088,7 @@ public:
 	  { P::operator= (other); }
  ~VectorOwn ()
     { P::deleteData (); }
+
 
   VectorOwn<T>& operator<< (const T* value)
     { P::operator<< (value); 
@@ -2030,20 +2116,39 @@ public:
     {}
   StringVector (const string &fName,
                 size_t reserve_size);
-  explicit StringVector (const string &s, 
-                         char sep = ' ');
+  StringVector (const string &s, 
+                char sep,
+                bool trimP);
+  explicit StringVector (size_t n)
+    : P (n, string ())
+    {}
 
 
-  string toString (const string& sep) const
-    { string res;
-  	  for (const string& s : *this)
-  	  { if (! res. empty ())
-  	      res += sep;
-  	    res += s;
-  	  }
-  	  return res;
-  	}
+  string toString (const string& sep) const;
+  bool same (const StringVector &vec,
+             const Vector<size_t> &indexes) const;
+
+
+  struct Hasher 
+  {
+    size_t operator () (const StringVector& vec) const 
+    { size_t ret = 0;
+      for (const string& s : vec) 
+        ret ^= hash<string>() (s);
+      return ret;
+    }
+  };
 };
+
+
+
+// Search
+// Return: false <=> incrementations are exhausted
+bool inc (vector<bool> &v);
+  // Update: v
+bool inc (vector<size_t> &indexes,
+          const vector<size_t> &indexes_max);
+  // Update: indexes
 
 
 
@@ -2451,6 +2556,7 @@ private:
   // Same elements
 public:
   
+
   RandomSet () = default;
   void reset (size_t num)
     { vec. clear ();  vec. reserve (num);
@@ -2462,6 +2568,7 @@ public:
       if (vec. size () != um. size ())
         throw logic_error ("RandomSet: qc");
     }
+
     
   // Time: O(1)
   bool empty () const
@@ -2501,10 +2608,12 @@ private:
   unordered_map<T,size_t> elem2num;
 public:
   
+
   explicit Enumerate (size_t n)
     { num2elem. reserve (n);
       elem2num. rehash (n);
     }
+
     
   size_t size () const
     { return num2elem. size (); }
@@ -2532,12 +2641,12 @@ private:
 	static size_t beingUsed;
 public:
 
-	size_t n_max {0};
+	const size_t n_max;
 	  // 0 <=> unknown
-	bool active;
+	bool active {false};
+	const size_t displayPeriod;
 	size_t n {0};
 	string step;
-	size_t displayPeriod {0};
 	
 
 	explicit Progress (size_t n_max_arg = 0,
@@ -2738,6 +2847,7 @@ struct Token : Root
 	  // eText => embracing quote's are removed
 	  // Valid if !empty()
 	char quote {'\0'};
+	  // '\0': no quote
 	long long n {0};
 	double d {0.0};
   // Valid if eDouble
@@ -2912,8 +3022,8 @@ private:
 	LineInput f;
 	Istringstream iss;
 public:
-  bool sameAllowed {false};
-	bool orderNames {false};
+  const bool sameAllowed;
+	const bool orderNames;
   	// true => name1 < name2
 	string name1;
 	string name2;
@@ -2957,7 +3067,7 @@ struct OFStream : ofstream
 
 struct Stderr : Singleton<Stderr>
 {
-  bool quiet {false};
+  const bool quiet;
 
   
   explicit Stderr (bool quiet_arg)
@@ -2975,6 +3085,38 @@ struct Stderr : Singleton<Stderr>
 };
 
 
+
+#ifndef _MSC_VER
+  struct Warning : Singleton<Warning>
+  {
+  private:
+    Stderr& stderr;
+  public:  
+    
+    explicit Warning (Stderr &stderr_arg)
+      : stderr (stderr_arg)
+      { stderr << Color::code (Color::yellow, true) << "WARNING: "; }
+   ~Warning ()
+      { stderr << Color::code () << "\n"; }
+  };
+#endif
+
+
+
+// Binary streams
+// File content is platform-dependent
+
+template <typename T>
+  inline void writeBin (ostream &f,
+                        const T &t)
+    { f. write (reinterpret_cast <const char*> (& t), sizeof (t)); }
+
+template <typename T>
+  inline void readBin (istream &f,
+                       T &t)
+    { f. read (reinterpret_cast <char*> (& t), sizeof (t)); }
+
+  
 
 struct Csv : Root
 // Line of Excel .csv-file
@@ -3015,7 +3157,7 @@ struct TabDel
 {
 private:
   ostringstream tabDel;
-  ONumber on;
+  const ONumber on;
 public:
   
   explicit TabDel (streamsize precision = 6,
@@ -3037,6 +3179,115 @@ public:
 
 
 
+struct TextTable : Named
+// Tab-delimited table with a header
+// name: file name
+{
+  bool pound {false};
+    // '#' in the beginning of header
+  bool saveHeader {true};
+  struct Header : Named
+  { 
+    // Type
+    bool numeric {true};
+    // Valid if numeric
+    bool scientific {false};
+    streamsize decimals {0};
+    explicit Header (const string &name_arg)
+      : Named (name_arg)
+      {}
+    void qc () const override;
+    void saveText (ostream& os) const override
+      { os << name << ' ' << (numeric ? ((scientific ? "float" : "int") + string ("(") + to_string (decimals) + ")") : "char"); }
+  };
+  Vector<Header> header;
+    // size() = number of columns
+  Vector<StringVector> rows;
+    // StringVector::size() = header.size()
+  typedef  size_t  RowNum;
+    // no_index <=> no row
+
+    
+  struct Error : runtime_error
+  {
+    Error (const TextTable &tab,
+           const string &what)
+      : runtime_error (what + "\nIn table file: " + tab. name)
+      {}
+  };
+    
+
+  explicit TextTable (const string &fName);
+private:
+  void setHeader ();
+public:
+  void qc () const override;
+  void saveText (ostream &os) const override;    
+        
+  
+  void printHeader (ostream &os) const;
+private:
+  size_t col2index_ (const string &columnName) const;
+public:
+  size_t col2index (const string &columnName) const
+  { const size_t i = col2index_ (columnName);
+    if (i == no_index)
+      throw Error (*this, "Cannot find column name " + strQuote (columnName));
+    return i;
+  }
+  Vector<size_t> columns2indexes (const StringVector &columns) const
+    { Vector<size_t> indexes;  indexes. reserve (columns. size ());
+      for (const string &s : columns)
+        indexes << col2index (s);
+      return indexes;
+    }
+  bool hasColumn (const string &columnName) const
+    { return col2index_ (columnName) != no_index; }
+private:
+  int compare (const StringVector& row1,
+               const StringVector& row2,
+               size_t column) const;
+public:
+  void filterColumns (const StringVector &newColumnNames);
+    // Input: newColumnNames: in header::name's
+    //          can be repeated
+    //          ordered
+  void group (const StringVector &by,
+              const StringVector &sum);
+private:
+  void merge (RowNum toIndex,
+              RowNum fromIndex,
+              const Vector<size_t> &sum);
+public:
+  void indexes2values (const Vector<size_t> &indexes,
+                       RowNum row_num,
+                       StringVector &values) const;
+    // Output: values
+  RowNum find (const Vector<size_t> &indexes,
+               const StringVector &targetValues,
+               RowNum row_num_start) const;
+
+
+  struct Key
+  {
+    const Vector<size_t> indexes;
+    unordered_map<StringVector,RowNum,StringVector::Hasher> data;
+
+    Key (const TextTable &tab,
+         const StringVector &columns);
+         
+    RowNum find (const StringVector &values) const
+      { const auto& it = data. find (values);
+        if (it != data. end ())
+          return it->second;
+        return no_index;
+      }
+  };
+};
+
+
+		
+
 // Json
 
 struct JsonNull;
@@ -3048,6 +3299,7 @@ struct JsonArray;
 struct JsonMap;
   
 
+
 struct Json : Root, Nocopy  // Heaponly
 {
 protected:
@@ -3055,8 +3307,9 @@ protected:
         const string& name);
   Json () = default;
 public:  
-  void print (ostream& os) const override = 0;
+  void saveText (ostream& os) const override = 0;
   
+
   virtual const JsonNull* asJsonNull () const
     { return nullptr; }  
   virtual const JsonString* asJsonString () const
@@ -3097,23 +3350,27 @@ public:
 };
 
 
+
 struct JsonNull : Json
 {
   explicit JsonNull (JsonContainer* parent,
                      const string& name = noString)
     : Json (parent, name)
     {}    
-  void print (ostream& os) const final
+  void saveText (ostream& os) const final
     { os << "null"; }
+
 
   const JsonNull* asJsonNull () const final
     { return this; }  
 };
 
 
+
 struct JsonString : Json
 {
-  string s;
+  const string s;
+
 
   JsonString (const string& s_arg,
               JsonContainer* parent,
@@ -3121,17 +3378,19 @@ struct JsonString : Json
     : Json (parent, name)
     , s (s_arg)
     {}
-  void print (ostream& os) const final
+  void saveText (ostream& os) const final
     { os << toStr (s); }
+
 
   const JsonString* asJsonString () const final
     { return this; }  
 };
 
 
+
 struct JsonInt : Json
 {
-  long long n {0};
+  const long long n;
   
   JsonInt (long long n_arg,
            JsonContainer* parent,
@@ -3139,19 +3398,22 @@ struct JsonInt : Json
     : Json (parent, name)
     , n (n_arg)
     {}
-  void print (ostream& os) const final
+  void saveText (ostream& os) const final
     { os << n; }
+
 
   const JsonInt* asJsonInt () const final
     { return this; }  
 };
 
 
+
 struct JsonDouble : Json
 {
-  double n {0.0};
-  streamsize decimals {0};
+  const double n;
+  const streamsize decimals;
   bool scientific {false};
+
 
   JsonDouble (double n_arg,
               streamsize decimals_arg,
@@ -3162,7 +3424,7 @@ struct JsonDouble : Json
     , decimals (decimals_arg == numeric_limits<streamsize>::max() ? double2decimals (n_arg) : decimals_arg)
     {}
     // decimals_arg = -1: default
-  void print (ostream& os) const final
+  void saveText (ostream& os) const final
     { const ONumber on (os, (streamsize) decimals, scientific);
     	if (n == n)
         os << n; 
@@ -3170,14 +3432,17 @@ struct JsonDouble : Json
         os << "null";  // NaN
     }      
 
+
   const JsonDouble* asJsonDouble () const final
     { return this; }  
 };
 
 
+
 struct JsonBoolean : Json
 {
-  bool b {false};
+  const bool b;
+  
 
   JsonBoolean (bool b_arg,
                JsonContainer* parent,
@@ -3185,12 +3450,14 @@ struct JsonBoolean : Json
     : Json (parent, name)
     , b (b_arg)
     {}
-  void print (ostream& os) const final
+  void saveText (ostream& os) const final
     { os << (b ? "true" : "false"); }
+
 
   const JsonBoolean* asJsonBoolean () const final
     { return this; }  
 };
+
 
 
 struct JsonContainer : Json
@@ -3205,12 +3472,14 @@ public:
 };
 
 
+
 struct JsonArray : JsonContainer
 {
   friend struct Json;
 private:
   VectorOwn<Json> data;
 public:
+  
 
   explicit JsonArray (JsonContainer* parent,
                       const string& name = noString)
@@ -3221,7 +3490,8 @@ private:
              JsonContainer* parent,
              const string& name);
 public:
-  void print (ostream& os) const final;
+  void saveText (ostream& os) const final;
+
 
   const JsonArray* asJsonArray () const final
     { return this; }
@@ -3231,6 +3501,7 @@ public:
 };
 
 
+
 struct JsonMap : JsonContainer
 {
   friend struct Json;
@@ -3238,6 +3509,7 @@ private:
   typedef  map <string, const Json*>  Map;
   Map data;
 public:
+  
   
   explicit JsonMap (JsonContainer* parent,
                     const string& name = noString)
@@ -3255,7 +3527,8 @@ private:
   void parse (CharInput& in);
 public:
  ~JsonMap ();
-  void print (ostream& os) const final;
+  void saveText (ostream& os) const final;
+
 
   const JsonMap* asJsonMap () const final
     { return this; }
@@ -3274,6 +3547,7 @@ extern JsonMap* jRoot;
 
 
 
+
 //
 
 struct Offset 
@@ -3285,15 +3559,16 @@ private:
 public:
 	static constexpr size_t delta = 2;
 
+
 	Offset ()
   	{ size += delta; }
  ~Offset () 
   	{ size -= delta; }
 
+
   static void newLn (ostream &os) 
     { os << endl << string (size, ' '); }
 };
-
 
 
 
@@ -3304,6 +3579,7 @@ struct ItemGenerator
 {
   Progress prog;
   
+  
 protected:
   ItemGenerator (size_t progress_n_max,
 	               size_t progress_displayPeriod)
@@ -3312,6 +3588,7 @@ protected:
 public:
   virtual ~ItemGenerator ()
     {}
+  
   
   virtual bool next (string &item) = 0;
     // Return: false <=> end of items
@@ -3329,6 +3606,7 @@ private:
   ifstream f;
 public:
   
+  
   FileItemGenerator (size_t progress_displayPeriod,
                      bool isDir_arg,
                      const string& fName_arg);
@@ -3336,6 +3614,7 @@ public:
     { if (isDir)
 	      remove (fName. c_str ());
 	  }
+  
   
   bool next (string &item) final;
 };
@@ -3349,11 +3628,13 @@ private:
   size_t i {0};
 public:
   
+  
   NumberItemGenerator (size_t progress_displayPeriod,
                        const string& name)
     : ItemGenerator (str2<size_t> (name), progress_displayPeriod)
     , n (prog. n_max)
     {}
+  
   
   bool next (string &item) final
     { if (i == n)
@@ -3593,7 +3874,7 @@ protected:
   virtual void initEnvironment ()
     {}
   string getInstruction () const;
-  string getHelp () const;
+  virtual string getHelp () const;
 public:
   int run (int argc, 
            const char* argv []);
@@ -3612,7 +3893,7 @@ struct ShellApplication : Application
   // Environment
   const bool useTmp;
   string tmp;
-    // Temporary file prefix
+    // Temporary file prefix: ($TMPDIR or "/tmp") + "/XXXXXX"
     // If log is used then tmp is printed in the log file and the temporary files are not deleted 
   string execDir;
     // Ends with '/'
@@ -3632,6 +3913,7 @@ struct ShellApplication : Application
 
 protected:
   void initEnvironment () override;
+  string getHelp () const override;
 private:
   void body () const final;
   virtual void shellBody () const = 0;

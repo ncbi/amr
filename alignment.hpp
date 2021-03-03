@@ -75,6 +75,8 @@ struct Mutation : Root
 						const string &name_arg = "X");
 		// Input: pos_arg: 1-based
 	Mutation () = default;
+	Mutation (Mutation &&other) = default;
+	Mutation& operator= (Mutation &&other) = default;
 private:
 	static void parse (const string &geneMutation,
 	                   string &reference,
@@ -87,10 +89,6 @@ public:
         os << "empty";
       else
         os << pos + 1 << ' ' << geneMutation << ' ' << name; 
-    }
-  void print (ostream &os) const override
-    { saveText (os); 
-      os << endl;
     }
   bool empty () const override
     { return geneMutation. empty (); }

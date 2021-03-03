@@ -1,5 +1,4 @@
 data/
-*.pyc
 *.o
 amr_report
 amrfinder
@@ -8,4 +7,6 @@ fasta_extract
 dna_mutation
 gff_check
 amrfinder_update
+amrfinder_customize
 fasta2parts
+*.got

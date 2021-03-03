@@ -12,8 +12,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1
-    - name: prep
-      run: sudo apt-get install -y git build-essential curl
+    - name: prerequisites
+      run: |
+          sudo apt-get update
+          sudo apt-get install -y git build-essential curl
     - name: download conda
       run: curl -O https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
     - name: install conda
