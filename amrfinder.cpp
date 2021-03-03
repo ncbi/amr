@@ -33,6 +33,9 @@
 *               cat, cp, cut, head, ln, mv, sort, tail
 *
 * Release changes:
+*   3.10.1 02/17/2021 PD-3679  AMRProt-susceptible.tab
+*   3.9.10 02/16/2021 PD-3694  message about missing "latest/" symbolic link; amrfinder_update.cpp: createLatestLink()
+*   3.9.9  01/27/2021 PD-3674  crash for a custom database
 *   3.9.8  01/04/2021 PD-3613  --dir is removed
 *   3.9.7  12/03/2020 PD-3292  dependence on "mkdir" is removed
 *   3.9.6  11/20/2020 PD-3613  --dir
@@ -171,7 +174,7 @@ using namespace Common_sp;
 
 // PAR!
 // PD-3051
-#define DATA_VER_MIN "2020-11-04.1"  
+#define DATA_VER_MIN "2021-02-18.1"  
 
 
 
@@ -270,9 +273,11 @@ struct ThisApplication : ShellApplication
   {
 		checkFile (tmp + ".db/taxgroup.tab");
 		checkFile (tmp + ".db/AMRProt-mutation.tab");
-    exec ("tail -n +2 " + tmp + ".db/taxgroup.tab" + "         | cut -f 1 > " + tmp + ".tax_org");
-    exec ("tail -n +2 " + tmp + ".db/AMRProt-mutation.tab" + " | cut -f 1 > " + tmp + ".prot_org");
-    exec ("cat " + tmp + ".prot_org " + tmp + ".tax_org | sort -u > " + tmp + ".org");
+		checkFile (tmp + ".db/AMRProt-susceptible.tab");
+    exec ("tail -n +2 " + tmp + ".db/taxgroup.tab" + "            | cut -f 1 > " + tmp + ".tax_org");
+    exec ("tail -n +2 " + tmp + ".db/AMRProt-mutation.tab" + "    | cut -f 1 > " + tmp + ".prot_org");
+    exec ("tail -n +2 " + tmp + ".db/AMRProt-susceptible.tab" + " | cut -f 1 > " + tmp + ".susc_org");
+    exec ("cat " + tmp + ".tax_org " + tmp + ".prot_org " + tmp + ".susc_org | sort -u > " + tmp + ".org");
     return StringVector (tmp + ".org", (size_t) 100);  // PAR
   }
   
@@ -397,7 +402,7 @@ struct ThisApplication : ShellApplication
 		// PD-3437
 	  if (! emptyArg (mutation_all) && emptyArg (organism))
 	  {
-	    Warning warning (stderr);
+	    const Warning warning (stderr);
 		  stderr << "--mutation_all option used without -O/--organism option. No point mutations will be screened";
 		}
 
@@ -443,12 +448,12 @@ struct ThisApplication : ShellApplication
       if (const char* s = getenv("CONDA_PREFIX")) {
         defaultDb = string (s) + "/share/amrfinderplus/data/latest";
       } else if (const char* s = getenv("PREFIX")) {
-        Warning warning (stderr);
+        const Warning warning (stderr);
         stderr << "This was compiled for running under bioconda, but $CONDA_PREFIX was not found" << "\n";
         defaultDb = string (s) + "/share/amrfinderplus/data/latest";
         stderr << "Reverting to $PREFIX: " << defaultDb;
       } else {
-        Warning warning (stderr);
+        const Warning warning (stderr);
         stderr << "This was compiled for running under bioconda, but $CONDA_PREFIX was not found" << "\n";
         stderr << "Reverting to hard coded directory: " << CONDA_DB_DIR "/latest";
         defaultDb = CONDA_DB_DIR "/latest";
@@ -479,7 +484,7 @@ struct ThisApplication : ShellApplication
         throw runtime_error ("AMRFinder update option (-u/--update) only operates on the default database directory. The -d/--database option is not permitted");
       if (getenv ("AMRFINDER_DB"))
       {
-        Warning warning (stderr);
+        const Warning warning (stderr);
         stderr << "AMRFINDER_DB is set, but AMRFinder auto-update only downloads to the default database directory";
         db = defaultDb;
       }
@@ -492,7 +497,7 @@ struct ThisApplication : ShellApplication
       }
       else
       {
-        Warning warning (stderr);
+        const Warning warning (stderr);
         stderr << "Updating database directory works only for databases with the default data directory format." << "\n"
                << "         Please see https://github.com/ncbi/amr/wiki for details." << "\n"
                << "         Current database directory is: " << dbDir. get () << "\n"
@@ -504,7 +509,7 @@ struct ThisApplication : ShellApplication
     const string downloadLatestInstr ("\nTo download the latest version to the default directory run: amrfinder -u");
     
 		if (! directoryExists (db))  // PD-2447
-		  throw runtime_error ("No valid AMRFinder database found." + ifS (! update, downloadLatestInstr));
+		  throw runtime_error ("No valid AMRFinder database found.\nSymbolic link is not found: " + db + ifS (! update, downloadLatestInstr));
 		stderr << "Database directory: " << shellQuote (path2canonical (db)) << "\n";		
     exec ("ln -s " + shellQuote (path2canonical (db)) + " " + tmp + ".db");
 
@@ -592,7 +597,7 @@ struct ThisApplication : ShellApplication
       if (! emptyArg (gff)  && ! getFileSize (unQuote (gff)))   emptyFiles << gff;      
       for (const string& emptyFile : emptyFiles)
       {
-        Warning warning (stderr);
+        const Warning warning (stderr);
         stderr << "Empty file: " << emptyFile;
       }
     }
@@ -873,7 +878,10 @@ struct ThisApplication : ShellApplication
       const string mutation_allS (emptyArg (mutation_all) ? "" : ("-mutation_all " + tmp + ".mutation_all"));      
       const string coreS (add_plus ? "" : " -core");
   		exec (fullProg ("amr_report") + " -fam " + shellQuote (db + "/fam.tab") + "  " + amr_report_blastp + "  " + amr_report_blastx
-        		  + "  -organism " + strQuote (organism1) + "  -mutation " + shellQuote (db + "/AMRProt-mutation.tab") + " " + mutation_allS + " "
+        		  + "  -organism " + strQuote (organism1) 
+        		  + "  -mutation "    + shellQuote (db + "/AMRProt-mutation.tab") 
+        		  + "  -susceptible " + shellQuote (db + "/AMRProt-susceptible.tab") 
+        		  + " " + mutation_allS + " "
         		  + force_cds_report + " -pseudo" + coreS
         		  + (ident == -1 ? string () : "  -ident_min "    + toString (ident)) 
         		  + "  -coverage_min " + toString (cov)

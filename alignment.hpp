@@ -75,6 +75,8 @@ struct Mutation : Root
 						const string &name_arg = "X");
 		// Input: pos_arg: 1-based
 	Mutation () = default;
+	Mutation (Mutation &&other) = default;
+	Mutation& operator= (Mutation &&other) = default;
 private:
 	static void parse (const string &geneMutation,
 	                   string &reference,
