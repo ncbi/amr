@@ -137,8 +137,8 @@ struct SeqChange : Root
 	  // 0..1
 	  
 	char prev {'\0'};
-	  
-	const Mutation* mutation {nullptr};
+	VectorPtr<Mutation> mutations;
+	  // !nullptr
 	
 	const SeqChange* replacement {nullptr};
   
@@ -150,8 +150,8 @@ struct SeqChange : Root
   SeqChange (const Alignment* al_arg,
              const Mutation* mutation_arg)
     : al (al_arg)
-    , mutation (checkPtr (mutation_arg))
-    {}
+  //, mutation (checkPtr (mutation_arg))
+    { mutations << checkPtr (mutation_arg); }
 #if 0
   SeqChange (const Alignment* al_arg,
              size_t targetStopPos);    
@@ -164,7 +164,8 @@ struct SeqChange : Root
          << ' ' << start_ref + 1 << ".." << stop_ref
          << ' ' << start_target + 1 
          << ' ' << neighborhoodMismatch;
-      if (mutation)
+    //if (mutation)
+      for (const Mutation* mutation : mutations)
       { os << ' ' ;
         mutation->saveText (os);
       }
@@ -176,7 +177,7 @@ struct SeqChange : Root
     
 private:
   bool hasMutation () const
-    { return mutation; }
+    { return ! mutations. empty () /*mutation*/; }
 public:
   string getMutationStr () const;
   size_t getStop () const

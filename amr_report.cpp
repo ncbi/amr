@@ -589,111 +589,116 @@ struct BlastAlignment : Alignment
       for (const Locus& cds : cdss_)
 	      for (const SeqChange& seqChange : seqChanges_)
 	      {
-	        const Mutation* mut = seqChange. mutation;
           const string method (empty () ? na : getMethod (cds));
-          IMPLY (! verbose (), isMutation () == ! (seqChange. empty () && ! mut));
-	        TabDel td (2, false);
-    	    if (! input_name. empty ())
-    	      td << input_name;;
-          td << (targetProt ? nvl(targetName, na) : na);  // PD-2534
-	        if (cdsExist)
-	          td << (empty () ? na : (cds. contig. empty () ? nvl (targetName,na)  : cds. contig))
-	             << (empty () ? 0  : (cds. contig. empty () ? targetStart : cds. start) + 1)
-	             << (empty () ? 0  : (cds. contig. empty () ? targetEnd  : cds. stop))
-	             << (empty () ? na : (cds. contig. empty () ? (targetStrand ? "+" : "-") : (cds. strand ? "+" : "-")));
-	        td << (isMutation ()
-			             ? mut 
-			               ? seqChange. empty ()
-                       ? mut->wildtype ()
-			                 : mut->geneMutation
-			               : gene + "_" + seqChange. getMutationStr ()
-	                 : print_fam 
-			               ? famId
-			               : fusion2geneSymbols ()
-	              )
-	           << (isMutation ()
-	                 ? mut 
-                     ? seqChange. empty ()
-                       ? proteinName + " [WILDTYPE]"
-                       : mut->name
-                     : proteinName + " [UNKNOWN]"
-	                 : proteinName 
-	              )
-	           << (isMutation () || fusion2core () ? "core" : "plus");  // PD-2825
-          // PD-1856
-	        if (isMutation ())
-	          td << "AMR"
-	             << "POINT"
-	             << (mut ? nvl (mut->classS,   na) : na)
-	             << (mut ? nvl (mut->subclass, na) : na);
-	        else
-	          td << nvl (fusion2type (), na)  
-  	           << nvl (fusion2subtype (), na)
-  	           << nvl (fusion2class (), na)
-  	           << nvl (fusion2subclass (), na);
-	        td << method
-	           << (targetProt ? targetLen : targetAlign_aa);  
-	        if (refAccession. empty ())
-	          td << na 
-	             << na
-	             << na
-	             << na
-	             << na
-	             << na;
-	        else
-	          td << refLen
-	             << refCoverage () * 100.0  
-	             << pIdentity () * 100.0  // refIdentity
-	             << targetSeq. size ()
-	             << refAccession
-	             << product
-	             ;
-	        // PD-775
-	        if (isMutation ())
-	          td << na
-	             << na;
-	        else 
-	        {
-	          if (const HmmAlignment* hmmAl_ = fusion2hmmAl ())
-  	          td << hmmAl_->fam->hmm
-  	             << hmmAl_->fam->familyName;
+          VectorPtr<Mutation> mutations (seqChange. mutations);
+          if (mutations. empty ())
+            mutations << nullptr;
+          for (const Mutation* mut : mutations)
+          {
+            IMPLY (! verbose (), isMutation () == ! (seqChange. empty () && ! mut));
+  	        TabDel td (2, false);
+      	    if (! input_name. empty ())
+      	      td << input_name;;
+            td << (targetProt ? nvl(targetName, na) : na);  // PD-2534
+  	        if (cdsExist)
+  	          td << (empty () ? na : (cds. contig. empty () ? nvl (targetName,na)  : cds. contig))
+  	             << (empty () ? 0  : (cds. contig. empty () ? targetStart : cds. start) + 1)
+  	             << (empty () ? 0  : (cds. contig. empty () ? targetEnd  : cds. stop))
+  	             << (empty () ? na : (cds. contig. empty () ? (targetStrand ? "+" : "-") : (cds. strand ? "+" : "-")));
+  	        td << (isMutation ()
+  			             ? mut 
+  			               ? seqChange. empty ()
+                         ? mut->wildtype ()
+  			                 : mut->geneMutation
+  			               : gene + "_" + seqChange. getMutationStr ()
+  	                 : print_fam 
+  			               ? famId
+  			               : fusion2geneSymbols ()
+  	              )
+  	           << (isMutation ()
+  	                 ? mut 
+                       ? seqChange. empty ()
+                         ? proteinName + " [WILDTYPE]"
+                         : mut->name
+                       : proteinName + " [UNKNOWN]"
+  	                 : proteinName 
+  	              )
+  	           << (isMutation () || fusion2core () ? "core" : "plus");  // PD-2825
+            // PD-1856
+  	        if (isMutation ())
+  	          td << "AMR"
+  	             << "POINT"
+  	             << (mut ? nvl (mut->classS,   na) : na)
+  	             << (mut ? nvl (mut->subclass, na) : na);
   	        else
-  	        {
+  	          td << nvl (fusion2type (), na)  
+    	           << nvl (fusion2subtype (), na)
+    	           << nvl (fusion2class (), na)
+    	           << nvl (fusion2subclass (), na);
+  	        td << method
+  	           << (targetProt ? targetLen : targetAlign_aa);  
+  	        if (refAccession. empty ())
+  	          td << na 
+  	             << na
+  	             << na
+  	             << na
+  	             << na
+  	             << na;
+  	        else
+  	          td << refLen
+  	             << refCoverage () * 100.0  
+  	             << pIdentity () * 100.0  // refIdentity
+  	             << targetSeq. size ()
+  	             << refAccession
+  	             << product
+  	             ;
+  	        // PD-775
+  	        if (isMutation ())
   	          td << na
   	             << na;
-  	          ASSERT (method != "HMM");
+  	        else 
+  	        {
+  	          if (const HmmAlignment* hmmAl_ = fusion2hmmAl ())
+    	          td << hmmAl_->fam->hmm
+    	             << hmmAl_->fam->familyName;
+    	        else
+    	        {
+    	          td << na
+    	             << na;
+    	          ASSERT (method != "HMM");
+    	        }
+    	      }
+  	        if (cdsExist)
+  	        {
+  	        	IMPLY (cds. crossOrigin, useCrossOrigin);
+  	        	if (useCrossOrigin)
+  	        	{
+  		          if (cds. crossOrigin) 
+  		            td << cds. contigLen;
+  		          else 
+  		            td << na;        	
+  		        }
   	        }
+  	        if (   ! isMutation ()
+  	            || (! seqChange. empty () && mut && ! seqChange. replacement)  // resistant mutation
+  	           )
+  	        {
+    	        if (verbose ())
+    	          os         << refExactlyMatched ()  // 1
+    	             << '\t' << allele ()             // 2
+    	             << '\t' << alleleReported ()     // 3
+    	             << '\t' << targetProt            // 4
+    	             << '\t' << nident                // 5
+    	             << '\t' << refMutation           // 6
+    	             << '\t' << stopCodon             // 7
+    	             << '\t' << frameShift            // 8
+    	             << '\t' << resistance            // 9
+    	             << '\t';
+  	          os << td. str () << endl;
+  	        }
+  	        if (mutation_all. get () && isMutation ())
+  	          *mutation_all << td. str () << endl;
   	      }
-	        if (cdsExist)
-	        {
-	        	IMPLY (cds. crossOrigin, useCrossOrigin);
-	        	if (useCrossOrigin)
-	        	{
-		          if (cds. crossOrigin) 
-		            td << cds. contigLen;
-		          else 
-		            td << na;        	
-		        }
-	        }
-	        if (   ! isMutation ()
-	            || (! seqChange. empty () && mut && ! seqChange. replacement)  // resistant mutation
-	           )
-	        {
-  	        if (verbose ())
-  	          os         << refExactlyMatched ()  // 1
-  	             << '\t' << allele ()             // 2
-  	             << '\t' << alleleReported ()     // 3
-  	             << '\t' << targetProt            // 4
-  	             << '\t' << nident                // 5
-  	             << '\t' << refMutation           // 6
-  	             << '\t' << stopCodon             // 7
-  	             << '\t' << frameShift            // 8
-  	             << '\t' << resistance            // 9
-  	             << '\t';
-	          os << td. str () << endl;
-	        }
-	        if (mutation_all. get () && isMutation ())
-	          *mutation_all << td. str () << endl;
 	      }
     }
     
@@ -709,10 +714,9 @@ struct BlastAlignment : Alignment
   Set<string> getMutationSymbols () const
     { Set<string> mutationSymbols;
       for (const SeqChange& seqChange : seqChanges)
-        if (   ! seqChange. empty () 
-            && seqChange. mutation
-           )
-          mutationSymbols << seqChange. mutation->geneMutation;
+        if (! seqChange. empty ())
+          for (const Mutation* mutation : seqChange. mutations)
+            mutationSymbols << mutation->geneMutation;
       return mutationSymbols;
     }        
   bool allele () const

@@ -33,6 +33,7 @@
 *               cat, cp, cut, head, ln, mv, sort, tail
 *
 * Release changes:
+*   3.10.2 03/03/2021 PD-3729  Neighboring point mutations are reported
 *   3.10.1 02/17/2021 PD-3679  AMRProt-susceptible.tab
 *   3.9.10 02/16/2021 PD-3694  message about missing "latest/" symbolic link; amrfinder_update.cpp: createLatestLink()
 *   3.9.9  01/27/2021 PD-3674  crash for a custom database

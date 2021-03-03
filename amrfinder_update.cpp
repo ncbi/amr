@@ -219,23 +219,26 @@ string getLatestDataVersion (Curl &curl,
   Vector<DataVersion> dataVersions;  
   for (string& line : dir)
     if (isLeft (line, "<a href="))
-    {
-      const size_t pos1 = line. find ('>');
-      QC_ASSERT (pos1 != string::npos);
-      line. erase (0, pos1 + 1);
+      try
+      {
+        const size_t pos1 = line. find ('>');
+        QC_ASSERT (pos1 != string::npos);
+        line. erase (0, pos1 + 1);
 
-      const size_t pos2 = line. find ("/<");
-      QC_ASSERT (pos2 != string::npos);
-      line. erase (pos2);
-      
-  	  istringstream iss (line);
-  	  try 
-  	  {
-  		  DataVersion dv (iss);
-  		  dataVersions << move (dv);
+        const size_t pos2 = line. find ("/<");
+        QC_ASSERT (pos2 != string::npos);
+        line. erase (pos2);
+        
+    	  istringstream iss (line);
+    	  {
+    		  DataVersion dv (iss);
+    		  dataVersions << move (dv);
+    		}
+    	}
+  		catch (const exception &e) 
+  		{
+  		  throw runtime_error ("Cannot get latest data version: " + minor + "\n\n" + e. what ());
   		}
-  		catch (...) {}
-    }
   if (dataVersions. empty ())
     return string ();
     

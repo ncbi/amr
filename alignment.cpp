@@ -183,7 +183,7 @@ void SeqChange::qc () const
   
   if (empty ())
   {
-    QC_ASSERT (mutation);
+    QC_ASSERT (! mutations. empty () /*mutation*/);
     return;
   }
   
@@ -195,7 +195,11 @@ void SeqChange::qc () const
   QC_ASSERT (start_target <= al->targetEnd);
   QC_ASSERT (prev != '-');  
   QC_IMPLY (reference. empty (), prev);
-  QC_IMPLY (mutation, between (mutation->pos, al->refStart, al->refEnd));
+  for (const Mutation* mutation : mutations)
+  {
+    QC_ASSERT (mutation);
+    QC_ASSERT (between (mutation->pos, al->refStart, al->refEnd));
+  }
 }
 
 
@@ -693,7 +697,7 @@ void Alignment::setSeqChanges (const Vector<Mutation> &refMutations,
     j++;
   }
   
-  // SeqChange::mutation
+  // SeqChange::mutations
 	size_t start_ref_prev = no_index;
 	for (SeqChange& seqChange : seqChanges)
   {
@@ -719,7 +723,7 @@ void Alignment::setSeqChanges (const Vector<Mutation> &refMutations,
 		    break;
 		  if (seqChange. matchesMutation (mut))
 		  {
-		    seqChange. mutation = & mut;
+		    seqChange. mutations << & mut;
 		  	if (verbose ())
 		  	{
 		  	  cout << "Found: ";

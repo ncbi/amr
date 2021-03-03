@@ -1324,7 +1324,7 @@ template <typename Func, typename Res, typename... Args>
   	ASSERT (threads_max >= 1);
 		results. clear ();
 		results. reserve (threads_max);
-  	if (threads_max == 1 || i_max <= 1)
+  	if (threads_max == 1 || i_max <= 1 || ! Threads::empty ())
   	{
   		results. push_back (Res ());
     	func (0, i_max, results. front (), forward<Args>(args)...);

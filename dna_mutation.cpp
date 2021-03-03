@@ -108,58 +108,64 @@ struct BlastnAlignment : Alignment
     { const string na ("NA");
       for (const SeqChange& seqChange : seqChanges)
       {
-        ASSERT (! (seqChange. empty () && ! seqChange. mutation));
-        TabDel td (2, false);
-  	    if (! input_name. empty ())
-  	      td << input_name;;
-        td << na  // PD-2534
-           << nvl (targetName, na)
-           << (empty () ? 0 : targetStart + 1)
-           << (empty () ? 0 : targetEnd)
-           << (empty () ? na : (targetStrand ? "+" : "-"))
-           << (seqChange. mutation
-                 ? seqChange. empty ()
-                   ? seqChange. mutation->wildtype ()
-                   : seqChange. mutation->geneMutation
-                 : gene + "_" + seqChange. getMutationStr ()
-              )
-           << (seqChange. mutation
-                 ? seqChange. empty ()
-                     ? organism + " " + product + " [WILDTYPE]"
-                     : seqChange. mutation->name
-                 : organism + " " + product + " [UNKNOWN]"
-              )
-           << "core"  // PD-2825
-           // PD-1856
-           << "AMR"
-           << "POINT"
-           << (seqChange. mutation ? nvl (seqChange. mutation->classS,   na) : na)
-           << (seqChange. mutation ? nvl (seqChange. mutation->subclass, na) : na);
-         if (empty ())
-           td << na
-              << na
-              << na
-              << na
-              << na
-              << na
-              << na
-              << na;
-         else
-           td << "POINTN"  // PD-2088
-              << targetLen
-              << refLen
-              << refCoverage () * 100  
-              << pIdentity () * 100  
-              << targetSeq. size ()
-              << refAccessionFrag  // refName
-              << product;  // pm.gene
-        // HMM
-        td << na
-           << na;
-        if (! seqChange. empty () && seqChange. mutation && ! seqChange. replacement)  // resistant mutation
-          os << td. str () << endl;
-        if (mutation_all. get ())
-	        *mutation_all << td. str () << endl;
+        VectorPtr<Mutation> mutations (seqChange. mutations);
+        if (mutations. empty ())
+          mutations << nullptr;
+        for (const Mutation* mutation : mutations)
+        {
+          ASSERT (! (seqChange. empty () && ! mutation));
+          TabDel td (2, false);
+    	    if (! input_name. empty ())
+    	      td << input_name;;
+          td << na  // PD-2534
+             << nvl (targetName, na)
+             << (empty () ? 0 : targetStart + 1)
+             << (empty () ? 0 : targetEnd)
+             << (empty () ? na : (targetStrand ? "+" : "-"))
+             << (mutation
+                   ? seqChange. empty ()
+                     ? mutation->wildtype ()
+                     : mutation->geneMutation
+                   : gene + "_" + seqChange. getMutationStr ()
+                )
+             << (mutation
+                   ? seqChange. empty ()
+                       ? organism + " " + product + " [WILDTYPE]"
+                       : mutation->name
+                   : organism + " " + product + " [UNKNOWN]"
+                )
+             << "core"  // PD-2825
+             // PD-1856
+             << "AMR"
+             << "POINT"
+             << (mutation ? nvl (mutation->classS,   na) : na)
+             << (mutation ? nvl (mutation->subclass, na) : na);
+           if (empty ())
+             td << na
+                << na
+                << na
+                << na
+                << na
+                << na
+                << na
+                << na;
+           else
+             td << "POINTN"  // PD-2088
+                << targetLen
+                << refLen
+                << refCoverage () * 100  
+                << pIdentity () * 100  
+                << targetSeq. size ()
+                << refAccessionFrag  // refName
+                << product;  // pm.gene
+          // HMM
+          td << na
+             << na;
+          if (! seqChange. empty () && mutation && ! seqChange. replacement)  // resistant mutation
+            os << td. str () << endl;
+          if (mutation_all. get ())
+  	        *mutation_all << td. str () << endl;
+  	    }
       }
     }
     

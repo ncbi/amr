@@ -3485,11 +3485,12 @@ void ShellApplication::initEnvironment ()
       tmp = s;
     else
       tmp = "/tmp";
+    const string tmpDir (tmp);
     tmp += "/XXXXXX";
     if (mkstemp (var_cast (tmp. c_str ())) == -1)
-      throw runtime_error ("Error creating a temporary file");
+      throw runtime_error ("Error creating a temporary file in " + tmpDir);
   	if (tmp. empty ())
-  		throw runtime_error ("Cannot create a temporary file");
+  		throw runtime_error ("Cannot create a temporary file in " + tmpDir);
   }
 
   // execDir, programName
