@@ -1278,7 +1278,7 @@ struct Threads : Singleton<Threads>
 private:
 	static size_t threadsToStart;
 	vector<thread> threads;
-	const bool quiet;
+	static bool quiet;
 public:
 
 
@@ -1289,6 +1289,8 @@ public:
   	
 	static bool empty () 
 	  { return ! threadsToStart; }
+	static bool isQuiet () 
+	  { return quiet; }
 	size_t getAvailable () const
 	  { return threadsToStart < threads. size () ? 0 : (threadsToStart - threads. size ()); }
 	Threads& operator<< (thread &&t)
@@ -1314,7 +1316,8 @@ public:
 
 
 template <typename Func, typename Res, typename... Args>
-  void arrayThreads (const Func& func,
+  void arrayThreads (bool quiet,
+                     const Func& func,
                      size_t i_max,
                      vector<Res> &results,
                      Args&&... args)
@@ -1334,7 +1337,7 @@ template <typename Func, typename Res, typename... Args>
 		if (chunk * threads_max < i_max)
 			chunk++;
 		ASSERT (chunk * threads_max >= i_max);
-		Threads th (threads_max - 1);
+		Threads th (threads_max - 1, quiet);
 		FFOR (size_t, tn, threads_max)
 	  {
 	    const size_t from = tn * chunk;
@@ -2421,6 +2424,16 @@ private:
       return false;
     }
 public:
+  bool intersects (const unordered_set<T> &other) const
+     { if (universal)
+     	   return ! other. empty ();
+       if (other. empty ())
+         return false;
+       for (const T& t : *this)
+         if (contains (other, t))
+           return true;
+       return false;     
+     }
 
   Set<T>& operator<< (const T &el)
     { if (! universal)
@@ -2690,7 +2703,7 @@ public:
 	static bool isUsed ()
 	  { return beingUsed; }
 	static bool enabled ()
-	  { return ! beingUsed && verbose (1); }
+	  { return ! beingUsed && ! Threads::isQuiet () && verbose (1); }
 };
 
 
@@ -3253,11 +3266,13 @@ public:
     //          can be repeated
     //          ordered
   void group (const StringVector &by,
-              const StringVector &sum);
+              const StringVector &sum,
+              const StringVector &aggr);
 private:
   void merge (RowNum toIndex,
               RowNum fromIndex,
-              const Vector<size_t> &sum);
+              const Vector<size_t> &sum,
+              const Vector<size_t> &aggr);
 public:
   void indexes2values (const Vector<size_t> &indexes,
                        RowNum row_num,
@@ -3873,6 +3888,8 @@ protected:
 protected:
   virtual void initEnvironment ()
     {}
+  virtual void createTmp ()
+    {}
   string getInstruction () const;
   virtual string getHelp () const;
 public:
@@ -3895,6 +3912,9 @@ struct ShellApplication : Application
   string tmp;
     // Temporary file prefix: ($TMPDIR or "/tmp") + "/XXXXXX"
     // If log is used then tmp is printed in the log file and the temporary files are not deleted 
+private:
+  bool tmpCreated {false};
+public:
   string execDir;
     // Ends with '/'
     // Physically real directory of the software
@@ -3913,6 +3933,7 @@ struct ShellApplication : Application
 
 protected:
   void initEnvironment () override;
+  void createTmp () override;
   string getHelp () const override;
 private:
   void body () const final;

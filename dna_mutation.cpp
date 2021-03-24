@@ -48,7 +48,7 @@ using namespace Alignment_sp;
 namespace
 {  
 
-map <string/*accession*/, Vector<Mutation>>  accession2mutations;
+map <string/*accession*/, Vector<AmrMutation>>  accession2mutations;
 unique_ptr<OFStream> mutation_all;  
 string input_name;
 
@@ -86,7 +86,7 @@ struct BlastnAlignment : Alignment
   	    }
 	      replace (product, '_', ' ');
 	      qc ();
-  	    if (const Vector<Mutation>* refMutations = findPtr (accession2mutations, refName))
+  	    if (const Vector<AmrMutation>* refMutations = findPtr (accession2mutations, refName))
   	      setSeqChanges (*refMutations, flankingLen);
 		  }
 		  catch (...)
@@ -108,10 +108,10 @@ struct BlastnAlignment : Alignment
     { const string na ("NA");
       for (const SeqChange& seqChange : seqChanges)
       {
-        VectorPtr<Mutation> mutations (seqChange. mutations);
+        VectorPtr<AmrMutation> mutations (seqChange. mutations);
         if (mutations. empty ())
           mutations << nullptr;
-        for (const Mutation* mutation : mutations)
+        for (const AmrMutation* mutation : mutations)
         {
           ASSERT (! (seqChange. empty () && ! mutation));
           TabDel td (2, false);
@@ -205,7 +205,7 @@ struct Batch
      	  	iss. reset (f. line);
     	  	iss >> accession >> pos >> geneMutation >> classS >> subclass >> name;
     	  	QC_ASSERT (pos > 0);
-   	  		accession2mutations [accession]. push_back (move (Mutation ((size_t) pos, geneMutation, classS, subclass, name)));
+   	  		accession2mutations [accession]. push_back (move (AmrMutation ((size_t) pos, geneMutation, classS, subclass, name)));
     	  }	    
     	}
   	  for (auto& it : accession2mutations)
@@ -231,7 +231,7 @@ struct Batch
          << "Stop"  // targetEnd
          << "Strand"   // targetStrand
 	       << "Gene symbol"
-	       << "Mutation name"
+	       << "AmrMutation name"
 	       << "Scope"  // PD-2825
 	       // PD-1856
 	       << "Element type"
@@ -367,13 +367,13 @@ struct ThisApplication : Application
   #if 0
   	// [UNKNOWN]
   	{
-    	map<Mutation, const Mutation*> mutation2ptr;
+    	map<AmrMutation, const AmrMutation*> mutation2ptr;
     	for (const auto& it : accession2mutations)
-    	  for (const Mutation& mut : it. second)
+    	  for (const AmrMutation& mut : it. second)
     	    mutation2ptr [mut] = & mut;
     	for (const BlastnAlignment* al : batch. blastAls)
     	  for (const SeqChange& seqChange : al->seqChanges)
-    	    if (const Mutation* mut = seqChange. mutation)
+    	    if (const AmrMutation* mut = seqChange. mutation)
     	      mutation2ptr. erase (*mut);
     	for (const auto& it : mutation2ptr)
     	{

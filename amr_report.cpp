@@ -325,7 +325,7 @@ struct Susceptible : Root
 
 
 
-map <string/*accession*/, Vector<Mutation>>  accession2mutations;
+map <string/*accession*/, Vector<AmrMutation>>  accession2mutations;
 map <string/*accession*/, Susceptible>  accession2susceptible;
 
 
@@ -413,7 +413,7 @@ struct BlastAlignment : Alignment
   		      const string geneMutation =               rfindSplit (refAccession, ':');
   		      const size_t pos          = str2<size_t> (rfindSplit (refAccession, ':'));
   		      ASSERT (refMutation. empty ());
-  		      refMutation = move (Mutation (pos, geneMutation));
+  		      refMutation = move (AmrMutation (pos, geneMutation));
   		      ASSERT (! refMutation. empty ());
   		      refMutation. qc ();
   		      refMutation2refSeq ();
@@ -473,12 +473,12 @@ struct BlastAlignment : Alignment
 		      nident++;
 		    	    
 		    if (! targetProt)
-		      cdss << move (Locus (0, targetName, targetStart, targetEnd, targetStrand, partialDna, 0));
+		      cdss << move (Locus (0, targetName, targetStart, targetEnd, targetStrand, partialDna, 0, string (), string ()));
 	
-		    if (const Vector<Mutation>* refMutations = findPtr (accession2mutations, refAccession))
+		    if (const Vector<AmrMutation>* refMutations = findPtr (accession2mutations, refAccession))
 		    {
 		    	if (verbose ())
-		        cout << "Mutation protein found: " << refAccession << endl << line << endl;
+		        cout << "AmrMutation protein found: " << refAccession << endl << line << endl;
   	      QC_ASSERT (isMutation ());  	      
   	      setSeqChanges (*refMutations, 0);
   	      if (verbose ())
@@ -590,10 +590,10 @@ struct BlastAlignment : Alignment
 	      for (const SeqChange& seqChange : seqChanges_)
 	      {
           const string method (empty () ? na : getMethod (cds));
-          VectorPtr<Mutation> mutations (seqChange. mutations);
+          VectorPtr<AmrMutation> mutations (seqChange. mutations);
           if (mutations. empty ())
             mutations << nullptr;
-          for (const Mutation* mut : mutations)
+          for (const AmrMutation* mut : mutations)
           {
             IMPLY (! verbose (), isMutation () == ! (seqChange. empty () && ! mut));
   	        TabDel td (2, false);
@@ -715,7 +715,7 @@ struct BlastAlignment : Alignment
     { Set<string> mutationSymbols;
       for (const SeqChange& seqChange : seqChanges)
         if (! seqChange. empty ())
-          for (const Mutation* mutation : seqChange. mutations)
+          for (const AmrMutation* mutation : seqChange. mutations)
             mutationSymbols << mutation->geneMutation;
       return mutationSymbols;
     }        
@@ -1384,7 +1384,7 @@ struct Batch
     	  	  	QC_ASSERT (pos > 0);
     	  	  	replace (organism_, '_', ' ');
     	  	  	if (organism_ == organism)
-    	  	  		accession2mutations [accession] << move (Mutation ((size_t) pos, geneMutation, classS, subclass, name));
+    	  	  		accession2mutations [accession] << move (AmrMutation ((size_t) pos, geneMutation, classS, subclass, name));
     	  	  }
     	  	  catch (const exception &e)
     	  	  {
@@ -1737,13 +1737,13 @@ public:
   #if 0
   	// [UNKNOWN]
   	{
-    	map<Mutation, const Mutation*> mutation2ptr;
+    	map<AmrMutation, const AmrMutation*> mutation2ptr;
     	for (const auto& it : accession2mutations)
-    	  for (const Mutation& mut : it. second)
+    	  for (const AmrMutation& mut : it. second)
     	    mutation2ptr [mut] = & mut;
     	for (const BlastAlignment* al : goodBlastAls)
     	  for (const SeqChange& seqChange : al->seqChanges)
-    	    if (const Mutation* mut = seqChange. mutation)
+    	    if (const AmrMutation* mut = seqChange. mutation)
     	      mutation2ptr. erase (*mut);
     	for (const auto& it : mutation2ptr)
     	{
