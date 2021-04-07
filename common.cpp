@@ -2141,6 +2141,7 @@ void TextTable::setHeader ()
       if (field. empty ())
         continue;
       Header& h = header [i];
+      maximize (h. len_max, field. size ());
       if (! h. numeric)
         continue;
       {
@@ -3546,6 +3547,16 @@ void ShellApplication::createTmp ()
       throw runtime_error ("Error creating a temporary file in " + tmpDir);
   	if (tmp. empty ())
   		throw runtime_error ("Cannot create a temporary file in " + tmpDir);
+
+    {
+    	const string testFName (tmp + ".test");
+      {
+        ofstream f (testFName);
+        f << "abc" << endl;
+      }
+      removeFile (testFName);
+    }
+    
     tmpCreated = true;
   }
 }

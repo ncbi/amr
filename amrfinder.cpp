@@ -778,7 +778,7 @@ struct ThisApplication : ShellApplication
     			}
     			
     			if (! fileExists (db + "/AMRProt.phr"))
-    				throw runtime_error ("BLAST database " + shellQuote (db + "/AMRProt") + " does not exist");
+    				throw runtime_error ("BLAST database " + shellQuote (db + "/AMRProt.phr") + " does not exist");
     			
     			const size_t prot_threads = (size_t) floor ((double) th. getAvailable () * (prot_share / total_share) / 2.0);
 

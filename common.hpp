@@ -2675,7 +2675,8 @@ public:
  ~Progress () 
     { if (active)
     	{ if (! uncaught_exception ())
-    	  { report ();
+    	  { // step. clear ();
+    	    report ();
     	    cerr << endl;
     	  }
     	  beingUsed--;
@@ -3201,6 +3202,7 @@ struct TextTable : Named
   bool saveHeader {true};
   struct Header : Named
   { 
+    size_t len_max {0};
     // Type
     bool numeric {true};
     // Valid if numeric
@@ -3211,7 +3213,7 @@ struct TextTable : Named
       {}
     void qc () const override;
     void saveText (ostream& os) const override
-      { os << name << ' ' << (numeric ? ((scientific ? "float" : "int") + string ("(") + to_string (decimals) + ")") : "char"); }
+      { os << name << ' ' << len_max << ' ' << (numeric ? ((scientific ? "float" : "int") + string ("(") + to_string (decimals) + ")") : "char"); }
   };
   Vector<Header> header;
     // size() = number of columns
