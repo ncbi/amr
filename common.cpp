@@ -3553,6 +3553,8 @@ void ShellApplication::createTmp ()
       {
         ofstream f (testFName);
         f << "abc" << endl;
+        if (! f. good ())
+  		    throw runtime_error (tmpDir + " is full");
       }
       removeFile (testFName);
     }
