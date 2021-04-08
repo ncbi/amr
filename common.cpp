@@ -3554,7 +3554,7 @@ void ShellApplication::createTmp ()
         ofstream f (testFName);
         f << "abc" << endl;
         if (! f. good ())
-  		    throw runtime_error (tmpDir + " is full, make space there or use environment variable TMPDIR to change temporary directory");
+  		    throw runtime_error (tmpDir + " is full, make space there or use environment variable TMPDIR to change location for temporary files");
       }
       removeFile (testFName);
     }
