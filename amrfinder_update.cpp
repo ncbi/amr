@@ -390,6 +390,7 @@ Requirement: the database directory contains subdirectories named by database ve
     fetchAMRFile (curl, urlDir, latestDir, "AMRProt");
     fetchAMRFile (curl, urlDir, latestDir, "AMRProt-mutation.tab");
     fetchAMRFile (curl, urlDir, latestDir, "AMRProt-suppress");
+    fetchAMRFile (curl, urlDir, latestDir, "AMRProt-susceptible.tab");
     fetchAMRFile (curl, urlDir, latestDir, "AMR_CDS");
     fetchAMRFile (curl, urlDir, latestDir, "database_format_version.txt");  // PD-3051 
     fetchAMRFile (curl, urlDir, latestDir, "fam.tab");
