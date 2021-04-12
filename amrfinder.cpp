@@ -33,6 +33,7 @@
 *               cat, cp, cut, head, ln, mv, sort, tail
 *
 * Release changes:
+*   3.10.5 04/12/2021 PD-3772  --report_equidistant
 *   3.10.4 03/24/2021 PD-3761  amrfinder --help will not break if /tmp is full
 *   3.10.3 03/15/2021 PD-3749  --nucleotide_flank5_output, --nucleotide_flank5_size
 *   3.10.2 03/03/2021 PD-3729  Neighboring point mutations are reported
@@ -236,6 +237,7 @@ struct ThisApplication : ShellApplication
     	  // "Element type" is a column name in the report
     	addKey ("blast_bin", "Directory for BLAST. Deafult: $BLAST_BIN", "", '\0', "BLAST_DIR");
     //addKey ("hmmer_bin" ??
+      addFlag ("report_equidistant", "Report all equidistant BLAST and HMM matches");  // PD-3772
       addKey ("name", "Text to be added as the first column \"name\" to all rows of the report, for example it can be an assembly name", "", '\0', "NAME");
       addKey ("output", "Write output to OUTPUT_FILE instead of STDOUT", "", 'o', "OUTPUT_FILE");
       addKey ("protein_output", "Output protein FASTA file of reported proteins", "", '\0', "PROT_FASTA_OUT");
@@ -369,6 +371,7 @@ struct ThisApplication : ShellApplication
     const string mutation_all    = shellQuote (getArg ("mutation_all"));  
   //const string type            =             getArg ("type");
           string blast_bin       =             getArg ("blast_bin");
+    const bool   equidistant     =             getFlag ("report_equidistant");
     const string input_name      = shellQuote (getArg ("name"));
     const string parm            =             getArg ("parm");  
     const string output          = shellQuote (getArg ("output"));
@@ -892,12 +895,13 @@ struct ThisApplication : ShellApplication
     {
       const string mutation_allS (emptyArg (mutation_all) ? "" : ("-mutation_all " + tmp + ".mutation_all"));      
       const string coreS (add_plus ? "" : " -core");
+      const string equidistantS (equidistant ? " -report_equidistant" : "");
   		exec (fullProg ("amr_report") + " -fam " + shellQuote (db + "/fam.tab") + "  " + amr_report_blastp + "  " + amr_report_blastx
         		  + "  -organism " + strQuote (organism1) 
         		  + "  -mutation "    + shellQuote (db + "/AMRProt-mutation.tab") 
         		  + "  -susceptible " + shellQuote (db + "/AMRProt-susceptible.tab") 
         		  + " " + mutation_allS + " "
-        		  + force_cds_report + " -pseudo" + coreS
+        		  + force_cds_report + " -pseudo" + coreS + equidistantS
         		  + (ident == -1 ? string () : "  -ident_min "    + toString (ident)) 
         		  + "  -coverage_min " + toString (cov)
         		  + ifS (suppress_common, " -suppress_prot " + tmp + ".suppress_prot") + pgapS

@@ -61,6 +61,7 @@ constexpr double ident_min_def = 0.9;
 constexpr double complete_coverage_min_def = 0.9;
 constexpr double partial_coverage_min_def = 0.5;
 bool ident_min_user = false;
+bool equidistant = false;
 
 
 
@@ -246,7 +247,8 @@ private:
             LESS_PART (other, *this, score1);
           //return score2 >= other. score2;  // GP-16770
             LESS_PART (other, *this, fam->tc1);
-            LESS_PART (*this, other, fam->id);  // Tie resolution
+            if (! equidistant)
+              LESS_PART (*this, other, fam->id);  // Tie resolution
             return true;
           }
         default: ERROR;
@@ -256,7 +258,8 @@ private:
 public:
   bool better (const HmmAlignment &other,
                unsigned char criterion) const
-    { return betterEq (other, criterion) && ! other. betterEq (*this, criterion); }
+    { return             betterEq (other, criterion) 
+             && ! other. betterEq (*this, criterion); }
   bool better (const BlastAlignment &other) const;
 
 
@@ -1092,8 +1095,8 @@ public:
   bool better (const BlastAlignment &other) const
     // Requires: all SCCs of betterEq() are complete subgraphs ??
     { return    betterEq (other) 
-    	       && (   ! other. betterEq (*this) 
-    	           || refAccession < other. refAccession  // Tie resolution: PD-1245
+    	       && (   ! other. betterEq (*this)
+    	           || (! equidistant && refAccession < other. refAccession)  // Tie resolution: PD-1245
     	          );
     }
   bool better (const HmmAlignment& other) const
@@ -1992,6 +1995,7 @@ struct ThisApplication : Application
       addKey ("ident_min", "Min. identity to the reference protein (0..1). -1 means use a curated threshold if it exists and " + toString (ident_min_def) + " otherwise", "-1");
       addKey ("coverage_min", "Min. coverage of the reference protein (0..1) for partial hits", toString (partial_coverage_min_def));
       addFlag ("skip_hmm_check", "Skip checking HMM for a BLAST hit");
+      addFlag ("report_equidistant", "Report all equidistant BLAST and HMM matches");  // PD-3772
       // Output
       addKey ("out", "Identifiers of the reported input proteins");
       addFlag ("print_fam", "Print the FAM.id instead of gene symbol"); 
@@ -2033,6 +2037,7 @@ struct ThisApplication : Application
           double ident_min            = str2<double> (getArg ("ident_min"));  
     const double partial_coverage_min = str2<double> (getArg ("coverage_min"));  
     const bool   skip_hmm_check       = getFlag ("skip_hmm_check"); 
+                 equidistant          = getFlag ("report_equidistant");
     const string outFName             = getArg ("out");
                  print_fam            = getFlag ("print_fam");
                  reportPseudo         = getFlag ("pseudo");
@@ -2271,8 +2276,10 @@ struct ThisApplication : Application
     }
     
     
-    // Output
     batch. process (retainBlasts, skip_hmm_check);    
+
+
+    // Output
     batch. report (cout);
     if (! outFName. empty ())
     {
