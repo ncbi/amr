@@ -237,7 +237,7 @@ struct ThisApplication : ShellApplication
     	  // "Element type" is a column name in the report
     	addKey ("blast_bin", "Directory for BLAST. Deafult: $BLAST_BIN", "", '\0', "BLAST_DIR");
     //addKey ("hmmer_bin" ??
-      addFlag ("report_equidistant", "Report all equidistant BLAST and HMM matches");  // PD-3772
+      addFlag ("report_all_equal", "Report all equally-scoring BLAST and HMM matches");  // PD-3772
       addKey ("name", "Text to be added as the first column \"name\" to all rows of the report, for example it can be an assembly name", "", '\0', "NAME");
       addKey ("output", "Write output to OUTPUT_FILE instead of STDOUT", "", 'o', "OUTPUT_FILE");
       addKey ("protein_output", "Output protein FASTA file of reported proteins", "", '\0', "PROT_FASTA_OUT");
@@ -371,7 +371,7 @@ struct ThisApplication : ShellApplication
     const string mutation_all    = shellQuote (getArg ("mutation_all"));  
   //const string type            =             getArg ("type");
           string blast_bin       =             getArg ("blast_bin");
-    const bool   equidistant     =             getFlag ("report_equidistant");
+    const bool   equidistant     =             getFlag ("report_all_equal");
     const string input_name      = shellQuote (getArg ("name"));
     const string parm            =             getArg ("parm");  
     const string output          = shellQuote (getArg ("output"));
