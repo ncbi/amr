@@ -50,10 +50,10 @@ namespace Alignment_sp
 
 
 AmrMutation::AmrMutation (size_t pos_arg,
-            				const string &geneMutation_arg,
-            				const string &class_arg,
-            				const string &subclass_arg,
-            				const string &name_arg)
+                  				const string &geneMutation_arg,
+                  				const string &class_arg,
+                  				const string &subclass_arg,
+                  				const string &name_arg)
 : pos (pos_arg)
 , geneMutation (geneMutation_arg)
 , classS (class_arg)
@@ -86,10 +86,10 @@ AmrMutation::AmrMutation (size_t pos_arg,
 
 
 void AmrMutation::parse (const string &geneMutation,
-                      string &reference,
-                      string &allele,
-                      string &gene,
-                      int &ref_pos)
+                         string &reference,
+                         string &allele,
+                         string &gene,
+                         int &ref_pos)
 { 
   QC_ASSERT (! geneMutation. empty ());
   QC_ASSERT (reference. empty ());

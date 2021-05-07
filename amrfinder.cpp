@@ -33,6 +33,7 @@
 *               cat, cp, cut, head, ln, mv, sort, tail
 *
 * Release changes:
+*   3.10.6 05/07/2021 PD-3796  for POINTN reported "target length" column = targetEnd - targetStart 
 *   3.10.5 04/12/2021 PD-3772  --report_equidistant
 *   3.10.4 03/24/2021 PD-3761  amrfinder --help will not break if /tmp is full
 *   3.10.3 03/15/2021 PD-3749  --nucleotide_flank5_output, --nucleotide_flank5_size

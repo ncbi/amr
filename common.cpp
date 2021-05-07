@@ -1292,15 +1292,13 @@ unique_ptr<Xml::File> cxml;
   
 
 
-
 // Root
 
 void Root::saveFile (const string &fName) const
-{
-	if (fName. empty ())
+{ 
+  if (fName. empty ())
 		return;
-  
-  OFStream f (fName);
+  OFStream f (fName);  // Declared after Root
   saveText (f);
 }
 
