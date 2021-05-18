@@ -1963,7 +1963,7 @@ public:
 	    }
 	void uniq ()
 	  { uniq ([] (const T& a, const T& b) { return a == b; }); }
-  size_t getIntersectSize (const Vector<T> &other) const
+  size_t getIntersectionSize (const Vector<T> &other) const
     // Input: *this, vec: unique
     { if (other. empty ())
         return 0;
@@ -1981,6 +1981,25 @@ public:
           n++;
       }
       return n;
+    }
+  Vector<T> getIntersection (const Vector<T> &other) const
+    // Input: *this, vec: unique
+    { Vector<T> res;
+      if (other. empty ())
+        return res;
+      checkSorted ();
+      other. checkSorted ();      
+      size_t j = 0;
+      for (const T& x : *this)
+      { while (other [j] < x)
+        { j++;
+          if (j == other. size ())
+            return res;
+        }
+        if (other [j] == x)
+          res << x;
+      }
+      return res;
     }
 
   bool operator< (const Vector<T> &other) const
@@ -2122,7 +2141,8 @@ public:
     : P (init)
     {}
   StringVector (const string &fName,
-                size_t reserve_size);
+                size_t reserve_size,
+                bool trimP);
   StringVector (const string &s, 
                 char sep,
                 bool trimP);
@@ -3278,6 +3298,7 @@ public:
   void group (const StringVector &by,
               const StringVector &sum,
               const StringVector &aggr);
+    // Invokes: filterColumns(by + sum + aggr)
 private:
   void merge (RowNum toIndex,
               RowNum fromIndex,
@@ -3626,14 +3647,18 @@ public:
 struct FileItemGenerator : ItemGenerator, Nocopy
 {
   const bool isDir;
+  const bool large;
 private:
+  string dirName;
   string fName;
   ifstream f;
+  unique_ptr<FileItemGenerator> fig;
 public:
   
   
   FileItemGenerator (size_t progress_displayPeriod,
                      bool isDir_arg,
+                     bool large_arg,
                      const string& fName_arg);
  ~FileItemGenerator ()
     { if (isDir)
@@ -3642,6 +3667,8 @@ public:
   
   
   bool next (string &item) final;
+private:
+  bool next_ (string &item);
 };
 
   

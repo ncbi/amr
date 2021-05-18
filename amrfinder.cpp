@@ -33,6 +33,7 @@
 *               cat, cp, cut, head, ln, mv, sort, tail
 *
 * Release changes:
+*   3.10.7 05/18/2021 PD-3820  message for missing AMRProt blast database; https://github.com/ncbi/amr/issues/53
 *   3.10.6 05/07/2021 PD-3796  for POINTN reported "target length" column = targetEnd - targetStart 
 *   3.10.5 04/12/2021 PD-3772  --report_equidistant
 *   3.10.4 03/24/2021 PD-3761  amrfinder --help will not break if /tmp is full
@@ -286,7 +287,7 @@ struct ThisApplication : ShellApplication
     exec ("tail -n +2 " + tmp + ".db/AMRProt-mutation.tab" + "    | cut -f 1 > " + tmp + ".prot_org");
     exec ("tail -n +2 " + tmp + ".db/AMRProt-susceptible.tab" + " | cut -f 1 > " + tmp + ".susc_org");
     exec ("cat " + tmp + ".tax_org " + tmp + ".prot_org " + tmp + ".susc_org | sort -u > " + tmp + ".org");
-    return StringVector (tmp + ".org", (size_t) 100);  // PAR
+    return StringVector (tmp + ".org", (size_t) 100, true);  // PAR
   }
   
   
@@ -770,7 +771,7 @@ struct ThisApplication : ShellApplication
     			  }
     			  catch (...)
     			  {
-    			    StringVector vec (logFName, (size_t) 10);  // PAR
+    			    StringVector vec (logFName, (size_t) 10, false);  // PAR
     			    if (! vec. empty ())
     			      if (vec [0]. empty ())
     			        vec. eraseAt (0);
@@ -782,7 +783,8 @@ struct ThisApplication : ShellApplication
     			}
     			
     			if (! fileExists (db + "/AMRProt.phr"))
-    				throw runtime_error ("BLAST database " + shellQuote (db + "/AMRProt.phr") + " does not exist");
+    				throw runtime_error ("The BLAST database for AMRProt was not found. Use amrfinder -u to download and prepare database for AMRFinderPlus");
+    				 // "BLAST database " + shellQuote (db + "/AMRProt.phr") + " does not exist");
     			
     			const size_t prot_threads = (size_t) floor ((double) th. getAvailable () * (prot_share / total_share) / 2.0);
 
@@ -828,7 +830,7 @@ struct ThisApplication : ShellApplication
       		  createDirectory (tmp + ".chunk", false);
       		  exec (fullProg ("fasta2parts") + dna + " " + to_string (threadsAvailable) + " " + tmp + ".chunk" + qcS + " -log " + logFName, logFName);   // PAR
       		  createDirectory (tmp + ".blastx_dir", false);
-      		  FileItemGenerator fig (false, true, tmp + ".chunk");
+      		  FileItemGenerator fig (false, true, false, tmp + ".chunk");
       		  string item;
       		  while (fig. next (item))
         			th << thread (exec, fullProg ("blastx") + "  -query " + tmp + ".chunk/" + item + " -db " + tmp + ".db/AMRProt" + "  "

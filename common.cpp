@@ -1171,7 +1171,7 @@ void exec (const string &cmd,
 	{
 	  if (! logFName. empty ())
 	  {
-	    const StringVector vec (logFName, (size_t) 10);  // PAR
+	    const StringVector vec (logFName, (size_t) 10, false);  // PAR
 	    throw runtime_error (vec. toString ("\n"));
 	  }
 		throw runtime_error ("Command failed:\n" + cmd + "\nstatus = " + to_string (status));		
@@ -1323,7 +1323,8 @@ void Named::qc () const
 // StringVector
 
 StringVector::StringVector (const string &fName,
-                            size_t reserve_size)
+                            size_t reserve_size,
+                            bool trimP)
 {
 	searchSorted = true;
 	
@@ -1334,6 +1335,8 @@ StringVector::StringVector (const string &fName,
   	string prev;
     while (f. nextLine ())
     {
+      if (trimP)
+        trim (f. line);
       *this << f. line;
   	  if (f. line < prev)
   	  	searchSorted = false;
@@ -2344,10 +2347,16 @@ void TextTable::group (const StringVector &by,
         rows [i] = move (rows [j]);
     }
   }
+  if (! rows. empty ())
+    i++;
 
   ASSERT (rows. size () >= i);
   FFOR (RowNum, k, rows. size () - i)
     rows. pop_back ();
+    
+  StringVector newColumns;
+  newColumns << by << sum << aggr;
+  filterColumns (newColumns);
 }
 
 
@@ -2743,30 +2752,40 @@ size_t Offset::size = 0;
 
 FileItemGenerator::FileItemGenerator (size_t progress_displayPeriod,
                                       bool isDir_arg,
+                                      bool large_arg,
                                       const string& fName_arg)
 : ItemGenerator (0, progress_displayPeriod)
 , isDir (isDir_arg)
+, large (large_arg)
+, dirName (fName_arg)
 , fName (fName_arg)
 { 
+  IMPLY (large, isDir);
+  
+  trimSuffix (dirName,  "/");
+
+  // fName
   if (isDir)
   { 
-    trimSuffix (fName,  "/");
-	  char lsfName [4096] = {'\0'};
   #ifdef _MSC_VER
     NOT_IMPLEMENTED;
   #else
+	  char lsfName [4096] = {'\0'};
     strcpy (lsfName, P_tmpdir);
     strcat (lsfName, "/XXXXXX");
     EXEC_ASSERT (mkstemp (lsfName) != -1);
     ASSERT (lsfName [0]);
-    const int res = system (("ls -a " + fName + " > " + lsfName). c_str ());
+    const string cmd ("ls -a " + dirName + " > " + lsfName);
+    const int res = system (cmd. c_str ());
     if (res)
-      throw runtime_error ("Command \"ls\" failed: status = " + to_string (res));
+      throw runtime_error ("Command " + strQuote (cmd) + " failed: status = " + to_string (res));
     fName = lsfName;
   #endif
   }      
+  
   f. open (fName);
   QC_ASSERT (f. good ()); 
+  
   if (isDir)
   {
     string s;
@@ -2781,12 +2800,39 @@ FileItemGenerator::FileItemGenerator (size_t progress_displayPeriod,
 
 bool FileItemGenerator::next (string &item)
 { 
+  if (! large)
+    return next_ (item);
+
+  for (;;)
+  {
+    if (! fig. get ())
+    {
+      string subDir;
+      if (! next_ (subDir))
+        return false;
+      fig. reset (new FileItemGenerator (0, true, false, dirName + "/" + subDir));
+    }
+    ASSERT (fig. get ());
+    if (fig->next (item))
+    {
+      prog (item);
+      return true;
+    }
+    fig. reset (nullptr);
+  }
+}    
+
+
+
+bool FileItemGenerator::next_ (string &item)
+{ 
   if (f. eof ())
     return false;
     
 	readLine (f, item);
   if (isDir)
-  { const size_t pos = item. rfind ('/');
+  { 
+    const size_t pos = item. rfind ('/');
   	if (pos != string::npos)
       item. erase (0, pos + 1);
   }
@@ -2795,7 +2841,6 @@ bool FileItemGenerator::next (string &item)
     return false;
 
   prog (item);
-  
 	return true;
 }    
 
@@ -2806,7 +2851,7 @@ bool FileItemGenerator::next (string &item)
 
 SoftwareVersion::SoftwareVersion (const string &fName)
 { 
-  StringVector vec (fName, (size_t) 1);
+  StringVector vec (fName, (size_t) 1, true);
   if (vec. size () != 1)
     throw runtime_error ("Cannot read software version. One line is expected in the file: " + shellQuote (fName));
   init (move (vec [0]), false);
@@ -2861,7 +2906,7 @@ bool SoftwareVersion::operator< (const SoftwareVersion &other) const
 
 DataVersion::DataVersion (const string &fName)
 { 
-  StringVector vec (fName, (size_t) 1);
+  StringVector vec (fName, (size_t) 1, true);
   if (vec. size () != 1)
     throw runtime_error ("Cannot read data version. One line is expected in the file: " + shellQuote (fName));
   init (move (vec [0]));
@@ -3625,7 +3670,7 @@ string ShellApplication::exec2str (const string &cmd,
   ASSERT (! contains (tmpName, ' '));
   const string out (tmp + "." + tmpName);
   exec (cmd + " > " + out, logFName);
-  const StringVector vec (out, (size_t) 1);
+  const StringVector vec (out, (size_t) 1, false);
   if (vec. size () != 1)
     throw runtime_error (cmd + "\nOne line is expected");
   return vec [0];  
