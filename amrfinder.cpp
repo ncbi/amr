@@ -33,6 +33,11 @@
 *               cat, cp, cut, head, ln, mv, sort, tail
 *
 * Release changes:
+*   3.10.8 07/06/2021 PD-3865  creating a directory does not break if upper-level directories are not readable
+*                     PD-3867  "BLAST -mt_mode 1" is used
+*                              makeblastdb and tblastn are used for large sequences 
+*                              hmmsearch and tbasltn: query file is split into threads_max files
+*                              "blastp -seg no" is used
 *   3.10.7 05/18/2021 PD-3820  message for missing AMRProt blast database; https://github.com/ncbi/amr/issues/53
 *   3.10.6 05/07/2021 PD-3796  for POINTN reported "target length" column = targetEnd - targetStart 
 *   3.10.5 04/12/2021 PD-3772  --report_equidistant
@@ -194,7 +199,7 @@ constexpr size_t threads_def = 4;
 // Cf. amr_report.cpp
 constexpr double ident_min_def = 0.9;
 constexpr double partial_coverage_min_def = 0.5;
-  
+
     
 #define HELP  \
 "Identify AMR and virulence genes in proteins and/or contigs and print a report\n" \
@@ -250,7 +255,6 @@ struct ThisApplication : ShellApplication
       addFlag ("gpipe_org", "NCBI internal GPipe organism names");
     	addKey ("parm", "amr_report parameters for testing: -nosame -noblast -skip_hmm_check -bed", "", '\0', "PARM");
 	    version = SVN_REV;  
-	    // threads_max: do not include blast/hmmsearch's threads ??
     }
 
 
@@ -263,17 +267,55 @@ struct ThisApplication : ShellApplication
   
   
   
-  bool blastThreadable (const string &blast) const
+  void fastaCheck (const string &fName, 
+                   bool prot, 
+                   const string &qcS, 
+                   const string &logFName, 
+                   size_t &nSeq, 
+                   size_t &len_max) const
   {
-    exec (fullProg (blast) + " -help > " + tmp + ".blast_help");
-    LineInput f (tmp + ".blast_help");
-    while (f. nextLine ())
-    {
-      trim (f. line);
-      if (contains (f. line, "-num_threads"))
-        return true;
+	  exec (fullProg ("fasta_check") + fName + "  " + (prot ? "-aa" : "-len "+ tmp + ".len") +  "  -hyphen" + qcS + "  -log " + logFName + " > " + tmp + ".nseq", logFName); 
+  	const StringVector vec (tmp + ".nseq", (size_t) 10, true); 
+  	if (vec. size () != 2)
+      throw runtime_error (string (prot ? "Protein" : "DNA") + " fasta_check failed: " + vec. toString ("\n"));
+    nSeq    = str2<size_t> (vec [0]);
+    len_max = str2<size_t> (vec [1]);
+    QC_ASSERT (nSeq);
+    QC_ASSERT (len_max);
+  }
+
+  
+  
+  string get_num_threads_param (const string &blast,
+                                size_t threads_max_max) const
+  {
+    const size_t t = min (threads_max, threads_max_max);
+    if (t <= 1)  // One thread is main
+      return string ();
+    
+		bool num_threadsP = false;
+		bool mt_modeP = false;
+		{
+      exec (fullProg (blast) + " -help > " + tmp + ".blast_help");
+      LineInput f (tmp + ".blast_help");
+      while (f. nextLine ())
+      {
+        trim (f. line);
+        if (contains (f. line, "-num_threads "))
+          num_threadsP = true;
+        if (contains (f. line, "-mt_mode "))
+          mt_modeP = true;;
+      }
     }
-    return false;
+    
+    if (! num_threadsP)
+      return string ();
+    
+	  string s ("  -num_threads " + to_string (t));
+	  if (mt_modeP)  
+	    s += "  -mt_mode 1";
+	    
+	  return s;
   }
 
 
@@ -410,9 +452,7 @@ struct ThisApplication : ShellApplication
 	  if (report_common && ! add_plus)
 		  throw runtime_error ("--report_common requires --plus");
 		  
-	//if (force_update && ! update)
-		//throw runtime_error ("--force_update requires --update");
-		  
+		  		  
 		// PD-3437
 	  if (! emptyArg (mutation_all) && emptyArg (organism))
 	  {
@@ -631,9 +671,11 @@ struct ThisApplication : ShellApplication
     {
 	    if (! isRight (blast_bin, "/"))
 	    	blast_bin += "/";
-	    prog2dir ["blastp"] = blast_bin;
-	    prog2dir ["blastx"] = blast_bin;
-	    prog2dir ["blastn"] = blast_bin;
+	    prog2dir ["blastp"]      = blast_bin;
+	    prog2dir ["blastx"]      = blast_bin;
+	    prog2dir ["tblastn"]     = blast_bin;
+	    prog2dir ["blastn"]      = blast_bin;
+      prog2dir ["makeblastdb"] = blast_bin;
 	  }
 	  
 	  // organism --> organism1
@@ -705,29 +747,20 @@ struct ThisApplication : ShellApplication
         }
     }
     
-    
+
+    // Create files for amr_report    
     string amr_report_blastp;	
  		string amr_report_blastx;
+ 		bool hmmChunks = false;
+ 		bool tblastnChunks = false;
 	  const string pgapS (ifS (pgap, " -pgap" + ifS (lcl, " -lcl")));
- 		bool blastxChunks = false;
     {
-      Threads th (threads_max - 1, true);  
-      
-      double prot_share = 0.0;
-      double dna_share  = 0.0;
-  		if ( ! emptyArg (prot))
-  		  prot_share = 1.0;  // PAR
-  		if (! emptyArg (dna))
-  		  dna_share = 1.0;   // PAR
-  		const double total_share = prot_share + dna_share;
-  		
-
-  		#define BLAST_FMT  "-outfmt '6 qseqid sseqid qstart qend qlen sstart send slen qseq sseq'"
-			  // length nident 
+  		#define BLAST_FMT    "-outfmt '6 qseqid sseqid qstart qend qlen sstart send slen qseq sseq'"
+  		#define TBLASTN_FMT  "-outfmt '6 sseqid qseqid sstart send slen qstart qend qlen sseq qseq'"
 
   		
   		// PD-2967
-  		const string blastp_par ("-comp_based_stats 0  -evalue 1e-10");  
+  		const string blastp_par ("-comp_based_stats 0  -evalue 1e-10  -seg no");  
   		  // was: -culling_limit 20  // PD-2967
   		if (! emptyArg (prot))
   		{
@@ -736,8 +769,12 @@ struct ThisApplication : ShellApplication
   			{
     			findProg ("blastp");  			
     			findProg ("hmmsearch");
-    		  exec (fullProg ("fasta_check") + prot + " -aa -hyphen" + qcS + " -log " + logFName, logFName);  
     			
+          size_t nProt = 0;
+          size_t protLen_max = 0;
+          fastaCheck (prot, true, qcS, logFName, nProt, protLen_max);
+    			
+   			  // gff_check
     			if (! emptyArg (gff) && ! contains (parm, "-bed"))
     			{
     			  string locus_tag;
@@ -786,27 +823,43 @@ struct ThisApplication : ShellApplication
     				throw runtime_error ("The BLAST database for AMRProt was not found. Use amrfinder -u to download and prepare database for AMRFinderPlus");
     				 // "BLAST database " + shellQuote (db + "/AMRProt.phr") + " does not exist");
     			
-    			const size_t prot_threads = (size_t) floor ((double) th. getAvailable () * (prot_share / total_share) / 2.0);
-
     			stderr << "Running blastp...\n";
-    			// " -task blastp-fast -word_size 6  -threshold 21 "  // PD-2303
-    			string num_threads;
-    			if (blastThreadable ("blastp") && prot_threads > 1)
-    			  num_threads = "  -num_threads " + to_string (prot_threads);
-    			th. exec (fullProg ("blastp") + " -query " + prot + " -db " + tmp + ".db/AMRProt" +"  " 
-    			  + blastp_par + num_threads + " " BLAST_FMT " -out " + tmp + ".blastp > /dev/null 2> /dev/null", prot_threads);
+    			{
+      			const Chronometer_OnePass cop ("blastp", cerr, false, qc_on && ! quiet);
+      			// " -task blastp-fast -word_size 6  -threshold 21 "  // PD-2303
+      			exec (fullProg ("blastp") + " -query " + prot + " -db " + tmp + ".db/AMRProt" + "  " 
+      			      + blastp_par + get_num_threads_param ("blastp", nProt) + " " BLAST_FMT " -out " + tmp + ".blastp > /dev/null 2> /dev/null", logFName);
+      		}
     			  
     			stderr << "Running hmmsearch...\n";
-    			string cpu;
-    			if (prot_threads > 1)
-    			  cpu = "--cpu " + to_string (prot_threads);
-    			th. exec (fullProg ("hmmsearch") + " --tblout " + tmp + ".hmmsearch  --noali  --domtblout " + tmp + ".dom  --cut_tc  -Z 10000  " + cpu + " " + tmp + ".db/AMR.LIB" + " " + prot + " > /dev/null 2> /dev/null", prot_threads);
+    			{
+       			const Chronometer_OnePass cop ("hmmsearch", cerr, false, qc_on && ! quiet);
+      			ASSERT (threads_max >= 1);
+      			if (threads_max > 1 && nProt > threads_max / 2)  // PAR
+      			{
+        		  createDirectory (tmp + ".hmm_chunk");
+        		  exec (fullProg ("fasta2parts") + prot + " " + to_string (threads_max) + " " + tmp + ".hmm_chunk" + qcS + " -log " + logFName, logFName);
+        		  createDirectory (tmp + ".hmmsearch_dir");
+        		  createDirectory (tmp + ".dom_dir");
+              Threads th (threads_max - 1, true);  
+        		  FileItemGenerator fig (false, true, false, tmp + ".hmm_chunk");
+        		  string item;
+        		  while (fig. next (item))
+          			th. exec (fullProg ("hmmsearch") 
+      			              + "  --tblout "    + tmp + ".hmmsearch_dir/" + item + "  --noali"
+      			              + "  --domtblout " + tmp + ".dom_dir/"       + item + "  --cut_tc  -Z 10000  --cpu 0  " + tmp + ".db/AMR.LIB" + " " + tmp + ".hmm_chunk/" + item + " > /dev/null 2> /dev/null"
+      			             );
+        		  hmmChunks = true;
+        	  }
+        	  else
+        			exec (fullProg ("hmmsearch") + " --tblout " + tmp + ".hmmsearch  --noali  --domtblout " + tmp + ".dom  --cut_tc  -Z 10000  --cpu " + to_string (threads_max - 1) + "  " + tmp + ".db/AMR.LIB" + " " + prot + " > /dev/null 2> /dev/null", logFName);
+        	}
   		  }
   		  else
   		  {
-  		    exec ("cp /dev/null " + tmp + ".blastp");
-  		    exec ("cp /dev/null " + tmp + ".hmmsearch");
-  		    exec ("cp /dev/null " + tmp + ".dom");
+  		    OFStream::create (tmp + ".blastp");
+  		    OFStream::create (tmp + ".hmmsearch");
+  		    OFStream::create (tmp + ".dom");
   		  }  
 
   		  amr_report_blastp = "-blastp " + tmp + ".blastp  -hmmsearch " + tmp + ".hmmsearch  -hmmdom " + tmp + ".dom";
@@ -815,66 +868,84 @@ struct ThisApplication : ShellApplication
   		}  		
 
   		
-  		const string blastx_par (blastp_par + "  -word_size 3  -seg no  -max_target_seqs 10000  -query_gencode ");
   		if (! emptyArg (dna))
   		{
+  		  const bool blastn = ! organism1. empty () && fileExists (db + "/AMR_DNA-" + organism1);
   		  if (getFileSize (unQuote (dna)))
     		{
-    			stderr << "Running blastx...\n";
-    			findProg ("blastx");
-    		  exec (fullProg ("fasta_check") + dna + " -hyphen  -len "+ tmp + ".len" + qcS + " -log " + logFName, logFName); 
-    		  const size_t threadsAvailable = th. getAvailable ();
-    		//ASSERT (threadsAvailable);
-    		  if (threadsAvailable >= 2)
-    		  {
-      		  createDirectory (tmp + ".chunk", false);
-      		  exec (fullProg ("fasta2parts") + dna + " " + to_string (threadsAvailable) + " " + tmp + ".chunk" + qcS + " -log " + logFName, logFName);   // PAR
-      		  createDirectory (tmp + ".blastx_dir", false);
-      		  FileItemGenerator fig (false, true, false, tmp + ".chunk");
-      		  string item;
-      		  while (fig. next (item))
-        			th << thread (exec, fullProg ("blastx") + "  -query " + tmp + ".chunk/" + item + " -db " + tmp + ".db/AMRProt" + "  "
-        			  + blastx_par + to_string (gencode) + " " BLAST_FMT
-        			  " -out " + tmp + ".blastx_dir/" + item + " > /dev/null 2> /dev/null", string ());
-      		  blastxChunks = true;
-    		  }
-    		  else
-      			th. exec (fullProg ("blastx") + "  -query " + dna + " -db " + tmp + ".db/AMRProt" + "  "
-      			  + blastx_par + to_string (gencode) + " " BLAST_FMT
-      			  " -out " + tmp + ".blastx > /dev/null 2> /dev/null", threadsAvailable);
+          size_t nDna = 0;
+          size_t dnaLen_max = 0;
+          fastaCheck (dna, false, qcS, logFName, nDna, dnaLen_max);
+          const string blastx (dnaLen_max > 100000 ? "tblastn" : "blastx");  // PAR
+
+    			stderr << "Running " << blastx << "...\n";
+    			findProg (blastx);
+          {
+       			const Chronometer_OnePass cop (blastx, cerr, false, qc_on && ! quiet);
+        		const string tblastn_par (blastp_par + "  -word_size 3  -max_target_seqs 10000");
+        		const string blastx_par (tblastn_par + "  -query_gencode " + to_string (gencode));
+      			ASSERT (threads_max >= 1);
+      			if (blastx == "blastx")
+        			exec (fullProg ("blastx") + "  -query " + dna + " -db " + tmp + ".db/AMRProt" + "  "
+            			  + blastx_par + " " BLAST_FMT " " + get_num_threads_param ("blastx", nDna)
+            			  + " -out " + tmp + ".blastx > /dev/null 2> /dev/null", logFName);
+            else
+            {
+              ASSERT (blastx == "tblastn");
+        			findProg ("makeblastdb");
+        			exec ("cp " + dna + " " + tmp + ".nucl");
+           	  exec (fullProg ("makeblastdb") + " -in " + tmp + ".nucl" + "  -dbtype nucl  -logfile /dev/null");  
+        			if (threads_max > 1)
+        			{
+          		  createDirectory (tmp + ".AMRProt_chunk");
+          		  exec (fullProg ("fasta2parts") + tmp + ".db/AMRProt " + to_string (threads_max) + " " + tmp + ".AMRProt_chunk" + qcS + " -log " + logFName, logFName);
+          		  createDirectory (tmp + ".tblastn_dir");
+                Threads th (threads_max - 1, true);  
+          		  FileItemGenerator fig (false, true, false, tmp + ".AMRProt_chunk");
+          		  string item;
+          		  while (fig. next (item))
+            			th. exec (fullProg ("tblastn") + "  -db " + tmp + ".nucl  -query " + tmp + ".AMRProt_chunk/" + item + "  "
+              			        + tblastn_par + " " TBLASTN_FMT "  -out " + tmp + ".tblastn_dir/" + item + " > /dev/null 2> /dev/null");
+          		  tblastnChunks = true;
+          	  }
+          	  else
+          			exec (fullProg ("tblastn") + "  -db " + tmp + ".nucl  -query " + tmp + ".db/AMRProt  "
+              			  + tblastn_par + " " TBLASTN_FMT "  -out " + tmp + ".blastx > /dev/null 2> /dev/null", logFName);
+            }
+          }
+
+          if (blastn)
+      		{
+      			findProg ("blastn");
+      			prog2dir ["dna_mutation"] = execDir;
+      			stderr << "Running blastn...\n";
+       			const Chronometer_OnePass cop ("blastn", cerr, false, qc_on && ! quiet);
+      			exec (fullProg ("blastn") + " -query " + dna + " -db " + tmp + ".db/AMR_DNA-" + organism1 + " -evalue 1e-20  -dust no  " 
+      			      + get_num_threads_param ("blastn", nDna) + " " BLAST_FMT " -out " + tmp + ".blastn > " + logFName + " 2> " + logFName, logFName);
+      		}
     		}
     		else
     		{
-  		    exec ("cp /dev/null " + tmp + ".blastx");
-  		    exec ("cp /dev/null " + tmp + ".len");
+  		    OFStream::create (tmp + ".blastx");
+  		    OFStream::create (tmp + ".len");
+      		if (blastn)
+    		    OFStream::create (tmp + ".blastn");
   		  }
    		  amr_report_blastx = "-blastx " + tmp + ".blastx  -dna_len " + tmp + ".len";
-  		}
-
-
-  		if (   ! emptyArg (dna) 
-  		    && ! organism1. empty ()
-  		    && fileExists (db + "/AMR_DNA-" + organism1)
-  		   )
-  		{
-  		  if (getFileSize (unQuote (dna)))
-    		{
-    			findProg ("blastn");
-    			prog2dir ["dna_mutation"] = execDir;
-    			stderr << "Running blastn...\n";
-    			exec (fullProg ("blastn") + " -query " + dna + " -db " + tmp + ".db/AMR_DNA-" + organism1 + " -evalue 1e-20  -dust no  "
-    			        BLAST_FMT " -out " + tmp + ".blastn > " + logFName + " 2> " + logFName, logFName);
-    		}
-    		else
-  		    exec ("cp /dev/null " + tmp + ".blastn");    		  
   		}
   	}
   	
   	
-  	if (blastxChunks)
-  	  exec ("cat " + tmp + ".blastx_dir/* > " + tmp + ".blastx");
-  	  
-  	
+  	if (hmmChunks)
+  	{
+  	  exec ("cat " + tmp + ".hmmsearch_dir/* > " + tmp + ".hmmsearch");
+  	  exec ("cat " + tmp + ".dom_dir/*       > " + tmp + ".dom");
+  	}
+
+  	if (tblastnChunks)
+  	  exec ("cat " + tmp + ".tblastn_dir/* > " + tmp + ".blastx");
+
+
   	if (suppress_common)
   	{
 			OFStream outF (tmp + ".suppress_prot");
@@ -883,7 +954,6 @@ struct ThisApplication : ShellApplication
 			  if (! isLeft (f. line, "#"))
   			{
   			  string org, accver;
-  			//long gi = 0;
   			  istringstream iss (f. line);
   			  iss >> org >> accver;
   			  QC_ASSERT (! accver. empty ());
@@ -894,27 +964,30 @@ struct ThisApplication : ShellApplication
 		
 
     // tmp + ".amr", tmp + ".mutation_all"
+		stderr << "Making report...\n";
     const string nameS (emptyArg (input_name) ? "" : " -name " + input_name);
     {
+ 			const Chronometer_OnePass cop ("amr_report", cerr, false, qc_on && ! quiet);
       const string mutation_allS (emptyArg (mutation_all) ? "" : ("-mutation_all " + tmp + ".mutation_all"));      
       const string coreS (add_plus ? "" : " -core");
       const string equidistantS (equidistant ? " -report_equidistant" : "");
   		exec (fullProg ("amr_report") + " -fam " + shellQuote (db + "/fam.tab") + "  " + amr_report_blastp + "  " + amr_report_blastx
-        		  + "  -organism " + strQuote (organism1) 
-        		  + "  -mutation "    + shellQuote (db + "/AMRProt-mutation.tab") 
-        		  + "  -susceptible " + shellQuote (db + "/AMRProt-susceptible.tab") 
-        		  + " " + mutation_allS + " "
-        		  + force_cds_report + " -pseudo" + coreS + equidistantS
-        		  + (ident == -1 ? string () : "  -ident_min "    + toString (ident)) 
-        		  + "  -coverage_min " + toString (cov)
-        		  + ifS (suppress_common, " -suppress_prot " + tmp + ".suppress_prot") + pgapS
-        		  + nameS + qcS + " " + parm + " -log " + logFName + " > " + tmp + ".amr", logFName);
+      		  + "  -organism " + strQuote (organism1) 
+      		  + "  -mutation "    + shellQuote (db + "/AMRProt-mutation.tab") 
+      		  + "  -susceptible " + shellQuote (db + "/AMRProt-susceptible.tab") 
+      		  + " " + mutation_allS + " "
+      		  + force_cds_report + " -pseudo" + coreS + equidistantS
+      		  + (ident == -1 ? string () : "  -ident_min "    + toString (ident)) 
+      		  + "  -coverage_min " + toString (cov)
+      		  + ifS (suppress_common, " -suppress_prot " + tmp + ".suppress_prot") + pgapS
+      		  + nameS + qcS + " " + parm + " -log " + logFName + " > " + tmp + ".amr", logFName);
   	}
 		if (   ! emptyArg (dna) 
 		    && ! organism1. empty ()
 		    && fileExists (db + "/AMR_DNA-" + organism1)
 		   )
 		{
+ 			const Chronometer_OnePass cop ("dna_mutation", cerr, false, qc_on && ! quiet);
       const string mutation_allS (emptyArg (mutation_all) ? "" : ("-mutation_all " + tmp + ".mutation_all.dna")); 
 			exec (fullProg ("dna_mutation") + tmp + ".blastn " + shellQuote (db + "/AMR_DNA-" + organism1 + ".tab") + " " + strQuote (organism1) + " " + mutation_allS 
 			      + nameS + qcS + " -log " + logFName + " > " + tmp + ".amr-snp", logFName);

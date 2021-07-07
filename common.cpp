@@ -105,6 +105,24 @@ ulong seed_global = 1;
 bool sigpipe = false;
 
 
+
+// COutErr
+
+#ifndef _MSC_VER
+bool COutErr::sameFiles (int fd1, 
+                         int fd2)
+{ 
+  struct stat stat1;
+  struct stat stat2;
+  fstat (fd1, & stat1);
+  fstat (fd2, & stat2);
+  return stat1. st_ino == stat2. st_ino;
+}
+#endif
+
+const COutErr couterr;
+
+
 // thread
 size_t threads_max = 1;
 
@@ -393,6 +411,27 @@ bool goodName (const string &name)
       return false;
       
   return true;
+}
+
+
+
+string pad (const string &s,
+            size_t size,
+            bool right)
+{
+  string s1 (s);
+  trim (s1);
+ 
+  if (s1. size () >= size)
+    return s1. substr (0, size);
+  
+  string sp;
+  while (sp. size () + s1. size () < size)
+    sp += ' ';
+    
+  if (right)
+    return s1 + sp;
+  return sp + s1;
 }
 
 
@@ -783,7 +822,7 @@ bool fileExists (const string &fName)
 bool directoryExists (const string &dirName)
 {
   DIR* dir = opendir (dirName. c_str ());
-  const bool yes = (bool) (dir);
+  const bool yes = (bool) dir;
   if (yes)
   {
     if (closedir (dir))
@@ -794,31 +833,17 @@ bool directoryExists (const string &dirName)
 
 
 
-void createDirectory (const string &dirName,
-                      bool createAncestors)
+void createDirectory (const string &dirName)
 {
-  const mode_t m = 0777;  
-  if (createAncestors)
-  {
-    const Dir dir (dirName);
-    Dir ancestorDir;
-    for (const string& s : dir. items)
-    {
-      ancestorDir. items << s;
-      const string ancestorPath (ancestorDir. get ());
-      if (! directoryExists (ancestorPath))
-        if (mkdir (ancestorPath. c_str (), m) != 0)
-          throw runtime_error ("Cannot create directory " + strQuote (ancestorPath));
-    }
-  }
-  else
-    if (mkdir (dirName. c_str (), m) != 0)
-      throw runtime_error ("Cannot create directory " + strQuote (dirName));
+  if (mkdir (dirName. c_str (), 0777) != 0)  // PAR
+    throw runtime_error ("Cannot create directory " + strQuote (dirName));
 }
 #endif
 
 
 
+
+// Dir
 
 Dir::Dir (const string &dirName)
 {
@@ -870,6 +895,31 @@ Dir::Dir (const string &dirName)
 
 
 
+#ifndef _MSC_VER
+size_t Dir::create ()
+{
+  if (items. empty ())
+    throw runtime_error ("Cannot create the root directory");
+
+  const string path (get ());
+
+  if (directoryExists (path))
+    return 0;
+
+  const string item (items. popBack ());
+  const size_t n = create ();
+  items << item;
+  if (mkdir (path. c_str (), 0777) != 0)  // PAR
+    throw runtime_error ("Cannot create directory " + strQuote (path));
+
+  return n + 1;
+}
+#endif
+
+
+
+
+//
 
 streamsize getFileSize (const string &fName)
 {
@@ -1110,7 +1160,9 @@ int getVerbosity ()
 
 bool verbose (int inc)
 { 
-	return Verbose::enabled () ? (verbose_ + inc > 0) : false;
+  if (! Verbose::enabled ())
+    return false;
+	return verbose_ + inc > 0;
 }
 
 
@@ -1218,7 +1270,7 @@ Threads::Threads (size_t threadsToStart_arg,
 	threads. reserve (threadsToStart);
 	
 	if (! quiet && verbose (1) && threadsToStart)
-    cerr << "# Threads started: " << threadsToStart + 1 << endl;
+    cerr << "# Threads started: " << threadsToStart + 1/*main thread*/ << endl;
 }	
 
 
@@ -1258,29 +1310,33 @@ Xml::Tag::Tag (Xml::File &f_arg,
     f. print ("\n");
     f. offset++;
     FOR (size_t, i, f. offset * File::offset_spaces)
-      f . print (" ");
+      f. print (" ");
   }
-  f. print ("<" + name + ">");
+  if (! name. empty ())
+    f. print ("<" + name + ">");
 }
 
 
 
 Xml::Tag::~Tag ()
 { 
-  if (f. printOffset && f. printBrief)
-  {
-    f. offset--;
-    return;
-  }
-  
   if (f. printOffset)
   {
-    f. print ("\n");
-    FOR (size_t, i, f. offset * File::offset_spaces)
-      f . print (" ");
-    f. offset--;
+    if (f. printBrief)
+    {
+      f. offset--;
+      return;
+    }
+    else
+    {
+      f. print ("\n");
+      FOR (size_t, i, f. offset * File::offset_spaces)
+        f . print (" ");
+      f. offset--;
+    }    
   }
-  f. print ("</" + name + ">");
+  if (! name. empty ())
+    f. print ("</" + name + ">");
   if (! f. printOffset)
     f. print ("\n");
 }
@@ -2242,9 +2298,10 @@ void TextTable::saveText (ostream &os) const
   
 void TextTable::printHeader (ostream &os) const
 {
-  for (const Header& h : header)
+  FFOR (size_t, i, header. size ())
   {
-    h. saveText (os);
+    os << i + 1 << '\t';
+    header [i]. saveText (os);
     os << endl;
   }
 }

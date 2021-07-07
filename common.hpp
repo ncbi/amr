@@ -151,6 +151,24 @@ protected:
 
 
 
+template <typename T>
+  struct Singleton : Nocopy
+  {
+  private:
+  	static bool beingRun;
+  protected:
+  	Singleton ()
+  	  { if (beingRun)
+  	  	  throw runtime_error ("Singleton");
+  	  	beingRun = true;
+  	  }
+   ~Singleton () 
+      { beingRun = false; }
+  };
+template <typename T> bool Singleton<T>::beingRun = false;
+
+
+
 #ifndef _MSC_VER
   struct Color
   {
@@ -172,6 +190,44 @@ protected:
 #endif
   
   
+
+struct COutErr : Singleton<COutErr>
+{
+  const bool both;
+  
+  COutErr ()
+    : both (
+           #ifdef _MSC_VER
+             true
+           #else
+             sameFiles (fileno (stdout), fileno (stderr))
+           #endif
+           )
+    {}
+#ifndef _MSC_VER
+private:
+  static bool sameFiles (int fd1, 
+                         int fd2);
+public:
+#endif
+template <class T>
+  const COutErr& operator<< (const T &val) const
+    { cout << val;
+      if (! both)
+        cerr << val;
+      return *this;
+    }
+  const COutErr& operator<< (ostream& (*pfun) (ostream&)) const
+    { pfun (cout);
+      if (! both)
+        pfun (cerr);
+      return *this;
+    }
+};
+
+extern const COutErr couterr;
+
+
 
 class ONumber
 {
@@ -248,20 +304,32 @@ public:
 struct Chronometer_OnePass : Nocopy
 {
 	const string name;
+  ostream &os;
+  const bool addNewLine;
+  const bool active;
 	const time_t start;
 	
-  explicit Chronometer_OnePass (const string &name_arg)
+  explicit Chronometer_OnePass (const string &name_arg,
+                                ostream &os_arg = cout,
+                                bool addNewLine_arg = true,
+                                bool active_arg = true)
     : name (name_arg)
-    , start (time (nullptr))
+    , os (os_arg)
+    , addNewLine (addNewLine_arg)
+    , active (active_arg)
+    , start (active_arg ? time (nullptr) : 0)
     {}
  ~Chronometer_OnePass ()
-    { if (uncaught_exception ())
+    { if (! active)
+        return;
+      if (uncaught_exception ())
         return;
       const time_t stop = time (nullptr);
-      cout << "CHRON: " << name << ": ";
-      const ONumber onm (cout, 0, false);
-      cout << difftime (stop, start) << " sec." << endl;
-      cout << endl;
+      os << "CHRON: " << name << ": ";
+      const ONumber on (os, 0, false);
+      os << difftime (stop, start) << " sec." << endl;
+      if (addNewLine)
+        os << endl;
     }
 };
 	
@@ -393,6 +461,7 @@ size_t powInt (size_t a,
 
 
 constexpr size_t no_index = numeric_limits<size_t>::max ();
+static_assert ((size_t) 0 - 1 == no_index, "0 - 1 != no_index");
 
 
 
@@ -927,6 +996,10 @@ inline bool isLeftBlank (const string &s,
     return i == spaces;
   }
 
+string pad (const string &s,
+            size_t size,
+            bool right);
+
 bool goodName (const string &name);
 
 bool isIdentifier (const string& name);
@@ -1112,8 +1185,7 @@ inline string path2canonical (const string &path)
 #ifndef _MSC_VER
   bool directoryExists (const string &dirName);
   
-  void createDirectory (const string &dirName,
-                        bool createAncestors);
+  void createDirectory (const string &dirName);
 #endif
 
 
@@ -1142,6 +1214,11 @@ struct Dir
       const Dir parent (get () + "/..");
       return parent. get ();
     }
+#ifndef _MSC_VER
+  size_t create ();
+    // Return: number of directories created
+    //         0 <=> complete directory exists
+#endif
 };
 
 
@@ -1213,24 +1290,6 @@ private:
 	void qc () const;
 	void run ();	
 };
-
-
-
-template <typename T>
-struct Singleton : Nocopy
-{
-private:
-	static bool beingRun;
-protected:
-	Singleton ()
-	  { if (beingRun)
-	  	  throw runtime_error ("Singleton");
-	  	beingRun = true;
-	  }
- ~Singleton () 
-    { beingRun = false; }
-};
-template <typename T> bool Singleton<T>::beingRun = false;
 
 
 
@@ -2684,7 +2743,7 @@ public:
 
 	const size_t n_max;
 	  // 0 <=> unknown
-	bool active {false};
+	const bool active;
 	const size_t displayPeriod;
 	size_t n {0};
 	string step;
@@ -2702,11 +2761,8 @@ public:
 	  }
  ~Progress () 
     { if (active)
-    	{ if (! uncaught_exception ())
-    	  { // step. clear ();
-    	    report ();
-    	    cerr << endl;
-    	  }
+    	{ report ();
+    	  cerr << endl;
     	  beingUsed--;
     	}
     }
@@ -3097,6 +3153,8 @@ struct OFStream : ofstream
 	  { open (dirName, fileName, extension); }
 	explicit OFStream (const string &pathName)
 	  { open ("", pathName, ""); }
+	static void create (const string &pathName)
+	  { OFStream f (pathName); }
 
 
 	void open (const string &dirName,
@@ -3222,7 +3280,7 @@ public:
 
 
 struct TextTable : Named
-// Tab-delimited table with a header
+// Tab-delimited (tsv) table with a header
 // name: file name
 {
   bool pound {false};
@@ -3241,7 +3299,7 @@ struct TextTable : Named
       {}
     void qc () const override;
     void saveText (ostream& os) const override
-      { os << name << ' ' << len_max << ' ' << (numeric ? ((scientific ? "float" : "int") + string ("(") + to_string (decimals) + ")") : "char"); }
+      { os << name << '\t' << len_max << '\t' << (numeric ? ((scientific ? "float" : "int") + string ("(") + to_string (decimals) + ")") : "char"); }
   };
   Vector<Header> header;
     // size() = number of columns
@@ -3261,6 +3319,11 @@ struct TextTable : Named
     
 
   explicit TextTable (const string &fName);
+  TextTable (bool pound_arg,
+             const Vector<Header> &header_arg)
+    : pound (pound_arg)
+    , header (header_arg)
+    {}
 private:
   void setHeader ();
 public:

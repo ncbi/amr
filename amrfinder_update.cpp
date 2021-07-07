@@ -356,8 +356,7 @@ Requirement: the database directory contains subdirectories named by database ve
     if (! isRight (mainDirS, "/"))
       mainDirS += "/";    
 
-    if (! directoryExists (mainDirS))
-      createDirectory (mainDirS, true);
+  //Dir (mainDirS). create ();
     
     const string versionFName ("version.txt");
     const string urlDir (URL + curMinor + "/" + latest_data_version + "/");
@@ -386,7 +385,7 @@ Requirement: the database directory contains subdirectories named by database ve
       }
     }
     else
-      createDirectory (latestDir, true);
+      Dir (latestDir). create ();
     
     stderr << "Downloading AMRFinder database version " << latest_data_version << " into " << shellQuote (latestDir) << "\n";
     fetchAMRFile (curl, urlDir, latestDir, "AMR.LIB");
