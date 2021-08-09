@@ -2829,7 +2829,7 @@ FileItemGenerator::FileItemGenerator (size_t progress_displayPeriod,
   #else
 	  char lsfName [4096] = {'\0'};
     strcpy (lsfName, P_tmpdir);
-    strcat (lsfName, "/XXXXXX");
+    strcat (lsfName, "/amrfinder.XXXXXX");
     EXEC_ASSERT (mkstemp (lsfName) != -1);
     ASSERT (lsfName [0]);
     const string cmd ("ls -a " + dirName + " > " + lsfName);
@@ -3642,9 +3642,11 @@ void ShellApplication::createTmp ()
   if (useTmp)
   {
     const string tmpDir (tmp);
-    tmp += "/XXXXXX";
+    tmp += "/amrfinder.XXXXXX";
     if (mkstemp (var_cast (tmp. c_str ())) == -1)
       throw runtime_error ("Error creating a temporary file in " + tmpDir);
+// DEBUG ARJUN
+    std::cerr << "Temporary files: " << tmp << endl;
   	if (tmp. empty ())
   		throw runtime_error ("Cannot create a temporary file in " + tmpDir);
 
