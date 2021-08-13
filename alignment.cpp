@@ -419,6 +419,7 @@ bool normalizeSeq (const string &seq1,
   
   bool changed = false;
   size_t start = no_index;
+  // -AAA --> AAA-
   FFOR (size_t, i, seq1. size ())
     if (start == no_index)
     {

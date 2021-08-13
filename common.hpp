@@ -846,6 +846,15 @@ public:
 	  	  	i++;
 	  	return no_index;
 	  }
+	size_t find (const T* t) const
+	  { size_t i = 0;
+	  	for (const T& item : *this)
+	  	  if (& item == t)
+	  	  	return i;
+	  	  else
+	  	  	i++;
+	  	return no_index;
+	  }
   bool isPrefix (const List<T> &prefix) const
     { typename List<T>::const_iterator wholeIt  =      P::begin ();
     	typename List<T>::const_iterator prefixIt = prefix. begin ();
@@ -2768,16 +2777,20 @@ public:
     }
     
 
-  void operator() (const string& step_arg = string ())
+  bool operator() (const string& step_arg = string ())
     { n++;
     	step = step_arg;
     	if (   active 
     		  && n % displayPeriod == 0
     		 )
-    	  report ();
+    	{ report ();
+    	  return true;
+    	}
+    	return false;
     }
 private:
 	void report () const;
+	  // Output: cerr
 public:
   void reset ()
     { n = 0;
@@ -3331,6 +3344,10 @@ public:
   void saveText (ostream &os) const override;    
         
   
+  static bool getDecimals (string s,
+                           bool &hasPoint,
+                           streamsize &decimals);
+    // Return: true => scientific number
   void printHeader (ostream &os) const;
 private:
   size_t col2index_ (const string &columnName) const;
@@ -3756,7 +3773,7 @@ public:
         return false;
       i++;
       item = to_string (i);
-      prog (item);
+      prog ();
       return true;
     }
 };
@@ -4010,7 +4027,7 @@ struct ShellApplication : Application
   // Environment
   const bool useTmp;
   string tmp;
-    // Temporary file prefix: ($TMPDIR or "/tmp") + "/XXXXXX"
+    // Temporary file prefix: ($TMPDIR or "/tmp") + "/" + programName + "XXXXXX"
     // If log is used then tmp is printed in the log file and the temporary files are not deleted 
 private:
   bool tmpCreated {false};

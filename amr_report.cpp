@@ -1054,7 +1054,7 @@ private:
 	      //{ LESS_PART (other, *this, isMutation ()); }
 	      LESS_PART (other, *this, refExactlyMatched ());  // PD-1261, PD-1678
 	      LESS_PART (other, *this, nident);
-	      LESS_PART (*this, other, refEffectiveLen ());
+	      LESS_PART (*this, other, refEffectiveLen ());  
 	    }
 	    else
 	    { 

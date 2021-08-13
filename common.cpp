@@ -419,19 +419,16 @@ string pad (const string &s,
             size_t size,
             bool right)
 {
-  string s1 (s);
-  trim (s1);
- 
-  if (s1. size () >= size)
-    return s1. substr (0, size);
+  if (s. size () >= size)
+    return s. substr (0, size);
   
   string sp;
-  while (sp. size () + s1. size () < size)
+  while (sp. size () + s. size () < size)
     sp += ' ';
     
   if (right)
-    return s1 + sp;
-  return sp + s1;
+    return s + sp;
+  return sp + s;
 }
 
 
@@ -2213,21 +2210,12 @@ void TextTable::setHeader ()
       }
       if (h. numeric)
       {
-        string s (field);
-        strUpper (s);
-        const size_t ePos     = s. find ('E');
-        const size_t pointPos = s. find ('.');
-        if (ePos == string::npos)
-        {
-          if (pointPos != string::npos)
-            maximize<streamsize> (h. decimals, (streamoff) (s. size () - pointPos - 1));
-        }
-        else
-        {
+        bool hasPoint = false;
+        streamsize decimals = 0;
+        if (getDecimals (field, hasPoint, decimals))
           h. scientific = true;
-          if (pointPos != string::npos && ePos > pointPos)
-            maximize<streamsize> (h. decimals, (streamoff) (ePos - pointPos - 1));
-        }
+        maximize<streamsize> (h. decimals, decimals);
+        maximize (h. len_max, field. size () + (size_t) (h. decimals - decimals) + (! hasPoint));
       }
     }
   }
@@ -2292,6 +2280,33 @@ void TextTable::saveText (ostream &os) const
     save (os, row, '\t');
     os << endl;
   }
+}
+
+    
+    
+bool TextTable::getDecimals (string s,
+                             bool &hasPoint,
+                             streamsize &decimals)
+{
+  strUpper (s);
+  const size_t ePos     = s. find ('E');
+  const size_t pointPos = s. find ('.');
+  
+  hasPoint = pointPos != string::npos;
+  
+  decimals = 0;
+  if (ePos == string::npos)
+  {
+    if (hasPoint)
+      decimals = (streamoff) (s. size () - (pointPos + 1));
+  }
+  else
+  {
+    if (hasPoint && ePos > pointPos)
+      decimals = (streamoff) (ePos - (pointPos + 1));
+  }
+  
+  return ePos != string::npos;
 }
 
     
@@ -2829,7 +2844,7 @@ FileItemGenerator::FileItemGenerator (size_t progress_displayPeriod,
   #else
 	  char lsfName [4096] = {'\0'};
     strcpy (lsfName, P_tmpdir);
-    strcat (lsfName, "/XXXXXX");
+    strcat (lsfName, ("/" + programName + ".XXXXXX"). c_str ());
     EXEC_ASSERT (mkstemp (lsfName) != -1);
     ASSERT (lsfName [0]);
     const string cmd ("ls -a " + dirName + " > " + lsfName);
@@ -3642,7 +3657,7 @@ void ShellApplication::createTmp ()
   if (useTmp)
   {
     const string tmpDir (tmp);
-    tmp += "/XXXXXX";
+    tmp += "/" + programName + ".XXXXXX";
     if (mkstemp (var_cast (tmp. c_str ())) == -1)
       throw runtime_error ("Error creating a temporary file in " + tmpDir);
   	if (tmp. empty ())

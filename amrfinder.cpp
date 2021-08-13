@@ -33,6 +33,7 @@
 *               cat, cp, cut, head, ln, mv, sort, tail
 *
 * Release changes:
+*   3.10.9 08/13/2021 PD-3888  temporary files are named "amrfinder.XXXXXX"
 *   3.10.8 07/06/2021 PD-3865  creating a directory does not break if upper-level directories are not readable
 *                     PD-3867  "BLAST -mt_mode 1" is used
 *                              makeblastdb and tblastn are used for large sequences 
