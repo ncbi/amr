@@ -3645,8 +3645,6 @@ void ShellApplication::createTmp ()
     tmp += "/amrfinder.XXXXXX";
     if (mkstemp (var_cast (tmp. c_str ())) == -1)
       throw runtime_error ("Error creating a temporary file in " + tmpDir);
-// DEBUG ARJUN
-    std::cerr << "Temporary files: " << tmp << endl;
   	if (tmp. empty ())
   		throw runtime_error ("Cannot create a temporary file in " + tmpDir);
 
