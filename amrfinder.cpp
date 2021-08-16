@@ -33,138 +33,139 @@
 *               cat, cp, cut, head, ln, mv, sort, tail
 *
 * Release changes:
-*   3.10.9 08/13/2021 PD-3888  temporary files are named "amrfinder.XXXXXX"
-*   3.10.8 07/06/2021 PD-3865  creating a directory does not break if upper-level directories are not readable
-*                     PD-3867  "BLAST -mt_mode 1" is used
-*                              makeblastdb and tblastn are used for large sequences 
-*                              hmmsearch and tbasltn: query file is split into threads_max files
+*   3.10.10 08/16/2021 PD-3910  alien organism's proteins are removed from processing in amr_report.cpp (point mutations, susceptible)
+*   3.10.9  08/13/2021 PD-3888  temporary files are named "amrfinder.XXXXXX"
+*   3.10.8  07/06/2021 PD-3865  creating a directory does not break if upper-level directories are not readable
+*                      PD-3867  "BLAST -mt_mode 1" is used
+*                               makeblastdb and tblastn are used for large sequences 
+*                               hmmsearch and tbasltn: query file is split into threads_max files
 *                              "blastp -seg no" is used
-*   3.10.7 05/18/2021 PD-3820  message for missing AMRProt blast database; https://github.com/ncbi/amr/issues/53
-*   3.10.6 05/07/2021 PD-3796  for POINTN reported "target length" column = targetEnd - targetStart 
-*   3.10.5 04/12/2021 PD-3772  --report_equidistant
-*   3.10.4 03/24/2021 PD-3761  amrfinder --help will not break if /tmp is full
-*   3.10.3 03/15/2021 PD-3749  --nucleotide_flank5_output, --nucleotide_flank5_size
-*   3.10.2 03/03/2021 PD-3729  Neighboring point mutations are reported
-*   3.10.1 02/17/2021 PD-3679  AMRProt-susceptible.tab
-*   3.9.10 02/16/2021 PD-3694  message about missing "latest/" symbolic link; amrfinder_update.cpp: createLatestLink()
-*   3.9.9  01/27/2021 PD-3674  crash for a custom database
-*   3.9.8  01/04/2021 PD-3613  --dir is removed
-*   3.9.7  12/03/2020 PD-3292  dependence on "mkdir" is removed
-*   3.9.6  11/20/2020 PD-3613  --dir
-*                              prepare_fasta_extract()
-*   3.9.5  11/18/2020 PD-3292  dependence on awk is removed
-*                              --help prints instruction on $TMPDIR
-*   3.9.4  11/16/2020 PD-3609  ($TMPDIR or "/tmp") + "/XXXXXX"
-*   3.9.3  11/05/2020 PD-3577  Merge lines for bifunctional proteins
-*   3.9.2  11/04/2020 PD-3590  AMRProt has new fields #9 and #10: "subclass" and "class"
-*   3.9.1  10/27/2020 PD-3583  AMRProt has a new field #8 "reportable"
-*          09/30/2020 PD-2407  option --type is removed
-*   3.8.28 09/29/2020 PD-3292  dependence on "uniq" is removed
-*   3.8.27 09/28/2020 PD-2381  non-standard start codons are not changed in fusion proteins
-*   3.8.26 09/25/2020 PD-2381  proteins with non-standard start codons that are extended in the N-terminal direction are EXACTP
-*   3.8.25 09/25/2020 PD-3547  identification of frameshifts is disabled
-*                              POINTX method with more SNPs is preferred over POINTP method
-*   3.8.24 09/21/2020 PD-3536  --pointmut_all reports all SNPs in a reference gene repetition
-*   3.8.23 09/16/2020 PD-3536  simplifying point mutations preference
-*   3.8.22 09/15/2020 PD-3470  frameshift detection bug; preference of point mutation reference proteins 
-*   3.8.21 09/14/2020 PD-3536  point mutations merging bug
-*                     PD-3469  --force_update implies --update; -U
-*   3.8.20 09/14/2020 PD-3531  "--parm -print_fam" bug
-*   3.8.19 09/04/2020 PD-3292  removed the dependence on "grep"
-*   3.8.18 09/03/2020 PD-3292  removed the dependence on "which"
-*   3.8.17 09/02/2020 PD-3528  ordering of rows in the report is broken with parameter --name
-*   3.8.16 09/01/2020 PD-2322  a complete nucleotide hit is not preferred to a partial protein hit; stopCodon field is borrowed from BLASTX to BPASTP
-*   3.8.15 08/28/2020 PD-3475  Return BLAST alignment parameters for HMM-only hits where available
-*   3.8.14 08/27/2020 PD-3470  method FRAME_SHIFT, amr_report is faster
-*   3.8.13 08/25/2020 PD-2322  a complete nucleotide hit is preferred to a partial protein hit
-*   3.8.12 08/24/2020 PD-2394  fusion genes are reported to include both gene symbols on each line
-*   3.8.11 08/21/2020 PD-2407  --type
-*   3.8.10 08/20/2020 PD-3469  --force_update
-*   3.8.9  08/13/2020          BLAST -show_gis parameter is removed, more mutations are reported for --mutation_all
-*   3.8.8  08/04/2020          bug in fasta_extract.cpp, more output in --nucleotide_output
-*   3.8.7  08/03/2020 PD-3504  --protein_output, --nucleotide_output options by fasta_extract.cpp
-*   3.8.6  07/29/2020 PD-3468  --name option
-*          07/13/2020 PD-3484  -l for old database versions
-*   3.8.5  07/10/2020 PD-3482  --ident_min instruction
-*   3.8.4  05/13/2020 PD-3447  Custom point mutation does not match the reference sequence
-*                              Text "*** ERROR ***" is not repeated twice
-*   3.8.3  05/01/2020          WILDTYPE mutations were reported as 0-based
-*   3.8.2  05/01/2020 PD-3419  taxgroup is removed from the DNA files, dna_mutation parameter: organism
-*                     PD-3437  --mutation_all requires --organism
-*                              all warnings are printed to stderr
-*                              warnings are printed in bright yellow color; ERROR is printed in bright red color
-*                     PD-3363  WILDTYPE mutations map on the reference gene with offset
-*                              NOVEL is changed to UNKNOWN
-*   3.8.1  04/30/2020 PD-3419  dna_mutation: reporting gene symbol for novel mutations; taxgroup and genesymbol are added to the DNA files
-*   3.7.6  04/29/2020 PD-3419  dna_mutation: reporting gene symbol for novel mutations
-*   3.7.5  04/22/2020 PD-3427  -h prints the help message
-*   3.7.4  04/14/2020 PD-3391  Mac Conda installation
-*   3.7.3  04/09/2020 PD-3416  Redundant QC check in alignment.cpp
-*   3.7.2  04/08/2020 PD-3363  "WILDTYPE" was not reported
-*   3.7.1  04/02/2020 PD-3154  GIs may be 0, accessions are main identifiers; file "AMRProt-suppress" is added accessions; DATA_VER_MIN is "2020-04-02.1"
-*   3.6.19 03/24/2020          Check of ">lcl|" is done only for the first sequence in FASTA
-*          03/24/2020 PD-3347  -lcl parameter in gff_check and amr_report
-*   3.6.18 03/17/2020 PD-3396  amr_report.cpp prints a better error message on missing sublcass in data
-*   3.6.17 03/12/2020          Software version is printed after software directory
-*   3.6.16 03/06/2020 PD-3363  --mutation_all: UNKNOWN are not reported
-*                     PD-2328  Last 2 columns of report are real HMM hits
-*   3.6.15 02/24/2020          "database" is printed to stderr in one line in a canonical form (without links)
-*   3.6.14 02/19/2020 PD-3363   --mutation_all: 4 types of mutations, adding DNA mutations
-*   3.6.13 02/13/2020 PD-3359,issue#23   ln -s <db>: uses path2canonical()
-*   3.6.12 02/13/2020 PD-3359,issue#23   AMRFinder database directory may contain spaces
-*   3.6.11 02/13/2020 PD-3359,issue#23   AMRFinder code directory may contain spaces
-*   3.6.10 02/06/2020 PD-3357,issue#21  --mutation_all bug
-*          01/24/2020 PD-3345   Improved error message for "GFF file mismatch"
-*   3.6.9  01/13/2020           "Database directory" is printed to stederr
-*          01/10/2020 PD-3329   ln -s .../amrfinder abc: abc calls the right executables
-*          01/20/2020           'rm" dependence is removed
-*   3.6.8  01/10/2020           'gnl|' processing is simplified
-*          01/09/2020 PD-3327   allow empty input files
-*   3.6.7  01/09/2020           do not remove 'lcl|' from DNA FASTA
-*   3.6.6  01/09/2020 PD-3326   'gnl|' is added only for gnl|PROJECT|ACC accessions if --pgap
-*          01/09/2020 PD-3324   pipefail requires bash
-*          01/08/2020 GP-28123  'gnl|' is added to report if --pgap
-*   3.6.5                       sorting of reported rows: gene symbol is used as the last sorting column if contig is available
-*   3.6.4  01/03/2020 PD-3230   sorting of reported rows: protein accession is ignored if contig is available
-*   3.6.3  01/03/2020 PD-3230   sorting of reported rows
-*          12/28/2019           QC in dna_mutation
-*   3.6.2  12/27/2019 PD-3230   Redundant reported lines are removed for mutated reference proteins
-*                               Reports are sorted by sort
-*   3.6.1  12/27/2019 PD-3230   Mutated proteins are added to AMRProt
-*   3.5.10 12/20/2019           --log
-*   3.5.9  12/19/2019 PD-3294   blastx parameters: space added
-*   3.5.8  12/18/2019 issues/19 changed message if db path is bad
-*   3.5.7  12/18/2019 PD-3289   improved message for gff_check failure
-*   3.5.6  12/18/2019 PD-3269   --gpipe is removed, --pgapx is replaced by --pgap
-*   3.5.5  12/17/2019 PD-3287   short proteins at an end of a contig are reported
-*   3.5.4  12/17/2019 PD-3287   truncated short proteins are not reported
-*   3.5.3  12/16/2019 PD-3279   GPipe-GenColl assemblies, --gpipe_org
-*                     GP-28025
-*   3.5.2  12/13/2019 PD-3269   New flag --pgapx
-*   3.5.1  12/12/2019 PD-3277   Files AMRProt-mutation.tab, AMRProt-suppress, AMR_DNA-<TAXGROUP>.tab and taxgroup.tab have headers
-*   3.4.3  12/11/2019 PD-2171   --mutation_all bug
-*                               --debug does not imply "-verbose 1"
-*   3.4.2  12/10/2019 PD-3209   alignment correction for mutations
-*                               point_mut.{hpp,cpp} -> alignment.{hpp,cpp}
-*                               dna_point_mut.cpp -> dna_mutation.cpp
-*                               AMRProt-point_mut.tab -> AMRProt-mutation.tab
-*                               protein resistance: "point_mutation" -> "mutation"
-*                               amrfinder: --point_mut_all -> --mutation_all
-*                     PD-3232   mutation detection redesign
-*                     PD-3267   mutation in a mutated context
-*   3.4.1  12/03/2019 PD-3193   AMR_DNA-*.tab: column "genesymbol" is removed
-*                               product name is fixed for point mutations
-*                               point_mut.cpp -> dna_point_mut.cpp
-*   3.3.2  11/26/2019 PD-3193   Indel mutations: partially implemented
-*                               Bug fixed: protein point mutations were reported incorrectly if there was an offset w.r.t. the reference sequence
-*                               Files AMRProt-point_mut.tab and AMR_DNA-<taxgroup>.tab: columns allele, symbol are removed
-*                               Files taxgroup.list and gpipe.tab are replaced by taxgroup.tab
-*   3.3.1  11/22/2019 PD-3206   New files: taxgroup.list, gpipe.tab; new option --list_organisms
-*   3.2.4  11/15/2019 PD-3191   dna_mutation.cpp: neighborhoodMismatch <= 0.04; good(): length >= min (refLen, 2 * flankingLen + 1)
-*   3.2.3  11/14/2019 PD-3192   Fixed error made by PD-3190
-*   3.2.3  11/13/2019 PD-3190   organisms for --gpipe
-*   3.2.3  11/12/2019 PD-3187   Sequence name is always from AMRProt, not from fam.tab
-*   3.2.2  11/06/2019 PD-2244   Added "LANG=C" before "sort"
+*   3.10.7  05/18/2021 PD-3820  message for missing AMRProt blast database; https://github.com/ncbi/amr/issues/53
+*   3.10.6  05/07/2021 PD-3796  for POINTN reported "target length" column = targetEnd - targetStart 
+*   3.10.5  04/12/2021 PD-3772  --report_equidistant
+*   3.10.4  03/24/2021 PD-3761  amrfinder --help will not break if /tmp is full
+*   3.10.3  03/15/2021 PD-3749  --nucleotide_flank5_output, --nucleotide_flank5_size
+*   3.10.2  03/03/2021 PD-3729  Neighboring point mutations are reported
+*   3.10.1  02/17/2021 PD-3679  AMRProt-susceptible.tab
+*   3.9.10  02/16/2021 PD-3694  message about missing "latest/" symbolic link; amrfinder_update.cpp: createLatestLink()
+*   3.9.9   01/27/2021 PD-3674  crash for a custom database
+*   3.9.8   01/04/2021 PD-3613  --dir is removed
+*   3.9.7   12/03/2020 PD-3292  dependence on "mkdir" is removed
+*   3.9.6   11/20/2020 PD-3613  --dir
+*                               prepare_fasta_extract()
+*   3.9.5   11/18/2020 PD-3292  dependence on awk is removed
+*                               --help prints instruction on $TMPDIR
+*   3.9.4   11/16/2020 PD-3609  ($TMPDIR or "/tmp") + "/XXXXXX"
+*   3.9.3   11/05/2020 PD-3577  Merge lines for bifunctional proteins
+*   3.9.2   11/04/2020 PD-3590  AMRProt has new fields #9 and #10: "subclass" and "class"
+*   3.9.1   10/27/2020 PD-3583  AMRProt has a new field #8 "reportable"
+*           09/30/2020 PD-2407  option --type is removed
+*   3.8.28  09/29/2020 PD-3292  dependence on "uniq" is removed
+*   3.8.27  09/28/2020 PD-2381  non-standard start codons are not changed in fusion proteins
+*   3.8.26  09/25/2020 PD-2381  proteins with non-standard start codons that are extended in the N-terminal direction are EXACTP
+*   3.8.25  09/25/2020 PD-3547  identification of frameshifts is disabled
+*                               POINTX method with more SNPs is preferred over POINTP method
+*   3.8.24  09/21/2020 PD-3536  --pointmut_all reports all SNPs in a reference gene repetition
+*   3.8.23  09/16/2020 PD-3536  simplifying point mutations preference
+*   3.8.22  09/15/2020 PD-3470  frameshift detection bug; preference of point mutation reference proteins 
+*   3.8.21  09/14/2020 PD-3536  point mutations merging bug
+*                      PD-3469  --force_update implies --update; -U
+*   3.8.20  09/14/2020 PD-3531  "--parm -print_fam" bug
+*   3.8.19  09/04/2020 PD-3292  removed the dependence on "grep"
+*   3.8.18  09/03/2020 PD-3292  removed the dependence on "which"
+*   3.8.17  09/02/2020 PD-3528  ordering of rows in the report is broken with parameter --name
+*   3.8.16  09/01/2020 PD-2322  a complete nucleotide hit is not preferred to a partial protein hit; stopCodon field is borrowed from BLASTX to BPASTP
+*   3.8.15  08/28/2020 PD-3475  Return BLAST alignment parameters for HMM-only hits where available
+*   3.8.14  08/27/2020 PD-3470  method FRAME_SHIFT, amr_report is faster
+*   3.8.13  08/25/2020 PD-2322  a complete nucleotide hit is preferred to a partial protein hit
+*   3.8.12  08/24/2020 PD-2394  fusion genes are reported to include both gene symbols on each line
+*   3.8.11  08/21/2020 PD-2407  --type
+*   3.8.10  08/20/2020 PD-3469  --force_update
+*   3.8.9   08/13/2020          BLAST -show_gis parameter is removed, more mutations are reported for --mutation_all
+*   3.8.8   08/04/2020          bug in fasta_extract.cpp, more output in --nucleotide_output
+*   3.8.7   08/03/2020 PD-3504  --protein_output, --nucleotide_output options by fasta_extract.cpp
+*   3.8.6   07/29/2020 PD-3468  --name option
+*           07/13/2020 PD-3484  -l for old database versions
+*   3.8.5   07/10/2020 PD-3482  --ident_min instruction
+*   3.8.4   05/13/2020 PD-3447  Custom point mutation does not match the reference sequence
+*                               Text "*** ERROR ***" is not repeated twice
+*   3.8.3   05/01/2020          WILDTYPE mutations were reported as 0-based
+*   3.8.2   05/01/2020 PD-3419  taxgroup is removed from the DNA files, dna_mutation parameter: organism
+*                      PD-3437  --mutation_all requires --organism
+*                               all warnings are printed to stderr
+*                               warnings are printed in bright yellow color; ERROR is printed in bright red color
+*                      PD-3363  WILDTYPE mutations map on the reference gene with offset
+*                               NOVEL is changed to UNKNOWN
+*   3.8.1   04/30/2020 PD-3419  dna_mutation: reporting gene symbol for novel mutations; taxgroup and genesymbol are added to the DNA files
+*   3.7.6   04/29/2020 PD-3419  dna_mutation: reporting gene symbol for novel mutations
+*   3.7.5   04/22/2020 PD-3427  -h prints the help message
+*   3.7.4   04/14/2020 PD-3391  Mac Conda installation
+*   3.7.3   04/09/2020 PD-3416  Redundant QC check in alignment.cpp
+*   3.7.2   04/08/2020 PD-3363  "WILDTYPE" was not reported
+*   3.7.1   04/02/2020 PD-3154  GIs may be 0, accessions are main identifiers; file "AMRProt-suppress" is added accessions; DATA_VER_MIN is "2020-04-02.1"
+*   3.6.19  03/24/2020          Check of ">lcl|" is done only for the first sequence in FASTA
+*           03/24/2020 PD-3347  -lcl parameter in gff_check and amr_report
+*   3.6.18  03/17/2020 PD-3396  amr_report.cpp prints a better error message on missing sublcass in data
+*   3.6.17  03/12/2020          Software version is printed after software directory
+*   3.6.16  03/06/2020 PD-3363  --mutation_all: UNKNOWN are not reported
+*                      PD-2328  Last 2 columns of report are real HMM hits
+*   3.6.15  02/24/2020          "database" is printed to stderr in one line in a canonical form (without links)
+*   3.6.14  02/19/2020 PD-3363   --mutation_all: 4 types of mutations, adding DNA mutations
+*   3.6.13  02/13/2020 PD-3359,issue#23   ln -s <db>: uses path2canonical()
+*   3.6.12  02/13/2020 PD-3359,issue#23   AMRFinder database directory may contain spaces
+*   3.6.11  02/13/2020 PD-3359,issue#23   AMRFinder code directory may contain spaces
+*   3.6.10  02/06/2020 PD-3357,issue#21  --mutation_all bug
+*           01/24/2020 PD-3345   Improved error message for "GFF file mismatch"
+*   3.6.9   01/13/2020           "Database directory" is printed to stederr
+*           01/10/2020 PD-3329   ln -s .../amrfinder abc: abc calls the right executables
+*           01/20/2020           'rm" dependence is removed
+*   3.6.8   01/10/2020           'gnl|' processing is simplified
+*           01/09/2020 PD-3327   allow empty input files
+*   3.6.7   01/09/2020           do not remove 'lcl|' from DNA FASTA
+*   3.6.6   01/09/2020 PD-3326   'gnl|' is added only for gnl|PROJECT|ACC accessions if --pgap
+*           01/09/2020 PD-3324   pipefail requires bash
+*           01/08/2020 GP-28123  'gnl|' is added to report if --pgap
+*   3.6.5                        sorting of reported rows: gene symbol is used as the last sorting column if contig is available
+*   3.6.4   01/03/2020 PD-3230   sorting of reported rows: protein accession is ignored if contig is available
+*   3.6.3   01/03/2020 PD-3230   sorting of reported rows
+*           12/28/2019           QC in dna_mutation
+*   3.6.2   12/27/2019 PD-3230   Redundant reported lines are removed for mutated reference proteins
+*                                Reports are sorted by sort
+*   3.6.1   12/27/2019 PD-3230   Mutated proteins are added to AMRProt
+*   3.5.10  12/20/2019           --log
+*   3.5.9   12/19/2019 PD-3294   blastx parameters: space added
+*   3.5.8   12/18/2019 issues/19 changed message if db path is bad
+*   3.5.7   12/18/2019 PD-3289   improved message for gff_check failure
+*   3.5.6   12/18/2019 PD-3269   --gpipe is removed, --pgapx is replaced by --pgap
+*   3.5.5   12/17/2019 PD-3287   short proteins at an end of a contig are reported
+*   3.5.4   12/17/2019 PD-3287   truncated short proteins are not reported
+*   3.5.3   12/16/2019 PD-3279   GPipe-GenColl assemblies, --gpipe_org
+*                      GP-28025
+*   3.5.2   12/13/2019 PD-3269   New flag --pgapx
+*   3.5.1   12/12/2019 PD-3277   Files AMRProt-mutation.tab, AMRProt-suppress, AMR_DNA-<TAXGROUP>.tab and taxgroup.tab have headers
+*   3.4.3   12/11/2019 PD-2171   --mutation_all bug
+*                                --debug does not imply "-verbose 1"
+*   3.4.2   12/10/2019 PD-3209   alignment correction for mutations
+*                                point_mut.{hpp,cpp} -> alignment.{hpp,cpp}
+*                                dna_point_mut.cpp -> dna_mutation.cpp
+*                                AMRProt-point_mut.tab -> AMRProt-mutation.tab
+*                                protein resistance: "point_mutation" -> "mutation"
+*                                amrfinder: --point_mut_all -> --mutation_all
+*                      PD-3232   mutation detection redesign
+*                      PD-3267   mutation in a mutated context
+*   3.4.1   12/03/2019 PD-3193   AMR_DNA-*.tab: column "genesymbol" is removed
+*                                product name is fixed for point mutations
+*                                point_mut.cpp -> dna_point_mut.cpp
+*   3.3.2   11/26/2019 PD-3193   Indel mutations: partially implemented
+*                                Bug fixed: protein point mutations were reported incorrectly if there was an offset w.r.t. the reference sequence
+*                                Files AMRProt-point_mut.tab and AMR_DNA-<taxgroup>.tab: columns allele, symbol are removed
+*                                Files taxgroup.list and gpipe.tab are replaced by taxgroup.tab
+*   3.3.1   11/22/2019 PD-3206   New files: taxgroup.list, gpipe.tab; new option --list_organisms
+*   3.2.4   11/15/2019 PD-3191   dna_mutation.cpp: neighborhoodMismatch <= 0.04; good(): length >= min (refLen, 2 * flankingLen + 1)
+*   3.2.3   11/14/2019 PD-3192   Fixed error made by PD-3190
+*   3.2.3   11/13/2019 PD-3190   organisms for --gpipe
+*   3.2.3   11/12/2019 PD-3187   Sequence name is always from AMRProt, not from fam.tab
+*   3.2.2   11/06/2019 PD-2244   Added "LANG=C" before "sort"
 *
 */
 
