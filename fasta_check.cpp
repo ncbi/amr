@@ -81,6 +81,7 @@ struct ThisApplication : Application
     string errorS;
     while (f. nextLine ())
     {
+      trimTrailing (f. line);
       if (f. line. empty ())
       	continue;
     	errorS = "File " + fName + ", line " + toString (f. lineNum) + ": ";

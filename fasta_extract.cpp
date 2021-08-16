@@ -114,16 +114,21 @@ void process (const string &id,
   replaceStr (seq, "-", "");
   QC_ASSERT (! seq. empty ());
   
-  for (const Segment& seg : *segments)
+  for (Segment& seg : var_cast (*segments))
   {
     cout << '>' << id;
     if (seg. isDna ())
+    {
+      QC_ASSERT (seg. start <= seq. size ());
+      minimize (seg. stop, seq. size ());
+      QC_ASSERT (seg. start < seg. stop);
       cout << ':' << seg. start + 1 << '-' << seg. stop << ' ' << "strand:" << (seg. strand ? '+' : '-');
+    }
     cout << ' ' << seg. genesymbol << ' ' << seg. name << endl;
     string seq1 (seq);
     if (seg. isDna ())
     {
-      QC_ASSERT (seg. stop <= seq1. size ());
+      ASSERT (seg. stop <= seq1. size ());
       seq1 = seq1. substr (seg. start, seg. size ());
       if (! seg. strand)
       {
@@ -148,7 +153,7 @@ struct ThisApplication : Application
       addPositional ("fasta", "FASTA file");
       addPositional ("target", "Target identifiers in the FASTA file to extract.\n\
 Line format for amino acid sequences : <id> <gene symbol> <product name>\n\
-Line format for nucleotide sequences : <id> <start (>=1)> <stop (>= start)> <strand (0/1)> <gene symbol> <gene name>\
+Line format for nucleotide sequences : <id> <start (>=1)> <stop (>= start)> <strand (+/-)> <gene symbol> <product name>\
 ");
       addFlag ("aa", "Amino acid sequenes, otherwise nucleotide");
 	    version = SVN_REV;
@@ -173,13 +178,16 @@ Line format for nucleotide sequences : <id> <start (>=1)> <stop (>= start)> <str
         iss. reset (f. line);
         Segment seg;
         iss >> id;
-        char strand;
         if (! aa)
         {
+          char strand = '\0';
           iss >> seg. start >> seg. stop >> strand;
           QC_ASSERT (seg. start);
           QC_ASSERT (seg. start <= seg. stop);
           seg. start--;
+          QC_ASSERT (   strand == '+' 
+                     || strand == '-'
+                    );
           seg. strand = (strand == '+');
         }
         iss >> seg. genesymbol;
@@ -209,6 +217,7 @@ Line format for nucleotide sequences : <id> <start (>=1)> <stop (>= start)> <str
     string seq;
     while (f. nextLine ())
     {
+      trimTrailing (f. line);
       if (f. line. empty ())
       	continue;
     	if (f. line [0] == '>')
