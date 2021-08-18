@@ -105,6 +105,24 @@ ulong seed_global = 1;
 bool sigpipe = false;
 
 
+
+// COutErr
+
+#ifndef _MSC_VER
+bool COutErr::sameFiles (int fd1, 
+                         int fd2)
+{ 
+  struct stat stat1;
+  struct stat stat2;
+  fstat (fd1, & stat1);
+  fstat (fd2, & stat2);
+  return stat1. st_ino == stat2. st_ino;
+}
+#endif
+
+const COutErr couterr;
+
+
 // thread
 size_t threads_max = 1;
 
@@ -393,6 +411,24 @@ bool goodName (const string &name)
       return false;
       
   return true;
+}
+
+
+
+string pad (const string &s,
+            size_t size,
+            bool right)
+{
+  if (s. size () >= size)
+    return s. substr (0, size);
+  
+  string sp;
+  while (sp. size () + s. size () < size)
+    sp += ' ';
+    
+  if (right)
+    return s + sp;
+  return sp + s;
 }
 
 
@@ -783,7 +819,7 @@ bool fileExists (const string &fName)
 bool directoryExists (const string &dirName)
 {
   DIR* dir = opendir (dirName. c_str ());
-  const bool yes = (bool) (dir);
+  const bool yes = (bool) dir;
   if (yes)
   {
     if (closedir (dir))
@@ -794,31 +830,17 @@ bool directoryExists (const string &dirName)
 
 
 
-void createDirectory (const string &dirName,
-                      bool createAncestors)
+void createDirectory (const string &dirName)
 {
-  const mode_t m = 0777;  
-  if (createAncestors)
-  {
-    const Dir dir (dirName);
-    Dir ancestorDir;
-    for (const string& s : dir. items)
-    {
-      ancestorDir. items << s;
-      const string ancestorPath (ancestorDir. get ());
-      if (! directoryExists (ancestorPath))
-        if (mkdir (ancestorPath. c_str (), m) != 0)
-          throw runtime_error ("Cannot create directory " + strQuote (ancestorPath));
-    }
-  }
-  else
-    if (mkdir (dirName. c_str (), m) != 0)
-      throw runtime_error ("Cannot create directory " + strQuote (dirName));
+  if (mkdir (dirName. c_str (), 0777) != 0)  // PAR
+    throw runtime_error ("Cannot create directory " + strQuote (dirName));
 }
 #endif
 
 
 
+
+// Dir
 
 Dir::Dir (const string &dirName)
 {
@@ -870,12 +892,37 @@ Dir::Dir (const string &dirName)
 
 
 
+#ifndef _MSC_VER
+size_t Dir::create ()
+{
+  if (items. empty ())
+    throw runtime_error ("Cannot create the root directory");
+
+  const string path (get ());
+
+  if (directoryExists (path))
+    return 0;
+
+  const string item (items. popBack ());
+  const size_t n = create ();
+  items << item;
+  if (mkdir (path. c_str (), 0777) != 0)  // PAR
+    throw runtime_error ("Cannot create directory " + strQuote (path));
+
+  return n + 1;
+}
+#endif
+
+
+
+
+//
 
 streamsize getFileSize (const string &fName)
 {
   ifstream f (fName, ifstream::binary);
   if (! f. good ())
-    throw runtime_error ("Cannot open file " + shellQuote (fName));
+    throw runtime_error ("Cannot open file " + shellQuote (fName) + " to check file size");
 
   const streampos start = f. tellg ();
   QC_ASSERT (start >= 0); 
@@ -1110,7 +1157,9 @@ int getVerbosity ()
 
 bool verbose (int inc)
 { 
-	return Verbose::enabled () ? (verbose_ + inc > 0) : false;
+  if (! Verbose::enabled ())
+    return false;
+	return verbose_ + inc > 0;
 }
 
 
@@ -1171,7 +1220,7 @@ void exec (const string &cmd,
 	{
 	  if (! logFName. empty ())
 	  {
-	    const StringVector vec (logFName, (size_t) 10);  // PAR
+	    const StringVector vec (logFName, (size_t) 10, false);  // PAR
 	    throw runtime_error (vec. toString ("\n"));
 	  }
 		throw runtime_error ("Command failed:\n" + cmd + "\nstatus = " + to_string (status));		
@@ -1218,7 +1267,7 @@ Threads::Threads (size_t threadsToStart_arg,
 	threads. reserve (threadsToStart);
 	
 	if (! quiet && verbose (1) && threadsToStart)
-    cerr << "# Threads started: " << threadsToStart + 1 << endl;
+    cerr << "# Threads started: " << threadsToStart + 1/*main thread*/ << endl;
 }	
 
 
@@ -1258,29 +1307,33 @@ Xml::Tag::Tag (Xml::File &f_arg,
     f. print ("\n");
     f. offset++;
     FOR (size_t, i, f. offset * File::offset_spaces)
-      f . print (" ");
+      f. print (" ");
   }
-  f. print ("<" + name + ">");
+  if (! name. empty ())
+    f. print ("<" + name + ">");
 }
 
 
 
 Xml::Tag::~Tag ()
 { 
-  if (f. printOffset && f. printBrief)
-  {
-    f. offset--;
-    return;
-  }
-  
   if (f. printOffset)
   {
-    f. print ("\n");
-    FOR (size_t, i, f. offset * File::offset_spaces)
-      f . print (" ");
-    f. offset--;
+    if (f. printBrief)
+    {
+      f. offset--;
+      return;
+    }
+    else
+    {
+      f. print ("\n");
+      FOR (size_t, i, f. offset * File::offset_spaces)
+        f . print (" ");
+      f. offset--;
+    }    
   }
-  f. print ("</" + name + ">");
+  if (! name. empty ())
+    f. print ("</" + name + ">");
   if (! f. printOffset)
     f. print ("\n");
 }
@@ -1292,15 +1345,13 @@ unique_ptr<Xml::File> cxml;
   
 
 
-
 // Root
 
 void Root::saveFile (const string &fName) const
-{
-	if (fName. empty ())
+{ 
+  if (fName. empty ())
 		return;
-  
-  OFStream f (fName);
+  OFStream f (fName);  // Declared after Root
   saveText (f);
 }
 
@@ -1325,7 +1376,8 @@ void Named::qc () const
 // StringVector
 
 StringVector::StringVector (const string &fName,
-                            size_t reserve_size)
+                            size_t reserve_size,
+                            bool trimP)
 {
 	searchSorted = true;
 	
@@ -1336,6 +1388,8 @@ StringVector::StringVector (const string &fName,
   	string prev;
     while (f. nextLine ())
     {
+      if (trimP)
+        trim (f. line);
       *this << f. line;
   	  if (f. line < prev)
   	  	searchSorted = false;
@@ -2156,21 +2210,12 @@ void TextTable::setHeader ()
       }
       if (h. numeric)
       {
-        string s (field);
-        strUpper (s);
-        const size_t ePos     = s. find ('E');
-        const size_t pointPos = s. find ('.');
-        if (ePos == string::npos)
-        {
-          if (pointPos != string::npos)
-            maximize<streamsize> (h. decimals, (streamoff) (s. size () - pointPos - 1));
-        }
-        else
-        {
+        bool hasPoint = false;
+        streamsize decimals = 0;
+        if (getDecimals (field, hasPoint, decimals))
           h. scientific = true;
-          if (pointPos != string::npos && ePos > pointPos)
-            maximize<streamsize> (h. decimals, (streamoff) (ePos - pointPos - 1));
-        }
+        maximize<streamsize> (h. decimals, decimals);
+        maximize (h. len_max, field. size () + (size_t) (h. decimals - decimals) + (! hasPoint));
       }
     }
   }
@@ -2238,12 +2283,40 @@ void TextTable::saveText (ostream &os) const
 }
 
     
+    
+bool TextTable::getDecimals (string s,
+                             bool &hasPoint,
+                             streamsize &decimals)
+{
+  strUpper (s);
+  const size_t ePos     = s. find ('E');
+  const size_t pointPos = s. find ('.');
+  
+  hasPoint = pointPos != string::npos;
+  
+  decimals = 0;
+  if (ePos == string::npos)
+  {
+    if (hasPoint)
+      decimals = (streamoff) (s. size () - (pointPos + 1));
+  }
+  else
+  {
+    if (hasPoint && ePos > pointPos)
+      decimals = (streamoff) (ePos - (pointPos + 1));
+  }
+  
+  return ePos != string::npos;
+}
+
+    
   
 void TextTable::printHeader (ostream &os) const
 {
-  for (const Header& h : header)
+  FFOR (size_t, i, header. size ())
   {
-    h. saveText (os);
+    os << i + 1 << '\t';
+    header [i]. saveText (os);
     os << endl;
   }
 }
@@ -2346,10 +2419,16 @@ void TextTable::group (const StringVector &by,
         rows [i] = move (rows [j]);
     }
   }
+  if (! rows. empty ())
+    i++;
 
   ASSERT (rows. size () >= i);
   FFOR (RowNum, k, rows. size () - i)
     rows. pop_back ();
+    
+  StringVector newColumns;
+  newColumns << by << sum << aggr;
+  filterColumns (newColumns);
 }
 
 
@@ -2745,30 +2824,40 @@ size_t Offset::size = 0;
 
 FileItemGenerator::FileItemGenerator (size_t progress_displayPeriod,
                                       bool isDir_arg,
+                                      bool large_arg,
                                       const string& fName_arg)
 : ItemGenerator (0, progress_displayPeriod)
 , isDir (isDir_arg)
+, large (large_arg)
+, dirName (fName_arg)
 , fName (fName_arg)
 { 
+  IMPLY (large, isDir);
+  
+  trimSuffix (dirName,  "/");
+
+  // fName
   if (isDir)
   { 
-    trimSuffix (fName,  "/");
-	  char lsfName [4096] = {'\0'};
   #ifdef _MSC_VER
     NOT_IMPLEMENTED;
   #else
+	  char lsfName [4096] = {'\0'};
     strcpy (lsfName, P_tmpdir);
-    strcat (lsfName, "/XXXXXX");
+    strcat (lsfName, ("/" + programName + ".XXXXXX"). c_str ());
     EXEC_ASSERT (mkstemp (lsfName) != -1);
     ASSERT (lsfName [0]);
-    const int res = system (("ls -a " + fName + " > " + lsfName). c_str ());
+    const string cmd ("ls -a " + dirName + " > " + lsfName);
+    const int res = system (cmd. c_str ());
     if (res)
-      throw runtime_error ("Command \"ls\" failed: status = " + to_string (res));
+      throw runtime_error ("Command " + strQuote (cmd) + " failed: status = " + to_string (res));
     fName = lsfName;
   #endif
   }      
+  
   f. open (fName);
   QC_ASSERT (f. good ()); 
+  
   if (isDir)
   {
     string s;
@@ -2783,12 +2872,39 @@ FileItemGenerator::FileItemGenerator (size_t progress_displayPeriod,
 
 bool FileItemGenerator::next (string &item)
 { 
+  if (! large)
+    return next_ (item);
+
+  for (;;)
+  {
+    if (! fig. get ())
+    {
+      string subDir;
+      if (! next_ (subDir))
+        return false;
+      fig. reset (new FileItemGenerator (0, true, false, dirName + "/" + subDir));
+    }
+    ASSERT (fig. get ());
+    if (fig->next (item))
+    {
+      prog (item);
+      return true;
+    }
+    fig. reset (nullptr);
+  }
+}    
+
+
+
+bool FileItemGenerator::next_ (string &item)
+{ 
   if (f. eof ())
     return false;
     
 	readLine (f, item);
   if (isDir)
-  { const size_t pos = item. rfind ('/');
+  { 
+    const size_t pos = item. rfind ('/');
   	if (pos != string::npos)
       item. erase (0, pos + 1);
   }
@@ -2797,7 +2913,6 @@ bool FileItemGenerator::next (string &item)
     return false;
 
   prog (item);
-  
 	return true;
 }    
 
@@ -2808,7 +2923,7 @@ bool FileItemGenerator::next (string &item)
 
 SoftwareVersion::SoftwareVersion (const string &fName)
 { 
-  StringVector vec (fName, (size_t) 1);
+  StringVector vec (fName, (size_t) 1, true);
   if (vec. size () != 1)
     throw runtime_error ("Cannot read software version. One line is expected in the file: " + shellQuote (fName));
   init (move (vec [0]), false);
@@ -2863,7 +2978,7 @@ bool SoftwareVersion::operator< (const SoftwareVersion &other) const
 
 DataVersion::DataVersion (const string &fName)
 { 
-  StringVector vec (fName, (size_t) 1);
+  StringVector vec (fName, (size_t) 1, true);
   if (vec. size () != 1)
     throw runtime_error ("Cannot read data version. One line is expected in the file: " + shellQuote (fName));
   init (move (vec [0]));
@@ -3542,7 +3657,7 @@ void ShellApplication::createTmp ()
   if (useTmp)
   {
     const string tmpDir (tmp);
-    tmp += "/XXXXXX";
+    tmp += "/" + programName + ".XXXXXX";
     if (mkstemp (var_cast (tmp. c_str ())) == -1)
       throw runtime_error ("Error creating a temporary file in " + tmpDir);
   	if (tmp. empty ())
@@ -3627,7 +3742,7 @@ string ShellApplication::exec2str (const string &cmd,
   ASSERT (! contains (tmpName, ' '));
   const string out (tmp + "." + tmpName);
   exec (cmd + " > " + out, logFName);
-  const StringVector vec (out, (size_t) 1);
+  const StringVector vec (out, (size_t) 1, false);
   if (vec. size () != 1)
     throw runtime_error (cmd + "\nOne line is expected");
   return vec [0];  

@@ -71,7 +71,7 @@ struct ThisApplication : Application
     const size_t chunk_min = (size_t) getFileSize (fName) / parts_max + 1;
 
     size_t part = 0;
-    OFStream* out = nullptr;
+    unique_ptr<OFStream> out;
     size_t seqSize = 0;
     LineInput f (fName); 
     while (f. nextLine ())
@@ -81,22 +81,21 @@ struct ThisApplication : Application
       	continue;
     	if (   f. line [0] == '>'
     	    && seqSize >= chunk_min
+    	    && part < parts_max
     	   )
     	{
-    	  delete out;
-    	  out = nullptr;
+    	  out. reset ();
     	  seqSize = 0;
     	}
-    	if (! out)
+    	if (! out. get ())
     	{
     	  part++;
     	  ASSERT (part <= parts_max);
-    	  out = new OFStream (dirName, toString (part), "");
+    	  out. reset (new OFStream (dirName, toString (part), ""));
     	}
    		*out << f. line << endl;
    		seqSize += f. line. size ();
 	  }
-	  delete out;
   }
 };
 

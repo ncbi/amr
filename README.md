@@ -27,11 +27,15 @@ Government disclaim all warranties, express or implied, including
 warranties of performance, merchantability or fitness for any particular
 purpose.
 
-Please cite Feldgarden, Michael, Vyacheslav Brover, Daniel H. Haft, Arjun B.
-Prasad, Douglas J. Slotta, Igor Tolstoy, Gregory H. Tyson et al. "Validating
-the AMRFinder tool and resistance gene database by using antimicrobial
-resistance genotype-phenotype correlations in a collection of isolates."
-Antimicrobial agents and chemotherapy 63, no. 11 (2019): e00483-19. 
-https://pubmed.gov/31427293 in any work or product based on this material.
-  
+In any work or product derived from this material, proper attribution of the
+authors as the source of the software or data should be made, using the
+following citation:
+
+Feldgarden M, Brover V, Gonzalez-Escalona N, Frye JG, Haendiges J, Haft DH,
+Hoffmann M, Pettengill JB, Prasad AB, Tillman GE, Tyson GH, Klimke W.
+AMRFinderPlus and the Reference Gene Catalog facilitate examination of the
+genomic links among antimicrobial resistance, stress response, and virulence.
+Sci Rep. 2021 Jun 16;11(1):12728. doi: 10.1038/s41598-021-91456-0. PMID:
+34135355; PMCID: PMC8208984.
+
 

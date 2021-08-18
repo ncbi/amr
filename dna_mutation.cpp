@@ -151,7 +151,7 @@ struct BlastnAlignment : Alignment
                 << na;
            else
              td << "POINTN"  // PD-2088
-                << targetLen
+                << targetEnd - targetStart  // was: targetLen  // PD-3796
                 << refLen
                 << refCoverage () * 100  
                 << pIdentity () * 100  

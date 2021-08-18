@@ -684,6 +684,7 @@ struct BlastAlignment : Alignment
   	        }
   	        if (   ! isMutation ()
   	            || (! seqChange. empty () && mut && ! seqChange. replacement)  // resistant mutation
+  	            || verbose ()
   	           )
   	        {
     	        if (verbose ())
@@ -1054,7 +1055,7 @@ private:
 	      //{ LESS_PART (other, *this, isMutation ()); }
 	      LESS_PART (other, *this, refExactlyMatched ());  // PD-1261, PD-1678
 	      LESS_PART (other, *this, nident);
-	      LESS_PART (*this, other, refEffectiveLen ());
+	      LESS_PART (*this, other, refEffectiveLen ());  
 	    }
 	    else
 	    { 
@@ -1234,6 +1235,7 @@ size_t getSize (const BlastAlignmentsOwn &ba)
 
 typedef  map<string/*targetName*/,VectorPtr<BlastAlignment>>  BlastAlignments;
   // first = second::targetName
+#if 0
 size_t getSize (const BlastAlignments &ba)
 {
   size_t n = 0;
@@ -1241,6 +1243,7 @@ size_t getSize (const BlastAlignments &ba)
     n += it. second. size ();
   return n;
 }
+#endif
 
 
 
@@ -1251,7 +1254,8 @@ struct Batch
   // Reference input
   map<string/*hmm*/,const Fam*> hmm2fam;
   uchar reportable_min {0};
-  StringVector suppress_prots;
+  StringVector suppress_prots;  // of accessions
+  StringVector alien_prots;  // of accessions
 
   // Target input
   BlastAlignmentsOwn blastAls;
@@ -1388,6 +1392,8 @@ struct Batch
     	  	  	replace (organism_, '_', ' ');
     	  	  	if (organism_ == organism)
     	  	  		accession2mutations [accession] << move (AmrMutation ((size_t) pos, geneMutation, classS, subclass, name));
+    	  	  	else
+    	  	  	  alien_prots << accession;
     	  	  }
     	  	  catch (const exception &e)
     	  	  {
@@ -1430,6 +1436,8 @@ struct Batch
     	  	  	    throw runtime_error ("Duplicate protein accession " + accession + " in " + susceptible_tab);
     	  	  		accession2susceptible [accession] = move (Susceptible (genesymbol, cutoff, classS, subclass, name));
     	  	    }
+    	  	  	else
+    	  	  	  alien_prots << accession;
     	  	  }
     	  	  catch (const exception &e)
     	  	  {
@@ -1440,6 +1448,7 @@ struct Batch
   	  	    PRINT (accession2susceptible. size ());
   	  	}
 	    }
+	    alien_prots. sort ();
 	  	  
   	  if (! suppress_prot_FName. empty ())
   	  {
@@ -1452,7 +1461,7 @@ struct Batch
 	  	      break;
 	  	    suppress_prots << accver;
   	    }
-  	  }
+  	  }  	  
   	  suppress_prots. sort ();
 	  }
 private:
@@ -1495,8 +1504,7 @@ private:
         ASSERT (! blastAl->targetName. empty ());
         goodBlastAls [blastAl->targetName] << blastAl;
       }
-  	if (verbose ())
-  	  cout << "# Best Blasts: " << getSize (goodBlastAls) << endl;
+    reportDebug ("Best Blasts");
   }
 
 
@@ -1554,19 +1562,17 @@ public:
     }
   #endif
 
-    // BlastAlignment::good()
+    for (auto& it : blastAls)
+      for (Iter<VectorOwn<BlastAlignment>> iter (it. second); iter. next ();)
+        if (alien_prots. containsFast ((*iter)->refAccession))
+          delete iter. erase ();
+	  reportDebug ("Non-alien Blasts");
+
     for (auto& it : blastAls)
       for (Iter<VectorOwn<BlastAlignment>> iter (it. second); iter. next ();)
         if (! (*iter)->good ())
           delete iter. erase ();
-  	if (verbose ())
-  	{
-  	  cout << "# Good Blasts: " << getSize (blastAls) << endl;
-  	  if (verbose (-1))
-        for (const auto& it : blastAls)
-      	  for (const BlastAlignment* blastAl : it. second)
-            blastAl->saveText (cout);  	      
-  	}
+ 	  reportDebug ("Good Blasts");
         
 	  // PD-2322
     for (const auto& it : blastAls)
@@ -1696,8 +1702,7 @@ public:
   	            iter. erase ();
   	          }
   	        }
-  	if (verbose ())
-  	  cout << "# Best Blasts left: " << getSize (goodBlastAls) << endl;
+    reportDebug ("Best Blasts left");
 
     for (Iter<VectorPtr<HmmAlignment>> hmmIt (goodHmmAls); hmmIt. next ();)
   	  for (const auto& it : goodBlastAls)
@@ -1795,18 +1800,35 @@ public:
       }
     }
 
-    if (verbose ())
-    {
-	    cout << endl << "After process():" << endl;
-      if (mutation_all. get ())
-  	    *mutation_all << endl << "After process():" << endl;
-   	  for (const auto& it : goodBlastAls)
-  		  for (const BlastAlignment* blastAl : it. second)
-  		  {
-  		    blastAl->saveText (cout);
-  		    cout << "# Mutations: " << blastAl->seqChanges. size () << endl;
-  		  }
-		}
+    reportDebug ("After process()");
+	}
+	
+	
+	void reportDebug (const string &header) const
+  {
+    if (! verbose ())
+      return;
+    
+    if (mutation_all. get ())
+	    *mutation_all << endl << header << ':' << endl;
+	    
+    cout << endl << header << " (blastAls):" << endl;
+ 	  for (const auto& it : blastAls)
+		  for (const BlastAlignment* blastAl : it. second)
+		  {
+		    blastAl->saveText (cout);
+		    cout << "# Mutations: " << blastAl->seqChanges. size () << endl;
+		  }
+		  
+    cout << header << " (goodBlastAls):" << endl;
+ 	  for (const auto& it : goodBlastAls)
+		  for (const BlastAlignment* blastAl : it. second)
+		  {
+		    blastAl->saveText (cout);
+		    cout << "# Mutations: " << blastAl->seqChanges. size () << endl;
+		  }
+		  
+		cout << endl;
 	}
 		
 	
@@ -2166,7 +2188,7 @@ struct ThisApplication : Application
     	      cout << f. line << endl;  
     	    if (f. line. empty () || f. line [0] == '#')
     	      continue;
-    	    auto hmmAl = new HmmAlignment (f. line, batch);
+    	    unique_ptr<HmmAlignment> hmmAl (new HmmAlignment (f. line, batch));
     	    if (! hmmAl->good ())
     	    {
     	      if (verbose ())
@@ -2174,7 +2196,6 @@ struct ThisApplication : Application
     	        cout << "  Bad HMM: " << endl;
     	        hmmAl->saveText (cout);
     	      }
-    	      delete hmmAl;
     	    	continue;
     	    }
    	      const BlastAlignment* bestBlastAl = nullptr;  // PD-3475
@@ -2192,7 +2213,7 @@ struct ThisApplication : Application
   	  	  const HmmAlignment::Domain domain = batch. domains [HmmAlignment::Pair (al->targetName, al->gene)];
   	  	  if (! domain. hmmLen)  
   	  	    continue;  // domain does not exist
-  	  	  if (! bestBlastAl)
+ 	  	    if (! bestBlastAl)
   	  	  {
     	  	/*al->refLen      = domain. hmmLen;
     	  	  al->refStart    = domain. hmmStart;
@@ -2203,9 +2224,9 @@ struct ThisApplication : Application
     	  	  al->setTargetAlign ();
     	  	//ASSERT (! al->refExactlyMatched ());
     	  	//ASSERT (! al->partial ());
-    	  }
+      	  }
   	  	  al->qc ();
-  	      batch. hmmAls << hmmAl;
+  	      batch. hmmAls << hmmAl. release ();
     	  }
     	}
     }
