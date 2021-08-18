@@ -922,7 +922,7 @@ streamsize getFileSize (const string &fName)
 {
   ifstream f (fName, ifstream::binary);
   if (! f. good ())
-    throw runtime_error ("Cannot open file " + shellQuote (fName));
+    throw runtime_error ("Cannot open file " + shellQuote (fName) + " to check file size");
 
   const streampos start = f. tellg ();
   QC_ASSERT (start >= 0); 

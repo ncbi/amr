@@ -33,6 +33,7 @@
 *               cat, cp, cut, head, ln, mv, sort, tail
 *
 * Release changes:
+*   3.10.11 08/18/2021 PD-3826  dashes in a protein FASTA file are removed with a warning (crashes with some versions of HMMer)
 *   3.10.10 08/16/2021 PD-3910  alien organism's proteins are removed from processing in amr_report.cpp (point mutations, susceptible)
 *   3.10.9  08/13/2021 PD-3888  temporary files are named "amrfinder.XXXXXX"
 *   3.10.8  07/06/2021 PD-3865  creating a directory does not break if upper-level directories are not readable
@@ -269,14 +270,30 @@ struct ThisApplication : ShellApplication
   
   
   
-  void fastaCheck (const string &fName, 
+  bool fastaCheck (const string &fName, 
                    bool prot, 
                    const string &qcS, 
                    const string &logFName, 
                    size_t &nSeq, 
                    size_t &len_max) const
+  // Input: fName: quoted
+  // Return: false <=> hyphen in protein FASTA
   {
-	  exec (fullProg ("fasta_check") + fName + "  " + (prot ? "-aa" : "-len "+ tmp + ".len") +  "  -hyphen" + qcS + "  -log " + logFName + " > " + tmp + ".nseq", logFName); 
+    try
+    {
+	    exec (fullProg ("fasta_check") + fName + "  " + (prot ? "-aa" : "-len "+ tmp + ".len") + (prot ? "" : "  -hyphen") + qcS + "  -log " + logFName + " > " + tmp + ".nseq", logFName); 
+	  }
+	  catch (...)
+	  {
+  	  if (prot)
+  	  {
+  	    LineInput f (logFName);
+  	    while (f. nextLine ())
+    	    if (contains (f. line, "hyphen in the sequence"))  // Cf. fasta_check.cpp
+    	      return false;
+    	}
+    	throw;
+	  }
   	const StringVector vec (tmp + ".nseq", (size_t) 10, true); 
   	if (vec. size () != 2)
       throw runtime_error (string (prot ? "Protein" : "DNA") + " fasta_check failed: " + vec. toString ("\n"));
@@ -284,6 +301,7 @@ struct ThisApplication : ShellApplication
     len_max = str2<size_t> (vec [1]);
     QC_ASSERT (nSeq);
     QC_ASSERT (len_max);
+    return true;
   }
 
   
@@ -772,9 +790,29 @@ struct ThisApplication : ShellApplication
     			findProg ("blastp");  			
     			findProg ("hmmsearch");
     			
+    			string prot1 (prot);  // FASTA with no hyphens in the sequences
           size_t nProt = 0;
           size_t protLen_max = 0;
-          fastaCheck (prot, true, qcS, logFName, nProt, protLen_max);
+          if (! fastaCheck (prot, true, qcS, logFName, nProt, protLen_max))
+          {
+            prot1 = shellQuote (tmp + ".prot");
+            OFStream outF (unQuote (prot1));
+            LineInput f (unQuote (prot)); 
+            while (f. nextLine ())
+            {
+              trimTrailing (f. line);
+              if (f. line. empty ())
+              	continue;
+            	if (f. line [0] != '>')
+            	  replaceStr (f. line, "-", "");
+            	outF << f. line << endl;
+            }
+            {
+        	    const Warning warning (stderr);
+        		  stderr << "The dashes in the sequences of the protein file " << prot << " are removed";
+        		}
+        		EXEC_ASSERT (fastaCheck (prot1, true, qcS, logFName, nProt, protLen_max));
+          }
     			
    			  // gff_check
     			if (! emptyArg (gff) && ! contains (parm, "-bed"))
@@ -783,7 +821,7 @@ struct ThisApplication : ShellApplication
     			  {
       			  bool locus_tagP = false;
       			  {
-        			  LineInput f (unQuote (prot));
+        			  LineInput f (unQuote (prot1));
         			  while (f. nextLine ())
         			    if (   ! f. line. empty () 
         			        && f. line [0] == '>'
@@ -806,7 +844,7 @@ struct ThisApplication : ShellApplication
     			    dnaPar = " -dna " + dna;
     			  try 
     			  {
-    			    exec (fullProg ("gff_check") + gff + " -prot " + prot + dnaPar + pgapS + locus_tag + qcS + " -log " + logFName, logFName);
+    			    exec (fullProg ("gff_check") + gff + " -prot " + prot1 + dnaPar + pgapS + locus_tag + qcS + " -log " + logFName, logFName);
     			  }
     			  catch (...)
     			  {
@@ -829,7 +867,7 @@ struct ThisApplication : ShellApplication
     			{
       			const Chronometer_OnePass cop ("blastp", cerr, false, qc_on && ! quiet);
       			// " -task blastp-fast -word_size 6  -threshold 21 "  // PD-2303
-      			exec (fullProg ("blastp") + " -query " + prot + " -db " + tmp + ".db/AMRProt" + "  " 
+      			exec (fullProg ("blastp") + " -query " + prot1 + " -db " + tmp + ".db/AMRProt" + "  " 
       			      + blastp_par + get_num_threads_param ("blastp", nProt) + " " BLAST_FMT " -out " + tmp + ".blastp > /dev/null 2> /dev/null", logFName);
       		}
     			  
@@ -840,7 +878,7 @@ struct ThisApplication : ShellApplication
       			if (threads_max > 1 && nProt > threads_max / 2)  // PAR
       			{
         		  createDirectory (tmp + ".hmm_chunk");
-        		  exec (fullProg ("fasta2parts") + prot + " " + to_string (threads_max) + " " + tmp + ".hmm_chunk" + qcS + " -log " + logFName, logFName);
+        		  exec (fullProg ("fasta2parts") + prot1 + " " + to_string (threads_max) + " " + tmp + ".hmm_chunk" + qcS + " -log " + logFName, logFName);
         		  createDirectory (tmp + ".hmmsearch_dir");
         		  createDirectory (tmp + ".dom_dir");
               Threads th (threads_max - 1, true);  
@@ -854,7 +892,7 @@ struct ThisApplication : ShellApplication
         		  hmmChunks = true;
         	  }
         	  else
-        			exec (fullProg ("hmmsearch") + " --tblout " + tmp + ".hmmsearch  --noali  --domtblout " + tmp + ".dom  --cut_tc  -Z 10000  --cpu " + to_string (threads_max - 1) + "  " + tmp + ".db/AMR.LIB" + " " + prot + " > /dev/null 2> /dev/null", logFName);
+        			exec (fullProg ("hmmsearch") + " --tblout " + tmp + ".hmmsearch  --noali  --domtblout " + tmp + ".dom  --cut_tc  -Z 10000  --cpu " + to_string (threads_max - 1) + "  " + tmp + ".db/AMR.LIB" + " " + prot1 + " > /dev/null 2> /dev/null", logFName);
         	}
   		  }
   		  else
@@ -877,7 +915,7 @@ struct ThisApplication : ShellApplication
     		{
           size_t nDna = 0;
           size_t dnaLen_max = 0;
-          fastaCheck (dna, false, qcS, logFName, nDna, dnaLen_max);
+          EXEC_ASSERT (fastaCheck (dna, false, qcS, logFName, nDna, dnaLen_max));
           const string blastx (dnaLen_max > 100000 ? "tblastn" : "blastx");  // PAR
 
     			stderr << "Running " << blastx << "...\n";
