@@ -809,7 +809,7 @@ struct ThisApplication : ShellApplication
             }
             {
         	    const Warning warning (stderr);
-        		  stderr << "The dashes in the sequences of the protein file " << prot << " are removed";
+        		  stderr << "Ignoring dash '-' characters in the sequences in the protein file " << prot;
         		}
         		EXEC_ASSERT (fastaCheck (prot1, true, qcS, logFName, nProt, protLen_max));
           }
