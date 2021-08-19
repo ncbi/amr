@@ -33,7 +33,8 @@
 *               cat, cp, cut, head, ln, mv, sort, tail
 *
 * Release changes:
-*   3.10.13 08/19/2021 PD-3918  
+*   3.10.14 08/19/2021 PD-3918  BLAST output to stderr is not checked
+*   3.10.13 08/19/2021 PD-3918  BLAST -mt_mode 1 is turned off for Mac, see SB-3163
 *   3.10.12 08/19/2021 PD-3918  BLAST output to stderr is reported as error, except for BLASTN due to SB-3162
 *   3.10.11 08/18/2021 PD-3826  dashes in a protein FASTA file are removed with a warning (crashes with some versions of HMMer)
 *   3.10.10 08/16/2021 PD-3910  alien organism's proteins are removed from processing in amr_report.cpp (point mutations, susceptible)
@@ -347,12 +348,14 @@ struct ThisApplication : ShellApplication
 
 
 
+#if 0
   void checkBlastErr (const string &errFName) const
   {
   	const StringVector blastErr (errFName, (size_t) 10, true);  // PAR
   	if (! blastErr. empty ())
 		  throw runtime_error (blastErr. toString ("\n"));
   }
+#endif
   
 
 
@@ -886,7 +889,7 @@ struct ThisApplication : ShellApplication
       			// " -task blastp-fast -word_size 6  -threshold 21 "  // PD-2303
       			exec (fullProg ("blastp") + " -query " + prot1 + " -db " + tmp + ".db/AMRProt" + "  " 
       			      + blastp_par + get_num_threads_param ("blastp", protLen_total / 10000) + " " BLAST_FMT " -out " + tmp + ".blastp > /dev/null 2> " + tmp + ".blastp-err", logFName);
-      			checkBlastErr (tmp + ".blastp-err");
+      		//checkBlastErr (tmp + ".blastp-err");
       		}
     			  
     			stderr << "Running hmmsearch...\n";
@@ -949,7 +952,7 @@ struct ThisApplication : ShellApplication
         			exec (fullProg ("blastx") + "  -query " + dna + " -db " + tmp + ".db/AMRProt" + "  "
             			  + blastx_par + " " BLAST_FMT " " + get_num_threads_param ("blastx", dnaLen_total / 10002)
             			  + " -out " + tmp + ".blastx > /dev/null 2> " + tmp + ".blastx-err", logFName);
-        			checkBlastErr (tmp + ".blastx-err");
+        		//checkBlastErr (tmp + ".blastx-err");
             }
             else
             {
@@ -975,7 +978,7 @@ struct ThisApplication : ShellApplication
           	  {
           			exec (fullProg ("tblastn") + "  -db " + tmp + ".nucl  -query " + tmp + ".db/AMRProt  "
               			  + tblastn_par + " " TBLASTN_FMT "  -out " + tmp + ".blastx > /dev/null 2> " + tmp + ".tblastn-err", logFName);
-          			checkBlastErr (tmp + ".tblastn-err");
+          		//checkBlastErr (tmp + ".tblastn-err");
               }
             }
           }
@@ -1013,7 +1016,7 @@ struct ThisApplication : ShellApplication
   	{
   	  exec ("cat " + tmp + ".tblastn_dir/* > " + tmp + ".blastx");
   	  exec ("cat " + tmp + ".tblastn_dir.err/* > " + tmp + ".tblastn-err");
- 			checkBlastErr (tmp + ".tblastn-err");
+ 		//checkBlastErr (tmp + ".tblastn-err");
   	}
 
 
