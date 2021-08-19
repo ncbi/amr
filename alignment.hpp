@@ -104,6 +104,11 @@ public:
   void apply (string &seq) const
     { if (pos >= seq. size ())
         throw runtime_error ("AmrMutation position " + to_string (pos) + " is outside the sequence: " + seq);
+      if (verbose ())
+        cerr         << seq. substr (0, pos) 
+             << endl << allele 
+             << endl << seq. substr (pos + reference. size ())
+             << endl;
       seq = seq. substr (0, pos) + allele + seq. substr (pos + reference. size ());
     }
 };

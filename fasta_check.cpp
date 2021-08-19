@@ -48,7 +48,7 @@ namespace
 struct ThisApplication : Application
 {
   ThisApplication ()
-    : Application ("Check the correctness of a FASTA file. Exit with an error if it is incorrect.")
+    : Application ("Check the correctness of a FASTA file. Exit with an error if it is incorrect. Print the number of sequences and max. sequence length")
     {
       addPositional ("in", "FASTA file");
       addFlag ("aa", "Amino acid sequenes, otherwise nucleotide");
@@ -73,72 +73,77 @@ struct ThisApplication : Application
     size_t lines = 0;
     bool first = true;
     StringVector ids;  ids. reserve (100000);  // PAR
+    size_t seqSize_max = 0;
     size_t seqSize = 0;
     size_t allSize = 0;
-    LineInput f (fName); 
     size_t nuc = 0;   
-    string id;
-    string errorS;
-    while (f. nextLine ())
     {
-      trimTrailing (f. line);
-      if (f. line. empty ())
-      	continue;
-    	errorS = "File " + fName + ", line " + toString (f. lineNum) + ": ";
-    	lines++;
-    	if (f. line [0] == '>')
-    	{
-    		size_t pos = 1;
-    		while (pos < f. line. size () && ! isspace (f. line [pos]))
-    		  pos++;
-    		id = f. line. substr (1, pos - 1);
-    		if (id. empty ())
-    			throw runtime_error (errorS + "Empty sequence identifier");
-      #if 0
-    		if (id. size () > 1000)  // PAR
-    			throw runtime_error (errorS + "Too long sequence identifier");
-      #endif
-    	  for (const char c : id)
-    	  	if (! printable (c))
-    	  		throw runtime_error (errorS + "Non-printable character in the sequence identifier: " + c);
-    	  if (! first && seqSize == 0)
-   	  		throw runtime_error (errorS + "Empty sequence");
-   	  	if (lenF. get () && ! ids. empty ())
-   	  	  *lenF << ids. back () << '\t' << seqSize << endl;
-    	  ids << id;
-    	  seqSize = 0;
-    	}
-    	else 
-    	{
-    		if (first)
-    			throw runtime_error (errorS + "FASTA should start with '>'");
-    		seqSize += f. line. size ();
-    		allSize += f. line. size ();
-    	  for (const char c : f. line)
-    	  	if (c == '-')
-    	  		if (hyphen)
-    	  			;
-    	  		else
-	    	  		throw runtime_error (errorS + "hyphen in the sequence");
-	    	  else
-	    	  {
-	    	  	const char c1 = toLower (c);
-	    	  	if (aa)
-	    	  	{
-		    	  	if (! charInSet (c1, "acdefghiklmnpqrstvwyxbzjuoacdefghiklmnpqrstvwyxbzjuo*"))
-		    	  		throw runtime_error (errorS + "Wrong amino acid character: '" + c + "'");
-		    	    if (charInSet (c1, "acgt"))
-		    	    	nuc++;
-		    	  }
-	    	  	else
-		    	  	if (! charInSet (c1, "acgtbdhkmnrsvwyacgtbdhkmnrsvwy"))
-		    	  		throw runtime_error (errorS + "Wrong nucleotide character: '" + c + "'");
-		    	}
-    	}
-    	first = false;
-	  }
+      LineInput f (fName); 
+      string id;
+      string errorS;
+      while (f. nextLine ())
+      {
+        trimTrailing (f. line);
+        if (f. line. empty ())
+        	continue;
+      	errorS = "File " + fName + ", line " + toString (f. lineNum) + ": ";
+      	lines++;
+      	if (f. line [0] == '>')
+      	{
+      		size_t pos = 1;
+      		while (pos < f. line. size () && ! isspace (f. line [pos]))
+      		  pos++;
+      		id = f. line. substr (1, pos - 1);
+      		if (id. empty ())
+      			throw runtime_error (errorS + "Empty sequence identifier");
+        #if 0
+      		if (id. size () > 1000)  // PAR
+      			throw runtime_error (errorS + "Too long sequence identifier");
+        #endif
+      	  for (const char c : id)
+      	  	if (! printable (c))
+      	  		throw runtime_error (errorS + "Non-printable character in the sequence identifier: " + c);
+      	  if (! first && seqSize == 0)
+     	  		throw runtime_error (errorS + "Empty sequence");
+     	  	if (lenF. get () && ! ids. empty ())
+     	  	  *lenF << ids. back () << '\t' << seqSize << endl;
+      	  ids << id;
+   	  	  maximize (seqSize_max, seqSize);
+      	  seqSize = 0;
+      	}
+      	else 
+      	{
+      		if (first)
+      			throw runtime_error (errorS + "FASTA should start with '>'");
+      		seqSize += f. line. size ();
+      		allSize += f. line. size ();
+      	  for (const char c : f. line)
+      	  	if (c == '-')
+      	  		if (hyphen)
+      	  			;
+      	  		else
+  	    	  		throw runtime_error (errorS + "hyphen in the sequence");
+  	    	  else
+  	    	  {
+  	    	  	const char c1 = toLower (c);
+  	    	  	if (aa)
+  	    	  	{
+  		    	  	if (! charInSet (c1, "acdefghiklmnpqrstvwyxbzjuoacdefghiklmnpqrstvwyxbzjuo*"))
+  		    	  		throw runtime_error (errorS + "Wrong amino acid character: '" + c + "'");
+  		    	    if (charInSet (c1, "acgt"))
+  		    	    	nuc++;
+  		    	  }
+  	    	  	else
+  		    	  	if (! charInSet (c1, "acgtbdhkmnrsvwyacgtbdhkmnrsvwy"))
+  		    	  		throw runtime_error (errorS + "Wrong nucleotide character: '" + c + "'");
+  		    	}
+      	}
+      	first = false;
+  	  }
+  	}
   	if (lenF. get () && ! ids. empty ())
   	  *lenF << ids. back () << '\t' << seqSize << endl;
+ 	  maximize (seqSize_max, seqSize);
 
 	  if (! lines)
 	  	throw runtime_error ("Empty file"); 
@@ -151,6 +156,9 @@ struct ThisApplication : Application
 	  const size_t index = ids. findDuplicate ();
 	  if (index != no_index)
 	  	throw runtime_error ("Duplicate identifier: " + ids [index]);
+	  	
+	  cout << ids. size () << endl
+	       << seqSize_max << endl;
   }
 };
 
