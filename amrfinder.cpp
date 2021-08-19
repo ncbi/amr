@@ -33,6 +33,7 @@
 *               cat, cp, cut, head, ln, mv, sort, tail
 *
 * Release changes:
+*   3.10.13 08/19/2021 PD-3918  
 *   3.10.12 08/19/2021 PD-3918  BLAST output to stderr is reported as error, except for BLASTN due to SB-3162
 *   3.10.11 08/18/2021 PD-3826  dashes in a protein FASTA file are removed with a warning (crashes with some versions of HMMer)
 *   3.10.10 08/16/2021 PD-3910  alien organism's proteins are removed from processing in amr_report.cpp (point mutations, susceptible)
@@ -336,8 +337,10 @@ struct ThisApplication : ShellApplication
       return string ();
     
 	  string s ("  -num_threads " + to_string (t));
+	#ifndef __APPLE__
 	  if (mt_modeP)  
 	    s += "  -mt_mode 1";
+	#endif
 	    
 	  return s;
   }
