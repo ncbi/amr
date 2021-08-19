@@ -61,6 +61,7 @@ constexpr double ident_min_def = 0.9;
 constexpr double complete_coverage_min_def = 0.9;
 constexpr double partial_coverage_min_def = 0.5;
 bool ident_min_user = false;
+bool equidistant = false;
 
 
 
@@ -246,7 +247,8 @@ private:
             LESS_PART (other, *this, score1);
           //return score2 >= other. score2;  // GP-16770
             LESS_PART (other, *this, fam->tc1);
-            LESS_PART (*this, other, fam->id);  // Tie resolution
+            if (! equidistant)
+              LESS_PART (*this, other, fam->id);  // Tie resolution
             return true;
           }
         default: ERROR;
@@ -256,7 +258,8 @@ private:
 public:
   bool better (const HmmAlignment &other,
                unsigned char criterion) const
-    { return betterEq (other, criterion) && ! other. betterEq (*this, criterion); }
+    { return             betterEq (other, criterion) 
+             && ! other. betterEq (*this, criterion); }
   bool better (const BlastAlignment &other) const;
 
 
@@ -325,7 +328,7 @@ struct Susceptible : Root
 
 
 
-map <string/*accession*/, Vector<Mutation>>  accession2mutations;
+map <string/*accession*/, Vector<AmrMutation>>  accession2mutations;
 map <string/*accession*/, Susceptible>  accession2susceptible;
 
 
@@ -413,7 +416,7 @@ struct BlastAlignment : Alignment
   		      const string geneMutation =               rfindSplit (refAccession, ':');
   		      const size_t pos          = str2<size_t> (rfindSplit (refAccession, ':'));
   		      ASSERT (refMutation. empty ());
-  		      refMutation = move (Mutation (pos, geneMutation));
+  		      refMutation = move (AmrMutation (pos, geneMutation));
   		      ASSERT (! refMutation. empty ());
   		      refMutation. qc ();
   		      refMutation2refSeq ();
@@ -473,12 +476,12 @@ struct BlastAlignment : Alignment
 		      nident++;
 		    	    
 		    if (! targetProt)
-		      cdss << move (Locus (0, targetName, targetStart, targetEnd, targetStrand, partialDna, 0));
+		      cdss << move (Locus (0, targetName, targetStart, targetEnd, targetStrand, partialDna, 0, string (), string ()));
 	
-		    if (const Vector<Mutation>* refMutations = findPtr (accession2mutations, refAccession))
+		    if (const Vector<AmrMutation>* refMutations = findPtr (accession2mutations, refAccession))
 		    {
 		    	if (verbose ())
-		        cout << "Mutation protein found: " << refAccession << endl << line << endl;
+		        cout << "AmrMutation protein found: " << refAccession << endl << line << endl;
   	      QC_ASSERT (isMutation ());  	      
   	      setSeqChanges (*refMutations, 0);
   	      if (verbose ())
@@ -589,111 +592,116 @@ struct BlastAlignment : Alignment
       for (const Locus& cds : cdss_)
 	      for (const SeqChange& seqChange : seqChanges_)
 	      {
-	        const Mutation* mut = seqChange. mutation;
           const string method (empty () ? na : getMethod (cds));
-          IMPLY (! verbose (), isMutation () == ! (seqChange. empty () && ! mut));
-	        TabDel td (2, false);
-    	    if (! input_name. empty ())
-    	      td << input_name;;
-          td << (targetProt ? nvl(targetName, na) : na);  // PD-2534
-	        if (cdsExist)
-	          td << (empty () ? na : (cds. contig. empty () ? nvl (targetName,na)  : cds. contig))
-	             << (empty () ? 0  : (cds. contig. empty () ? targetStart : cds. start) + 1)
-	             << (empty () ? 0  : (cds. contig. empty () ? targetEnd  : cds. stop))
-	             << (empty () ? na : (cds. contig. empty () ? (targetStrand ? "+" : "-") : (cds. strand ? "+" : "-")));
-	        td << (isMutation ()
-			             ? mut 
-			               ? seqChange. empty ()
-                       ? mut->wildtype ()
-			                 : mut->geneMutation
-			               : gene + "_" + seqChange. getMutationStr ()
-	                 : print_fam 
-			               ? famId
-			               : fusion2geneSymbols ()
-	              )
-	           << (isMutation ()
-	                 ? mut 
-                     ? seqChange. empty ()
-                       ? proteinName + " [WILDTYPE]"
-                       : mut->name
-                     : proteinName + " [UNKNOWN]"
-	                 : proteinName 
-	              )
-	           << (isMutation () || fusion2core () ? "core" : "plus");  // PD-2825
-          // PD-1856
-	        if (isMutation ())
-	          td << "AMR"
-	             << "POINT"
-	             << (mut ? nvl (mut->classS,   na) : na)
-	             << (mut ? nvl (mut->subclass, na) : na);
-	        else
-	          td << nvl (fusion2type (), na)  
-  	           << nvl (fusion2subtype (), na)
-  	           << nvl (fusion2class (), na)
-  	           << nvl (fusion2subclass (), na);
-	        td << method
-	           << (targetProt ? targetLen : targetAlign_aa);  
-	        if (refAccession. empty ())
-	          td << na 
-	             << na
-	             << na
-	             << na
-	             << na
-	             << na;
-	        else
-	          td << refLen
-	             << refCoverage () * 100.0  
-	             << pIdentity () * 100.0  // refIdentity
-	             << targetSeq. size ()
-	             << refAccession
-	             << product
-	             ;
-	        // PD-775
-	        if (isMutation ())
-	          td << na
-	             << na;
-	        else 
-	        {
-	          if (const HmmAlignment* hmmAl_ = fusion2hmmAl ())
-  	          td << hmmAl_->fam->hmm
-  	             << hmmAl_->fam->familyName;
+          VectorPtr<AmrMutation> mutations (seqChange. mutations);
+          if (mutations. empty ())
+            mutations << nullptr;
+          for (const AmrMutation* mut : mutations)
+          {
+            IMPLY (! verbose (), isMutation () == ! (seqChange. empty () && ! mut));
+  	        TabDel td (2, false);
+      	    if (! input_name. empty ())
+      	      td << input_name;;
+            td << (targetProt ? nvl(targetName, na) : na);  // PD-2534
+  	        if (cdsExist)
+  	          td << (empty () ? na : (cds. contig. empty () ? nvl (targetName,na)  : cds. contig))
+  	             << (empty () ? 0  : (cds. contig. empty () ? targetStart : cds. start) + 1)
+  	             << (empty () ? 0  : (cds. contig. empty () ? targetEnd  : cds. stop))
+  	             << (empty () ? na : (cds. contig. empty () ? (targetStrand ? "+" : "-") : (cds. strand ? "+" : "-")));
+  	        td << (isMutation ()
+  			             ? mut 
+  			               ? seqChange. empty ()
+                         ? mut->wildtype ()
+  			                 : mut->geneMutation
+  			               : gene + "_" + seqChange. getMutationStr ()
+  	                 : print_fam 
+  			               ? famId
+  			               : fusion2geneSymbols ()
+  	              )
+  	           << (isMutation ()
+  	                 ? mut 
+                       ? seqChange. empty ()
+                         ? proteinName + " [WILDTYPE]"
+                         : mut->name
+                       : proteinName + " [UNKNOWN]"
+  	                 : proteinName 
+  	              )
+  	           << (isMutation () || fusion2core () ? "core" : "plus");  // PD-2825
+            // PD-1856
+  	        if (isMutation ())
+  	          td << "AMR"
+  	             << "POINT"
+  	             << (mut ? nvl (mut->classS,   na) : na)
+  	             << (mut ? nvl (mut->subclass, na) : na);
   	        else
-  	        {
+  	          td << nvl (fusion2type (), na)  
+    	           << nvl (fusion2subtype (), na)
+    	           << nvl (fusion2class (), na)
+    	           << nvl (fusion2subclass (), na);
+  	        td << method
+  	           << (targetProt ? targetLen : targetAlign_aa);  
+  	        if (refAccession. empty ())
+  	          td << na 
+  	             << na
+  	             << na
+  	             << na
+  	             << na
+  	             << na;
+  	        else
+  	          td << refLen
+  	             << refCoverage () * 100.0  
+  	             << pIdentity () * 100.0  // refIdentity
+  	             << targetSeq. size ()
+  	             << refAccession
+  	             << product
+  	             ;
+  	        // PD-775
+  	        if (isMutation ())
   	          td << na
   	             << na;
-  	          ASSERT (method != "HMM");
+  	        else 
+  	        {
+  	          if (const HmmAlignment* hmmAl_ = fusion2hmmAl ())
+    	          td << hmmAl_->fam->hmm
+    	             << hmmAl_->fam->familyName;
+    	        else
+    	        {
+    	          td << na
+    	             << na;
+    	          ASSERT (method != "HMM");
+    	        }
+    	      }
+  	        if (cdsExist)
+  	        {
+  	        	IMPLY (cds. crossOrigin, useCrossOrigin);
+  	        	if (useCrossOrigin)
+  	        	{
+  		          if (cds. crossOrigin) 
+  		            td << cds. contigLen;
+  		          else 
+  		            td << na;        	
+  		        }
   	        }
+  	        if (   ! isMutation ()
+  	            || (! seqChange. empty () && mut && ! seqChange. replacement)  // resistant mutation
+  	           )
+  	        {
+    	        if (verbose ())
+    	          os         << refExactlyMatched ()  // 1
+    	             << '\t' << allele ()             // 2
+    	             << '\t' << alleleReported ()     // 3
+    	             << '\t' << targetProt            // 4
+    	             << '\t' << nident                // 5
+    	             << '\t' << refMutation           // 6
+    	             << '\t' << stopCodon             // 7
+    	             << '\t' << frameShift            // 8
+    	             << '\t' << resistance            // 9
+    	             << '\t';
+  	          os << td. str () << endl;
+  	        }
+  	        if (mutation_all. get () && isMutation ())
+  	          *mutation_all << td. str () << endl;
   	      }
-	        if (cdsExist)
-	        {
-	        	IMPLY (cds. crossOrigin, useCrossOrigin);
-	        	if (useCrossOrigin)
-	        	{
-		          if (cds. crossOrigin) 
-		            td << cds. contigLen;
-		          else 
-		            td << na;        	
-		        }
-	        }
-	        if (   ! isMutation ()
-	            || (! seqChange. empty () && mut && ! seqChange. replacement)  // resistant mutation
-	           )
-	        {
-  	        if (verbose ())
-  	          os         << refExactlyMatched ()  // 1
-  	             << '\t' << allele ()             // 2
-  	             << '\t' << alleleReported ()     // 3
-  	             << '\t' << targetProt            // 4
-  	             << '\t' << nident                // 5
-  	             << '\t' << refMutation           // 6
-  	             << '\t' << stopCodon             // 7
-  	             << '\t' << frameShift            // 8
-  	             << '\t' << resistance            // 9
-  	             << '\t';
-	          os << td. str () << endl;
-	        }
-	        if (mutation_all. get () && isMutation ())
-	          *mutation_all << td. str () << endl;
 	      }
     }
     
@@ -709,10 +717,9 @@ struct BlastAlignment : Alignment
   Set<string> getMutationSymbols () const
     { Set<string> mutationSymbols;
       for (const SeqChange& seqChange : seqChanges)
-        if (   ! seqChange. empty () 
-            && seqChange. mutation
-           )
-          mutationSymbols << seqChange. mutation->geneMutation;
+        if (! seqChange. empty ())
+          for (const AmrMutation* mutation : seqChange. mutations)
+            mutationSymbols << mutation->geneMutation;
       return mutationSymbols;
     }        
   bool allele () const
@@ -1088,8 +1095,8 @@ public:
   bool better (const BlastAlignment &other) const
     // Requires: all SCCs of betterEq() are complete subgraphs ??
     { return    betterEq (other) 
-    	       && (   ! other. betterEq (*this) 
-    	           || refAccession < other. refAccession  // Tie resolution: PD-1245
+    	       && (   ! other. betterEq (*this)
+    	           || (! equidistant && refAccession < other. refAccession)  // Tie resolution: PD-1245
     	          );
     }
   bool better (const HmmAlignment& other) const
@@ -1380,7 +1387,7 @@ struct Batch
     	  	  	QC_ASSERT (pos > 0);
     	  	  	replace (organism_, '_', ' ');
     	  	  	if (organism_ == organism)
-    	  	  		accession2mutations [accession] << move (Mutation ((size_t) pos, geneMutation, classS, subclass, name));
+    	  	  		accession2mutations [accession] << move (AmrMutation ((size_t) pos, geneMutation, classS, subclass, name));
     	  	  }
     	  	  catch (const exception &e)
     	  	  {
@@ -1733,13 +1740,13 @@ public:
   #if 0
   	// [UNKNOWN]
   	{
-    	map<Mutation, const Mutation*> mutation2ptr;
+    	map<AmrMutation, const AmrMutation*> mutation2ptr;
     	for (const auto& it : accession2mutations)
-    	  for (const Mutation& mut : it. second)
+    	  for (const AmrMutation& mut : it. second)
     	    mutation2ptr [mut] = & mut;
     	for (const BlastAlignment* al : goodBlastAls)
     	  for (const SeqChange& seqChange : al->seqChanges)
-    	    if (const Mutation* mut = seqChange. mutation)
+    	    if (const AmrMutation* mut = seqChange. mutation)
     	      mutation2ptr. erase (*mut);
     	for (const auto& it : mutation2ptr)
     	{
@@ -1988,6 +1995,7 @@ struct ThisApplication : Application
       addKey ("ident_min", "Min. identity to the reference protein (0..1). -1 means use a curated threshold if it exists and " + toString (ident_min_def) + " otherwise", "-1");
       addKey ("coverage_min", "Min. coverage of the reference protein (0..1) for partial hits", toString (partial_coverage_min_def));
       addFlag ("skip_hmm_check", "Skip checking HMM for a BLAST hit");
+      addFlag ("report_equidistant", "Report all equidistant BLAST and HMM matches");  // PD-3772
       // Output
       addKey ("out", "Identifiers of the reported input proteins");
       addFlag ("print_fam", "Print the FAM.id instead of gene symbol"); 
@@ -2029,6 +2037,7 @@ struct ThisApplication : Application
           double ident_min            = str2<double> (getArg ("ident_min"));  
     const double partial_coverage_min = str2<double> (getArg ("coverage_min"));  
     const bool   skip_hmm_check       = getFlag ("skip_hmm_check"); 
+                 equidistant          = getFlag ("report_equidistant");
     const string outFName             = getArg ("out");
                  print_fam            = getFlag ("print_fam");
                  reportPseudo         = getFlag ("pseudo");
@@ -2267,8 +2276,10 @@ struct ThisApplication : Application
     }
     
     
-    // Output
     batch. process (retainBlasts, skip_hmm_check);    
+
+
+    // Output
     batch. report (cout);
     if (! outFName. empty ())
     {

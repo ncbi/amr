@@ -47,7 +47,7 @@ static constexpr char pm_delimiter = '_';
 
 
 
-struct Mutation : Root
+struct AmrMutation : Root
 // Database
 {
 	size_t pos {0};
@@ -68,15 +68,15 @@ struct Mutation : Root
 	int ref_pos {0};
 
 	
-	Mutation (size_t pos_arg,
+	AmrMutation (size_t pos_arg,
 						const string &geneMutation_arg,
 						const string &class_arg = "X",
 						const string &subclass_arg = "X",
 						const string &name_arg = "X");
 		// Input: pos_arg: 1-based
-	Mutation () = default;
-	Mutation (Mutation &&other) = default;
-	Mutation& operator= (Mutation &&other) = default;
+	AmrMutation () = default;
+	AmrMutation (AmrMutation &&other) = default;
+	AmrMutation& operator= (AmrMutation &&other) = default;
 private:
 	static void parse (const string &geneMutation,
 	                   string &reference,
@@ -98,12 +98,12 @@ public:
     { return pos + reference. size (); }
   string wildtype () const
     { return gene + "_" + reference + to_string (ref_pos + 1) + reference; }
-  bool operator< (const Mutation &other) const;
-  bool operator== (const Mutation &other) const
+  bool operator< (const AmrMutation &other) const;
+  bool operator== (const AmrMutation &other) const
     { return geneMutation == other. geneMutation; }
   void apply (string &seq) const
     { if (pos >= seq. size ())
-        throw runtime_error ("Mutation position " + to_string (pos) + " is outside the sequence: " + seq);
+        throw runtime_error ("AmrMutation position " + to_string (pos) + " is outside the sequence: " + seq);
       seq = seq. substr (0, pos) + allele + seq. substr (pos + reference. size ());
     }
 };
@@ -137,8 +137,8 @@ struct SeqChange : Root
 	  // 0..1
 	  
 	char prev {'\0'};
-	  
-	const Mutation* mutation {nullptr};
+	VectorPtr<AmrMutation> mutations;
+	  // !nullptr
 	
 	const SeqChange* replacement {nullptr};
   
@@ -148,10 +148,10 @@ struct SeqChange : Root
     : al (al_arg)
     {}
   SeqChange (const Alignment* al_arg,
-             const Mutation* mutation_arg)
+             const AmrMutation* mutation_arg)
     : al (al_arg)
-    , mutation (checkPtr (mutation_arg))
-    {}
+  //, mutation (checkPtr (mutation_arg))
+    { mutations << checkPtr (mutation_arg); }
 #if 0
   SeqChange (const Alignment* al_arg,
              size_t targetStopPos);    
@@ -164,7 +164,8 @@ struct SeqChange : Root
          << ' ' << start_ref + 1 << ".." << stop_ref
          << ' ' << start_target + 1 
          << ' ' << neighborhoodMismatch;
-      if (mutation)
+    //if (mutation)
+      for (const AmrMutation* mutation : mutations)
       { os << ' ' ;
         mutation->saveText (os);
       }
@@ -176,7 +177,7 @@ struct SeqChange : Root
     
 private:
   bool hasMutation () const
-    { return mutation; }
+    { return ! mutations. empty () /*mutation*/; }
 public:
   string getMutationStr () const;
   size_t getStop () const
@@ -193,7 +194,7 @@ private:
   void setStartTarget ();
   void setNeighborhoodMismatch (size_t flankingLen);
 public:
-  bool matchesMutation (const Mutation& mut) const;
+  bool matchesMutation (const AmrMutation& mut) const;
 };
 
 
@@ -230,7 +231,7 @@ struct Alignment : Root
   size_t refStart {0};
   size_t refEnd {0};
   size_t refLen {0};  
-  Mutation refMutation;
+  AmrMutation refMutation;
     // !empty() => original refSeq is the result of refMutation.apply() to the original refSeq
 //int ref_offset {0};
   
@@ -254,7 +255,7 @@ protected:
     // Output: nident
   void refMutation2refSeq ();
     // Update: refSeq
-  void setSeqChanges (const Vector<Mutation> &refMutations,
+  void setSeqChanges (const Vector<AmrMutation> &refMutations,
                       size_t flankingLen/*,
                       bool allMutationsP*/);
     // Input: flankingLen: valid if > 0

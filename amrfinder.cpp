@@ -33,6 +33,10 @@
 *               cat, cp, cut, head, ln, mv, sort, tail
 *
 * Release changes:
+*   3.10.5 04/12/2021 PD-3772  --report_equidistant
+*   3.10.4 03/24/2021 PD-3761  amrfinder --help will not break if /tmp is full
+*   3.10.3 03/15/2021 PD-3749  --nucleotide_flank5_output, --nucleotide_flank5_size
+*   3.10.2 03/03/2021 PD-3729  Neighboring point mutations are reported
 *   3.10.1 02/17/2021 PD-3679  AMRProt-susceptible.tab
 *   3.9.10 02/16/2021 PD-3694  message about missing "latest/" symbolic link; amrfinder_update.cpp: createLatestLink()
 *   3.9.9  01/27/2021 PD-3674  crash for a custom database
@@ -233,10 +237,13 @@ struct ThisApplication : ShellApplication
     	  // "Element type" is a column name in the report
     	addKey ("blast_bin", "Directory for BLAST. Deafult: $BLAST_BIN", "", '\0', "BLAST_DIR");
     //addKey ("hmmer_bin" ??
+      addFlag ("report_all_equal", "Report all equally-scoring BLAST and HMM matches");  // PD-3772
       addKey ("name", "Text to be added as the first column \"name\" to all rows of the report, for example it can be an assembly name", "", '\0', "NAME");
       addKey ("output", "Write output to OUTPUT_FILE instead of STDOUT", "", 'o', "OUTPUT_FILE");
       addKey ("protein_output", "Output protein FASTA file of reported proteins", "", '\0', "PROT_FASTA_OUT");
       addKey ("nucleotide_output", "Output nucleotide FASTA file of reported nucleotide sequences", "", '\0', "NUC_FASTA_OUT");
+      addKey ("nucleotide_flank5_output", "Output nucleotide FASTA file of reported nucleotide sequences with 5' flanking sequences", "", '\0', "NUC_FLANK5_FASTA_OUT");
+      addKey ("nucleotide_flank5_size", "5' flanking sequence size for NUC_FLANK5_FASTA_OUT", "0", '\0', "NUC_FLANK5_SIZE");
       addFlag ("quiet", "Suppress messages to STDERR", 'q');
       addFlag ("gpipe_org", "NCBI internal GPipe organism names");
     	addKey ("parm", "amr_report parameters for testing: -nosame -noblast -skip_hmm_check -bed", "", '\0', "PARM");
@@ -322,7 +329,9 @@ struct ThisApplication : ShellApplication
 
 
   void prepare_fasta_extract (StringVector &&columns,
-                              const string &tmpSuf) const
+                              const string &tmpSuf,
+                              bool saveHeader) const
+  // Input: tmp + ".amr"
   {
     TextTable t (tmp + ".amr");
     t. qc ();
@@ -330,7 +339,7 @@ struct ThisApplication : ShellApplication
     t. rows. filterValue ([] (const StringVector& row) { return row [0] == "NA"; });
     t. rows. sort ();
     t. rows. uniq ();
-    t. saveHeader = false;
+    t. saveHeader = saveHeader;
     t. qc ();
     t. saveFile (tmp + "." + tmpSuf);
   }
@@ -362,11 +371,14 @@ struct ThisApplication : ShellApplication
     const string mutation_all    = shellQuote (getArg ("mutation_all"));  
   //const string type            =             getArg ("type");
           string blast_bin       =             getArg ("blast_bin");
+    const bool   equidistant     =             getFlag ("report_all_equal");
     const string input_name      = shellQuote (getArg ("name"));
     const string parm            =             getArg ("parm");  
     const string output          = shellQuote (getArg ("output"));
     const string prot_out        = shellQuote (getArg ("protein_output"));
     const string dna_out         = shellQuote (getArg ("nucleotide_output"));
+    const string dnaFlank5_out   = shellQuote (getArg ("nucleotide_flank5_output"));
+    const uint   dnaFlank5_size  =             arg2uint ("nucleotide_flank5_size");
     const bool   quiet           =             getFlag ("quiet");
     const bool   gpipe_org       =             getFlag ("gpipe_org");
     
@@ -426,7 +438,7 @@ struct ThisApplication : ShellApplication
 
 		if (! emptyArg (output))
 		  try { OFStream f (unQuote (output)); }
-		    catch (...) { throw runtime_error ("Cannot open output file " + output); }
+		    catch (...) { throw runtime_error ("Cannot create output file " + output); }
 
     
     // For timing... 
@@ -578,9 +590,15 @@ struct ThisApplication : ShellApplication
         }
       }
       if (emptyArg (prot) && ! emptyArg (prot_out))
-        throw runtime_error ("Parameter --protein must be present for --protein_out");
+        throw runtime_error ("Parameter --protein must be present for --protein_output");
       if (emptyArg (dna) && ! emptyArg (dna_out))
-        throw runtime_error ("Parameter --nucleotide must be present for --nucleotide_out");
+        throw runtime_error ("Parameter --nucleotide must be present for --nucleotide_output");
+      if (emptyArg (dna) && ! emptyArg (dnaFlank5_out))
+        throw runtime_error ("Parameter --nucleotide must be present for --nucleotide_flank5_output");
+      if (emptyArg (dnaFlank5_out) && dnaFlank5_size > 0)
+        throw runtime_error ("Parameter --nucleotide_flank5_output must be present for --nucleotide_flank5_size");
+      if (! emptyArg (dnaFlank5_out) && dnaFlank5_size == 0)
+        throw runtime_error ("Parameter --nucleotide_flank5_size must be present with a positive value for --nucleotide_flank5_output");
       ASSERT (! searchMode. empty ());
       if (emptyArg (organism))
         includes << key2shortHelp ("organism") + " option to add mutation searches and suppress common proteins";
@@ -763,7 +781,7 @@ struct ThisApplication : ShellApplication
     			}
     			
     			if (! fileExists (db + "/AMRProt.phr"))
-    				throw runtime_error ("BLAST database " + shellQuote (db + "/AMRProt") + " does not exist");
+    				throw runtime_error ("BLAST database " + shellQuote (db + "/AMRProt.phr") + " does not exist");
     			
     			const size_t prot_threads = (size_t) floor ((double) th. getAvailable () * (prot_share / total_share) / 2.0);
 
@@ -877,12 +895,13 @@ struct ThisApplication : ShellApplication
     {
       const string mutation_allS (emptyArg (mutation_all) ? "" : ("-mutation_all " + tmp + ".mutation_all"));      
       const string coreS (add_plus ? "" : " -core");
+      const string equidistantS (equidistant ? " -report_equidistant" : "");
   		exec (fullProg ("amr_report") + " -fam " + shellQuote (db + "/fam.tab") + "  " + amr_report_blastp + "  " + amr_report_blastx
         		  + "  -organism " + strQuote (organism1) 
         		  + "  -mutation "    + shellQuote (db + "/AMRProt-mutation.tab") 
         		  + "  -susceptible " + shellQuote (db + "/AMRProt-susceptible.tab") 
         		  + " " + mutation_allS + " "
-        		  + force_cds_report + " -pseudo" + coreS
+        		  + force_cds_report + " -pseudo" + coreS + equidistantS
         		  + (ident == -1 ? string () : "  -ident_min "    + toString (ident)) 
         		  + "  -coverage_min " + toString (cov)
         		  + ifS (suppress_common, " -suppress_prot " + tmp + ".suppress_prot") + pgapS
@@ -940,13 +959,29 @@ struct ThisApplication : ShellApplication
 
     if (! emptyArg (prot_out))
     {
-      prepare_fasta_extract (StringVector {"Protein identifier", "Gene symbol", "Sequence name"}, "prot_out");
+      prepare_fasta_extract (StringVector {"Protein identifier", "Gene symbol", "Sequence name"}, "prot_out", false);
       exec (fullProg ("fasta_extract") + prot + " " + tmp + ".prot_out -aa" + qcS + " -log " + logFName + " > " + prot_out, logFName);  
     }
     if (! emptyArg (dna_out))
     {
-      prepare_fasta_extract (StringVector {"Contig id", "Start", "Stop", "Strand", "Gene symbol", "Sequence name"}, "dna_out");
+      prepare_fasta_extract (StringVector {"Contig id", "Start", "Stop", "Strand", "Gene symbol", "Sequence name"}, "dna_out", false);
       exec (fullProg ("fasta_extract") + dna + " " + tmp + ".dna_out" + qcS + " -log " + logFName + " > " + dna_out, logFName);  
+    }
+    if (! emptyArg (dnaFlank5_out))
+    {
+      prepare_fasta_extract (StringVector {"Contig id", "Start", "Stop", "Strand", "Gene symbol", "Sequence name"}, "dna_out", true);
+      //                                    0            1        2       3
+      TextTable t (tmp + ".dna_out");
+      t. qc ();
+      for (StringVector& row : t. rows)
+        if (row [3] == "+")
+          row [1] = to_string (max (1, stoi (row [1]) - (int) dnaFlank5_size));
+        else
+          row [2] = to_string (stoi (row [2]) + (int) dnaFlank5_size);
+      t. saveHeader = false;
+      t. qc ();
+      t. saveFile (tmp + ".dnaFlank5_out");
+      exec (fullProg ("fasta_extract") + dna + " " + tmp + ".dnaFlank5_out" + qcS + " -log " + logFName + " > " + dnaFlank5_out, logFName);  
     }
 
 		
