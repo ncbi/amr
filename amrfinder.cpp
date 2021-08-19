@@ -33,6 +33,8 @@
 *               cat, cp, cut, head, ln, mv, sort, tail
 *
 * Release changes:
+*   3.10.13 08/19/2021 PD-3918  
+*   3.10.12 08/19/2021 PD-3918  BLAST output to stderr is reported as error, except for BLASTN due to SB-3162
 *   3.10.11 08/18/2021 PD-3826  dashes in a protein FASTA file are removed with a warning (crashes with some versions of HMMer)
 *   3.10.10 08/16/2021 PD-3910  alien organism's proteins are removed from processing in amr_report.cpp (point mutations, susceptible)
 *   3.10.9  08/13/2021 PD-3888  temporary files are named "amrfinder.XXXXXX"
@@ -275,7 +277,8 @@ struct ThisApplication : ShellApplication
                    const string &qcS, 
                    const string &logFName, 
                    size_t &nSeq, 
-                   size_t &len_max) const
+                   size_t &len_max,
+                   size_t &len_total) const
   // Input: fName: quoted
   // Return: false <=> hyphen in protein FASTA
   {
@@ -295,12 +298,14 @@ struct ThisApplication : ShellApplication
     	throw;
 	  }
   	const StringVector vec (tmp + ".nseq", (size_t) 10, true); 
-  	if (vec. size () != 2)
+  	if (vec. size () != 3)
       throw runtime_error (string (prot ? "Protein" : "DNA") + " fasta_check failed: " + vec. toString ("\n"));
-    nSeq    = str2<size_t> (vec [0]);
-    len_max = str2<size_t> (vec [1]);
+    nSeq      = str2<size_t> (vec [0]);
+    len_max   = str2<size_t> (vec [1]);
+    len_total = str2<size_t> (vec [2]);
     QC_ASSERT (nSeq);
     QC_ASSERT (len_max);
+    QC_ASSERT (len_total);
     return true;
   }
 
@@ -332,12 +337,23 @@ struct ThisApplication : ShellApplication
       return string ();
     
 	  string s ("  -num_threads " + to_string (t));
+	#ifndef __APPLE__
 	  if (mt_modeP)  
 	    s += "  -mt_mode 1";
+	#endif
 	    
 	  return s;
   }
 
+
+
+  void checkBlastErr (const string &errFName) const
+  {
+  	const StringVector blastErr (errFName, (size_t) 10, true);  // PAR
+  	if (! blastErr. empty ())
+		  throw runtime_error (blastErr. toString ("\n"));
+  }
+  
 
 
   StringVector db2organisms () const
@@ -790,10 +806,11 @@ struct ThisApplication : ShellApplication
     			findProg ("blastp");  			
     			findProg ("hmmsearch");
     			
-    			string prot1 (prot);  // FASTA with no hyphens in the sequences
+    			string prot1 (prot);  // Protein FASTA with no dashes in the sequences
           size_t nProt = 0;
           size_t protLen_max = 0;
-          if (! fastaCheck (prot, true, qcS, logFName, nProt, protLen_max))
+          size_t protLen_total = 0;
+          if (! fastaCheck (prot, true, qcS, logFName, nProt, protLen_max, protLen_total))
           {
             prot1 = shellQuote (tmp + ".prot");
             OFStream outF (unQuote (prot1));
@@ -809,9 +826,9 @@ struct ThisApplication : ShellApplication
             }
             {
         	    const Warning warning (stderr);
-        		  stderr << "Ignoring dash '-' characters in the sequences in the protein file " << prot;
+        		  stderr << "Ignoring dash '-' characters in the sequences of the protein file " << prot;
         		}
-        		EXEC_ASSERT (fastaCheck (prot1, true, qcS, logFName, nProt, protLen_max));
+        		EXEC_ASSERT (fastaCheck (prot1, true, qcS, logFName, nProt, protLen_max, protLen_total));
           }
     			
    			  // gff_check
@@ -868,7 +885,8 @@ struct ThisApplication : ShellApplication
       			const Chronometer_OnePass cop ("blastp", cerr, false, qc_on && ! quiet);
       			// " -task blastp-fast -word_size 6  -threshold 21 "  // PD-2303
       			exec (fullProg ("blastp") + " -query " + prot1 + " -db " + tmp + ".db/AMRProt" + "  " 
-      			      + blastp_par + get_num_threads_param ("blastp", nProt) + " " BLAST_FMT " -out " + tmp + ".blastp > /dev/null 2> /dev/null", logFName);
+      			      + blastp_par + get_num_threads_param ("blastp", protLen_total / 10000) + " " BLAST_FMT " -out " + tmp + ".blastp > /dev/null 2> " + tmp + ".blastp-err", logFName);
+      			checkBlastErr (tmp + ".blastp-err");
       		}
     			  
     			stderr << "Running hmmsearch...\n";
@@ -915,7 +933,8 @@ struct ThisApplication : ShellApplication
     		{
           size_t nDna = 0;
           size_t dnaLen_max = 0;
-          EXEC_ASSERT (fastaCheck (dna, false, qcS, logFName, nDna, dnaLen_max));
+          size_t dnaLen_total = 0;
+          EXEC_ASSERT (fastaCheck (dna, false, qcS, logFName, nDna, dnaLen_max, dnaLen_total));
           const string blastx (dnaLen_max > 100000 ? "tblastn" : "blastx");  // PAR
 
     			stderr << "Running " << blastx << "...\n";
@@ -926,9 +945,12 @@ struct ThisApplication : ShellApplication
         		const string blastx_par (tblastn_par + "  -query_gencode " + to_string (gencode));
       			ASSERT (threads_max >= 1);
       			if (blastx == "blastx")
+      			{
         			exec (fullProg ("blastx") + "  -query " + dna + " -db " + tmp + ".db/AMRProt" + "  "
-            			  + blastx_par + " " BLAST_FMT " " + get_num_threads_param ("blastx", nDna)
-            			  + " -out " + tmp + ".blastx > /dev/null 2> /dev/null", logFName);
+            			  + blastx_par + " " BLAST_FMT " " + get_num_threads_param ("blastx", dnaLen_total / 10002)
+            			  + " -out " + tmp + ".blastx > /dev/null 2> " + tmp + ".blastx-err", logFName);
+        			checkBlastErr (tmp + ".blastx-err");
+            }
             else
             {
               ASSERT (blastx == "tblastn");
@@ -940,17 +962,21 @@ struct ThisApplication : ShellApplication
           		  createDirectory (tmp + ".AMRProt_chunk");
           		  exec (fullProg ("fasta2parts") + tmp + ".db/AMRProt " + to_string (threads_max) + " " + tmp + ".AMRProt_chunk" + qcS + " -log " + logFName, logFName);
           		  createDirectory (tmp + ".tblastn_dir");
+          		  createDirectory (tmp + ".tblastn_dir.err");
                 Threads th (threads_max - 1, true);  
           		  FileItemGenerator fig (false, true, false, tmp + ".AMRProt_chunk");
           		  string item;
           		  while (fig. next (item))
             			th. exec (fullProg ("tblastn") + "  -db " + tmp + ".nucl  -query " + tmp + ".AMRProt_chunk/" + item + "  "
-              			        + tblastn_par + " " TBLASTN_FMT "  -out " + tmp + ".tblastn_dir/" + item + " > /dev/null 2> /dev/null");
+              			        + tblastn_par + " " TBLASTN_FMT "  -out " + tmp + ".tblastn_dir/" + item + " > /dev/null 2> " + tmp + ".tblastn_dir.err/" + item);
           		  tblastnChunks = true;
           	  }
           	  else
+          	  {
           			exec (fullProg ("tblastn") + "  -db " + tmp + ".nucl  -query " + tmp + ".db/AMRProt  "
-              			  + tblastn_par + " " TBLASTN_FMT "  -out " + tmp + ".blastx > /dev/null 2> /dev/null", logFName);
+              			  + tblastn_par + " " TBLASTN_FMT "  -out " + tmp + ".blastx > /dev/null 2> " + tmp + ".tblastn-err", logFName);
+          			checkBlastErr (tmp + ".tblastn-err");
+              }
             }
           }
 
@@ -961,7 +987,8 @@ struct ThisApplication : ShellApplication
       			stderr << "Running blastn...\n";
        			const Chronometer_OnePass cop ("blastn", cerr, false, qc_on && ! quiet);
       			exec (fullProg ("blastn") + " -query " + dna + " -db " + tmp + ".db/AMR_DNA-" + organism1 + " -evalue 1e-20  -dust no  " 
-      			      + get_num_threads_param ("blastn", nDna) + " " BLAST_FMT " -out " + tmp + ".blastn > " + logFName + " 2> " + logFName, logFName);
+      			      + get_num_threads_param ("blastn", dnaLen_total / 2500000) + " " BLAST_FMT " -out " + tmp + ".blastn > " + logFName + " 2> " + tmp + ".blastn-err", logFName);
+      		//checkBlastErr (tmp + ".blastn-err");  // SB-3162 ??
       		}
     		}
     		else
@@ -983,7 +1010,11 @@ struct ThisApplication : ShellApplication
   	}
 
   	if (tblastnChunks)
+  	{
   	  exec ("cat " + tmp + ".tblastn_dir/* > " + tmp + ".blastx");
+  	  exec ("cat " + tmp + ".tblastn_dir.err/* > " + tmp + ".tblastn-err");
+ 			checkBlastErr (tmp + ".tblastn-err");
+  	}
 
 
   	if (suppress_common)
