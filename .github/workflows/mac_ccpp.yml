@@ -1,0 +1,38 @@
+name: C++ CI
+
+on: 
+    workflow_dispatch:
+    push:
+    repository_dispatch:
+        types: [mac-compile-test, install-test]
+jobs:
+  build:
+
+    runs-on: macos-latest
+    
+    steps:
+    - uses: actions/checkout@v1
+    - name: prerequisites
+      run: |
+          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
+          brew install blast
+          brew install hmmer
+    - name: make
+      run: make
+    - name: version
+      run: |
+          cat version.txt
+          ./amrfinder --version
+    - name: download db
+      run: ./amrfinder -u
+    - name: make test
+      run: make test
+    - name: test for no-overwrite database update (PD-3469 / https://github.com/ncbi/amr/issues/16)
+      run: ./amrfinder -u 2>&1 | fgrep 'Skipping update, use amrfinder --force_update to overwrite the existing database'
+    - name: make github_binaries
+      run: make github_binaries
+    - uses: actions/upload-artifact@v2
+      with:
+          name: release-binary
+          path: amrfinder_osx_binaries_v*.tar.gz
+
