@@ -870,7 +870,7 @@ struct ThisApplication : ShellApplication
       			// " -task blastp-fast -word_size 6  -threshold 21 "  // PD-2303
       			const size_t nProt1 = 
           #ifdef __APPLE__
-              nProt1 = protSize / 10000 + 1  // PD-3918
+              protSize / 10000 + 1  // PD-3918
           #else
       			  nProt  
     			#endif
