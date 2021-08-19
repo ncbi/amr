@@ -33,7 +33,7 @@
 *               cat, cp, cut, head, ln, mv, sort, tail
 *
 * Release changes:
-*   3.10.12 08/19/2021 PD-3918  "blastp -mt_mode 1" on Mac requires >= 10000 aa per thread
+*   3.10.12 08/19/2021 PD-3918  BLAST output to stderr is reported as error, except for BLASTN due to SB-3162
 *   3.10.11 08/18/2021 PD-3826  dashes in a protein FASTA file are removed with a warning (crashes with some versions of HMMer)
 *   3.10.10 08/16/2021 PD-3910  alien organism's proteins are removed from processing in amr_report.cpp (point mutations, susceptible)
 *   3.10.9  08/13/2021 PD-3888  temporary files are named "amrfinder.XXXXXX"
@@ -342,6 +342,15 @@ struct ThisApplication : ShellApplication
 	  return s;
   }
 
+
+
+  void checkBlastErr (const string &errFName) const
+  {
+  	const StringVector blastErr (errFName, (size_t) 10, true);  // PAR
+  	if (! blastErr. empty ())
+		  throw runtime_error (blastErr. toString ("\n"));
+  }
+  
 
 
   StringVector db2organisms () const
@@ -872,12 +881,9 @@ struct ThisApplication : ShellApplication
     			{
       			const Chronometer_OnePass cop ("blastp", cerr, false, qc_on && ! quiet);
       			// " -task blastp-fast -word_size 6  -threshold 21 "  // PD-2303
-      			const size_t nProt1 = protLen_total / 10000;  // PD-3918, SB-3162
       			exec (fullProg ("blastp") + " -query " + prot1 + " -db " + tmp + ".db/AMRProt" + "  " 
-      			      + blastp_par + get_num_threads_param ("blastp", nProt1) + " " BLAST_FMT " -out " + tmp + ".blastp > /dev/null 2> " + tmp + ".blastp-err", logFName);
-          	const StringVector blastpErr (tmp + ".blastp-err", (size_t) 10, true);  // PAR
-          	if (! blastpErr. empty ())
-      			  throw runtime_error (blastpErr. toString ("\n"));
+      			      + blastp_par + get_num_threads_param ("blastp", protLen_total / 10000) + " " BLAST_FMT " -out " + tmp + ".blastp > /dev/null 2> " + tmp + ".blastp-err", logFName);
+      			checkBlastErr (tmp + ".blastp-err");
       		}
     			  
     			stderr << "Running hmmsearch...\n";
@@ -936,9 +942,12 @@ struct ThisApplication : ShellApplication
         		const string blastx_par (tblastn_par + "  -query_gencode " + to_string (gencode));
       			ASSERT (threads_max >= 1);
       			if (blastx == "blastx")
+      			{
         			exec (fullProg ("blastx") + "  -query " + dna + " -db " + tmp + ".db/AMRProt" + "  "
-            			  + blastx_par + " " BLAST_FMT " " + get_num_threads_param ("blastx", nDna)
+            			  + blastx_par + " " BLAST_FMT " " + get_num_threads_param ("blastx", dnaLen_total / 10002)
             			  + " -out " + tmp + ".blastx > /dev/null 2> " + tmp + ".blastx-err", logFName);
+        			checkBlastErr (tmp + ".blastx-err");
+            }
             else
             {
               ASSERT (blastx == "tblastn");
@@ -960,8 +969,11 @@ struct ThisApplication : ShellApplication
           		  tblastnChunks = true;
           	  }
           	  else
+          	  {
           			exec (fullProg ("tblastn") + "  -db " + tmp + ".nucl  -query " + tmp + ".db/AMRProt  "
-              			  + tblastn_par + " " TBLASTN_FMT "  -out " + tmp + ".blastx > /dev/null 2> " + tmp + ".blastx-err", logFName);
+              			  + tblastn_par + " " TBLASTN_FMT "  -out " + tmp + ".blastx > /dev/null 2> " + tmp + ".tblastn-err", logFName);
+          			checkBlastErr (tmp + ".tblastn-err");
+              }
             }
           }
 
@@ -972,7 +984,8 @@ struct ThisApplication : ShellApplication
       			stderr << "Running blastn...\n";
        			const Chronometer_OnePass cop ("blastn", cerr, false, qc_on && ! quiet);
       			exec (fullProg ("blastn") + " -query " + dna + " -db " + tmp + ".db/AMR_DNA-" + organism1 + " -evalue 1e-20  -dust no  " 
-      			      + get_num_threads_param ("blastn", nDna) + " " BLAST_FMT " -out " + tmp + ".blastn > " + logFName + " 2> " + tmp + ".blastn-err", logFName);
+      			      + get_num_threads_param ("blastn", dnaLen_total / 2500000) + " " BLAST_FMT " -out " + tmp + ".blastn > " + logFName + " 2> " + tmp + ".blastn-err", logFName);
+      		//checkBlastErr (tmp + ".blastn-err");  // SB-3162 ??
       		}
     		}
     		else
@@ -994,7 +1007,11 @@ struct ThisApplication : ShellApplication
   	}
 
   	if (tblastnChunks)
+  	{
   	  exec ("cat " + tmp + ".tblastn_dir/* > " + tmp + ".blastx");
+  	  exec ("cat " + tmp + ".tblastn_dir.err/* > " + tmp + ".tblastn-err");
+ 			checkBlastErr (tmp + ".tblastn-err");
+  	}
 
 
   	if (suppress_common)
