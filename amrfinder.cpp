@@ -33,6 +33,7 @@
 *               cat, cp, cut, head, ln, mv, sort, tail
 *
 * Release changes:
+*   3.10.12 08/19/2021 PD-3918  "blastp -mt_mode 1" on Mac requires >= 10000 aa per thread
 *   3.10.11 08/18/2021 PD-3826  dashes in a protein FASTA file are removed with a warning (crashes with some versions of HMMer)
 *   3.10.10 08/16/2021 PD-3910  alien organism's proteins are removed from processing in amr_report.cpp (point mutations, susceptible)
 *   3.10.9  08/13/2021 PD-3888  temporary files are named "amrfinder.XXXXXX"
@@ -785,12 +786,12 @@ struct ThisApplication : ShellApplication
   		if (! emptyArg (prot))
   		{
   			string gff_match;
-  			if (getFileSize (unQuote (prot)))
+  			if (const streamsize protSize = getFileSize (unQuote (prot)))
   			{
     			findProg ("blastp");  			
     			findProg ("hmmsearch");
     			
-    			string prot1 (prot);  // FASTA with no hyphens in the sequences
+    			string prot1 (prot);  // Protein FASTA with no dashes in the sequences
           size_t nProt = 0;
           size_t protLen_max = 0;
           if (! fastaCheck (prot, true, qcS, logFName, nProt, protLen_max))
@@ -809,7 +810,7 @@ struct ThisApplication : ShellApplication
             }
             {
         	    const Warning warning (stderr);
-        		  stderr << "Ignoring dash '-' characters in the sequences in the protein file " << prot;
+        		  stderr << "Ignoring dash '-' characters in the sequences of the protein file " << prot;
         		}
         		EXEC_ASSERT (fastaCheck (prot1, true, qcS, logFName, nProt, protLen_max));
           }
@@ -867,8 +868,15 @@ struct ThisApplication : ShellApplication
     			{
       			const Chronometer_OnePass cop ("blastp", cerr, false, qc_on && ! quiet);
       			// " -task blastp-fast -word_size 6  -threshold 21 "  // PD-2303
+      			const size_t nProt1 = 
+          #ifdef __APPLE__
+              nProt1 = protSize / 10000 + 1  // PD-3918
+          #else
+      			  nProt  
+    			#endif
+    			    ;
       			exec (fullProg ("blastp") + " -query " + prot1 + " -db " + tmp + ".db/AMRProt" + "  " 
-      			      + blastp_par + get_num_threads_param ("blastp", nProt) + " " BLAST_FMT " -out " + tmp + ".blastp > /dev/null 2> /dev/null", logFName);
+      			      + blastp_par + get_num_threads_param ("blastp", nProt1) + " " BLAST_FMT " -out " + tmp + ".blastp > /dev/null 2> /dev/null", logFName);
       		}
     			  
     			stderr << "Running hmmsearch...\n";
