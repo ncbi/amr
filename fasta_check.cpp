@@ -48,7 +48,7 @@ namespace
 struct ThisApplication : Application
 {
   ThisApplication ()
-    : Application ("Check the correctness of a FASTA file. Exit with an error if it is incorrect. Print the number of sequences and max. sequence length")
+    : Application ("Check the correctness of a FASTA file. Exit with an error if it is incorrect. Print the number of sequences, max. sequence length and total sequence length")
     {
       addPositional ("in", "FASTA file");
       addFlag ("aa", "Amino acid sequenes, otherwise nucleotide");
@@ -158,7 +158,8 @@ struct ThisApplication : Application
 	  	throw runtime_error ("Duplicate identifier: " + ids [index]);
 	  	
 	  cout << ids. size () << endl
-	       << seqSize_max << endl;
+	       << seqSize_max << endl
+	       << allSize << endl;
   }
 };
 
