@@ -30,9 +30,12 @@ jobs:
     - name: test for no-overwrite database update (PD-3469 / https://github.com/ncbi/amr/issues/16)
       run: ./amrfinder -u 2>&1 | fgrep 'Skipping update, use amrfinder --force_update to overwrite the existing database'
     - name: make github_binaries
-      run: make github_binaries
+      run: |
+          make github_binaries
+          version=`cat version.txt`
+          mv amrfinder_binaries_v{$version}.tar.gz amrfinder_binaries_osx_v{$version}.txt
     - uses: actions/upload-artifact@v2
       with:
           name: release-binary
-          path: amrfinder_osx_binaries_v*.tar.gz
+          path: amrfinder_binaries_osx_v*.tar.gz
 
