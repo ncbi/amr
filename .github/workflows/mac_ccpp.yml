@@ -33,7 +33,7 @@ jobs:
       run: |
           make github_binaries
           version=`cat version.txt`
-          mv amrfinder_binaries_v${version}.tar.gz amrfinder_binaries_osx_v${version}.txt
+          mv amrfinder_binaries_v$version.tar.gz amrfinder_binaries_osx_v$version.txt
     - uses: actions/upload-artifact@v2
       with:
           name: release-binary
