@@ -13,14 +13,13 @@ jobs:
     - uses: actions/checkout@v1
     - name: download conda
       run: curl -O https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh
-    - name: install conda
+    - name: configure conda
       run: |
-          bash ./Miniconda3-latest-MacOSX-x86_64.sh -b -p /Users/runner/miniconda3
-          source /Users/runner/miniconda3/bin/activate
-          conda init
+          . $CONDA/bin/activate
           conda config --add channels defaults
           conda config --add channels bioconda
           conda config --add channels conda-forge
+          conda update conda
     - name: install AMRFinderPlus
       run: |
           source /Users/runner/miniconda3/bin/activate
