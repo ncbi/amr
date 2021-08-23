@@ -18,10 +18,16 @@ jobs:
           python-version: 3.8
     - name: configure conda
       run: |
-        # $CONDA is an environment variable pointing to the root of the miniconda directory
-        $CONDA/bin/conda env update --file environment.yml --name base
+          . $CONDA/bin/activate
+          conda config --add channels defaults
+          conda config --add channels bioconda
+          conda config --add channels conda-forge
+          conda update conda
+          conda search -f ncbi-amrfinderplus
     - name: install AMRFinderPlus
-      run: conda install -c bioconda -y ncbi-amrfinderplus
+      run: |
+          conda install -c bioconda -y ncbi-amrfinderplus
+          conda update --all
     - name: version?
       run: |
           source /usr/share/miniconda/bin/activate
