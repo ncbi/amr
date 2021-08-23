@@ -23,11 +23,10 @@ jobs:
           conda config --add channels bioconda
           conda config --add channels conda-forge
           conda update conda
-          conda search -f ncbi-amrfinderplus
+          # conda search -f ncbi-amrfinderplus
     - name: install AMRFinderPlus
       run: |
           conda install -c bioconda -y ncbi-amrfinderplus
-          conda update --all
     - name: version?
       run: |
           source /usr/share/miniconda/bin/activate
