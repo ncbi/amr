@@ -22,7 +22,7 @@ jobs:
           conda config --add channels defaults
           conda config --add channels bioconda
           conda config --add channels conda-forge
-          conda update --prefix $CONDA
+          conda update --prefix $CONDA anaconda
     - name: install AMRFinderPlus
       run: conda install -c bioconda -y ncbi-amrfinderplus
     - name: version?
