@@ -8,7 +8,6 @@ on:
         types: [mac-bioconda-test, install-test]
 jobs:
   build:
-
     runs-on: macos-latest
     steps:
     - uses: actions/checkout@v2
@@ -18,7 +17,7 @@ jobs:
           bash ./Miniconda3-latest-MacOSX-x86_64.sh -b -p /Users/runner/miniconda3
     - name: Configure conda
       run: |
-          source /home/runner/miniconda3/bin/activate
+          source /Users/runner/miniconda3/bin/activate
           conda init
           # THIS DOESN"T WORK! Just install miniconda myself
           # . $CONDA/bin/activate
