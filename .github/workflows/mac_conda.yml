@@ -17,6 +17,7 @@ jobs:
           curl -O https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
           bash ./Miniconda3-latest-Linux-x86_64.sh -b -p /home/runner/miniconda3
     - name: Configure conda
+      run: |
           source /home/runner/miniconda3/bin/activate
           # THIS DOESN"T WORK! Just install miniconda myself
           # . $CONDA/bin/activate
