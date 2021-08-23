@@ -1,6 +1,5 @@
 name: Mac bioconda
 on:
-    push:
     workflow_dispatch:
     schedule:
         - cron: '30 3 * * *' # 3:30am everyday
