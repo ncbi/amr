@@ -11,17 +11,18 @@ jobs:
 
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v2
+    - name: setup python
+      uses: actions/setup-python@v2
+      with:
+          python-version: 3.8
     - name: prerequisites
       run: |
-          sudo apt-get update
-          sudo apt-get install -y git build-essential curl
-    - name: download conda
-      run: curl -O https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
-    - name: install conda
+          # $CONDA is an environment variable pointing to the root of the miniconda directory
+          $CONDA/bin/conda env update --name base
+    - name: configure conda
       run: |
-          bash ./Miniconda3-latest-Linux-x86_64.sh -b -p /home/runner/miniconda3
-          source /home/runner/miniconda3/bin/activate
+          . $CONDA/bin/activate
           conda config --add channels defaults
           conda config --add channels bioconda
           conda config --add channels conda-forge
