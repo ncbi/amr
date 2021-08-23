@@ -19,7 +19,8 @@ jobs:
           conda config --add channels bioconda
           conda config --add channels conda-forge
           # permissions are messed up on the mac runner
-          sudo chown -R 501:20 $CONDA/pkgs
+          # Is this faster than installing miniconda myself?
+          sudo chown -R 501:20 $CONDA
           conda update conda
     - name: install AMRFinderPlus
       run: |
