@@ -19,7 +19,7 @@ jobs:
           conda config --add channels bioconda
           conda config --add channels conda-forge
           # permissions are messed up on the mac runner
-          sudo chown -R 501:20 $CONDA/pkgs/cache
+          sudo chown -R 501:20 $CONDA/pkgs
           conda update conda
     - name: install AMRFinderPlus
       run: |
