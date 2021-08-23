@@ -1,5 +1,6 @@
 name: Mac bioconda
 on:
+    push:
     workflow_dispatch:
     schedule:
         - cron: '30 3 * * *' # 3:30am everyday
@@ -17,6 +18,8 @@ jobs:
           conda config --add channels defaults
           conda config --add channels bioconda
           conda config --add channels conda-forge
+          # permissions are messed up on the mac runner
+          sudo chown -R 501:20 $CONDA/pkgs/cache
           conda update conda
     - name: install AMRFinderPlus
       run: |
