@@ -32,7 +32,7 @@ jobs:
           ./test_amrfinder.sh path
         name: Run tests
         env: 
-          GITHUB_REF: ${{GITHUB_REF}}
+          GIT_BRANCH: master
           GITHUB_REPOSITORY: ${{GITHUB_REPOSITORY}}
 
 
