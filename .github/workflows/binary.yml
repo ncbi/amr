@@ -23,5 +23,5 @@ jobs:
               # temporarily we need to download the test script. Can remove
               # once we have a new software release and it's included in the
               # distribution
-              curl -L -O https://https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/master/test_amrfinder.sh
-              bash test_amrfinder.sh
+              curl --silent -L -O https://https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/master/test_amrfinder.sh
+              bash -x test_amrfinder.sh
