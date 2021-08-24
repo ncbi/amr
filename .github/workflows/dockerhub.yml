@@ -16,8 +16,10 @@ jobs:
           echo "GITHUB_SHA=${GITHUB_SHA}"
           amrfinder --version
           apt-get install curl
-          BASE_URL="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${GITHUB_SHA}/"
-          echo "${BASE_URL}"
+          # For docker always read off of master branch
+          #BASE_URL="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${GITHUB_SHA}/"
+          BASE_URL="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/master/"
+          echo "BASE_URL=${BASE_URL}"
           curl --silent -L \
              -O ${BASE_URL}/test_dna.fa \
              -O ${BASE_URL}/test_prot.fa \
@@ -27,9 +29,7 @@ jobs:
              -O ${BASE_URL}/test_dna_mut_all.expected \
              -O ${BASE_URL}/test_prot.expected \
              -O ${BASE_URL}/test_amrfinder.sh
-          cat test_amrfinder.sh
-          chmod u+x test_amrfinder.sh
-          bash -x ./test_amrfinder.sh path
+          bash ./test_amrfinder.sh path
         name: Run tests
         env: 
           GIT_BRANCH: master
