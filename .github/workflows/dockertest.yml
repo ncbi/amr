@@ -2,13 +2,6 @@ name: docker test 2
 on:
     workflow_dispatch:
 jobs:
-  vm:
-    runs-on: ubuntu-latest
-    steps:
-      - run: |
-          echo This job does not specify a container.
-          echo It runs directly on the virtual machine.
-        name: Run on VM
   container:
     runs-on: ubuntu-latest
     container: ncbi/amr:latest
