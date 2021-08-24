@@ -13,6 +13,8 @@ jobs:
       - run: |
           echo This job does specify a container.
           echo It runs in the container instead of the VM.
+          echo "GITHUB_REF=$GITHUB_REF"
+          echo "GITHUB_REPOSTIORY=$GITHUB_REPOSITORY"
           amrfinder --version
           apt-get install curl
           GIT_BRANCH=master
