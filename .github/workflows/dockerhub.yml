@@ -18,14 +18,15 @@ jobs:
           apt-get install curl
           BASE_URL="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${GITHUB_SHA}/"
           curl --silent \
-             -O $BASE_URL/test_dna.fa \
-             -O $BASE_URL/test_prot.fa \
-             -O $BASE_URL/test_prot.gff \
-             -O $BASE_URL/test_both.expected \
-             -O $BASE_URL/test_dna.expected \
-             -O $BASE_URL/test_dna_mut_all.expected \
-             -O $BASE_URL/test_prot.expected \
-             -O $BASE_URL/test_amrfinder.sh
+             -O ${BASE_URL}/test_dna.fa \
+             -O ${BASE_URL}/test_prot.fa \
+             -O ${BASE_URL}/test_prot.gff \
+             -O ${BASE_URL}/test_both.expected \
+             -O ${BASE_URL}/test_dna.expected \
+             -O ${BASE_URL}/test_dna_mut_all.expected \
+             -O ${BASE_URL}/test_prot.expected \
+             -O ${BASE_URL}/test_amrfinder.sh
+          cat test_amrfinder.sh
           chmod u+x test_amrfinder.sh
           bash -x ./test_amrfinder.sh path
         name: Run tests
