@@ -32,7 +32,7 @@ jobs:
           /usr/share/miniconda/bin/amrfinder --force_update
     - name: download tests
       run: |
-          BASE_URL=https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/master"
+          BASE_URL=https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/master
           curl --silent -L \
              -O ${BASE_URL}/test_dna.fa \
              -O ${BASE_URL}/test_prot.fa \
