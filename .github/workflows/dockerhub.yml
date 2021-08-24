@@ -11,24 +11,21 @@ jobs:
     container: ncbi/amr:latest
     steps:
       - run: |
-          echo This job does specify a container.
-          echo It runs in the container instead of the VM.
           echo "GITHUB_REF=${GITHUB_REF}"
           echo "GITHUB_REPOSTIORY=${GITHUB_REPOSITORY}"
           echo "GITHUB_SHA=${GITHUB_SHA}"
           amrfinder --version
           apt-get install curl
-          GIT_BRANCH=master
+          BASE_URL="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${GITHUB_SHA}/"
           curl --silent \
-             -O https://raw.githubusercontent.com/evolarjun/amr/$GIT_BRANCH/test_dna.fa \
-             -O https://raw.githubusercontent.com/evolarjun/amr/$GIT_BRANCH/test_prot.fa \
-             -O https://raw.githubusercontent.com/evolarjun/amr/$GIT_BRANCH/test_prot.gff \
-             -O https://raw.githubusercontent.com/evolarjun/amr/$GIT_BRANCH/test_both.expected \
-             -O https://raw.githubusercontent.com/evolarjun/amr/$GIT_BRANCH/test_dna.expected \
-             -O https://raw.githubusercontent.com/evolarjun/amr/$GIT_BRANCH/test_dna_mut_all.expected \
-             -O https://raw.githubusercontent.com/evolarjun/amr/$GIT_BRANCH/test_prot.expected \
-             -O https://raw.githubusercontent.com/evolarjun/amr/$GIT_BRANCH/test_amrfinder.sh
-          curl https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${GITHUB_SHA}/test_dna.expected
+             -O $BASE_URL/test_dna.fa \
+             -O $BASE_URL/test_prot.fa \
+             -O $BASE_URL/test_prot.gff \
+             -O $BASE_URL/test_both.expected \
+             -O $BASE_URL/test_dna.expected \
+             -O $BASE_URL/test_dna_mut_all.expected \
+             -O $BASE_URL/test_prot.expected \
+             -O $BASE_URL/test_amrfinder.sh
           chmod u+x test_amrfinder.sh
           ./test_amrfinder.sh path
         name: Run tests
