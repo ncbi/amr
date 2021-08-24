@@ -1,7 +1,6 @@
 name: dockerhub test
 
 on: 
-    push:
     workflow_dispatch:
     repository_dispatch:
         types: [docker-test, install-test]
