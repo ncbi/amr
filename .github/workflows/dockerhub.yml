@@ -14,7 +14,7 @@ jobs:
           echo This job does specify a container.
           echo It runs in the container instead of the VM.
           amrfinder --version
-          ls -al
+          apt-get install curl
           curl --silent \
              -O https://raw.githubusercontent.com/ncbi/amr/$GIT_BRANCH/test_dna.fa \
              -O https://raw.githubusercontent.com/ncbi/amr/$GIT_BRANCH/test_prot.fa \
@@ -22,7 +22,6 @@ jobs:
              -O https://raw.githubusercontent.com/ncbi/amr/$GIT_BRANCH/test_both.expected \
              -O https://raw.githubusercontent.com/ncbi/amr/$GIT_BRANCH/test_dna.expected \
              -O https://raw.githubusercontent.com/ncbi/amr/$GIT_BRANCH/test_prot.expected
-          ls -al
           amrfinder -p test_prot.fa
         name: Run in container
 
