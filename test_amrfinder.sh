@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash -x
 
 if [ "$1" == "path" ]
 then
