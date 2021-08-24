@@ -15,6 +15,7 @@ jobs:
           echo It runs in the container instead of the VM.
           amrfinder --version
           apt-get install curl
+          GIT_BRANCH=master
           curl --silent \
              -O https://raw.githubusercontent.com/ncbi/amr/$GIT_BRANCH/test_dna.fa \
              -O https://raw.githubusercontent.com/ncbi/amr/$GIT_BRANCH/test_prot.fa \
