@@ -1,6 +1,7 @@
 name: dockerhub test
 
 on: 
+    push:
     workflow_dispatch:
     repository_dispatch:
         types: [docker-test, install-test]
@@ -17,13 +18,14 @@ jobs:
                 -O https://raw.githubusercontent.com/ncbi/amr/$GIT_BRANCH/test_both.expected \
                 -O https://raw.githubusercontent.com/ncbi/amr/$GIT_BRANCH/test_dna.expected \
                 -O https://raw.githubusercontent.com/ncbi/amr/$GIT_BRANCH/test_prot.expected
+            echo "downloaded tests, but they won't run in a container"
           name: Run on vm
   container:
-      runs-on: ubuntu-latest
-      contianer: ncbi/amr:latest
-      steps:
-          - run: |
-              amrfinder --version
-              amrfinder --help
-              ls -al
-            name: Run in container
+    runs-on: ubuntu-latest
+    contianer: ncbi/amr:latest
+    steps:
+      - run: |
+          amrfinder --version
+          amrfinder --help
+          ls -al
+        name: Run in container
