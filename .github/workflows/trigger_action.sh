@@ -11,6 +11,7 @@ Actions that can be triggered:
 3. linux-binary-test
 4. linux-bioconda-test
 5. mac-bioconda-test
+6. docker-test
 END
 
 echo -n "% "
@@ -29,6 +30,7 @@ case $action in
     3|linux-binary-test) event=linux-binary-test;;
     4|linux-bioconda-test) event=linux-bioconda-test;;
     5|mac-bioconda-test) event=mac-bioconda-test;;
+    6|docker-test) event=docker-test;;
     *) echo "Unknown action. Please try again"
         exit 1;;
 esac

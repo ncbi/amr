@@ -1,0 +1,29 @@
+name: binary tarball
+
+on: 
+    workflow_dispatch:
+    repository_dispatch:
+        types: [docker-test, install-test]
+jobs:
+  get_tests:
+    runs-on: ubuntu-latest
+    steps:
+        - run: | 
+            echo "This job should download ncbi/amr from dockerhub and run a simple test"
+            curl --silent \
+                -O https://raw.githubusercontent.com/ncbi/amr/$GIT_BRANCH/test_dna.fa \
+                -O https://raw.githubusercontent.com/ncbi/amr/$GIT_BRANCH/test_prot.fa \
+                -O https://raw.githubusercontent.com/ncbi/amr/$GIT_BRANCH/test_prot.gff \
+                -O https://raw.githubusercontent.com/ncbi/amr/$GIT_BRANCH/test_both.expected \
+                -O https://raw.githubusercontent.com/ncbi/amr/$GIT_BRANCH/test_dna.expected \
+                -O https://raw.githubusercontent.com/ncbi/amr/$GIT_BRANCH/test_prot.expected
+          name: Run on vm
+  container:
+      runs-on: ubuntu-latest
+      contianer: ncbi/amr:latest
+      steps:
+          - run: |
+              amrfinder --version
+              amrfinder --help
+              ls -al
+            name: Run in container
