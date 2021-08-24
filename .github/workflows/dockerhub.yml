@@ -17,7 +17,8 @@ jobs:
           amrfinder --version
           apt-get install curl
           BASE_URL="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${GITHUB_SHA}/"
-          curl --silent \
+          echo "${BASE_URL}"
+          curl --silent -L \
              -O ${BASE_URL}/test_dna.fa \
              -O ${BASE_URL}/test_prot.fa \
              -O ${BASE_URL}/test_prot.gff \
