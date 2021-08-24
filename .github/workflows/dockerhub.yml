@@ -1,4 +1,4 @@
-name: dockerhub test
+name: dockerhub image
 
 on: 
     workflow_dispatch:
