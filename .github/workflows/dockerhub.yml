@@ -6,7 +6,7 @@ on:
     repository_dispatch:
         types: [docker-test, install-test]
 jobs:
-  container:
+  test_in_container:
     runs-on: ubuntu-latest
     container: ncbi/amr:latest
     steps:
@@ -22,9 +22,9 @@ jobs:
              -O https://raw.githubusercontent.com/ncbi/amr/$GIT_BRANCH/test_prot.gff \
              -O https://raw.githubusercontent.com/ncbi/amr/$GIT_BRANCH/test_both.expected \
              -O https://raw.githubusercontent.com/ncbi/amr/$GIT_BRANCH/test_dna.expected \
+             -O https://raw.githubusercontent.com/ncbi/amr/$GIT_BRANCH/test_dna_mut_all.expected \
              -O https://raw.githubusercontent.com/ncbi/amr/$GIT_BRANCH/test_prot.expected \
-             -O https://raw.githubusercontent.com/ncbi/amr/$GIT_BRANCH/Makefile
-          ln -s /usr/local/bin/amrfinder .
-          make test
-        name: Run in container
+             -O https://raw.githubusercontent.com/ncbi/amr/$GIT_BRANCH/test_amrfinder.sh
+          ./test_amrfinder.sh path
+        name: Run tests
 
