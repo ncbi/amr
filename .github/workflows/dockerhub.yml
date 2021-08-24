@@ -1,4 +1,4 @@
-name: binary tarball
+name: dockerhub test
 
 on: 
     workflow_dispatch:
