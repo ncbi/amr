@@ -23,5 +23,16 @@ jobs:
               # temporarily we need to download the test script. Can remove
               # once we have a new software release and it's included in the
               # distribution
-              curl --silent -L -O https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/master/test_amrfinder.sh
-              bash -x test_amrfinder.sh
+              BASE_URL="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/master"
+              BASE_URL="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/master/"
+              echo "BASE_URL=${BASE_URL}"
+              curl --silent -L \
+                 -O ${BASE_URL}/test_dna.fa \
+                 -O ${BASE_URL}/test_prot.fa \
+                 -O ${BASE_URL}/test_prot.gff \
+                 -O ${BASE_URL}/test_both.expected \
+                 -O ${BASE_URL}/test_dna.expected \
+                 -O ${BASE_URL}/test_dna_mut_all.expected \
+                 -O ${BASE_URL}/test_prot.expected \
+                 -O ${BASE_URL}/test_amrfinder.sh
+              bash ./test_amrfinder.sh path
