@@ -42,4 +42,4 @@ jobs:
                  -O ${BASE_URL}/test_dna_mut_all.expected \
                  -O ${BASE_URL}/test_prot.expected \
                  -O ${BASE_URL}/test_amrfinder.sh
-              bash ./test_amrfinder.sh path
+              bash -x ./test_amrfinder.sh path
