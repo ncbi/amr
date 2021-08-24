@@ -13,7 +13,7 @@ jobs:
       - run: |
           echo This job does specify a container.
           echo It runs in the container instead of the VM.
-          echo "GITHUB_REF=${{GITHUB_REF}}"
+          echo "GITHUB_REF=${GITHUB_REF}"
           echo "GITHUB_REPOSTIORY=$GITHUB_REPOSITORY"
           echo "GITHUB_REF=$GITHUB_REF"
           amrfinder --version
@@ -33,6 +33,7 @@ jobs:
         name: Run tests
         env: 
           GIT_BRANCH: master
+          GITHUB_REF: ${{env.GITHUB_REF}}
           GITHUB_REPOSITORY: ${{GITHUB_REPOSITORY}}
 
 
