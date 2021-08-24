@@ -1,7 +1,6 @@
 name: docker test 2
 on:
     workflow_dispatch:
-    push:
 jobs:
   vm:
     runs-on: ubuntu-latest
