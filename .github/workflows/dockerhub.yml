@@ -6,7 +6,7 @@ on:
     repository_dispatch:
         types: [docker-test, install-test]
 jobs:
-  test_in_container:
+  test_dockerhub:
     runs-on: ubuntu-latest
     container: ncbi/amr:latest
     steps:
@@ -25,6 +25,7 @@ jobs:
              -O https://raw.githubusercontent.com/ncbi/amr/$GIT_BRANCH/test_dna_mut_all.expected \
              -O https://raw.githubusercontent.com/ncbi/amr/$GIT_BRANCH/test_prot.expected \
              -O https://raw.githubusercontent.com/ncbi/amr/$GIT_BRANCH/test_amrfinder.sh
+          chmod u+x test_amrfinder.sh
           ./test_amrfinder.sh path
         name: Run tests
 
