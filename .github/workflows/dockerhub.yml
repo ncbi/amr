@@ -28,6 +28,7 @@ jobs:
              -O https://raw.githubusercontent.com/evolarjun/amr/$GIT_BRANCH/test_dna_mut_all.expected \
              -O https://raw.githubusercontent.com/evolarjun/amr/$GIT_BRANCH/test_prot.expected \
              -O https://raw.githubusercontent.com/evolarjun/amr/$GIT_BRANCH/test_amrfinder.sh
+          curl https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${GITHUB_SHA}/test_dna.expected
           chmod u+x test_amrfinder.sh
           ./test_amrfinder.sh path
         name: Run tests
