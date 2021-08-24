@@ -3,6 +3,7 @@
 if [ "$1" == "path" ]
 then
     echo "Testing amrfinder command in your \$PATH"
+    which amrfinder
     AMRFINDER=amrfinder
 else
     echo "Testing ./amrfinder"
