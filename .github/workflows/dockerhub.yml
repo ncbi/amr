@@ -27,7 +27,7 @@ jobs:
              -O $BASE_URL/test_prot.expected \
              -O $BASE_URL/test_amrfinder.sh
           chmod u+x test_amrfinder.sh
-          ./test_amrfinder.sh path
+          bash -x ./test_amrfinder.sh path
         name: Run tests
         env: 
           GIT_BRANCH: master
