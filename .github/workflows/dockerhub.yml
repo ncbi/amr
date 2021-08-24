@@ -1,0 +1,37 @@
+name: dockerhub image
+
+on: 
+    workflow_dispatch:
+    repository_dispatch:
+        types: [docker-test, install-test]
+jobs:
+  test_dockerhub:
+    runs-on: ubuntu-latest
+    container: ncbi/amr:latest
+    steps:
+      - run: |
+          echo "GITHUB_REF=${GITHUB_REF}"
+          echo "GITHUB_REPOSTIORY=${GITHUB_REPOSITORY}"
+          echo "GITHUB_SHA=${GITHUB_SHA}"
+          amrfinder --version
+          apt-get install curl
+          # For docker always read off of master branch
+          #BASE_URL="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${GITHUB_SHA}/"
+          BASE_URL="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/master/"
+          echo "BASE_URL=${BASE_URL}"
+          curl --silent -L \
+             -O ${BASE_URL}/test_dna.fa \
+             -O ${BASE_URL}/test_prot.fa \
+             -O ${BASE_URL}/test_prot.gff \
+             -O ${BASE_URL}/test_both.expected \
+             -O ${BASE_URL}/test_dna.expected \
+             -O ${BASE_URL}/test_dna_mut_all.expected \
+             -O ${BASE_URL}/test_prot.expected \
+             -O ${BASE_URL}/test_amrfinder.sh
+          bash ./test_amrfinder.sh path
+        name: Run tests
+        env: 
+          GIT_BRANCH: master
+          GITHUB_REF: ${{env.GITHUB_REF}}
+
+
