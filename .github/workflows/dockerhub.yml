@@ -22,7 +22,9 @@ jobs:
              -O https://raw.githubusercontent.com/ncbi/amr/$GIT_BRANCH/test_prot.gff \
              -O https://raw.githubusercontent.com/ncbi/amr/$GIT_BRANCH/test_both.expected \
              -O https://raw.githubusercontent.com/ncbi/amr/$GIT_BRANCH/test_dna.expected \
-             -O https://raw.githubusercontent.com/ncbi/amr/$GIT_BRANCH/test_prot.expected
-          amrfinder -p test_prot.fa
+             -O https://raw.githubusercontent.com/ncbi/amr/$GIT_BRANCH/test_prot.expected \
+             -O https://raw.githubusercontent.com/ncbi/amr/$GIT_BRANCH/Makefile
+          ln -s /usr/local/bin/amrfinder .
+          ./amrfinder -p test_prot.fa
         name: Run in container
 
