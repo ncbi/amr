@@ -105,6 +105,24 @@ ulong seed_global = 1;
 bool sigpipe = false;
 
 
+
+// COutErr
+
+#ifndef _MSC_VER
+bool COutErr::sameFiles (int fd1, 
+                         int fd2)
+{ 
+  struct stat stat1;
+  struct stat stat2;
+  fstat (fd1, & stat1);
+  fstat (fd2, & stat2);
+  return stat1. st_ino == stat2. st_ino;
+}
+#endif
+
+const COutErr couterr;
+
+
 // thread
 size_t threads_max = 1;
 
@@ -277,24 +295,24 @@ string getStack ()
 namespace
 {
 	
-uint powInt_ (uint a,
-              uint b)
+size_t powInt_ (size_t a,
+                size_t b)
 // Input: a: !0, != 1
 {
 	if (! b)
 		return 1;
 	if (b == 1)
 		return a;
-	const uint half = b / 2;
-	const uint res = powInt_ (a, half);
+	const size_t half = b / 2;
+	const size_t res = powInt_ (a, half);
 	return res * res * (divisible (b, 2) ? 1 : a);
 }
 	
 }
 
 
-uint powInt (uint a,
-             uint b)
+size_t powInt (size_t a,
+               size_t b)
 {
 	if (a)
 		if (a == 1)
@@ -393,6 +411,24 @@ bool goodName (const string &name)
       return false;
       
   return true;
+}
+
+
+
+string pad (const string &s,
+            size_t size,
+            bool right)
+{
+  if (s. size () >= size)
+    return s. substr (0, size);
+  
+  string sp;
+  while (sp. size () + s. size () < size)
+    sp += ' ';
+    
+  if (right)
+    return s + sp;
+  return sp + s;
 }
 
 
@@ -783,7 +819,7 @@ bool fileExists (const string &fName)
 bool directoryExists (const string &dirName)
 {
   DIR* dir = opendir (dirName. c_str ());
-  const bool yes = (bool) (dir);
+  const bool yes = (bool) dir;
   if (yes)
   {
     if (closedir (dir))
@@ -794,31 +830,17 @@ bool directoryExists (const string &dirName)
 
 
 
-void createDirectory (const string &dirName,
-                      bool createAncestors)
+void createDirectory (const string &dirName)
 {
-  const mode_t m = 0777;  
-  if (createAncestors)
-  {
-    const Dir dir (dirName);
-    Dir ancestorDir;
-    for (const string& s : dir. items)
-    {
-      ancestorDir. items << s;
-      const string ancestorPath (ancestorDir. get ());
-      if (! directoryExists (ancestorPath))
-        if (mkdir (ancestorPath. c_str (), m) != 0)
-          throw runtime_error ("Cannot create directory " + strQuote (ancestorPath));
-    }
-  }
-  else
-    if (mkdir (dirName. c_str (), m) != 0)
-      throw runtime_error ("Cannot create directory " + strQuote (dirName));
+  if (mkdir (dirName. c_str (), 0777) != 0)  // PAR
+    throw runtime_error ("Cannot create directory " + strQuote (dirName));
 }
 #endif
 
 
 
+
+// Dir
 
 Dir::Dir (const string &dirName)
 {
@@ -870,12 +892,37 @@ Dir::Dir (const string &dirName)
 
 
 
+#ifndef _MSC_VER
+size_t Dir::create ()
+{
+  if (items. empty ())
+    throw runtime_error ("Cannot create the root directory");
 
-streampos getFileSize (const string &fName)
+  const string path (get ());
+
+  if (directoryExists (path))
+    return 0;
+
+  const string item (items. popBack ());
+  const size_t n = create ();
+  items << item;
+  if (mkdir (path. c_str (), 0777) != 0)  // PAR
+    throw runtime_error ("Cannot create directory " + strQuote (path));
+
+  return n + 1;
+}
+#endif
+
+
+
+
+//
+
+streamsize getFileSize (const string &fName)
 {
   ifstream f (fName, ifstream::binary);
   if (! f. good ())
-    throw runtime_error ("Cannot open file " + shellQuote (fName));
+    throw runtime_error ("Cannot open file " + shellQuote (fName) + " to get file size");
 
   const streampos start = f. tellg ();
   QC_ASSERT (start >= 0); 
@@ -889,7 +936,11 @@ streampos getFileSize (const string &fName)
 
   if (end < start)
     throw runtime_error ("Bad file " + shellQuote (fName));    
-  return end - start; 
+  const streampos len = end - start;
+  ASSERT (len >= 0);
+  QC_ASSERT (len <= (streampos) numeric_limits<streamsize>::max());
+  
+  return (streamsize) len; 
 }
 
 
@@ -1085,6 +1136,7 @@ void Rand::run ()
 // Threads
 
 size_t Threads::threadsToStart = 0;
+bool Threads::quiet = false;
 	
 	
 
@@ -1105,7 +1157,9 @@ int getVerbosity ()
 
 bool verbose (int inc)
 { 
-	return Verbose::enabled () ? (verbose_ + inc > 0) : false;
+  if (! Verbose::enabled ())
+    return false;
+	return verbose_ + inc > 0;
 }
 
 
@@ -1166,7 +1220,7 @@ void exec (const string &cmd,
 	{
 	  if (! logFName. empty ())
 	  {
-	    const StringVector vec (logFName, (size_t) 10);  // PAR
+	    const StringVector vec (logFName, (size_t) 10, false);  // PAR
 	    throw runtime_error (vec. toString ("\n"));
 	  }
 		throw runtime_error ("Command failed:\n" + cmd + "\nstatus = " + to_string (status));		
@@ -1198,7 +1252,6 @@ string which (const string &progName)
 
 Threads::Threads (size_t threadsToStart_arg, 
                   bool quiet_arg)
-: quiet (quiet_arg)
 { 
   if (! isMainThread ())
 	  throw logic_error ("Threads are started not from the main thread");
@@ -1209,10 +1262,12 @@ Threads::Threads (size_t threadsToStart_arg,
 	if (threadsToStart >= threads_max)
 		throw logic_error ("Too many threads to start");
 		
+  quiet = quiet_arg;
+		
 	threads. reserve (threadsToStart);
 	
-	if (! quiet && verbose (1))
-    cerr << "# Threads started: " << threadsToStart + 1 << endl;
+	if (! quiet && verbose (1) && threadsToStart)
+    cerr << "# Threads started: " << threadsToStart + 1/*main thread*/ << endl;
 }	
 
 
@@ -1232,19 +1287,71 @@ Threads::~Threads ()
 	  
 	threads. clear ();
 	threadsToStart = 0;
+	quiet = false;
 }
 
 
 
 
+
+// Xml::Tag
+
+Xml::Tag::Tag (Xml::File &f_arg,
+               const string &name_arg)
+: name (name_arg)
+, f (f_arg)
+{ 
+  ASSERT (! contains (name, ' '));
+  if (f. printOffset)
+  {
+    f. print ("\n");
+    f. offset++;
+    FOR (size_t, i, f. offset * File::offset_spaces)
+      f. print (" ");
+  }
+  if (! name. empty ())
+    f. print ("<" + name + ">");
+}
+
+
+
+Xml::Tag::~Tag ()
+{ 
+  if (f. printOffset)
+  {
+    if (f. printBrief)
+    {
+      f. offset--;
+      return;
+    }
+    else
+    {
+      f. print ("\n");
+      FOR (size_t, i, f. offset * File::offset_spaces)
+        f . print (" ");
+      f. offset--;
+    }    
+  }
+  if (! name. empty ())
+    f. print ("</" + name + ">");
+  if (! f. printOffset)
+    f. print ("\n");
+}
+
+
+
+
+unique_ptr<Xml::File> cxml;
+  
+
+
 // Root
 
 void Root::saveFile (const string &fName) const
-{
-	if (fName. empty ())
+{ 
+  if (fName. empty ())
 		return;
-  
-  OFStream f (fName);
+  OFStream f (fName);  // Declared after Root
   saveText (f);
 }
 
@@ -1269,7 +1376,8 @@ void Named::qc () const
 // StringVector
 
 StringVector::StringVector (const string &fName,
-                            size_t reserve_size)
+                            size_t reserve_size,
+                            bool trimP)
 {
 	searchSorted = true;
 	
@@ -1280,6 +1388,8 @@ StringVector::StringVector (const string &fName,
   	string prev;
     while (f. nextLine ())
     {
+      if (trimP)
+        trim (f. line);
       *this << f. line;
   	  if (f. line < prev)
   	  	searchSorted = false;
@@ -1339,6 +1449,48 @@ bool StringVector::same (const StringVector &vec,
   return true;
 }
 
+
+
+
+
+bool inc (vector<bool> &v)
+{
+  const size_t s = v. size ();
+
+  size_t i = 0;
+  while (i < s && v [i])
+  {
+    v [i] = false;
+    i++;
+  }
+  if (i == s)
+    return false;
+
+  v [i] = true;
+  
+  return true;
+}
+
+
+
+bool inc (vector<size_t> &indexes,
+          const vector<size_t> &indexes_max)
+{
+  ASSERT (indexes. size () == indexes_max. size ());
+
+  FFOR (size_t, i, indexes. size ())
+  {
+    ASSERT (indexes [i] <= indexes_max [i]);
+    if (indexes [i] < indexes_max [i])
+    {
+      indexes [i] ++;
+      return true;
+    }
+    indexes [i] = 0;
+  }
+
+  return false;
+}
 
 
 
@@ -1478,7 +1630,7 @@ bool LineInput::nextLine ()
   }
   catch (const exception &e)
   {
-    throw runtime_error ("Reading line " + to_string (lineNum) + ":\n" + line + "\n" + e. what ());
+    throw runtime_error ("Reading line " + to_string (lineNum + 1) + ":\n" + line + "\n" + e. what ());
   }
 }
 
@@ -1497,6 +1649,7 @@ bool ObjectInput::next (Root &row)
 	  return false;
 
 	row. read (*is);
+	row. qc ();
 	lineNum++;
 
  	eof = is->eof ();
@@ -1509,7 +1662,6 @@ bool ObjectInput::next (Root &row)
 	prog ();
 	
   ASSERT (is->peek () == '\n');
-	row. qc ();
 
   skipLine (*is);
 
@@ -1716,16 +1868,23 @@ void Token::saveText (ostream &os) const
   switch (type)
 	{ 
 	  case eName:      
-	  case eDateTime:
-	                   os          << name;          break;
-		case eText:      os << quote << name << quote; break;
-		case eInteger:   os          << n;             break;
+	  case eDateTime:  os << name; 
+	                   break;
+		case eText:      if (quote)
+		                   os << quote;
+		                 os << name;
+		                 if (quote)
+		                   os << quote; 
+		                 break;
+		case eInteger:   os << n;             
+		                 break;
 		case eDouble:    { 
 		                   const ONumber on (os, decimals, scientific); 
 		                   os << d; 
 		                 } 
 		                 break;
-		case eDelimiter: os          << name;          break;
+		case eDelimiter: os << name;          
+		                 break;
  		default: throw runtime_error ("Token: Unknown type");
 	}
 }
@@ -1993,11 +2152,12 @@ void TextTable::Header::qc () const
 
 
 TextTable::TextTable (const string &fName)
+: Named (fName)
 {
   LineInput f (fName);
 
   if (! f. nextLine ())
-    throw runtime_error ("Cannot read the header of " + strQuote (fName));
+    throw Error (*this, "Cannot read the table header");
   if (! f. line. empty () && f. line. front () == '#')
   {
     pound = true;
@@ -2023,18 +2183,19 @@ TextTable::TextTable (const string &fName)
 
 void TextTable::setHeader ()
 {
-  size_t row_num = 0;
+  RowNum row_num = 0;
   for (const StringVector& row : rows)
   {
     row_num++;
     if (row. size () != header. size ())
-      throw runtime_error ("Row " + to_string (row_num) + " contains " + to_string (rows. size ()) + " fields whereas table has " + to_string (header. size ()) + " columns");
-    FFOR (size_t, i, row. size ())
+      throw Error (*this, "Row " + to_string (row_num) + " contains " + to_string (row. size ()) + " fields whereas table has " + to_string (header. size ()) + " columns");
+    FFOR (RowNum, i, row. size ())
     {
       const string& field = row [i];
       if (field. empty ())
         continue;
       Header& h = header [i];
+      maximize (h. len_max, field. size ());
       if (! h. numeric)
         continue;
       {
@@ -2049,21 +2210,12 @@ void TextTable::setHeader ()
       }
       if (h. numeric)
       {
-        string s (field);
-        strUpper (s);
-        const size_t ePos     = s. find ('E');
-        const size_t pointPos = s. find ('.');
-        if (ePos == string::npos)
-        {
-          if (pointPos != string::npos)
-            maximize (h. decimals, (streamoff) (s. size () - pointPos - 1));
-        }
-        else
-        {
+        bool hasPoint = false;
+        streamsize decimals = 0;
+        if (getDecimals (field, hasPoint, decimals))
           h. scientific = true;
-          if (pointPos != string::npos && ePos > pointPos)
-            maximize (h. decimals, (streamoff) (ePos - pointPos - 1));
-        }
+        maximize<streamsize> (h. decimals, decimals);
+        maximize (h. len_max, field. size () + (size_t) (h. decimals - decimals) + (! hasPoint));
       }
     }
   }
@@ -2075,6 +2227,7 @@ void TextTable::qc () const
 {
   if (! qc_on)
     return;
+  Named::qc ();
 
   {    
     StringVector v;  v. reserve (header. size ());
@@ -2086,19 +2239,19 @@ void TextTable::qc () const
     v. sort ();
     const size_t i = v. findDuplicate ();
     if (i != no_index)
-      throw runtime_error ("Duplicate column name: " + strQuote (v [i]));
+      throw Error (*this, "Duplicate column name: " + strQuote (v [i]));
   }
   
-  FFOR (size_t, i, rows. size ())
+  FFOR (RowNum, i, rows. size ())
   {
     if (rows [i]. size () != header. size ())
-      throw runtime_error ("Row " + to_string (i + 1) + " contains " + to_string (rows [i]. size ()) + " fields whereas table has " + to_string (header. size ()) + " columns");
+      throw Error (*this, "Row " + to_string (i + 1) + " contains " + to_string (rows [i]. size ()) + " fields whereas table has " + to_string (header. size ()) + " columns");
     for (const string& field : rows [i])
     {
       if (contains (field, '\t'))
-        throw runtime_error ("Field " + strQuote (header [i]. name) + " of row " + to_string (i + 1) + " contains a tab character");
+        throw Error (*this, "Field " + strQuote (header [i]. name) + " of row " + to_string (i + 1) + " contains a tab character");
       if (contains (field, '\n'))
-        throw runtime_error ("Field " + strQuote (header [i]. name) + " of row " + to_string (i + 1) + " contains an EOL character");
+        throw Error (*this, "Field " + strQuote (header [i]. name) + " of row " + to_string (i + 1) + " contains an EOL character");
     }
   }
 }
@@ -2130,12 +2283,40 @@ void TextTable::saveText (ostream &os) const
 }
 
     
+    
+bool TextTable::getDecimals (string s,
+                             bool &hasPoint,
+                             streamsize &decimals)
+{
+  strUpper (s);
+  const size_t ePos     = s. find ('E');
+  const size_t pointPos = s. find ('.');
+  
+  hasPoint = pointPos != string::npos;
+  
+  decimals = 0;
+  if (ePos == string::npos)
+  {
+    if (hasPoint)
+      decimals = (streamoff) (s. size () - (pointPos + 1));
+  }
+  else
+  {
+    if (hasPoint && ePos > pointPos)
+      decimals = (streamoff) (ePos - (pointPos + 1));
+  }
+  
+  return ePos != string::npos;
+}
+
+    
   
 void TextTable::printHeader (ostream &os) const
 {
-  for (const Header& h : header)
+  FFOR (size_t, i, header. size ())
   {
-    h. saveText (os);
+    os << i + 1 << '\t';
+    header [i]. saveText (os);
     os << endl;
   }
 }
@@ -2202,10 +2383,12 @@ void TextTable::filterColumns (const StringVector &newColumnNames)
 
 
 void TextTable::group (const StringVector &by,
-                       const StringVector &sum)
+                       const StringVector &sum,
+                       const StringVector &aggr)
 {
-  const Vector<size_t> byIndex  (columns2indexes (by));
-  const Vector<size_t> sumIndex (columns2indexes (sum));
+  const Vector<size_t> byIndex   (columns2indexes (by));
+  const Vector<size_t> sumIndex  (columns2indexes (sum));
+  const Vector<size_t> aggrIndex (columns2indexes (aggr));
   
   const auto lt = [&byIndex,this] (const StringVector &a, const StringVector &b) 
                     { for (const size_t i : byIndex) 
@@ -2223,12 +2406,12 @@ void TextTable::group (const StringVector &by,
                     };
   Common_sp::sort (rows, lt);
   
-  size_t i = 0;  
-  FFOR_START (size_t, j, 1, rows. size ())
+  RowNum i = 0;  
+  FFOR_START (RowNum, j, 1, rows. size ())
   {
     ASSERT (i < j);
     if (rows [i]. same (rows [j], byIndex))
-      merge (i, j, sumIndex);
+      merge (i, j, sumIndex, aggrIndex);
     else
     {
       i++;
@@ -2236,20 +2419,29 @@ void TextTable::group (const StringVector &by,
         rows [i] = move (rows [j]);
     }
   }
+  if (! rows. empty ())
+    i++;
 
   ASSERT (rows. size () >= i);
-  FFOR (size_t, k, rows. size () - i)
+  FFOR (RowNum, k, rows. size () - i)
     rows. pop_back ();
+    
+  StringVector newColumns;
+  newColumns << by << sum << aggr;
+  filterColumns (newColumns);
 }
 
 
 
-void TextTable::merge (size_t toIndex,
-                       size_t fromIndex,
-                       const Vector<size_t> &sum) 
+void TextTable::merge (RowNum toIndex,
+                       RowNum fromIndex,
+                       const Vector<size_t> &sum,
+                       const Vector<size_t> &aggr) 
 {
+  ASSERT (toIndex < fromIndex);
   StringVector& to = rows [toIndex];
   const StringVector& from = rows [fromIndex];
+
   for (const size_t i : sum)
   {
     const Header& h = header [i];
@@ -2259,8 +2451,73 @@ void TextTable::merge (size_t toIndex,
     oss << stod (to [i]) + stod (from [i]);
     to [i] = oss. str ();
   }
+
+  for (const size_t i : aggr)
+  {
+    constexpr char sep = ',';
+    if (from [i]. empty ())
+      continue;
+    if (to [i]. empty ())
+      to [i] = from [i];
+    else
+    {
+      StringVector vec (to [i], sep, true);
+      vec << from [i];
+      vec. sort ();
+      vec. uniq ();
+      to [i] = vec. toString (string (1, sep));
+    }
+  }
 }
 
+
+
+void TextTable::indexes2values (const Vector<size_t> &indexes,
+                                RowNum row_num,
+                                StringVector &values) const
+{
+  values. clear ();
+  values. reserve (indexes. size ());
+  const StringVector& row = rows [row_num];    
+  FFOR (size_t, i, indexes. size ())
+    values << row [indexes [i]];
+}
+
+
+
+TextTable::RowNum TextTable::find (const Vector<size_t> &indexes,
+                                   const StringVector &targetValues,
+                                   RowNum row_num_start) const
+{
+  ASSERT (indexes. size () == targetValues. size ());
+  ASSERT (row_num_start != no_index);
+  StringVector values;
+  FOR_START (RowNum, i, row_num_start, rows. size ())
+  {
+    indexes2values (indexes, i, values);
+    if (values == targetValues)
+      return i;
+  }
+  return no_index;
+}
+
+
+
+TextTable::Key::Key (const TextTable &tab,
+                     const StringVector &columns)
+: indexes (tab. columns2indexes (columns))
+{
+  data. rehash (tab. rows. size ());
+  StringVector values;  
+  FFOR (RowNum, i, tab. rows. size ())
+  {
+    tab. indexes2values (indexes, i, values);
+    if (data. find (values) != data. end ())
+      throw Error (tab, "Duplicate key " + values. toString (",") + " for the key on " + columns. toString (","));
+    ASSERT (i != no_index);
+    data [values] = i;
+  }  
+}
 
 
 
@@ -2452,7 +2709,7 @@ JsonArray::JsonArray (CharInput& in,
 
 
 
-void JsonArray::print (ostream& os) const
+void JsonArray::saveText (ostream& os) const
 { 
   os << "[";
   bool first = true;
@@ -2461,7 +2718,7 @@ void JsonArray::print (ostream& os) const
     ASSERT (j);
     if (! first)
       os << ",";
-    j->print (os);
+    j->saveText (os);
     first = false;
   }
   os << "]";
@@ -2530,7 +2787,7 @@ JsonMap::~JsonMap ()
 
 
 
-void JsonMap::print (ostream& os) const
+void JsonMap::saveText (ostream& os) const
 { 
   os << "{";
   bool first = true;
@@ -2541,7 +2798,7 @@ void JsonMap::print (ostream& os) const
     os << toStr (it. first) << ":";
     const Json* j = it. second;
     ASSERT (j);
-    j->print (os);
+    j->saveText (os);
     first = false;
   }
   os << "}";
@@ -2562,34 +2819,45 @@ size_t Offset::size = 0;
 
 
 
+
 // FileItemGenerator
 
 FileItemGenerator::FileItemGenerator (size_t progress_displayPeriod,
                                       bool isDir_arg,
+                                      bool large_arg,
                                       const string& fName_arg)
 : ItemGenerator (0, progress_displayPeriod)
 , isDir (isDir_arg)
-, fName( fName_arg)
+, large (large_arg)
+, dirName (fName_arg)
+, fName (fName_arg)
 { 
+  IMPLY (large, isDir);
+  
+  trimSuffix (dirName,  "/");
+
+  // fName
   if (isDir)
   { 
-    trimSuffix (fName,  "/");
-	  char lsfName [4096] = {'\0'};
   #ifdef _MSC_VER
-    throw runtime_error ("Windows");  // ??
+    NOT_IMPLEMENTED;
   #else
+	  char lsfName [4096] = {'\0'};
     strcpy (lsfName, P_tmpdir);
-    strcat (lsfName, "/XXXXXX");
+    strcat (lsfName, ("/" + programName + ".XXXXXX"). c_str ());
     EXEC_ASSERT (mkstemp (lsfName) != -1);
     ASSERT (lsfName [0]);
-    const int res = system (("ls -a " + fName + " > " + lsfName). c_str ());
+    const string cmd ("ls -a " + dirName + " > " + lsfName);
+    const int res = system (cmd. c_str ());
     if (res)
-      throw runtime_error ("Command \"ls\" failed: status = " + to_string (res));
+      throw runtime_error ("Command " + strQuote (cmd) + " failed: status = " + to_string (res));
     fName = lsfName;
   #endif
   }      
+  
   f. open (fName);
   QC_ASSERT (f. good ()); 
+  
   if (isDir)
   {
     string s;
@@ -2604,12 +2872,39 @@ FileItemGenerator::FileItemGenerator (size_t progress_displayPeriod,
 
 bool FileItemGenerator::next (string &item)
 { 
+  if (! large)
+    return next_ (item);
+
+  for (;;)
+  {
+    if (! fig. get ())
+    {
+      string subDir;
+      if (! next_ (subDir))
+        return false;
+      fig. reset (new FileItemGenerator (0, true, false, dirName + "/" + subDir));
+    }
+    ASSERT (fig. get ());
+    if (fig->next (item))
+    {
+      prog (item);
+      return true;
+    }
+    fig. reset (nullptr);
+  }
+}    
+
+
+
+bool FileItemGenerator::next_ (string &item)
+{ 
   if (f. eof ())
     return false;
     
 	readLine (f, item);
   if (isDir)
-  { const size_t pos = item. rfind ('/');
+  { 
+    const size_t pos = item. rfind ('/');
   	if (pos != string::npos)
       item. erase (0, pos + 1);
   }
@@ -2618,7 +2913,6 @@ bool FileItemGenerator::next (string &item)
     return false;
 
   prog (item);
-  
 	return true;
 }    
 
@@ -2629,7 +2923,7 @@ bool FileItemGenerator::next (string &item)
 
 SoftwareVersion::SoftwareVersion (const string &fName)
 { 
-  StringVector vec (fName, (size_t) 1);
+  StringVector vec (fName, (size_t) 1, true);
   if (vec. size () != 1)
     throw runtime_error ("Cannot read software version. One line is expected in the file: " + shellQuote (fName));
   init (move (vec [0]), false);
@@ -2684,7 +2978,7 @@ bool SoftwareVersion::operator< (const SoftwareVersion &other) const
 
 DataVersion::DataVersion (const string &fName)
 { 
-  StringVector vec (fName, (size_t) 1);
+  StringVector vec (fName, (size_t) 1, true);
   if (vec. size () != 1)
     throw runtime_error ("Cannot read data version. One line is expected in the file: " + shellQuote (fName));
   init (move (vec [0]));
@@ -3046,14 +3340,14 @@ string Application::getHelp () const
 
   if (! positionals. empty ())
   {
-	  instr += "\n\nOBLIGATORY PARAMETERS:";
+	  instr += "\n\nPOSITIONAL PARAMETERS:";
 	  for (const Positional& p : positionals)
 	    instr += "\n" + p. str () + par + p. description;
 	}
 
   if (! keys. empty ())
   {
-	  instr += "\n\nOPTIONAL PARAMETERS:";
+	  instr += "\n\nNAMED PARAMETERS:";
 	  for (const Key& key : keys)
 	  {
 	    instr += "\n" + key. getShortHelp () + par + key. description;
@@ -3286,6 +3580,7 @@ int Application::run (int argc,
 	  	
   
 		qc ();
+		createTmp ();
   	body ();
 
   
@@ -3293,7 +3588,7 @@ int Application::run (int argc,
   	{
   	  ASSERT (jRoot);
   		OFStream f (jsonFName);
-      jRoot->print (f);
+      jRoot->saveText (f);
       delete jRoot;
       jRoot = nullptr;
     }
@@ -3314,7 +3609,7 @@ int Application::run (int argc,
 
 ShellApplication::~ShellApplication ()
 {
-	if (! tmp. empty () && ! logPtr)
+	if (tmpCreated && ! logPtr)
 	  exec ("rm -fr " + tmp + "*");  
 }
 
@@ -3332,11 +3627,6 @@ void ShellApplication::initEnvironment ()
       tmp = s;
     else
       tmp = "/tmp";
-    tmp += "/XXXXXX";
-    if (mkstemp (var_cast (tmp. c_str ())) == -1)
-      throw runtime_error ("Error creating a temporary file");
-  	if (tmp. empty ())
-  		throw runtime_error ("Cannot create a temporary file");
   }
 
   // execDir, programName
@@ -3356,6 +3646,36 @@ void ShellApplication::initEnvironment ()
   for (Key& key : keys)
     if (! key. flag)
       replaceStr (key. defaultValue, "$BASE", execDir_);
+}
+
+
+
+void ShellApplication::createTmp () 
+{
+  ASSERT (! tmpCreated);
+  
+  if (useTmp)
+  {
+    const string tmpDir (tmp);
+    tmp += "/" + programName + ".XXXXXX";
+    if (mkstemp (var_cast (tmp. c_str ())) == -1)
+      throw runtime_error ("Error creating a temporary file in " + tmpDir);
+  	if (tmp. empty ())
+  		throw runtime_error ("Cannot create a temporary file in " + tmpDir);
+
+    {
+    	const string testFName (tmp + ".test");
+      {
+        ofstream f (testFName);
+        f << "abc" << endl;
+        if (! f. good ())
+  		    throw runtime_error (tmpDir + " is full, make space there or use environment variable TMPDIR to change location for temporary files");
+      }
+      removeFile (testFName);
+    }
+    
+    tmpCreated = true;
+  }
 }
 
 
@@ -3422,7 +3742,7 @@ string ShellApplication::exec2str (const string &cmd,
   ASSERT (! contains (tmpName, ' '));
   const string out (tmp + "." + tmpName);
   exec (cmd + " > " + out, logFName);
-  const StringVector vec (out, (size_t) 1);
+  const StringVector vec (out, (size_t) 1, false);
   if (vec. size () != 1)
     throw runtime_error (cmd + "\nOne line is expected");
   return vec [0];  

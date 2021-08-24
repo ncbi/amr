@@ -7,21 +7,27 @@ on:
         types: [mac-bioconda-test, install-test]
 jobs:
   build:
-
     runs-on: macos-latest
     steps:
-    - uses: actions/checkout@v1
-    - name: download conda
-      run: curl -O https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh
-    - name: install conda
+    - uses: actions/checkout@v2
+    - name: Install conda because built-in conda is borked
       run: |
+          curl -O https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh
           bash ./Miniconda3-latest-MacOSX-x86_64.sh -b -p /Users/runner/miniconda3
+    - name: Configure conda
+      run: |
           source /Users/runner/miniconda3/bin/activate
           conda init
+          # THIS DOESN"T WORK! Just install miniconda myself
+          # . $CONDA/bin/activate
           conda config --add channels defaults
           conda config --add channels bioconda
           conda config --add channels conda-forge
-    - name: install AMRFinderPlus
+          # permissions are messed up on the mac runner
+          # Is this faster than installing miniconda myself?
+          # sudo chown -R 501:20 $CONDA
+          conda update conda
+    - name: Install AMRFinderPlus
       run: |
           source /Users/runner/miniconda3/bin/activate
           conda install -y ncbi-amrfinderplus
@@ -33,17 +39,17 @@ jobs:
       run: |
           source /Users/runner/miniconda3/bin/activate
           /Users/runner/miniconda3/bin/amrfinder -u
-    - name: test protein
+    - name: Test protein
       run: |
           source /Users/runner/miniconda3/bin/activate
           amrfinder --plus -p test_prot.fa -g test_prot.gff -O Escherichia > test_prot.got
           diff test_prot.expected test_prot.got
-    - name: test dna
+    - name: Test dna
       run: |
           source /Users/runner/miniconda3/bin/activate
           amrfinder --plus -n test_dna.fa -O Escherichia --mutation_all test_dna_mut_all.got > test_dna.got
           diff test_dna.expected test_dna.got
-    - name: test combined
+    - name: Test combined
       run: |
           source /Users/runner/miniconda3/bin/activate
           amrfinder --plus -n test_dna.fa -p test_prot.fa -g test_prot.gff -O Escherichia > test_both.got

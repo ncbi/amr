@@ -1,0 +1,39 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors: 
+- family-names: "Feldgarden"
+  given-names: "Michael"
+- family-names: "Brover"
+  given-names: "Vyacheslav"
+- family-names: "Gonzalez-Escalona"
+  given-names: "Narjol"
+- family-names: "Frye"
+  given-names: "Jonathan G."
+- family-names: "Haendiges"
+  given-names: "Julie"
+- family-names: "Hoffmann"
+  given-names: "Maria"
+- family-names: "Pettengill"
+  given-names: "James B."
+- family-names: "Prasad"
+  given-names: "Arjun B."
+- family-names: "Tillman"
+  given-names: "Glenn E."
+- family-names: "Tyson"
+  given-names: "Gregory H."
+- family-names: "Klimke"
+  given-names: "William"
+title: "AMRFinderPlus and the Reference Gene Catalog facilitate examination of the genomic links among antimicrobial resistance, stress response, and virulence"
+doi: 10.1038/s41598-021-91456-0
+date-released: 2021-06-16
+journal: "Scientific Reports"
+pmcid: PMC8208984
+type: article
+issue: "1"
+volume: 11
+year: 2021
+pages: 12728
+issue-date: 2021-06-16
+issn: "2045-2322"
+
+

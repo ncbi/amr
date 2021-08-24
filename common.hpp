@@ -151,6 +151,24 @@ protected:
 
 
 
+template <typename T>
+  struct Singleton : Nocopy
+  {
+  private:
+  	static bool beingRun;
+  protected:
+  	Singleton ()
+  	  { if (beingRun)
+  	  	  throw runtime_error ("Singleton");
+  	  	beingRun = true;
+  	  }
+   ~Singleton () 
+      { beingRun = false; }
+  };
+template <typename T> bool Singleton<T>::beingRun = false;
+
+
+
 #ifndef _MSC_VER
   struct Color
   {
@@ -172,6 +190,44 @@ protected:
 #endif
   
   
+
+struct COutErr : Singleton<COutErr>
+{
+  const bool both;
+  
+  COutErr ()
+    : both (
+           #ifdef _MSC_VER
+             true
+           #else
+             sameFiles (fileno (stdout), fileno (stderr))
+           #endif
+           )
+    {}
+#ifndef _MSC_VER
+private:
+  static bool sameFiles (int fd1, 
+                         int fd2);
+public:
+#endif
+template <class T>
+  const COutErr& operator<< (const T &val) const
+    { cout << val;
+      if (! both)
+        cerr << val;
+      return *this;
+    }
+  const COutErr& operator<< (ostream& (*pfun) (ostream&)) const
+    { pfun (cout);
+      if (! both)
+        pfun (cerr);
+      return *this;
+    }
+};
+
+extern const COutErr couterr;
+
+
 
 class ONumber
 {
@@ -248,20 +304,32 @@ public:
 struct Chronometer_OnePass : Nocopy
 {
 	const string name;
+  ostream &os;
+  const bool addNewLine;
+  const bool active;
 	const time_t start;
 	
-  explicit Chronometer_OnePass (const string &name_arg)
+  explicit Chronometer_OnePass (const string &name_arg,
+                                ostream &os_arg = cout,
+                                bool addNewLine_arg = true,
+                                bool active_arg = true)
     : name (name_arg)
-    , start (time (nullptr))
+    , os (os_arg)
+    , addNewLine (addNewLine_arg)
+    , active (active_arg)
+    , start (active_arg ? time (nullptr) : 0)
     {}
  ~Chronometer_OnePass ()
-    { if (uncaught_exception ())
+    { if (! active)
+        return;
+      if (uncaught_exception ())
         return;
       const time_t stop = time (nullptr);
-      cout << "CHRON: " << name << ": ";
-      const ONumber onm (cout, 0, false);
-      cout << difftime (stop, start) << " sec." << endl;
-      cout << endl;
+      os << "CHRON: " << name << ": ";
+      const ONumber on (os, 0, false);
+      os << difftime (stop, start) << " sec." << endl;
+      if (addNewLine)
+        os << endl;
     }
 };
 	
@@ -364,8 +432,8 @@ template <typename T/*:integer*/>
       return x % 2 == 0; 
     }
 
-inline bool divisible (uint n,
-                       uint divisor)
+inline bool divisible (size_t n,
+                       size_t divisor)
   { return ! (n % divisor); }
   
 inline uint remainder (int n, uint div)
@@ -385,14 +453,15 @@ inline uint gcd (uint a,
 		return gcd (b, a % b);
 	}
 
-uint powInt (uint a,
-             uint b);
+size_t powInt (size_t a,
+               size_t b);
   // Return: a^b
   // Time: O(log(b))
 
 
 
 constexpr size_t no_index = numeric_limits<size_t>::max ();
+static_assert ((size_t) 0 - 1 == no_index, "0 - 1 != no_index");
 
 
 
@@ -777,6 +846,15 @@ public:
 	  	  	i++;
 	  	return no_index;
 	  }
+	size_t find (const T* t) const
+	  { size_t i = 0;
+	  	for (const T& item : *this)
+	  	  if (& item == t)
+	  	  	return i;
+	  	  else
+	  	  	i++;
+	  	return no_index;
+	  }
   bool isPrefix (const List<T> &prefix) const
     { typename List<T>::const_iterator wholeIt  =      P::begin ();
     	typename List<T>::const_iterator prefixIt = prefix. begin ();
@@ -870,7 +948,7 @@ inline bool isSpace (char c)
 bool strBlank (const string &s);
 
 template <typename T>
-  string toString (const T t)
+  string toString (const T &t)
     { ostringstream oss;
       oss << t;
       return oss. str ();
@@ -926,6 +1004,10 @@ inline bool isLeftBlank (const string &s,
       i++;
     return i == spaces;
   }
+
+string pad (const string &s,
+            size_t size,
+            bool right);
 
 bool goodName (const string &name);
 
@@ -1086,12 +1168,14 @@ inline void checkFile (const string &fName)
       throw runtime_error ("File " + strQuote (fName) + " does not exist");
   }
 
-streampos getFileSize (const string &fName);
+streamsize getFileSize (const string &fName);
 
-inline void removeFile (const string &fName)
-  { if (std::remove (fName. c_str ()))
-      throw runtime_error ("Cannot remove file + " + shellQuote (fName));
-  }
+#ifndef _MSC_VER
+  inline void removeFile (const string &fName)
+    { if (::remove (fName. c_str ()))
+        throw runtime_error ("Cannot remove file + " + shellQuote (fName));
+    }
+#endif
   
 inline string path2canonical (const string &path)
   { if (char* p = realpath (path. c_str (), nullptr))
@@ -1110,9 +1194,9 @@ inline string path2canonical (const string &path)
 #ifndef _MSC_VER
   bool directoryExists (const string &dirName);
   
-  void createDirectory (const string &dirName,
-                        bool createAncestors);
+  void createDirectory (const string &dirName);
 #endif
+
 
 
 struct Dir
@@ -1121,8 +1205,10 @@ struct Dir
     // Simplified: contains no redundant "", ".", ".."
     // items.front().empty (): root
 
+
   explicit Dir (const string &dirName);
   Dir () = default;
+
     
   string get () const
     { return items. empty () 
@@ -1137,6 +1223,11 @@ struct Dir
       const Dir parent (get () + "/..");
       return parent. get ();
     }
+#ifndef _MSC_VER
+  size_t create ();
+    // Return: number of directories created
+    //         0 <=> complete directory exists
+#endif
 };
 
 
@@ -1186,6 +1277,7 @@ private:
 	  // 0 < seed < max_
 public:
 	
+
 	explicit Rand (ulong seed_arg = 1)
   	{ setSeed (seed_arg); }
 	void setSeed (ulong seed_arg)
@@ -1193,6 +1285,7 @@ public:
 	    qc ();
     }
     // Input: seed_arg > 0
+
 	  
 	ulong get (ulong max);
     // Return: in 0 .. max - 1
@@ -1206,24 +1299,6 @@ private:
 	void qc () const;
 	void run ();	
 };
-
-
-
-template <typename T>
-struct Singleton : Nocopy
-{
-private:
-	static bool beingRun;
-protected:
-	Singleton ()
-	  { if (beingRun)
-	  	  throw runtime_error ("Singleton");
-	  	beingRun = true;
-	  }
- ~Singleton () 
-    { beingRun = false; }
-};
-template <typename T> bool Singleton<T>::beingRun = false;
 
 
 
@@ -1271,15 +1346,19 @@ struct Threads : Singleton<Threads>
 private:
 	static size_t threadsToStart;
 	vector<thread> threads;
-	const bool quiet;
+	static bool quiet;
 public:
+
 
   explicit Threads (size_t threadsToStart_arg,
                     bool quiet_arg = false);
  ~Threads ();
+
   	
 	static bool empty () 
 	  { return ! threadsToStart; }
+	static bool isQuiet () 
+	  { return quiet; }
 	size_t getAvailable () const
 	  { return threadsToStart < threads. size () ? 0 : (threadsToStart - threads. size ()); }
 	Threads& operator<< (thread &&t)
@@ -1305,7 +1384,8 @@ public:
 
 
 template <typename Func, typename Res, typename... Args>
-  void arrayThreads (const Func& func,
+  void arrayThreads (bool quiet,
+                     const Func& func,
                      size_t i_max,
                      vector<Res> &results,
                      Args&&... args)
@@ -1315,7 +1395,7 @@ template <typename Func, typename Res, typename... Args>
   	ASSERT (threads_max >= 1);
 		results. clear ();
 		results. reserve (threads_max);
-  	if (threads_max == 1 || i_max <= 1)
+  	if (threads_max == 1 || i_max <= 1 || ! Threads::empty ())
   	{
   		results. push_back (Res ());
     	func (0, i_max, results. front (), forward<Args>(args)...);
@@ -1325,7 +1405,7 @@ template <typename Func, typename Res, typename... Args>
 		if (chunk * threads_max < i_max)
 			chunk++;
 		ASSERT (chunk * threads_max >= i_max);
-		Threads th (threads_max - 1);
+		Threads th (threads_max - 1, quiet);
 		FFOR (size_t, tn, threads_max)
 	  {
 	    const size_t from = tn * chunk;
@@ -1349,13 +1429,15 @@ template <typename Func, typename Res, typename... Args>
 
 class Verbose
 {
-	int verbose_old;
+	const int verbose_old;
 public:
+
 	
 	explicit Verbose (int verbose_arg);
 	Verbose ();
 	  // Increase verbosity
  ~Verbose ();
+
  
   static bool enabled ()
     { return isMainThread () /*Threads::empty ()*/; }
@@ -1369,13 +1451,78 @@ struct Unverbose
   
 
 
-
 struct Json;
 struct JsonContainer;
 
 
 
 class Notype {};
+
+
+
+
+struct Xml
+{
+  struct File;
+
+
+  struct Tag
+  {
+  private:
+    const string name;
+    File &f;
+  public:
+
+    Tag (File &f_arg,
+         const string &name_arg);
+   ~Tag ();
+  };
+  
+  
+  struct File
+  {
+  private:
+    ostream& os;
+    size_t offset {0};
+    friend Tag;
+  public:
+    static constexpr size_t offset_spaces {2};  // PAR
+    const bool printOffset;
+    const bool printBrief;
+    const Tag tag;
+
+
+    File (ostream &os_arg,
+          bool printOffset_arg,
+          bool printBrief_arg,
+          const string &tagName)
+      : os (init (os_arg))
+      , printOffset (printOffset_arg)
+      , printBrief (printBrief_arg)
+      , tag (*this, tagName)
+      {}
+  private:
+    static ostream& init (ostream &os_arg)
+      { os_arg << "<?xml version=\"1.0\" encoding=\"ISO-8859-1\" ?>" << endl;  // PAR
+        return os_arg;
+      }
+  public:
+
+
+    void print (const string &s)
+      { os << s; }
+    template <typename T>
+      File& operator<< (const T &t)
+        { os << t;
+          return *this;
+        }
+  };
+};
+
+
+
+extern unique_ptr<Xml::File> cxml;
+  
 
 
 
@@ -1395,7 +1542,6 @@ public:
     // Input: qc_on
   virtual void saveText (ostream& /*os*/) const 
     { throw logic_error ("Root::saveText() is not implemented"); }
-    // Parsable output
   void saveFile (const string &fName) const;
     // if fName.empty() then do nothing
     // Invokes: saveText()
@@ -1404,9 +1550,8 @@ public:
       saveText (oss);
       return oss. str ();
     }
-  virtual void print (ostream& os) const
-    { saveText (os); }
-    // Human-friendly
+  virtual void saveXml (Xml::File& /*f*/) const 
+    { throw logic_error ("Root::saveXml() is not implemented"); }
   virtual Json* toJson (JsonContainer* /*parent_arg*/,
                         const string& /*name_arg*/) const
     { throw logic_error ("Root::toJson() is not implemented"); }
@@ -1426,8 +1571,9 @@ inline ostream& operator<< (ostream &os,
                             const Root &r) 
   { r. saveText (os);
     return os;
-  }
-  
+  }  
+
+
 
 
 template <typename T /*Root*/> 
@@ -1436,6 +1582,7 @@ template <typename T /*Root*/>
   private:
   	typedef  unique_ptr<T>  P;
   public:
+    
   
   	explicit AutoPtr (T* t = nullptr) 
   	  : P (t)
@@ -1469,6 +1616,7 @@ struct Named : Root
   string name;
     // !empty(), no spaces at the ends, printable ASCII characeters
 
+
   Named () = default;
   explicit Named (const string &name_arg)
     : name (name_arg) 
@@ -1487,6 +1635,9 @@ struct Named : Root
     { name. clear (); }
   void read (istream &is) override
 	  { is >> name; }
+	static bool lessPtr (const Named* x,
+	                     const Named* y)
+	  { return x->name < y->name; }
 };
 
 
@@ -1734,7 +1885,7 @@ public:
         return;
       FOR_START (size_t, i, 1, P::size ())
 		    FOR_REV (size_t, j, i)
-		      if ((*this) [j + 1] > (*this) [j])
+		      if ((*this) [j + 1] < (*this) [j])
         	  std::swap ((*this) [j], (*this) [j + 1]);
 		      else
 		      	break;
@@ -1880,7 +2031,7 @@ public:
 	    }
 	void uniq ()
 	  { uniq ([] (const T& a, const T& b) { return a == b; }); }
-  size_t getIntersectSize (const Vector<T> &other) const
+  size_t getIntersectionSize (const Vector<T> &other) const
     // Input: *this, vec: unique
     { if (other. empty ())
         return 0;
@@ -1898,6 +2049,25 @@ public:
           n++;
       }
       return n;
+    }
+  Vector<T> getIntersection (const Vector<T> &other) const
+    // Input: *this, vec: unique
+    { Vector<T> res;
+      if (other. empty ())
+        return res;
+      checkSorted ();
+      other. checkSorted ();      
+      size_t j = 0;
+      for (const T& x : *this)
+      { while (other [j] < x)
+        { j++;
+          if (j == other. size ())
+            return res;
+        }
+        if (other [j] == x)
+          res << x;
+      }
+      return res;
     }
 
   bool operator< (const Vector<T> &other) const
@@ -1975,10 +2145,11 @@ public:
   void sortBubblePtr ()
     { FOR_START (size_t, i, 1, P::size ())
 		    FOR_REV (size_t, j, i)
-		      if (* (*this) [j + 1] > * (*this) [j])
+		      if (* (*this) [j + 1] < * (*this) [j])
         	  std::swap ((*this) [j], (*this) [j + 1]);
 		      else
 		      	break;
+		  P::searchSorted = false;
     }
 };
 
@@ -1990,6 +2161,7 @@ struct VectorOwn : VectorPtr<T>
 private:
 	typedef  VectorPtr<T>  P;
 public:
+
 
   VectorOwn () = default;
 	VectorOwn (const VectorOwn<T> &other) 
@@ -2010,6 +2182,7 @@ public:
 	  { P::operator= (other); }
  ~VectorOwn ()
     { P::deleteData (); }
+
 
   VectorOwn<T>& operator<< (const T* value)
     { P::operator<< (value); 
@@ -2036,16 +2209,41 @@ public:
     : P (init)
     {}
   StringVector (const string &fName,
-                size_t reserve_size);
-  explicit StringVector (const string &s, 
-                         char sep,
-                         bool trimP);
+                size_t reserve_size,
+                bool trimP);
+  StringVector (const string &s, 
+                char sep,
+                bool trimP);
+  explicit StringVector (size_t n)
+    : P (n, string ())
+    {}
 
 
   string toString (const string& sep) const;
   bool same (const StringVector &vec,
              const Vector<size_t> &indexes) const;
+
+
+  struct Hasher 
+  {
+    size_t operator () (const StringVector& vec) const 
+    { size_t ret = 0;
+      for (const string& s : vec) 
+        ret ^= hash<string>() (s);
+      return ret;
+    }
+  };
 };
+
+
+
+// Search
+// Return: false <=> incrementations are exhausted
+bool inc (vector<bool> &v);
+  // Update: v
+bool inc (vector<size_t> &indexes,
+          const vector<size_t> &indexes_max);
+  // Update: indexes
 
 
 
@@ -2078,19 +2276,19 @@ public:
 
 
 template <typename T>
-struct Heap : Root, Nocopy
+struct Heap : Root
 // Priority queue
-// Heap property: comp(&arr[parent(index)],&arr[index]) >= 0
+// Heap property: comp(arr[parent(index)],arr[index]) >= 0
 // More operations than in std::priority_queue
 {
 private:
-  Vector<T> arr;
+  Vector<T*> arr;
     // Elements are not owned by arr
-  const CompareInt comp;
+  CompareInt comp {nullptr};
     // !nullptr
   typedef void (*SetHeapIndex) (T &item, size_t index);
     // Example: item.heapIndex = index
-  const SetHeapIndex setHeapIndex;
+  SetHeapIndex setHeapIndex {nullptr};
     // Needed to invoke increaseKey()
 public:
 
@@ -2111,27 +2309,25 @@ public:
     { return arr. empty (); }
   size_t size () const
     { return arr. size (); }
-  Heap& operator<< (T item)
-    { arr << item;
+  Heap& operator<< (T* item)
+    { if (! item)
+        throw Error ("null item");
+      arr << item;
       increaseKey (arr. size () - 1);
       return *this;
     }
-  T increaseKey (size_t index)
-    { T item = arr [index];
-      size_t p;
-      while (index && comp (& arr [p = parent (index)], & item) < 0)
+  void increaseKey (size_t index)
+    { T* item = arr [index];
+      size_t p = no_index;
+      while (index && comp (arr [p = parent (index)], item) < 0)
       { assign (arr [p], index);
         index = p;
       }
       assign (item, index);
-      return item;
     }
-  T decreaseKey (size_t index)
-    { T item = arr [index];
-      heapify (index, arr. size ());
-      return item;
-    }
-  T getMaximum () const
+  void decreaseKey (size_t index)
+    { heapify (index, arr. size ()); }
+  T* getMaximum () const
     { if (arr. empty ()) 
     	  throw Error ("getMaximum");
       return arr [0];
@@ -2140,7 +2336,7 @@ public:
     // Time: O(1) amortized
     { if (arr. empty ()) 
     	  throw Error ("deleteMaximum");
-      T item = arr. back ();
+      T* item = arr. back ();
       arr. pop_back ();
       if (arr. empty ())
         return;
@@ -2159,40 +2355,44 @@ public:
       }
     }
 private:
-  size_t parent (size_t index) const
-    { if (! index) throw Error ("parent");
+  static size_t parent (size_t index) 
+    { if (! index)  throw Error ("parent");
       return (index + 1) / 2 - 1;
     }
-  size_t left (size_t index) const
+  static size_t left (size_t index) 
     { return 2 * (index + 1) - 1; }
-  size_t right (size_t index) const
+  static size_t right (size_t index) 
     { return left (index) + 1; }
-  void assign (T item,
+  void assign (T* item,
                size_t index)
     { arr [index] = item;
       if (setHeapIndex)
-        setHeapIndex (item, index);
+        setHeapIndex (*item, index);
     }
   void swap (size_t i,
              size_t j)
-    { T item = arr [i];
+    { if (i == j)
+        return;
+      T* item = arr [i];
       assign (arr [j], i);
       assign (item, j);
     }
   void heapify (size_t index,
                 size_t maxIndex)
     // Requires: Heap property holds for all index1 < maxIndex except parent(index1) == index
-    { if (maxIndex > arr. size ()) throw Error ("heapify: maxIndex");
-      if (index >= maxIndex)       throw Error ("heapify: index");
+    { if (maxIndex > arr. size ())  throw Error ("heapify: maxIndex");
+      if (index >= maxIndex)        throw Error ("heapify: index");
       for (;;)
       { size_t extr = index;
         const size_t l = left (index);
         if (   l < maxIndex
-            && comp (& arr [extr], & arr [l]) < 0)
+            && comp (arr [extr], arr [l]) < 0
+           )
           extr = l;
         const size_t r = right (index);
         if (   r < maxIndex
-            && comp (& arr [extr], & arr [r]) < 0)
+            && comp (arr [extr], arr [r]) < 0
+           )
           extr = r;
         if (extr == index)
           break;
@@ -2203,11 +2403,13 @@ private:
 public:
 
   // Test
-  static void testStr ()
-    { Heap <string> heap (strComp);
-      heap << "Moscow" << "San Diego" << "Los Angeles" << "Paris";
+  static void testStr ()    
+    { StringVector vec {"Moscow", "San Diego", "Los Angeles", "Paris"};
+      Heap<string> heap (strComp);
+      for (string& s : vec)
+        heap << & s;
       while (! heap. empty ())  
-      { cout << heap. getMaximum () << endl;
+      { cout << * heap. getMaximum () << endl;
         heap. deleteMaximum ();
       }
     }
@@ -2216,9 +2418,9 @@ private:
                       const void* s2)
     { const string& s1_ = * static_cast <const string*> (s1);
       const string& s2_ = * static_cast <const string*> (s2);
-      if (s1_ < s2_) return -1;
-      if (s1_ > s2_) return  1;
-      return  0;
+      if (s1_ > s2_)  return -1;
+      if (s1_ < s2_)  return  1;
+      return 0;
     }
 };
 
@@ -2318,6 +2520,16 @@ private:
       return false;
     }
 public:
+  bool intersects (const unordered_set<T> &other) const
+     { if (universal)
+     	   return ! other. empty ();
+       if (other. empty ())
+         return false;
+       for (const T& t : *this)
+         if (contains (other, t))
+           return true;
+       return false;     
+     }
 
   Set<T>& operator<< (const T &el)
     { if (! universal)
@@ -2453,6 +2665,7 @@ private:
   // Same elements
 public:
   
+
   RandomSet () = default;
   void reset (size_t num)
     { vec. clear ();  vec. reserve (num);
@@ -2464,6 +2677,7 @@ public:
       if (vec. size () != um. size ())
         throw logic_error ("RandomSet: qc");
     }
+
     
   // Time: O(1)
   bool empty () const
@@ -2503,10 +2717,12 @@ private:
   unordered_map<T,size_t> elem2num;
 public:
   
+
   explicit Enumerate (size_t n)
     { num2elem. reserve (n);
       elem2num. rehash (n);
     }
+
     
   size_t size () const
     { return num2elem. size (); }
@@ -2534,12 +2750,12 @@ private:
 	static size_t beingUsed;
 public:
 
-	size_t n_max {0};
+	const size_t n_max;
 	  // 0 <=> unknown
-	bool active;
+	const bool active;
+	const size_t displayPeriod;
 	size_t n {0};
 	string step;
-	size_t displayPeriod {0};
 	
 
 	explicit Progress (size_t n_max_arg = 0,
@@ -2554,25 +2770,27 @@ public:
 	  }
  ~Progress () 
     { if (active)
-    	{ if (! uncaught_exception ())
-    	  { report ();
-    	    cerr << endl;
-    	  }
+    	{ report ();
+    	  cerr << endl;
     	  beingUsed--;
     	}
     }
     
 
-  void operator() (const string& step_arg = string ())
+  bool operator() (const string& step_arg = string ())
     { n++;
     	step = step_arg;
     	if (   active 
     		  && n % displayPeriod == 0
     		 )
-    	  report ();
+    	{ report ();
+    	  return true;
+    	}
+    	return false;
     }
 private:
 	void report () const;
+	  // Output: cerr
 public:
   void reset ()
     { n = 0;
@@ -2583,7 +2801,7 @@ public:
 	static bool isUsed ()
 	  { return beingUsed; }
 	static bool enabled ()
-	  { return ! beingUsed && verbose (1); }
+	  { return ! beingUsed && ! Threads::isQuiet () && verbose (1); }
 };
 
 
@@ -2740,6 +2958,7 @@ struct Token : Root
 	  // eText => embracing quote's are removed
 	  // Valid if !empty()
 	char quote {'\0'};
+	  // '\0': no quote
 	long long n {0};
 	double d {0.0};
   // Valid if eDouble
@@ -2914,8 +3133,8 @@ private:
 	LineInput f;
 	Istringstream iss;
 public:
-  bool sameAllowed {false};
-	bool orderNames {false};
+  const bool sameAllowed;
+	const bool orderNames;
   	// true => name1 < name2
 	string name1;
 	string name2;
@@ -2947,6 +3166,8 @@ struct OFStream : ofstream
 	  { open (dirName, fileName, extension); }
 	explicit OFStream (const string &pathName)
 	  { open ("", pathName, ""); }
+	static void create (const string &pathName)
+	  { OFStream f (pathName); }
 
 
 	void open (const string &dirName,
@@ -2959,7 +3180,7 @@ struct OFStream : ofstream
 
 struct Stderr : Singleton<Stderr>
 {
-  bool quiet {false};
+  const bool quiet;
 
   
   explicit Stderr (bool quiet_arg)
@@ -2985,7 +3206,7 @@ struct Stderr : Singleton<Stderr>
     Stderr& stderr;
   public:  
     
-    Warning (Stderr &stderr_arg)
+    explicit Warning (Stderr &stderr_arg)
       : stderr (stderr_arg)
       { stderr << Color::code (Color::yellow, true) << "WARNING: "; }
    ~Warning ()
@@ -2994,6 +3215,21 @@ struct Stderr : Singleton<Stderr>
 #endif
 
 
+
+// Binary streams
+// File content is platform-dependent
+
+template <typename T>
+  inline void writeBin (ostream &f,
+                        const T &t)
+    { f. write (reinterpret_cast <const char*> (& t), sizeof (t)); }
+
+template <typename T>
+  inline void readBin (istream &f,
+                       T &t)
+    { f. read (reinterpret_cast <char*> (& t), sizeof (t)); }
+
+  
 
 struct Csv : Root
 // Line of Excel .csv-file
@@ -3034,7 +3270,7 @@ struct TabDel
 {
 private:
   ostringstream tabDel;
-  ONumber on;
+  const ONumber on;
 public:
   
   explicit TabDel (streamsize precision = 6,
@@ -3056,14 +3292,16 @@ public:
 
 
 
-struct TextTable : Root
-// Tab-delimited table with a header
+struct TextTable : Named
+// Tab-delimited (tsv) table with a header
+// name: file name
 {
   bool pound {false};
     // '#' in the beginning of header
   bool saveHeader {true};
   struct Header : Named
   { 
+    size_t len_max {0};
     // Type
     bool numeric {true};
     // Valid if numeric
@@ -3074,16 +3312,31 @@ struct TextTable : Root
       {}
     void qc () const override;
     void saveText (ostream& os) const override
-      { os << name << ' ' << (numeric ? ((scientific ? "float" : "int") + string ("(") + to_string (decimals) + ")") : "char"); }
+      { os << name << '\t' << len_max << '\t' << (numeric ? ((scientific ? "float" : "int") + string ("(") + to_string (decimals) + ")") : "char"); }
   };
   Vector<Header> header;
     // size() = number of columns
   Vector<StringVector> rows;
     // StringVector::size() = header.size()
+  typedef  size_t  RowNum;
+    // no_index <=> no row
 
+    
+  struct Error : runtime_error
+  {
+    Error (const TextTable &tab,
+           const string &what)
+      : runtime_error (what + "\nIn table file: " + tab. name)
+      {}
+  };
     
 
   explicit TextTable (const string &fName);
+  TextTable (bool pound_arg,
+             const Vector<Header> &header_arg)
+    : pound (pound_arg)
+    , header (header_arg)
+    {}
 private:
   void setHeader ();
 public:
@@ -3091,6 +3344,10 @@ public:
   void saveText (ostream &os) const override;    
         
   
+  static bool getDecimals (string s,
+                           bool &hasPoint,
+                           streamsize &decimals);
+    // Return: true => scientific number
   void printHeader (ostream &os) const;
 private:
   size_t col2index_ (const string &columnName) const;
@@ -3098,7 +3355,7 @@ public:
   size_t col2index (const string &columnName) const
   { const size_t i = col2index_ (columnName);
     if (i == no_index)
-      throw runtime_error ("Cannot find column name " + strQuote (columnName));
+      throw Error (*this, "Cannot find column name " + strQuote (columnName));
     return i;
   }
   Vector<size_t> columns2indexes (const StringVector &columns) const
@@ -3119,11 +3376,39 @@ public:
     //          can be repeated
     //          ordered
   void group (const StringVector &by,
-              const StringVector &sum);
+              const StringVector &sum,
+              const StringVector &aggr);
+    // Invokes: filterColumns(by + sum + aggr)
 private:
-  void merge (size_t toIndex,
-              size_t fromIndex,
-              const Vector<size_t> &sum);
+  void merge (RowNum toIndex,
+              RowNum fromIndex,
+              const Vector<size_t> &sum,
+              const Vector<size_t> &aggr);
+public:
+  void indexes2values (const Vector<size_t> &indexes,
+                       RowNum row_num,
+                       StringVector &values) const;
+    // Output: values
+  RowNum find (const Vector<size_t> &indexes,
+               const StringVector &targetValues,
+               RowNum row_num_start) const;
+
+
+  struct Key
+  {
+    const Vector<size_t> indexes;
+    unordered_map<StringVector,RowNum,StringVector::Hasher> data;
+
+    Key (const TextTable &tab,
+         const StringVector &columns);
+         
+    RowNum find (const StringVector &values) const
+      { const auto& it = data. find (values);
+        if (it != data. end ())
+          return it->second;
+        return no_index;
+      }
+  };
 };
 
 
@@ -3140,6 +3425,7 @@ struct JsonArray;
 struct JsonMap;
   
 
+
 struct Json : Root, Nocopy  // Heaponly
 {
 protected:
@@ -3147,8 +3433,9 @@ protected:
         const string& name);
   Json () = default;
 public:  
-  void print (ostream& os) const override = 0;
+  void saveText (ostream& os) const override = 0;
   
+
   virtual const JsonNull* asJsonNull () const
     { return nullptr; }  
   virtual const JsonString* asJsonString () const
@@ -3189,23 +3476,27 @@ public:
 };
 
 
+
 struct JsonNull : Json
 {
   explicit JsonNull (JsonContainer* parent,
                      const string& name = noString)
     : Json (parent, name)
     {}    
-  void print (ostream& os) const final
+  void saveText (ostream& os) const final
     { os << "null"; }
+
 
   const JsonNull* asJsonNull () const final
     { return this; }  
 };
 
 
+
 struct JsonString : Json
 {
-  string s;
+  const string s;
+
 
   JsonString (const string& s_arg,
               JsonContainer* parent,
@@ -3213,17 +3504,19 @@ struct JsonString : Json
     : Json (parent, name)
     , s (s_arg)
     {}
-  void print (ostream& os) const final
+  void saveText (ostream& os) const final
     { os << toStr (s); }
+
 
   const JsonString* asJsonString () const final
     { return this; }  
 };
 
 
+
 struct JsonInt : Json
 {
-  long long n {0};
+  const long long n;
   
   JsonInt (long long n_arg,
            JsonContainer* parent,
@@ -3231,19 +3524,22 @@ struct JsonInt : Json
     : Json (parent, name)
     , n (n_arg)
     {}
-  void print (ostream& os) const final
+  void saveText (ostream& os) const final
     { os << n; }
+
 
   const JsonInt* asJsonInt () const final
     { return this; }  
 };
 
 
+
 struct JsonDouble : Json
 {
-  double n {0.0};
-  streamsize decimals {0};
+  const double n;
+  const streamsize decimals;
   bool scientific {false};
+
 
   JsonDouble (double n_arg,
               streamsize decimals_arg,
@@ -3254,7 +3550,7 @@ struct JsonDouble : Json
     , decimals (decimals_arg == numeric_limits<streamsize>::max() ? double2decimals (n_arg) : decimals_arg)
     {}
     // decimals_arg = -1: default
-  void print (ostream& os) const final
+  void saveText (ostream& os) const final
     { const ONumber on (os, (streamsize) decimals, scientific);
     	if (n == n)
         os << n; 
@@ -3262,14 +3558,17 @@ struct JsonDouble : Json
         os << "null";  // NaN
     }      
 
+
   const JsonDouble* asJsonDouble () const final
     { return this; }  
 };
 
 
+
 struct JsonBoolean : Json
 {
-  bool b {false};
+  const bool b;
+  
 
   JsonBoolean (bool b_arg,
                JsonContainer* parent,
@@ -3277,12 +3576,14 @@ struct JsonBoolean : Json
     : Json (parent, name)
     , b (b_arg)
     {}
-  void print (ostream& os) const final
+  void saveText (ostream& os) const final
     { os << (b ? "true" : "false"); }
+
 
   const JsonBoolean* asJsonBoolean () const final
     { return this; }  
 };
+
 
 
 struct JsonContainer : Json
@@ -3297,12 +3598,14 @@ public:
 };
 
 
+
 struct JsonArray : JsonContainer
 {
   friend struct Json;
 private:
   VectorOwn<Json> data;
 public:
+  
 
   explicit JsonArray (JsonContainer* parent,
                       const string& name = noString)
@@ -3313,7 +3616,8 @@ private:
              JsonContainer* parent,
              const string& name);
 public:
-  void print (ostream& os) const final;
+  void saveText (ostream& os) const final;
+
 
   const JsonArray* asJsonArray () const final
     { return this; }
@@ -3323,6 +3627,7 @@ public:
 };
 
 
+
 struct JsonMap : JsonContainer
 {
   friend struct Json;
@@ -3330,6 +3635,7 @@ private:
   typedef  map <string, const Json*>  Map;
   Map data;
 public:
+  
   
   explicit JsonMap (JsonContainer* parent,
                     const string& name = noString)
@@ -3347,7 +3653,8 @@ private:
   void parse (CharInput& in);
 public:
  ~JsonMap ();
-  void print (ostream& os) const final;
+  void saveText (ostream& os) const final;
+
 
   const JsonMap* asJsonMap () const final
     { return this; }
@@ -3366,6 +3673,7 @@ extern JsonMap* jRoot;
 
 
 
+
 //
 
 struct Offset 
@@ -3377,15 +3685,16 @@ private:
 public:
 	static constexpr size_t delta = 2;
 
+
 	Offset ()
   	{ size += delta; }
  ~Offset () 
   	{ size -= delta; }
 
+
   static void newLn (ostream &os) 
     { os << endl << string (size, ' '); }
 };
-
 
 
 
@@ -3396,6 +3705,7 @@ struct ItemGenerator
 {
   Progress prog;
   
+  
 protected:
   ItemGenerator (size_t progress_n_max,
 	               size_t progress_displayPeriod)
@@ -3404,6 +3714,7 @@ protected:
 public:
   virtual ~ItemGenerator ()
     {}
+  
   
   virtual bool next (string &item) = 0;
     // Return: false <=> end of items
@@ -3416,20 +3727,28 @@ public:
 struct FileItemGenerator : ItemGenerator, Nocopy
 {
   const bool isDir;
+  const bool large;
 private:
+  string dirName;
   string fName;
   ifstream f;
+  unique_ptr<FileItemGenerator> fig;
 public:
+  
   
   FileItemGenerator (size_t progress_displayPeriod,
                      bool isDir_arg,
+                     bool large_arg,
                      const string& fName_arg);
  ~FileItemGenerator ()
     { if (isDir)
 	      remove (fName. c_str ());
 	  }
   
+  
   bool next (string &item) final;
+private:
+  bool next_ (string &item);
 };
 
   
@@ -3441,18 +3760,20 @@ private:
   size_t i {0};
 public:
   
+  
   NumberItemGenerator (size_t progress_displayPeriod,
                        const string& name)
     : ItemGenerator (str2<size_t> (name), progress_displayPeriod)
     , n (prog. n_max)
     {}
   
+  
   bool next (string &item) final
     { if (i == n)
         return false;
       i++;
       item = to_string (i);
-      prog (item);
+      prog ();
       return true;
     }
 };
@@ -3684,6 +4005,8 @@ protected:
 protected:
   virtual void initEnvironment ()
     {}
+  virtual void createTmp ()
+    {}
   string getInstruction () const;
   virtual string getHelp () const;
 public:
@@ -3704,8 +4027,11 @@ struct ShellApplication : Application
   // Environment
   const bool useTmp;
   string tmp;
-    // Temporary file prefix: ($TMPDIR or "/tmp") + "/XXXXXX"
+    // Temporary file prefix: ($TMPDIR or "/tmp") + "/" + programName + "XXXXXX"
     // If log is used then tmp is printed in the log file and the temporary files are not deleted 
+private:
+  bool tmpCreated {false};
+public:
   string execDir;
     // Ends with '/'
     // Physically real directory of the software
@@ -3724,6 +4050,7 @@ struct ShellApplication : Application
 
 protected:
   void initEnvironment () override;
+  void createTmp () override;
   string getHelp () const override;
 private:
   void body () const final;

@@ -53,7 +53,9 @@ Locus::Locus (size_t lineNum_arg,
     				  size_t stop_arg,
     				  bool strand_arg,
               bool partial_arg,
-              size_t crossOriginSeqLen_arg)
+              size_t crossOriginSeqLen_arg,
+              string gene_arg,
+              string product_arg)
 : lineNum (lineNum_arg)
 , contig (contig_arg)
 , start (start_arg)
@@ -62,6 +64,8 @@ Locus::Locus (size_t lineNum_arg,
 , partial (partial_arg)
 , contigLen (crossOriginSeqLen_arg)
 , crossOrigin (bool (crossOriginSeqLen_arg))
+, gene (gene_arg)
+, product (product_arg)
 { 
 //QC_ASSERT (lineNum >= 1);
 	trim (contig, '_');
@@ -86,7 +90,7 @@ bool Locus::operator< (const Locus& other) const
   LESS_PART (*this, other, start)
   LESS_PART (*this, other, stop)
   LESS_PART (*this, other, strand)
-  LESS_PART (*this, other, contigLen);
+//LESS_PART (*this, other, contigLen);
   LESS_PART (*this, other, crossOrigin);
   return false;
 }
@@ -225,15 +229,28 @@ Annot::Annot (Gff,
     const bool partial = contains (attributes, "partial=true");
 
     string locusTag;
+    string gene;
+    string product;
     const string locusTagName (! pgap && (locus_tag || pseudo) ? "locus_tag=" : "Name=");
     while (! attributes. empty ())
     {
-	    locusTag = findSplit (attributes, ';');
-  	  trim (locusTag, tmpSpace);
-	    if (isLeft (locusTag, locusTagName))
-	      break;
+	    string s (findSplit (attributes, ';'));
+  	  trim (s, tmpSpace);
+	    if (isLeft (s, locusTagName))
+	      locusTag = s;
+	    else if (isLeft (s, "gene="))
+	    {
+	      gene = s;
+	      findSplit (gene, '=');
+	    }
+	    else if (isLeft (s, "product="))
+	    {
+	      product = s;
+	      findSplit (product, '=');
+	      replace (product, tmpSpace, ' ');
+	    }
 	  }
-    if (! isLeft (locusTag, locusTagName))
+    if (locusTag. empty ())
     	continue;
     //throw runtime_error (errorS + "No attribute '" + locusTagName + "': " + f. line);
 	  if (! pgap && contains (locusTag, ":"))
@@ -250,7 +267,7 @@ Annot::Annot (Gff,
 	  }
 	  QC_ASSERT (! locusTag. empty ());
 	  
-	  const Locus locus (f. lineNum, contig, (size_t) start, (size_t) stop, strand == "+", partial, 0);
+	  Locus locus (f. lineNum, contig, (size_t) start, (size_t) stop, strand == "+", partial, 0, gene, product);
 	#if 0
 	  // DNA may be truncated
     if (type == "CDS" && ! pseudo && locus. size () % 3 != 0)
@@ -261,7 +278,7 @@ Annot::Annot (Gff,
     }
   #endif
 
-    prot2cdss [locusTag] << locus;
+    prot2cdss [locusTag] << move (locus);
   }
 }
   
@@ -311,7 +328,7 @@ Annot::Annot (Bed,
            
 	  trim (locusTag, '_');
 	  ASSERT (! locusTag. empty ());
-    prot2cdss [locusTag] << Locus (f. lineNum, contig, start, stop, strand == '+', false/*partial*/, 0);
+    prot2cdss [locusTag] << Locus (f. lineNum, contig, start, stop, strand == '+', false/*partial*/, 0, string (), string ());
   }
 }
   
