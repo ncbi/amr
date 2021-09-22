@@ -61,6 +61,8 @@ struct Locus
   size_t contigLen {0};
     // 0 <=> unknown
   bool crossOrigin {false};
+  string gene;
+  string product;
 
   
   Locus (size_t lineNum_arg,
@@ -69,14 +71,25 @@ struct Locus
          size_t stop_arg,
          bool strand_arg,
          bool partial_arg,
-         size_t crossOriginSeqLen);
+         size_t crossOriginSeqLen,
+         string gene_arg,
+         string product_arg);
   Locus () = default;
     
 
   bool empty () const
     { return contig. empty (); }
   void print (ostream &os) const
-    { os << contig << ' ' << start << ' ' << stop << ' ' << strand << ' ' << contigLen << ' ' << crossOrigin << endl; }
+    { os        << contig 
+         << ' ' << start 
+         << ' ' << stop 
+         << ' ' << strand 
+         << ' ' << contigLen 
+         << ' ' << crossOrigin 
+         << ' ' << gene 
+         << ' ' << product 
+         << endl; 
+    }
   bool operator< (const Locus& other) const;
   size_t size () const
     { return crossOrigin
@@ -101,7 +114,8 @@ struct Annot : Root
          const string &fName,
          bool trimProject,
          bool locus_tag,
-         bool pgap);
+         bool pgap,
+         bool lcl);
 		// https://github.com/The-Sequence-Ontology/Specifications/blob/master/gff3.md
 		// Requirement: the protein id should be in the attribute "Name=<id>" (9th field) of the rows with type "CDS" or "gene" (3rd field)
     // Input: fName may be empty

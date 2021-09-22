@@ -40,19 +40,17 @@
 #include <sstream>
 #include <cstring>
 #include <regex>
-#ifndef _MSC_VER
-  #include <dirent.h>
-//#include <execinfo.h>
-#endif
 #include <csignal>  
 
-
-
-
-[[noreturn]] void errorThrow (const string &msg)
-{ 
-  throw std::logic_error (msg); 
-}
+#ifndef _MSC_VER
+  #include <dirent.h>
+  #include <execinfo.h>
+  #include <sys/types.h>
+  #include <sys/stat.h>
+  #ifdef __APPLE__
+    #include <sys/sysctl.h>
+  #endif
+#endif
 
 
 
@@ -91,7 +89,7 @@ string getCommandLine ()
     if (! commandLine. empty ())
       commandLine += ' ';
     if (bad)
-      commandLine += strQuote (s, '\'');
+      commandLine += shellQuote (s);
     else
       commandLine += s;
   }
@@ -107,6 +105,24 @@ ulong seed_global = 1;
 bool sigpipe = false;
 
 
+
+// COutErr
+
+#ifndef _MSC_VER
+bool COutErr::sameFiles (int fd1, 
+                         int fd2)
+{ 
+  struct stat stat1;
+  struct stat stat2;
+  fstat (fd1, & stat1);
+  fstat (fd2, & stat2);
+  return stat1. st_ino == stat2. st_ino;
+}
+#endif
+
+const COutErr couterr;
+
+
 // thread
 size_t threads_max = 1;
 
@@ -117,6 +133,31 @@ thread::id main_thread_id = get_thread_id ();
   
 bool isMainThread ()
   { return threads_max == 1 || get_thread_id () == main_thread_id; }
+
+
+
+#ifndef _MSC_VER
+size_t get_threads_max_max () 
+{
+#if __APPLE__
+  // stderr << "Compiled for MacOS" << "\n";
+  int count;
+  size_t count_len = sizeof(count);
+  sysctlbyname ("hw.logicalcpu", &count, &count_len, NULL, 0);
+  // fprintf(stderr,"you have %i cpu cores", count);
+  return count;
+#else
+  LineInput f ("/proc/cpuinfo");
+  size_t n = 0;
+  while (f. nextLine ())
+    if (isLeft (f. line, "processor"))
+      n++;
+  return n;
+#endif
+}
+#endif
+
+
 
 
 bool Chronometer::enabled = false;
@@ -188,16 +229,24 @@ namespace
 	
 	// time ??
 #ifndef _MSC_VER
-	const char* hostname = getenv ("HOSTNAME");//const char* shell    = getenv ("SHELL");
+	const char* hostname = getenv ("HOSTNAME");
+//const char* shell    = getenv ("SHELL");
 	const char* shell    = getenv ("SHELL");	
 	const char* pwd      = getenv ("PWD");
 #endif
   const string errorS ("*** ERROR ***");
-  if (isLeft (msg, errorS))  // msg already is the result of errorExit()
+  if (contains (msg, errorS))  // msg already is the result of errorExit()
     *os << endl << msg << endl;
   else
   	*os << endl
-        << errorS << endl
+      #ifndef _MSC_VER
+        << Color::code (Color::red, true) 
+      #endif
+        << errorS 
+      #ifndef _MSC_VER
+        << Color::code ()
+      #endif
+        << endl
         << msg << endl << endl
       #ifndef _MSC_VER
   	    << "HOSTNAME: " << (hostname ? hostname : "?") << endl
@@ -217,50 +266,53 @@ namespace
 
 
 
-#if 0
-#ifndef _MSC_VER
 string getStack ()
+// Print function names: addr2line -f -C -e <progname>  -a <address>  // --> exec() ??
 {
+#ifdef _MSC_VER
+  return "Stack trace is not implemented";
+#else
   string s;
   constexpr size_t size = 100;  // PAR
   void* buffer [size];
   const int nptrs = backtrace (buffer, size);
+  if (nptrs <= 1)  // *this function must be the first one
+    errorExit (("backtrace size is " + to_string (nptrs)). c_str ());
   char** strings = backtrace_symbols (buffer, nptrs);
-  if (strings) 
-    FOR (int, j, nptrs)
-      s += string (strings [j]) + "\n";  // No function names ??
+  if (strings /*&& ! which ("addr2line"). empty ()*/) 
+    FOR_START (int, i, 1, nptrs)
+      s += string (strings [i]) + "\n";  
   else
     s = "Cannot get stack trace";
 //free (strings);
 
   return s;
+#endif
 }
-#endif
-#endif
 
 
 
 namespace
 {
 	
-uint powInt_ (uint a,
-              uint b)
+size_t powInt_ (size_t a,
+                size_t b)
 // Input: a: !0, != 1
 {
 	if (! b)
 		return 1;
 	if (b == 1)
 		return a;
-	const uint half = b / 2;
-	const uint res = powInt_ (a, half);
+	const size_t half = b / 2;
+	const size_t res = powInt_ (a, half);
 	return res * res * (divisible (b, 2) ? 1 : a);
 }
 	
 }
 
 
-uint powInt (uint a,
-             uint b)
+size_t powInt (size_t a,
+               size_t b)
 {
 	if (a)
 		if (a == 1)
@@ -359,6 +411,24 @@ bool goodName (const string &name)
       return false;
       
   return true;
+}
+
+
+
+string pad (const string &s,
+            size_t size,
+            bool right)
+{
+  if (s. size () >= size)
+    return s. substr (0, size);
+  
+  string sp;
+  while (sp. size () + s. size () < size)
+    sp += ' ';
+    
+  if (right)
+    return s + sp;
+  return sp + s;
 }
 
 
@@ -749,7 +819,7 @@ bool fileExists (const string &fName)
 bool directoryExists (const string &dirName)
 {
   DIR* dir = opendir (dirName. c_str ());
-  const bool yes = (bool) (dir);
+  const bool yes = (bool) dir;
   if (yes)
   {
     if (closedir (dir))
@@ -757,16 +827,26 @@ bool directoryExists (const string &dirName)
   }
   return yes;
 }
+
+
+
+void createDirectory (const string &dirName)
+{
+  if (mkdir (dirName. c_str (), 0777) != 0)  // PAR
+    throw runtime_error ("Cannot create directory " + strQuote (dirName));
+}
 #endif
 
 
 
 
-Dir::Dir (const string &name)
+// Dir
+
+Dir::Dir (const string &dirName)
 {
-  ASSERT (! name. empty ());
+  ASSERT (! dirName. empty ());
   
-  items = str2list (name, fileSlash);
+  items = str2list (dirName, fileSlash);
 
   auto it = items. begin (); 
   while (it != items. end ())
@@ -812,25 +892,55 @@ Dir::Dir (const string &name)
 
 
 
+#ifndef _MSC_VER
+size_t Dir::create ()
+{
+  if (items. empty ())
+    throw runtime_error ("Cannot create the root directory");
 
-streampos getFileSize (const string &fName)
+  const string path (get ());
+
+  if (directoryExists (path))
+    return 0;
+
+  const string item (items. popBack ());
+  const size_t n = create ();
+  items << item;
+  if (mkdir (path. c_str (), 0777) != 0)  // PAR
+    throw runtime_error ("Cannot create directory " + strQuote (path));
+
+  return n + 1;
+}
+#endif
+
+
+
+
+//
+
+streamsize getFileSize (const string &fName)
 {
   ifstream f (fName, ifstream::binary);
   if (! f. good ())
-    throw runtime_error ("Cannot open file " + strQuote (fName));
+    throw runtime_error ("Cannot open file " + shellQuote (fName) + " to get file size");
 
   const streampos start = f. tellg ();
   QC_ASSERT (start >= 0); 
 
   f. seekg (0, ios_base::end);
-  QC_ASSERT (f. good ());
+  if (! f. good ())
+    throw runtime_error ("Cannot go to the beginning of the file " + shellQuote (fName));
 
   const streampos end = f. tellg ();
   QC_ASSERT (end >= 0); 
 
   if (end < start)
-    throw runtime_error ("Bad file " + strQuote (fName));    
-  return end - start; 
+    throw runtime_error ("Bad file " + shellQuote (fName));    
+  const streampos len = end - start;
+  ASSERT (len >= 0);
+  QC_ASSERT (len <= (streampos) numeric_limits<streamsize>::max());
+  
+  return (streamsize) len; 
 }
 
 
@@ -847,7 +957,7 @@ size_t strMonth2num (const string& month)
     return (size_t) (m - 1);
   }
   
-	size_t i = NO_INDEX;
+	size_t i = no_index;
 	     if (month == "Jan")  i = 0;
   else if (month == "Feb")  i = 1;
   else if (month == "Mar")  i = 2;
@@ -883,7 +993,8 @@ bool getChar (istream &is,
     ASSERT (i == c);
     return false;
   }
-  ASSERT (i >= 0 && i <= 255);
+  if (! (i >= 0 && i <= 255))
+    throw runtime_error ("Cannot read character: " + to_string (i));
   c = static_cast<char> (i);
 
   return true;
@@ -1025,6 +1136,7 @@ void Rand::run ()
 // Threads
 
 size_t Threads::threadsToStart = 0;
+bool Threads::quiet = false;
 	
 	
 
@@ -1045,7 +1157,9 @@ int getVerbosity ()
 
 bool verbose (int inc)
 { 
-	return Verbose::enabled () ? (verbose_ + inc > 0) : false;
+  if (! Verbose::enabled ())
+    return false;
+	return verbose_ + inc > 0;
 }
 
 
@@ -1098,13 +1212,15 @@ void exec (const string &cmd,
 //Chronometer_OnePass cop (cmd);  
   if (verbose ())
   	cout << cmd << endl;
+  if (logPtr)
+  	*logPtr << cmd << endl;
   	
 	const int status = system (cmd. c_str ());  // pipefail's are not caught
 	if (status)
 	{
 	  if (! logFName. empty ())
 	  {
-	    const StringVector vec (logFName, (size_t) 10);  // PAR
+	    const StringVector vec (logFName, (size_t) 10, false);  // PAR
 	    throw runtime_error (vec. toString ("\n"));
 	  }
 		throw runtime_error ("Command failed:\n" + cmd + "\nstatus = " + to_string (status));		
@@ -1113,12 +1229,29 @@ void exec (const string &cmd,
 
 
 
+#ifndef _MSC_VER
+string which (const string &progName)
+{
+  ASSERT (! progName. empty ());
+
+  const List<string> paths (str2list (getenv ("PATH"), ':'));
+  for (const string& path : paths)
+    if (   ! path. empty () 
+        && fileExists (path + "/" + progName)
+       )
+      return path + "/";
+
+  return string ();
+}
+#endif
+
+
+
 
 // Threads
 
 Threads::Threads (size_t threadsToStart_arg, 
                   bool quiet_arg)
-: quiet (quiet_arg)
 { 
   if (! isMainThread ())
 	  throw logic_error ("Threads are started not from the main thread");
@@ -1129,10 +1262,12 @@ Threads::Threads (size_t threadsToStart_arg,
 	if (threadsToStart >= threads_max)
 		throw logic_error ("Too many threads to start");
 		
+  quiet = quiet_arg;
+		
 	threads. reserve (threadsToStart);
 	
-	if (! quiet && verbose (1))
-    cerr << "# Threads started: " << threadsToStart + 1 << endl;
+	if (! quiet && verbose (1) && threadsToStart)
+    cerr << "# Threads started: " << threadsToStart + 1/*main thread*/ << endl;
 }	
 
 
@@ -1152,19 +1287,71 @@ Threads::~Threads ()
 	  
 	threads. clear ();
 	threadsToStart = 0;
+	quiet = false;
 }
 
 
 
 
+
+// Xml::Tag
+
+Xml::Tag::Tag (Xml::File &f_arg,
+               const string &name_arg)
+: name (name_arg)
+, f (f_arg)
+{ 
+  ASSERT (! contains (name, ' '));
+  if (f. printOffset)
+  {
+    f. print ("\n");
+    f. offset++;
+    FOR (size_t, i, f. offset * File::offset_spaces)
+      f. print (" ");
+  }
+  if (! name. empty ())
+    f. print ("<" + name + ">");
+}
+
+
+
+Xml::Tag::~Tag ()
+{ 
+  if (f. printOffset)
+  {
+    if (f. printBrief)
+    {
+      f. offset--;
+      return;
+    }
+    else
+    {
+      f. print ("\n");
+      FOR (size_t, i, f. offset * File::offset_spaces)
+        f . print (" ");
+      f. offset--;
+    }    
+  }
+  if (! name. empty ())
+    f. print ("</" + name + ">");
+  if (! f. printOffset)
+    f. print ("\n");
+}
+
+
+
+
+unique_ptr<Xml::File> cxml;
+  
+
+
 // Root
 
 void Root::saveFile (const string &fName) const
-{
-	if (fName. empty ())
+{ 
+  if (fName. empty ())
 		return;
-  
-  OFStream f (fName);
+  OFStream f (fName);  // Declared after Root
   saveText (f);
 }
 
@@ -1179,7 +1366,8 @@ void Named::qc () const
     return;
   Root::qc ();
     
-  QC_ASSERT (goodName (name));
+  if (! goodName (name))
+    throw runtime_error ("Bad name: " + strQuote (name));
 }
 
 
@@ -1188,16 +1376,20 @@ void Named::qc () const
 // StringVector
 
 StringVector::StringVector (const string &fName,
-                            size_t reserve_size)
+                            size_t reserve_size,
+                            bool trimP)
 {
-	reserve (reserve_size);
 	searchSorted = true;
+	
+	reserve (reserve_size);
   try
   {
   	LineInput f (fName);
   	string prev;
     while (f. nextLine ())
     {
+      if (trimP)
+        trim (f. line);
       *this << f. line;
   	  if (f. line < prev)
   	  	searchSorted = false;
@@ -1206,21 +1398,99 @@ StringVector::StringVector (const string &fName,
   }
   catch (const exception &e)
   {
-    throw runtime_error ("Loading file " + strQuote (fName) + "\n" + e. what ());
+    throw runtime_error ("Reading file " + shellQuote (fName) + "\n" + e. what ());
   }  
 }
 
 
 
 StringVector::StringVector (const string &s,
-                            char c)
+                            char sep,
+                            bool trimP)
 {
-	StringVector res;
 	string s1 (s);
 	while (! s1. empty ())
-	  *this << move (findSplit (s1, c));
+	  *this << move (findSplit (s1, sep));
+	if (! s. empty () && s. back () == sep)
+	  *this << string ();
+	  
+	if (trimP)
+	  for (string& member : *this)
+	    trim (member);
 }
 
+
+
+
+string StringVector::toString (const string& sep) const
+{ 
+  ASSERT (! sep. empty ());
+  
+  string res;
+  for (const string& s : *this)
+  { 
+    if (! res. empty ())
+      res += sep;
+    res += s;
+  }
+  return res;
+}
+
+
+
+bool StringVector::same (const StringVector &vec,
+                         const Vector<size_t> &indexes) const
+{
+  ASSERT (size () == vec. size ());
+
+  for (const size_t i : indexes)
+    if ((*this) [i] != vec [i])
+      return false;
+  return true;
+}
+
+
+
+
+
+bool inc (vector<bool> &v)
+{
+  const size_t s = v. size ();
+
+  size_t i = 0;
+  while (i < s && v [i])
+  {
+    v [i] = false;
+    i++;
+  }
+  if (i == s)
+    return false;
+
+  v [i] = true;
+  
+  return true;
+}
+
+
+
+bool inc (vector<size_t> &indexes,
+          const vector<size_t> &indexes_max)
+{
+  ASSERT (indexes. size () == indexes_max. size ());
+
+  FFOR (size_t, i, indexes. size ())
+  {
+    ASSERT (indexes [i] <= indexes_max [i]);
+    if (indexes [i] < indexes_max [i])
+    {
+      indexes [i] ++;
+      return true;
+    }
+    indexes [i] = 0;
+  }
+
+  return false;
+}
 
 
 
@@ -1294,9 +1564,9 @@ Input::Input (const string &fName,
 , prog (0, displayPeriod)  
 { 
   if (! ifs. good ())
-    throw runtime_error ("Cannot open file " + strQuote (fName));
+    throw runtime_error ("Cannot open file " + shellQuote (fName));
   if (! ifs. rdbuf () -> pubsetbuf (buf. get (), (long) bufSize))
-  	throw runtime_error ("Cannot allocate buffer to file " + strQuote (fName));
+  	throw runtime_error ("Cannot allocate buffer to file " + shellQuote (fName));
 }
  
 
@@ -1348,7 +1618,7 @@ bool LineInput::nextLine ()
       if (pos != string::npos)
         line. erase (pos);
     }
-    trimTrailing (line); 
+  //trimTrailing (line); 
 
   	eof = is->eof ();
   	lineNum++;
@@ -1360,7 +1630,7 @@ bool LineInput::nextLine ()
   }
   catch (const exception &e)
   {
-    throw runtime_error ("Reading line " + to_string (lineNum) + ":\n" + line + "\n" + e. what ());
+    throw runtime_error ("Reading line " + to_string (lineNum + 1) + ":\n" + line + "\n" + e. what ());
   }
 }
 
@@ -1379,6 +1649,7 @@ bool ObjectInput::next (Root &row)
 	  return false;
 
 	row. read (*is);
+	row. qc ();
 	lineNum++;
 
  	eof = is->eof ();
@@ -1391,7 +1662,6 @@ bool ObjectInput::next (Root &row)
 	prog ();
 	
   ASSERT (is->peek () == '\n');
-	row. qc ();
 
   skipLine (*is);
 
@@ -1467,7 +1737,6 @@ string CharInput::getLine ()
 
 
 
-
 // Token
 
 void Token::readInput (CharInput &in)
@@ -1527,9 +1796,9 @@ void Token::readInput (CharInput &in)
 	  {
 	    type = eText;
 	    toNumberDate ();
-	    QC_ASSERT (   type == eInteger
+	  /*QC_ASSERT (   type == eInteger
 	               || type == eDouble
-	              );
+	              );*/
 	  }
 	}
 	else if (isLetter (c))
@@ -1555,10 +1824,7 @@ void Token::readInput (CharInput &in)
   qc ();
 
   if (verbose ())
-  {
-  	cout << type2str (type) << ' ';  
-  	cout << *this << ' ' << charNum << endl;
-  }
+  	cout << type2str (type) << ' ' << *this << ' ' << charNum + 1 << endl;
 }
 
 
@@ -1602,16 +1868,23 @@ void Token::saveText (ostream &os) const
   switch (type)
 	{ 
 	  case eName:      
-	  case eDateTime:
-	                   os          << name;          break;
-		case eText:      os << quote << name << quote; break;
-		case eInteger:   os          << n;             break;
+	  case eDateTime:  os << name; 
+	                   break;
+		case eText:      if (quote)
+		                   os << quote;
+		                 os << name;
+		                 if (quote)
+		                   os << quote; 
+		                 break;
+		case eInteger:   os << n;             
+		                 break;
 		case eDouble:    { 
 		                   const ONumber on (os, decimals, scientific); 
 		                   os << d; 
 		                 } 
 		                 break;
-		case eDelimiter: os          << name;          break;
+		case eDelimiter: os << name;          
+		                 break;
  		default: throw runtime_error ("Token: Unknown type");
 	}
 }
@@ -1787,7 +2060,7 @@ void OFStream::open (const string &dirName,
 	ofstream::open (pathName);
 
 	if (! good ())
-	  throw runtime_error ("Cannot create file " + strQuote (pathName));
+	  throw runtime_error ("Cannot create file " + shellQuote (pathName));
 }
 
 
@@ -1825,7 +2098,7 @@ string Csv::getWord ()
   QC_ASSERT (goodPos ());
   
   size_t start = pos;
-  size_t stop = NO_INDEX;
+  size_t stop = no_index;
   if (s [pos] == '\"')
   {
     pos++;
@@ -1836,7 +2109,7 @@ string Csv::getWord ()
   }
   
   findChar (',');
-  if (stop == NO_INDEX)
+  if (stop == no_index)
     stop = pos;
   pos++;
   
@@ -1858,6 +2131,398 @@ StringVector csvLine2vec (const string &line)
     words << move (s);
   }
   return words;
+}
+
+
+
+
+// TextTable
+
+void TextTable::Header::qc () const
+{
+  if (! qc_on)
+    return;
+    
+  Named::qc ();
+    
+  QC_IMPLY (scientific, numeric);
+  QC_IMPLY (decimals, numeric);
+}
+
+
+
+TextTable::TextTable (const string &fName)
+: Named (fName)
+{
+  LineInput f (fName);
+
+  if (! f. nextLine ())
+    throw Error (*this, "Cannot read the table header");
+  if (! f. line. empty () && f. line. front () == '#')
+  {
+    pound = true;
+    f. line. erase (0, 1);
+  }
+  {
+    StringVector h (f. line, '\t', true);
+    for (string& s : h)
+      header << move (Header (move (s)));
+  }
+
+  while (f. nextLine ())
+  {
+    StringVector line (f. line, '\t', true);
+    rows << move (line);
+    ASSERT (line. empty ());
+  }
+  
+  setHeader ();
+}
+
+
+
+void TextTable::setHeader ()
+{
+  RowNum row_num = 0;
+  for (const StringVector& row : rows)
+  {
+    row_num++;
+    if (row. size () != header. size ())
+      throw Error (*this, "Row " + to_string (row_num) + " contains " + to_string (row. size ()) + " fields whereas header has " + to_string (header. size ()) + " columns");
+    FFOR (RowNum, i, row. size ())
+    {
+      const string& field = row [i];
+      if (field. empty ())
+        continue;
+      Header& h = header [i];
+      maximize (h. len_max, field. size ());
+      if (! h. numeric)
+        continue;
+      {
+        char* endptr = nullptr;
+        strtod (field. c_str (), & endptr);
+        if (endptr != field. c_str () + field. size ())
+        {
+          h. numeric = false;
+          h. scientific = false;
+          h. decimals = 0;
+        }
+      }
+      if (h. numeric)
+      {
+        bool hasPoint = false;
+        streamsize decimals = 0;
+        if (getDecimals (field, hasPoint, decimals))
+          h. scientific = true;
+        maximize<streamsize> (h. decimals, decimals);
+        maximize (h. len_max, field. size () + (size_t) (h. decimals - decimals) + (! hasPoint));
+      }
+    }
+  }
+}
+
+
+
+void TextTable::qc () const
+{
+  if (! qc_on)
+    return;
+  if (! name. empty ())
+    Named::qc (); 
+
+  {    
+    StringVector v;  v. reserve (header. size ());
+    FFOR (size_t, i, header. size ())
+    {
+      const Header& h = header [i];
+      try { h. qc (); }
+        catch (const exception &e)
+        {
+          throw ("Header column #" + to_string (i + 1) + ": " + e. what ());
+        }
+      v << h. name;
+    }
+    v. sort ();
+    const size_t i = v. findDuplicate ();
+    if (i != no_index)
+      throw Error (*this, "Duplicate column name: " + strQuote (v [i]));
+  }
+  
+  FFOR (RowNum, i, rows. size ())
+  {
+    if (rows [i]. size () != header. size ())
+      throw Error (*this, "Row " + to_string (i + 1) + " contains " + to_string (rows [i]. size ()) + " fields whereas table has " + to_string (header. size ()) + " columns");
+    for (const string& field : rows [i])
+    {
+      if (contains (field, '\t'))
+        throw Error (*this, "Field " + strQuote (header [i]. name) + " of row " + to_string (i + 1) + " contains a tab character");
+      if (contains (field, '\n'))
+        throw Error (*this, "Field " + strQuote (header [i]. name) + " of row " + to_string (i + 1) + " contains an EOL character");
+    }
+  }
+}
+
+
+
+void TextTable::saveText (ostream &os) const
+{ 
+  if (saveHeader)
+  { 
+    if (pound)
+      os << '#';
+    bool first = true;
+    for (const Header& h : header)
+    {
+      if (! first)
+        os << '\t';
+      os << h. name;
+      first = false;
+    }
+    os << endl;
+  }
+  
+  for (const StringVector& row : rows)
+  {
+    save (os, row, '\t');
+    os << endl;
+  }
+}
+
+    
+    
+bool TextTable::getDecimals (string s,
+                             bool &hasPoint,
+                             streamsize &decimals)
+{
+  strUpper (s);
+  const size_t ePos     = s. find ('E');
+  const size_t pointPos = s. find ('.');
+  
+  hasPoint = pointPos != string::npos;
+  
+  decimals = 0;
+  if (ePos == string::npos)
+  {
+    if (hasPoint)
+      decimals = (streamoff) (s. size () - (pointPos + 1));
+  }
+  else
+  {
+    if (hasPoint && ePos > pointPos)
+      decimals = (streamoff) (ePos - (pointPos + 1));
+  }
+  
+  return ePos != string::npos;
+}
+
+    
+  
+void TextTable::printHeader (ostream &os) const
+{
+  FFOR (size_t, i, header. size ())
+  {
+    os << i + 1 << '\t';
+    header [i]. saveText (os);
+    os << endl;
+  }
+}
+
+
+
+size_t TextTable::col2index_ (const string &columnName) const
+{ 
+  FFOR (size_t, i, header. size ())
+    if (header [i]. name == columnName)
+      return i;
+  return no_index;
+}
+
+
+
+int TextTable::compare (const StringVector& row1,
+                        const StringVector& row2,
+                        size_t column) const
+{
+  if (header [column]. numeric)
+  {
+    const double a = stod (row1 [column]);
+    const double b = stod (row2 [column]);
+    if (a < b)
+      return -1;
+    if (a > b)
+      return 1;
+    return 0;
+  }
+  
+  const string& a = row1 [column];
+  const string& b = row2 [column];
+  if (a < b)
+    return -1;
+  if (a > b)
+    return 1;
+
+  return 0;
+}
+
+
+
+void TextTable::filterColumns (const StringVector &newColumnNames)
+{
+  const Vector<size_t> indexes (columns2indexes (newColumnNames));
+
+  {  
+    Vector<Header> newHeader;  newHeader. reserve (indexes. size ());
+    for (const size_t i : indexes)
+      newHeader << header [i];
+    header = move (newHeader);
+  }
+
+  for (StringVector& row : rows)
+  {
+    StringVector newRow;  newRow. reserve (indexes. size ());
+    for (const size_t i : indexes)
+      newRow << row [i];
+    row = move (newRow);
+  }
+}
+
+
+
+void TextTable::group (const StringVector &by,
+                       const StringVector &sum,
+                       const StringVector &aggr)
+{
+  const Vector<size_t> byIndex   (columns2indexes (by));
+  const Vector<size_t> sumIndex  (columns2indexes (sum));
+  const Vector<size_t> aggrIndex (columns2indexes (aggr));
+  
+  const auto lt = [&byIndex,this] (const StringVector &a, const StringVector &b) 
+                    { for (const size_t i : byIndex) 
+                        switch (this->compare (a, b, i))
+                        { case -1: return true;
+                          case  1: return false;
+                        }
+                      // Tie resolution
+                      FFOR (size_t, i, a. size ())
+                        switch (this->compare (a, b, i))
+                        { case -1: return true;
+                          case  1: return false;
+                        }
+                      return false;
+                    };
+  Common_sp::sort (rows, lt);
+  
+  RowNum i = 0;  
+  FFOR_START (RowNum, j, 1, rows. size ())
+  {
+    ASSERT (i < j);
+    if (rows [i]. same (rows [j], byIndex))
+      merge (i, j, sumIndex, aggrIndex);
+    else
+    {
+      i++;
+      if (i < j)
+        rows [i] = move (rows [j]);
+    }
+  }
+  if (! rows. empty ())
+    i++;
+
+  ASSERT (rows. size () >= i);
+  FFOR (RowNum, k, rows. size () - i)
+    rows. pop_back ();
+    
+  StringVector newColumns;
+  newColumns << by << sum << aggr;
+  filterColumns (newColumns);
+}
+
+
+
+void TextTable::merge (RowNum toIndex,
+                       RowNum fromIndex,
+                       const Vector<size_t> &sum,
+                       const Vector<size_t> &aggr) 
+{
+  ASSERT (toIndex < fromIndex);
+  StringVector& to = rows [toIndex];
+  const StringVector& from = rows [fromIndex];
+
+  for (const size_t i : sum)
+  {
+    const Header& h = header [i];
+    ASSERT (h. numeric);
+    ostringstream oss;
+    ONumber on (oss, h. decimals, h. scientific);
+    oss << stod (to [i]) + stod (from [i]);
+    to [i] = oss. str ();
+  }
+
+  for (const size_t i : aggr)
+  {
+    constexpr char sep = ',';
+    if (from [i]. empty ())
+      continue;
+    if (to [i]. empty ())
+      to [i] = from [i];
+    else
+    {
+      StringVector vec (to [i], sep, true);
+      vec << from [i];
+      vec. sort ();
+      vec. uniq ();
+      to [i] = vec. toString (string (1, sep));
+    }
+  }
+}
+
+
+
+void TextTable::indexes2values (const Vector<size_t> &indexes,
+                                RowNum row_num,
+                                StringVector &values) const
+{
+  values. clear ();
+  values. reserve (indexes. size ());
+  const StringVector& row = rows [row_num];    
+  FFOR (size_t, i, indexes. size ())
+    values << row [indexes [i]];
+}
+
+
+
+TextTable::RowNum TextTable::find (const Vector<size_t> &indexes,
+                                   const StringVector &targetValues,
+                                   RowNum row_num_start) const
+{
+  ASSERT (indexes. size () == targetValues. size ());
+  ASSERT (row_num_start != no_index);
+  StringVector values;
+  FOR_START (RowNum, i, row_num_start, rows. size ())
+  {
+    indexes2values (indexes, i, values);
+    if (values == targetValues)
+      return i;
+  }
+  return no_index;
+}
+
+
+
+TextTable::Key::Key (const TextTable &tab,
+                     const StringVector &columns)
+: indexes (tab. columns2indexes (columns))
+{
+  data. rehash (tab. rows. size ());
+  StringVector values;  
+  FFOR (RowNum, i, tab. rows. size ())
+  {
+    tab. indexes2values (indexes, i, values);
+    if (data. find (values) != data. end ())
+      throw Error (tab, "Duplicate key " + values. toString (",") + " for the key on " + columns. toString (","));
+    ASSERT (i != no_index);
+    data [values] = i;
+  }  
 }
 
 
@@ -2050,7 +2715,7 @@ JsonArray::JsonArray (CharInput& in,
 
 
 
-void JsonArray::print (ostream& os) const
+void JsonArray::saveText (ostream& os) const
 { 
   os << "[";
   bool first = true;
@@ -2059,7 +2724,7 @@ void JsonArray::print (ostream& os) const
     ASSERT (j);
     if (! first)
       os << ",";
-    j->print (os);
+    j->saveText (os);
     first = false;
   }
   os << "]";
@@ -2082,7 +2747,7 @@ JsonMap::JsonMap (const string &fName)
   CharInput in (fName);
   const Token token (in);
   if (! token. isDelimiter ('{'))
-    in. error ("Json file " + strQuote (fName) + ": text should start with '{'", false);
+    in. error ("Json file " + shellQuote (fName) + ": text should start with '{'", false);
   parse (in);
 }
 
@@ -2128,7 +2793,7 @@ JsonMap::~JsonMap ()
 
 
 
-void JsonMap::print (ostream& os) const
+void JsonMap::saveText (ostream& os) const
 { 
   os << "{";
   bool first = true;
@@ -2139,7 +2804,7 @@ void JsonMap::print (ostream& os) const
     os << toStr (it. first) << ":";
     const Json* j = it. second;
     ASSERT (j);
-    j->print (os);
+    j->saveText (os);
     first = false;
   }
   os << "}";
@@ -2160,34 +2825,45 @@ size_t Offset::size = 0;
 
 
 
+
 // FileItemGenerator
 
 FileItemGenerator::FileItemGenerator (size_t progress_displayPeriod,
                                       bool isDir_arg,
+                                      bool large_arg,
                                       const string& fName_arg)
 : ItemGenerator (0, progress_displayPeriod)
 , isDir (isDir_arg)
-, fName( fName_arg)
+, large (large_arg)
+, dirName (fName_arg)
+, fName (fName_arg)
 { 
+  IMPLY (large, isDir);
+  
+  trimSuffix (dirName,  "/");
+
+  // fName
   if (isDir)
   { 
-    trimSuffix (fName,  "/");
-	  char lsfName [4096] = {'\0'};
   #ifdef _MSC_VER
-    throw runtime_error ("Windows");  // ??
+    NOT_IMPLEMENTED;
   #else
+	  char lsfName [4096] = {'\0'};
     strcpy (lsfName, P_tmpdir);
-    strcat (lsfName, "/XXXXXX");
+    strcat (lsfName, ("/" + programName + ".XXXXXX"). c_str ());
     EXEC_ASSERT (mkstemp (lsfName) != -1);
     ASSERT (lsfName [0]);
-    const int res = system (("ls -a " + fName + " > " + lsfName). c_str ());
+    const string cmd ("ls -a " + dirName + " > " + lsfName);
+    const int res = system (cmd. c_str ());
     if (res)
-      throw runtime_error ("Command ls failed: status = " + to_string (res));
+      throw runtime_error ("Command " + strQuote (cmd) + " failed: status = " + to_string (res));
     fName = lsfName;
   #endif
   }      
+  
   f. open (fName);
   QC_ASSERT (f. good ()); 
+  
   if (isDir)
   {
     string s;
@@ -2202,12 +2878,39 @@ FileItemGenerator::FileItemGenerator (size_t progress_displayPeriod,
 
 bool FileItemGenerator::next (string &item)
 { 
+  if (! large)
+    return next_ (item);
+
+  for (;;)
+  {
+    if (! fig. get ())
+    {
+      string subDir;
+      if (! next_ (subDir))
+        return false;
+      fig. reset (new FileItemGenerator (0, true, false, dirName + "/" + subDir));
+    }
+    ASSERT (fig. get ());
+    if (fig->next (item))
+    {
+      prog (item);
+      return true;
+    }
+    fig. reset (nullptr);
+  }
+}    
+
+
+
+bool FileItemGenerator::next_ (string &item)
+{ 
   if (f. eof ())
     return false;
     
 	readLine (f, item);
   if (isDir)
-  { const size_t pos = item. rfind ('/');
+  { 
+    const size_t pos = item. rfind ('/');
   	if (pos != string::npos)
       item. erase (0, pos + 1);
   }
@@ -2216,7 +2919,6 @@ bool FileItemGenerator::next (string &item)
     return false;
 
   prog (item);
-  
 	return true;
 }    
 
@@ -2224,6 +2926,48 @@ bool FileItemGenerator::next (string &item)
 
 
 // SoftwareVersion
+
+SoftwareVersion::SoftwareVersion (const string &fName)
+{ 
+  StringVector vec (fName, (size_t) 1, true);
+  if (vec. size () != 1)
+    throw runtime_error ("Cannot read software version. One line is expected in the file: " + shellQuote (fName));
+  init (move (vec [0]), false);
+}
+
+
+
+SoftwareVersion::SoftwareVersion (istream &is,
+                                  bool minorOnly)
+{ 
+  string s;
+  is >> s;
+  init (move (s), minorOnly);
+}
+
+
+
+void SoftwareVersion::init (string &&s,
+                            bool minorOnly)
+{ 
+  try 
+  { 
+    major = str2<uint> (findSplit (s, '.'));
+    if (minorOnly)
+      minor = str2<uint> (s);
+    else
+    { 
+      minor = str2<uint> (findSplit (s, '.'));
+      patch = str2<uint> (s);
+    }
+  } 
+  catch (...) 
+  { 
+    throw runtime_error ("Cannot read software version"); 
+  }
+}
+
+
 
 bool SoftwareVersion::operator< (const SoftwareVersion &other) const
 { 
@@ -2237,6 +2981,42 @@ bool SoftwareVersion::operator< (const SoftwareVersion &other) const
 
 
 // DataVersion
+
+DataVersion::DataVersion (const string &fName)
+{ 
+  StringVector vec (fName, (size_t) 1, true);
+  if (vec. size () != 1)
+    throw runtime_error ("Cannot read data version. One line is expected in the file: " + shellQuote (fName));
+  init (move (vec [0]));
+}
+
+
+
+DataVersion::DataVersion (istream &is)
+{ 
+  string s;
+  is >> s;
+  init (move (s));
+}
+
+
+
+void DataVersion::init (string &&s)
+{ 
+  try
+  { 
+    year  = str2<uint> (findSplit (s, '-'));
+    month = str2<uint> (findSplit (s, '-'));
+    day   = str2<uint> (findSplit (s, '.'));
+    num   = str2<uint> (s);
+  } 
+  catch (...) 
+  { 
+    throw runtime_error ("Cannot read data version"); 
+  }
+}
+
+
 
 bool DataVersion::operator< (const DataVersion &other) const
 { 
@@ -2429,7 +3209,7 @@ void Application::addDefaultArgs ()
 	{ 
 	  addKey ("threads", "Max. number of threads", "1", '\0', "THREADS");
 	  addFlag ("debug", "Integrity checks");
-    addKey ("log", "Error log file, appended", "", '\0', "LOG");
+    addKey ("log", "Error log file, appended, opened on application start", "", '\0', "LOG");
   }
 	else
 	{ 
@@ -2549,6 +3329,8 @@ string Application::getInstruction () const
 		instr += ")";
   
   instr += "\nHELP:    " + programName + " " + ifS (gnu, "-") + "-" + helpS;
+  if (gnu)
+    instr += " or " + programName + " -" + helpS [0];
   instr += "\nVERSION: " + programName + " " + ifS (gnu, "-") + "-" + versionS;
 
   return instr;
@@ -2564,14 +3346,14 @@ string Application::getHelp () const
 
   if (! positionals. empty ())
   {
-	  instr += "\n\nOBLIGATORY PARAMETERS:";
+	  instr += "\n\nPOSITIONAL PARAMETERS:";
 	  for (const Positional& p : positionals)
 	    instr += "\n" + p. str () + par + p. description;
 	}
 
   if (! keys. empty ())
   {
-	  instr += "\n\nOPTIONAL PARAMETERS:";
+	  instr += "\n\nNAMED PARAMETERS:";
 	  for (const Key& key : keys)
 	  {
 	    instr += "\n" + key. getShortHelp () + par + key. description;
@@ -2669,12 +3451,12 @@ int Application::run (int argc,
           else
           	name = s1;
 
-          if (name == helpS /*&& ! contains (name2arg, helpS)*/)
+          if (name == helpS || (name. empty () && c == helpS [0] && gnu))
           {
             cout << getHelp () << endl;
             return 0;
           }
-          if (name == versionS /*&& ! contains (name2arg, versionS)*/)
+          if (name == versionS)
           {
             cout << version << endl;
             return 0;
@@ -2804,6 +3586,7 @@ int Application::run (int argc,
 	  	
   
 		qc ();
+		createTmp ();
   	body ();
 
   
@@ -2811,15 +3594,9 @@ int Application::run (int argc,
   	{
   	  ASSERT (jRoot);
   		OFStream f (jsonFName);
-      jRoot->print (f);
+      jRoot->saveText (f);
       delete jRoot;
       jRoot = nullptr;
-    }
-  
-  	if (! logFName. empty ())
-  	{
-  	  delete logPtr;
-  	  logPtr = nullptr;
     }
 	}
 	catch (const std::exception &e) 
@@ -2838,7 +3615,7 @@ int Application::run (int argc,
 
 ShellApplication::~ShellApplication ()
 {
-	if (! qc_on && ! tmp. empty ())
+	if (tmpCreated && ! logPtr)
 	  exec ("rm -fr " + tmp + "*");  
 }
 
@@ -2852,11 +3629,10 @@ void ShellApplication::initEnvironment ()
   // tmp
   if (useTmp)
   {
-    char templateS [] = {'/', 't', 'm', 'p', '/', 'X', 'X', 'X', 'X', 'X', 'X', '\0'}; 
-    EXEC_ASSERT (mkstemp (templateS) != -1);
-    tmp = templateS;
-  	if (tmp. empty ())
-  		throw runtime_error ("Cannot create a temporary file");
+    if (const char* s = getenv ("TMPDIR"))
+      tmp = s;
+    else
+      tmp = "/tmp";
   }
 
   // execDir, programName
@@ -2868,15 +3644,7 @@ void ShellApplication::initEnvironment ()
   {
     string s (programArgs. front ());
     programName = rfindSplit (s, fileSlash);
-    string path (execDir + programName);
-    for (;;)
-    {
-      const string path_new (realpath (path. c_str (), nullptr));
-      if (path == path_new)
-        break;
-      path = path_new;
-    }
-    execDir = getDirName (path);
+    execDir = getDirName (path2canonical (execDir + programName));
   }
 
   string execDir_ (execDir);
@@ -2884,6 +3652,46 @@ void ShellApplication::initEnvironment ()
   for (Key& key : keys)
     if (! key. flag)
       replaceStr (key. defaultValue, "$BASE", execDir_);
+}
+
+
+
+void ShellApplication::createTmp () 
+{
+  ASSERT (! tmpCreated);
+  
+  if (useTmp)
+  {
+    const string tmpDir (tmp);
+    tmp += "/" + programName + ".XXXXXX";
+    if (mkstemp (var_cast (tmp. c_str ())) == -1)
+      throw runtime_error ("Error creating a temporary file in " + tmpDir);
+  	if (tmp. empty ())
+  		throw runtime_error ("Cannot create a temporary file in " + tmpDir);
+
+    {
+    	const string testFName (tmp + ".test");
+      {
+        ofstream f (testFName);
+        f << "abc" << endl;
+        if (! f. good ())
+  		    throw runtime_error (tmpDir + " is full, make space there or use environment variable TMPDIR to change location for temporary files");
+      }
+      removeFile (testFName);
+    }
+    
+    tmpCreated = true;
+  }
+}
+
+
+
+string ShellApplication::getHelp () const 
+{
+  string help (Application::getHelp ());
+  if (useTmp)
+    help += "\n\nTemporary directory used is $TMPDIR or \"/tmp\"";
+  return help;
 }
 
 
@@ -2896,22 +3704,6 @@ void ShellApplication::body () const
 }
 
 
-
-string ShellApplication::which (const string &progName) const
-{
-	if (tmp. empty ())
-	  throw runtime_error ("Temporary file is needed");
-	
-	try { exec ("which " + progName + " 1> " + tmp + ".src 2> /dev/null"); }
-	  catch (const runtime_error &)
-	    { return string (); }
-	    
-  const StringVector vec (tmp + ".src", (size_t) 1);  
-  QC_ASSERT (vec. size () == 1);
-	return getDirName (vec [0]);
-}
-
-	
 
 void ShellApplication::findProg (const string &progName) const
 {
@@ -2940,12 +3732,27 @@ string ShellApplication::fullProg (const string &progName) const
 {
 	string dir;
 	if (! find (prog2dir, progName, dir))
-	  throw runtime_error ("Program " + strQuote (progName) + " is not found");
+	  throw runtime_error ("Program " + shellQuote (progName) + " is not found");
 	ASSERT (isRight (dir, "/"));
-	return dir + progName + " ";
+	return shellQuote (dir + progName) + " ";
 }
 #endif
 
+
+
+
+string ShellApplication::exec2str (const string &cmd,
+                                   const string &tmpName,
+                                   const string &logFName) const
+{
+  ASSERT (! contains (tmpName, ' '));
+  const string out (tmp + "." + tmpName);
+  exec (cmd + " > " + out, logFName);
+  const StringVector vec (out, (size_t) 1, false);
+  if (vec. size () != 1)
+    throw runtime_error (cmd + "\nOne line is expected");
+  return vec [0];  
+}
 
 
 

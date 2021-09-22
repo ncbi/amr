@@ -60,7 +60,8 @@ struct ThisApplication : Application
       addPositional ("gff", ".gff-file, if " + strQuote (noFile) + " then exit 0");
       addKey ("prot", "Protein FASTA file");
       addKey ("dna", "DNA FASTA file");
-      addFlag ("pgap", "Input files are created by PGAP");  // exclusive with --gpipe
+      addFlag ("pgap", "Protein, genomic and GFF files are created by the NCBI PGAP");
+      addFlag ("lcl", "Nucleotide FASTA created by PGAP has \"lcl|\" prefix in accessions");  
       // Output
       addKey ("locus_tag", "Output file with matches: \"<FASTA id> <GFF id>\", where <id> is from " + strQuote (locus_tagS + "<id>") + " in the FASTA comment and from the .gff-file");
 	    version = SVN_REV;
@@ -74,11 +75,11 @@ struct ThisApplication : Application
     const string protFName      = getArg ("prot");
     const string dnaFName       = getArg ("dna");
     const string locus_tagFName = getArg ("locus_tag");
-  //const bool   gpipe          = getFlag ("gpipe");
     const bool   pgap           = getFlag ("pgap"); 
+    const bool   lcl            = getFlag ("lcl"); 
     
-  //if (gpipe && pgapx)
-    //throw runtime_error ("Flags --gpipe and --pgapx are mutually exclusive");
+    if (lcl && ! pgap)
+      throw runtime_error ("-lcl requires -pgap");
     
     
     if (isRight (gffName, noFile))
@@ -86,7 +87,7 @@ struct ThisApplication : Application
     
 
     Annot::Gff gff;
-    const Annot annot (gff, gffName, false, ! locus_tagFName. empty (), pgap);
+    const Annot annot (gff, gffName, false, ! locus_tagFName. empty (), pgap, lcl);
     
     
     if (! protFName. empty ())
@@ -102,37 +103,40 @@ struct ThisApplication : Application
     		string line_orig;
      		string fastaId;
 			  while (f. nextLine ())
-			    if (! f. line. empty ())
-			    	if (f. line [0] == '>')
-			    	{
-			    		line_orig = f. line;
-			    		iss. reset (f. line. substr (1));
-			    		fastaId. clear ();
-		    		  iss >> fastaId;
-		    		  QC_ASSERT (! fastaId. empty ());
-		    		  // gffId
-		    			string gffId (fastaId);
-			    		if (! locus_tagFName. empty ())
-			    		{
-			    			const size_t pos = f. line. find (locus_tagS);
-			    			if (pos == string::npos)
-			    				throw runtime_error (__FILE__ ": " + strQuote (locus_tagS) + " is not found in: " + line_orig);
-			    			gffId = f. line. substr (pos + locus_tagS. size ());
-			    			const size_t end = gffId. find (']');
-			    			if (end == string::npos)
-			    				throw runtime_error (__FILE__ ": ']' is not found after " + strQuote (locus_tagS) + " in: " + line_orig);
-			    		  gffId. erase (end);
-			    		}
-			    		ASSERT (! contains (fastaId, ' '));
-			    		if (contains (gffId, ' '))
-			    			throw runtime_error (__FILE__ ": " + strQuote (gffId) + " contains space");
-			    		if (gffId. empty ())
-			    			throw runtime_error (__FILE__ ": No protein identifier in: " + line_orig);
-		    			gffIds << gffId;
-		    			fastaIds << fastaId;
-		    			if (outF. is_open ())
-		    				outF << fastaId << '\t' << gffId << endl;
-			    	}
+			  {
+          trimTrailing (f. line);
+			    if (f. line. empty ())
+			      continue;
+		    	if (f. line [0] != '>')
+		    	  continue;
+	    		line_orig = f. line;
+	    		iss. reset (f. line. substr (1));
+	    		fastaId. clear ();
+    		  iss >> fastaId;
+    		  QC_ASSERT (! fastaId. empty ());
+    		  // gffId
+    			string gffId (fastaId);
+	    		if (! locus_tagFName. empty ())
+	    		{
+	    			const size_t pos = f. line. find (locus_tagS);
+	    			if (pos == string::npos)
+	    				throw runtime_error (__FILE__ ": " + strQuote (locus_tagS) + " is not found in: " + line_orig);
+	    			gffId = f. line. substr (pos + locus_tagS. size ());
+	    			const size_t end = gffId. find (']');
+	    			if (end == string::npos)
+	    				throw runtime_error (__FILE__ ": ']' is not found after " + strQuote (locus_tagS) + " in: " + line_orig);
+	    		  gffId. erase (end);
+	    		}
+	    		ASSERT (! contains (fastaId, ' '));
+	    		if (contains (gffId, ' '))
+	    			throw runtime_error (__FILE__ ": " + strQuote (gffId) + " contains space");
+	    		if (gffId. empty ())
+	    			throw runtime_error (__FILE__ ": No protein identifier in: " + line_orig);
+    			gffIds << gffId;
+    			fastaIds << fastaId;
+    			if (outF. is_open ())
+    				outF << fastaId << '\t' << gffId << endl;
+			  }
 			  const size_t n = fastaIds. size ();
 			  fastaIds. sort ();
 			  fastaIds. uniq ();
@@ -175,7 +179,9 @@ struct ThisApplication : Application
 		    		  iss >> contigId;
 			    		ASSERT (! contains (contigId, ' '));
 			    		if (contigId. empty ())
-			    			throw runtime_error (__FILE__ ": No contig identifier in: " + f. line);
+			    			throw runtime_error (__FILE__ ": No contig identifier in:\n" + f. line);
+			    		if (lcl && ! isLeft (contigId, "lcl|"))
+			    			throw runtime_error (__FILE__ ": Contig identifier does not start with " + strQuote ("lcl|") + ":\n" + f. line);
 		    			contigIds << move (contigId);
 			    	}
 			  contigIds. sort ();

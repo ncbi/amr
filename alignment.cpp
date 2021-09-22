@@ -46,14 +46,14 @@ namespace Alignment_sp
 
 
 
-// Mutation
+// AmrMutation
 
 
-Mutation::Mutation (size_t pos_arg,
-            				const string &geneMutation_arg,
-            				const string &class_arg,
-            				const string &subclass_arg,
-            				const string &name_arg)
+AmrMutation::AmrMutation (size_t pos_arg,
+                  				const string &geneMutation_arg,
+                  				const string &class_arg,
+                  				const string &subclass_arg,
+                  				const string &name_arg)
 : pos (pos_arg)
 , geneMutation (geneMutation_arg)
 , classS (class_arg)
@@ -69,7 +69,7 @@ Mutation::Mutation (size_t pos_arg,
   QC_ASSERT (! contains (name, "  "));
   
   // reference, allele
-	parse (geneMutation, reference, allele);
+	parse (geneMutation, reference, allele, gene, ref_pos);
 	if (allele == "STOP")
 	  allele = "*";
 	else if (allele == "del")
@@ -79,19 +79,24 @@ Mutation::Mutation (size_t pos_arg,
 	QC_ASSERT (reference != allele);
 	QC_ASSERT (! contains (reference, '-'));
 	QC_ASSERT (! contains (allele,    '-'));
+	QC_ASSERT (! gene. empty ());
+	ASSERT (! reference. empty ());
 }
 
 
 
-void Mutation::parse (const string &geneMutation,
-                      string &reference,
-                      string &allele)
+void AmrMutation::parse (const string &geneMutation,
+                         string &reference,
+                         string &allele,
+                         string &gene,
+                         int &ref_pos)
 { 
   QC_ASSERT (! geneMutation. empty ());
   QC_ASSERT (reference. empty ());
   QC_ASSERT (allele. empty ());
   enum Type {inAllele, inPos, inRef};
   Type type = inAllele;
+  string ref_posS;
   FOR_REV (size_t, i, geneMutation. size ())
   {
     const char c = geneMutation [i];
@@ -101,7 +106,10 @@ void Mutation::parse (const string &geneMutation,
         if (isAlpha (c))
           allele += c;
         else
+        {
+          ref_posS = string (1, c);
           type = inPos;
+        }
         break;
       case inPos:
         if (isAlpha (c))
@@ -109,14 +117,21 @@ void Mutation::parse (const string &geneMutation,
           type = inRef;
           reference = string (1, c);
         }
+        else
+          ref_posS += c;
         break;
       case inRef:
         if (isAlpha (c))
           reference += c;
         else
         {
+          QC_ASSERT (c == '_');
+          QC_ASSERT (i);
           Common_sp::reverse (allele);
           Common_sp::reverse (reference);
+          Common_sp::reverse (ref_posS);
+          gene = geneMutation. substr (0, i);
+          ref_pos = stoi (ref_posS) - 1;
           return;
         }
         break;
@@ -127,8 +142,9 @@ void Mutation::parse (const string &geneMutation,
 
 
 
-bool Mutation::operator< (const Mutation &other) const
+bool AmrMutation::operator< (const AmrMutation &other) const
 { 
+  LESS_PART (*this, other, gene);
   LESS_PART (*this, other, pos);
   LESS_PART (*this, other, geneMutation);
   return false;
@@ -138,6 +154,24 @@ bool Mutation::operator< (const Mutation &other) const
 
 
 // SeqChange
+
+#if 0
+SeqChange::SeqChange (const Alignment* al_arg,
+                      size_t targetStopPos)
+: al (al_arg)
+, start (al->targetSeq. size () - 1)
+, len (1)
+, reference (string (1, al->refSeq. back ()))
+, allele (string (1, al->refSeq. back ()) + "*")
+, start_ref (al->refEnd - 1)
+, stop_ref  (al->refEnd)
+, start_target (targetStopPos - 1)
+{
+  ASSERT (al->targetProt);
+  ASSERT (al->refProt);
+}
+#endif
+
 
 
 void SeqChange::qc () const
@@ -149,7 +183,7 @@ void SeqChange::qc () const
   
   if (empty ())
   {
-    QC_ASSERT (mutation);
+    QC_ASSERT (! mutations. empty () /*mutation*/);
     return;
   }
   
@@ -158,7 +192,28 @@ void SeqChange::qc () const
   QC_ASSERT (start_ref < stop_ref);
   QC_ASSERT (stop_ref <= al->refEnd);
   QC_ASSERT (reference. size () * al->al2ref_len <= stop_ref - start_ref);
-  QC_ASSERT (start_target < al->targetEnd);
+  QC_ASSERT (start_target <= al->targetEnd);
+  QC_ASSERT (prev != '-');  
+  QC_IMPLY (reference. empty (), prev);
+  for (const AmrMutation* mutation : mutations)
+  {
+    QC_ASSERT (mutation);
+    QC_ASSERT (between (mutation->pos, al->refStart, al->refEnd));
+  }
+}
+
+
+
+string SeqChange::getMutationStr () const
+{ 
+  const string allele_ (allele. empty () 
+                          ? "DEL" 
+                          : allele == "*"
+                              ? "STOP"
+                              : allele
+                       );
+  const string reference_ (reference. empty () ? string (1, prev) : reference);
+  return reference_ + to_string ((int) start_ref + ! reference. empty () /* - al->ref_offset*/) + allele_; 
 }
 
 
@@ -173,6 +228,7 @@ bool SeqChange::operator< (const SeqChange &other) const
 
 bool SeqChange::better (const SeqChange &other) const
 { 
+  LESS_PART (other, *this, hasMutation ());
   LESS_PART (*this, other, neighborhoodMismatch);  
   LESS_PART (other, *this, al->pIdentity ());  
   return false;
@@ -197,6 +253,11 @@ bool SeqChange::finish (const string &refSeq,
   setStartTarget ();
   if (flankingLen)
     setNeighborhoodMismatch (flankingLen);
+  if (reference. empty ())
+  {
+    QC_ASSERT (start);
+    prev = refSeq [start - 1];
+  }
   if (verbose ())
     saveText (cout);
 	return neighborhoodMismatch <= 0.04;   // PAR  // PD-3191
@@ -318,7 +379,7 @@ void SeqChange::setNeighborhoodMismatch (size_t flankingLen)
 
 
 
-bool SeqChange::matchesMutation (const Mutation& mut) const
+bool SeqChange::matchesMutation (const AmrMutation& mut) const
 { 
   if (empty ())
     return false;
@@ -331,7 +392,9 @@ bool SeqChange::matchesMutation (const Mutation& mut) const
   const size_t head = mut. pos - start_ref;
   const size_t tail = stop_ref - mut. getStop ();
   ASSERT (head + mut. reference. size () + tail == reference. size ());
-  ASSERT (reference. substr (head, mut. reference. size ()) == mut. reference);
+  const string ref_seg (reference. substr (head, mut. reference. size ()));
+  if (ref_seg != mut. reference)
+    throw runtime_error ("Reference sequence has " + strQuote (ref_seg) + ", but mutation is: " + mut. geneMutation);
   
   // PD-3267 
   // ??
@@ -355,9 +418,10 @@ bool normalizeSeq (const string &seq1,
   ASSERT (seq1. size () == seq2. size ());
   
   bool changed = false;
-  size_t start = NO_INDEX;
+  size_t start = no_index;
+  // -AAA --> AAA-
   FFOR (size_t, i, seq1. size ())
-    if (start == NO_INDEX)
+    if (start == no_index)
     {
       if (seq2 [i] == '-')
         start = i;
@@ -373,7 +437,7 @@ bool normalizeSeq (const string &seq1,
           changed = true;
         }
         else
-          start = NO_INDEX;
+          start = no_index;
       }
   ASSERT (seq1. size () == seq2. size ());
   
@@ -572,9 +636,9 @@ void Alignment::refMutation2refSeq ()
 
 
 
-void Alignment::setSeqChanges (const Vector<Mutation> &refMutations,
-                               size_t flankingLen,
-                               bool allMutationsP)
+void Alignment::setSeqChanges (const Vector<AmrMutation> &refMutations,
+                               size_t flankingLen/*,
+                               bool allMutationsP*/)
 {
   ASSERT (seqChanges. empty ());
   ASSERT (! refMutations. empty ());  	      
@@ -583,6 +647,7 @@ void Alignment::setSeqChanges (const Vector<Mutation> &refMutations,
   string s (refMutations. front (). geneMutation);
   rfindSplit (s, pm_delimiter);  // Only gene symbol
   const string pmGene (s);
+
 
   {
 	  SeqChange seqChange (this);
@@ -608,46 +673,63 @@ void Alignment::setSeqChanges (const Vector<Mutation> &refMutations,
           inSeqChange = true;
         }
   }
+#if 0
+  if (   targetProt 
+      && refProt
+      && targetEnd == targetLen
+      && refEnd < refLen
+     )
+  {
+	  SeqChange seqChange (this, targetLen);
+    seqChanges << move (seqChange);
+  }
+#endif
   if (verbose ())
     PRINT (seqChanges. size ());
+
   
-	Vector<SeqChange> seqChanges_add;
+//Vector<SeqChange> seqChanges_add;
 	size_t j = 0;
 	
   while (j < refMutations. size () && refMutations [j]. pos < refStart)
   {
-  	if (allMutationsP)
-  	  seqChanges_add << SeqChange (this, & refMutations [j]);
+  //if (allMutationsP)
+  	//seqChanges_add << SeqChange (this, & refMutations [j]);
     j++;
   }
   
-	size_t start_ref_prev = NO_INDEX;
+  // SeqChange::mutations
+	size_t start_ref_prev = no_index;
 	for (SeqChange& seqChange : seqChanges)
   {
     seqChange. qc ();
     if (verbose ())
       seqChange. saveText (cout);
-    IMPLY (start_ref_prev != NO_INDEX, start_ref_prev < seqChange. start_ref);
+    IMPLY (start_ref_prev != no_index, start_ref_prev <= seqChange. start_ref);
     while (j < refMutations. size ())
     {
-		  const Mutation& mut = refMutations [j];
+		  const AmrMutation& mut = refMutations [j];
 		  if (verbose ())
 		  {
-		    cout << "Processing Mutation: ";
-		    mut. print (cout);
+		    cout << "Processing AmrMutation: ";
+		    mut. saveText (cout);
+		    cout << endl;
 		  }
+	  #if 0
 		  if (mut. pos < seqChange. start_ref)
-	    	if (allMutationsP)
+	     if (allMutationsP)
       	  seqChanges_add << SeqChange (this, & mut);  // "seqChanges <<" destroys seqChange
+    #endif
 		  if (mut. getStop () > seqChange. stop_ref)
 		    break;
 		  if (seqChange. matchesMutation (mut))
 		  {
-		    seqChange. mutation = & mut;
+		    seqChange. mutations << & mut;
 		  	if (verbose ())
 		  	{
 		  	  cout << "Found: ";
-		  	  mut. print (cout);
+		  	  mut. saveText (cout);
+		  	  cout << endl;
 		  	}
 		  }
 	    j++;
@@ -655,22 +737,48 @@ void Alignment::setSeqChanges (const Vector<Mutation> &refMutations,
 	  start_ref_prev = seqChange. start_ref;
 	}
 	
-	seqChanges << move (seqChanges_add);
+//seqChanges << move (seqChanges_add);
     
+#if 0
 	if (allMutationsP)
 	  while (j < refMutations. size ())
 	  {
   	  seqChanges << SeqChange (this, & refMutations [j]);
 	    j++;
 	  }
-	
-  for (Iter<Vector<SeqChange>> it (seqChanges); it. next ();)
-    if (! it->mutation)
-      it. erase ();	
+#endif
+
+  // WILDTYPE
+  {
+    size_t refPos = refStart;
+    size_t i = 0;
+    for (const AmrMutation& mut : refMutations)
+    {
+      while (refPos < mut. pos)
+      {
+        ASSERT (refSeq [i] != '-');
+        i++;
+        while (refSeq [i] == '-')
+          i++;
+        if (! refSeq [i])
+          break;
+        refPos++;
+      }
+      if (! refSeq [i])
+        break;
+      if (   refPos == mut. pos
+          && isLeft (string (& refSeq    [i]), mut. reference)
+          && isLeft (string (& targetSeq [i]), mut. reference)
+         )
+    	  seqChanges << SeqChange (this, & mut);
+    }
+  }
 	
 	seqChanges. sort ();
 	if (verbose ())
 	{
+	  cout << endl;
+	  cout << targetName << " vs. " << refName << ":" << endl;
 	  cout << "All found mutations:" << endl;
 	  for (const SeqChange& seqChange : seqChanges)
 	    seqChange. saveText (cout);
@@ -683,6 +791,22 @@ void Alignment::qc () const
 {
   if (! qc_on)
     return;
+    
+  if (empty ())
+  {
+    QC_ASSERT (targetName. empty ());    
+    QC_ASSERT (targetSeq. empty ());
+    QC_ASSERT (! targetStart);
+    QC_ASSERT (! targetEnd);
+    QC_ASSERT (! targetLen);
+    QC_ASSERT (refName. empty ());
+    QC_ASSERT (refSeq. empty ());
+    QC_ASSERT (! refStart);
+    QC_ASSERT (! refEnd);
+    QC_ASSERT (! refLen);  
+    QC_ASSERT (! nident);
+    return;
+  }
   
   QC_ASSERT (targetSeq. size () == refSeq. size ());  
 
@@ -710,6 +834,55 @@ void Alignment::qc () const
   }
 }
 
+
+
+bool Alignment::getFrameShift_right (const Alignment &rightPart,
+                                     size_t diff_max) const
+{
+  ASSERT (! targetProt);
+  ASSERT (refProt);
+  ASSERT (rightPart. refProt);
+  
+  if (this == & rightPart)
+    return false;
+    
+  if (rightPart. targetProt)
+    return false;    
+    
+  if (   targetName   != rightPart. targetName
+      || refName      != rightPart. refName
+      || targetStrand != rightPart. targetStrand
+     )
+    return false;
+
+  if (   refStart     >= rightPart. refStart
+      || refEnd       >= rightPart. refEnd
+      || refEnd + diff_max / 3 < rightPart. refStart
+     )
+    return false;
+    
+  if (targetStrand)
+  {
+    if (   targetStart >= rightPart. targetStart
+        || targetEnd   >= rightPart. targetEnd
+        || targetEnd + diff_max < rightPart. targetStart
+       )
+      return false;
+  }
+  else
+  {
+    if (   targetStart <= rightPart. targetStart
+        || targetEnd   <= rightPart. targetEnd
+        || targetStart > rightPart. targetEnd + diff_max
+       )
+      return false;
+  }  
+
+  if (targetStart % 3 == rightPart. targetStart % 3)
+    return false;
+          
+  return true;
+}
 
 
 

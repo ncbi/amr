@@ -47,43 +47,48 @@ static constexpr char pm_delimiter = '_';
 
 
 
-struct Mutation : Root
+struct AmrMutation : Root
+// Database
 {
 	size_t pos {0};
 	  // In whole reference sequence
 	  // = start of reference
-	  // >= 0
 	// !empty()
 	string geneMutation;
-	  // Depends on the above
 	string classS;
 	string subclass;
 	string name;
 	  // Species binomial + resistance
 	
-	// Replacement
+  // Function of geneMutation
   // Upper-case
   string reference;
 	string allele;
+	string gene;
+	int ref_pos {0};
 
 	
-	Mutation (size_t pos_arg,
+	AmrMutation (size_t pos_arg,
 						const string &geneMutation_arg,
 						const string &class_arg = "X",
 						const string &subclass_arg = "X",
 						const string &name_arg = "X");
 		// Input: pos_arg: 1-based
-	Mutation () = default;
+	AmrMutation () = default;
+	AmrMutation (AmrMutation &&other) = default;
+	AmrMutation& operator= (AmrMutation &&other) = default;
 private:
 	static void parse (const string &geneMutation,
 	                   string &reference,
-	                   string &allele);
+	                   string &allele,
+                     string &gene,
+                     int &ref_pos);
 public:
   void saveText (ostream &os) const override
-    { os << pos + 1 << ' ' << geneMutation << ' ' << name; }
-  void print (ostream &os) const override
-    { saveText (os); 
-      os << endl;
+    { if (empty ())
+        os << "empty";
+      else
+        os << pos + 1 << ' ' << geneMutation << ' ' << name; 
     }
   bool empty () const override
     { return geneMutation. empty (); }
@@ -91,12 +96,19 @@ public:
 
   size_t getStop () const
     { return pos + reference. size (); }
-  bool operator< (const Mutation &other) const;
-  bool operator== (const Mutation &other) const
+  string wildtype () const
+    { return gene + "_" + reference + to_string (ref_pos + 1) + reference; }
+  bool operator< (const AmrMutation &other) const;
+  bool operator== (const AmrMutation &other) const
     { return geneMutation == other. geneMutation; }
   void apply (string &seq) const
     { if (pos >= seq. size ())
-        throw runtime_error ("Mutation position " + to_string (pos) + " is outside the sequence: " + seq);
+        throw runtime_error ("AmrMutation position " + to_string (pos) + " is outside the sequence: " + seq);
+      if (verbose ())
+        cerr         << seq. substr (0, pos) 
+             << endl << allele 
+             << endl << seq. substr (pos + reference. size ())
+             << endl;
       seq = seq. substr (0, pos) + allele + seq. substr (pos + reference. size ());
     }
 };
@@ -108,7 +120,7 @@ struct Alignment;
 
 
 struct SeqChange : Root
-// Report real mutation in AMRFinder ??
+// Observation
 {
   const Alignment* al {nullptr};
     // !nullptr
@@ -117,6 +129,8 @@ struct SeqChange : Root
   // In alignment
   size_t start {0};
   size_t len {0};
+  
+  // No '-'
   string reference;
     // Insertion => !empty() by artifically decrementing start and incrementing len
   string allele;
@@ -127,7 +141,11 @@ struct SeqChange : Root
 	double neighborhoodMismatch {0.0};
 	  // 0..1
 	  
-	const Mutation* mutation {nullptr};
+	char prev {'\0'};
+	VectorPtr<AmrMutation> mutations;
+	  // !nullptr
+	
+	const SeqChange* replacement {nullptr};
   
   
   SeqChange () = default;
@@ -135,10 +153,14 @@ struct SeqChange : Root
     : al (al_arg)
     {}
   SeqChange (const Alignment* al_arg,
-             const Mutation* mutation_arg)
+             const AmrMutation* mutation_arg)
     : al (al_arg)
-    , mutation (checkPtr (mutation_arg))
-    {}
+  //, mutation (checkPtr (mutation_arg))
+    { mutations << checkPtr (mutation_arg); }
+#if 0
+  SeqChange (const Alignment* al_arg,
+             size_t targetStopPos);    
+#endif
   void qc () const override;
   void saveText (ostream &os) const override
     { os        << start + 1 
@@ -146,13 +168,23 @@ struct SeqChange : Root
          << ' ' << strQuote (reference) << " -> " << strQuote (allele)
          << ' ' << start_ref + 1 << ".." << stop_ref
          << ' ' << start_target + 1 
-         << ' ' << neighborhoodMismatch
-         << endl; 
+         << ' ' << neighborhoodMismatch;
+    //if (mutation)
+      for (const AmrMutation* mutation : mutations)
+      { os << ' ' ;
+        mutation->saveText (os);
+      }
+      os << endl; 
     }
   bool empty () const override
     { return ! len; }
     
     
+private:
+  bool hasMutation () const
+    { return ! mutations. empty () /*mutation*/; }
+public:
+  string getMutationStr () const;
   size_t getStop () const
     { return start + len; }
   bool operator< (const SeqChange &other) const;
@@ -160,13 +192,14 @@ struct SeqChange : Root
   bool finish (const string &refSeq,
                size_t flankingLen);
     // Return: good match
+    // Input: flankingLen: valid if > 0
 private:
   void setSeq ();
   void setStartStopRef ();
   void setStartTarget ();
   void setNeighborhoodMismatch (size_t flankingLen);
 public:
-  bool matchesMutation (const Mutation& mut) const;
+  bool matchesMutation (const AmrMutation& mut) const;
 };
 
 
@@ -203,8 +236,9 @@ struct Alignment : Root
   size_t refStart {0};
   size_t refEnd {0};
   size_t refLen {0};  
-  Mutation refMutation;
+  AmrMutation refMutation;
     // !empty() => original refSeq is the result of refMutation.apply() to the original refSeq
+//int ref_offset {0};
   
   // Alignment
   bool alProt {false};
@@ -226,10 +260,13 @@ protected:
     // Output: nident
   void refMutation2refSeq ();
     // Update: refSeq
-  void setSeqChanges (const Vector<Mutation> &refMutations,
-                      size_t flankingLen,
-                      bool allMutationsP);
+  void setSeqChanges (const Vector<AmrMutation> &refMutations,
+                      size_t flankingLen/*,
+                      bool allMutationsP*/);
+    // Input: flankingLen: valid if > 0
 public:
+  bool empty () const override
+    { return targetName. empty (); }
   void qc () const override;
   void saveText (ostream &os) const override
     { os         << targetProt
@@ -263,6 +300,19 @@ public:
              && nident == refLen 
              && nident == targetSeq. size ();
 	  }
+	bool getFrameShift (const Alignment &other,
+	                    size_t diff_max) const
+	  // Return: success
+	  // Input: diff_max: in bp
+	  // Requires: !targetProt, refProt, rightPart.refProt
+	  { return    nident >= other. nident
+	           && (          getFrameShift_right (other, diff_max) 
+	               || other. getFrameShift_right (*this, diff_max) 
+	              );
+	  }
+private:
+	bool getFrameShift_right (const Alignment &rightPart,
+	                          size_t diff_max) const;
 };
 
 
