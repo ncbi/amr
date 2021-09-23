@@ -1796,9 +1796,9 @@ void Token::readInput (CharInput &in)
 	  {
 	    type = eText;
 	    toNumberDate ();
-	    QC_ASSERT (   type == eInteger
+	  /*QC_ASSERT (   type == eInteger
 	               || type == eDouble
-	              );
+	              );*/
 	  }
 	}
 	else if (isLetter (c))
@@ -2188,7 +2188,7 @@ void TextTable::setHeader ()
   {
     row_num++;
     if (row. size () != header. size ())
-      throw Error (*this, "Row " + to_string (row_num) + " contains " + to_string (row. size ()) + " fields whereas table has " + to_string (header. size ()) + " columns");
+      throw Error (*this, "Row " + to_string (row_num) + " contains " + to_string (row. size ()) + " fields whereas header has " + to_string (header. size ()) + " columns");
     FFOR (RowNum, i, row. size ())
     {
       const string& field = row [i];
@@ -2227,13 +2227,19 @@ void TextTable::qc () const
 {
   if (! qc_on)
     return;
-  Named::qc ();
+  if (! name. empty ())
+    Named::qc (); 
 
   {    
     StringVector v;  v. reserve (header. size ());
-    for (const Header& h : header)
+    FFOR (size_t, i, header. size ())
     {
-      h. qc ();
+      const Header& h = header [i];
+      try { h. qc (); }
+        catch (const exception &e)
+        {
+          throw ("Header column #" + to_string (i + 1) + ": " + e. what ());
+        }
       v << h. name;
     }
     v. sort ();
