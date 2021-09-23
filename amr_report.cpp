@@ -1044,7 +1044,6 @@ private:
 		#endif
 	    if (targetProt == other. targetProt)  
       {
-	      LESS_PART (other, *this, isMutation ());
 	      // PD-807
 	      if (   ! (targetProt && famId == other. famId)  // PD-2441
 	      	//&& ! sameTarget (other)
@@ -1052,8 +1051,7 @@ private:
 	      	  && !        insideEq (other)
 	      	 )
 	        return false;
-	    //if (targetProt)
-	      //{ LESS_PART (other, *this, isMutation ()); }
+	      LESS_PART (other, *this, isMutation ());
 	      LESS_PART (other, *this, refExactlyMatched ());  // PD-1261, PD-1678
 	      LESS_PART (other, *this, nident);
 	      LESS_PART (*this, other, refEffectiveLen ());  
