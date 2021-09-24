@@ -7,7 +7,7 @@ NA	contig04	1261	2391	+	blaEC	BlaEC family class C beta-lactamase	plus	AMR	AMR	B
 NA	contig08	101	700	+	blaTEM	TEM family class A beta-lactamase	core	AMR	AMR	BETA-LACTAM	BETA-LACTAM	PARTIAL_CONTIG_ENDX	200	286	69.93	100.00	200	WP_061158039.1	class A beta-lactamase TEM-156	NA	NA
 NA	contig09	1	675	-	aph(3'')-Ib	aminoglycoside O-phosphotransferase APH(3'')-Ib	core	AMR	AMR	AMINOGLYCOSIDE	STREPTOMYCIN	PARTIAL_CONTIG_ENDX	225	275	81.82	100.00	225	WP_109545041.1	aminoglycoside O-phosphotransferase APH(3'')-Ib	NA	NA
 NA	contig09	715	1377	-	sul2	sulfonamide-resistant dihydropteroate synthase Sul2	core	AMR	AMR	SULFONAMIDE	SULFONAMIDE	PARTIAL_CONTIG_ENDX	221	271	81.55	100.00	221	WP_001043265.1	sulfonamide-resistant dihydropteroate synthase Sul2	NA	NA
-NA	contig10	486	1307	+	blaOXA	class D beta-lactamase	core	AMR	AMR	BETA-LACTAM	BETA-LACTAM	INTERNAL_STOP	274	274	100.00	99.64	274	WP_000722315.1	oxacillin-hydrolyzing class D beta-lactamase OXA-9	NA	NA
+NA	contig10	486	1307	+	blaOXA	OXA-9 family class D beta-lactamase	core	AMR	AMR	BETA-LACTAM	BETA-LACTAM	INTERNAL_STOP	274	274	100.00	99.64	274	WP_000722315.1	oxacillin-hydrolyzing class D beta-lactamase OXA-9	NA	NA
 NA	contig11	101	958	+	blaTEM	TEM family class A beta-lactamase	core	AMR	AMR	BETA-LACTAM	BETA-LACTAM	INTERNAL_STOP	286	286	100.00	93.01	286	WP_061158039.1	class A beta-lactamase TEM-156	NA	NA
 NA	contig12	71	634	+	qacR	multidrug-binding transcriptional regulator QacR	plus	STRESS	BIOCIDE	QUATERNARY AMMONIUM	QUATERNARY AMMONIUM	BLASTX	188	188	100.00	99.47	188	ADK23698.1	multidrug-binding transcriptional regulator QacR	NA	NA
 NA	contig13	1	1137	+	emrD3	multidrug efflux MFS transporter EmrD-3	plus	AMR	AMR	EFFLUX	EFFLUX	EXACTX	379	379	100.00	100.00	379	ABQ18953.1	multidrug efflux MFS transporter EmrD-3	NA	NA
