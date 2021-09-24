@@ -682,6 +682,7 @@ struct BlastAlignment : Alignment
   		            td << na;        	
   		        }
   	        }
+  	        IMPLY ((isMutation () && ! seqChange. empty () && mut && ! seqChange. replacement), hasMutation ());
   	        if (   ! isMutation ()
   	            || (! seqChange. empty () && mut && ! seqChange. replacement)  // resistant mutation
   	            || verbose ()
@@ -1051,7 +1052,7 @@ private:
 	      	  && !        insideEq (other)
 	      	 )
 	        return false;
-	      LESS_PART (other, *this, isMutation ());
+	      LESS_PART (other, *this, hasMutation ());
 	      LESS_PART (other, *this, refExactlyMatched ());  // PD-1261, PD-1678
 	      LESS_PART (other, *this, nident);
 	      LESS_PART (*this, other, refEffectiveLen ());  
@@ -1111,7 +1112,7 @@ public:
 	    else
 	    	if (! other. blastAl->matchesCds (*this))
 	    		return false;
-    	if (isMutation ())
+    	if (hasMutation ())
     	  return true;
       return    refExactlyMatched () 
              || getFam () -> descendantOf (other. fam)

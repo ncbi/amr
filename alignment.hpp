@@ -146,6 +146,7 @@ struct SeqChange : Root
 	  // !nullptr
 	
 	const SeqChange* replacement {nullptr};
+	  // !nullptr => *this is replaced by *replacement
   
   
   SeqChange () = default;
@@ -180,10 +181,8 @@ struct SeqChange : Root
     { return ! len; }
     
     
-private:
   bool hasMutation () const
-    { return ! mutations. empty () /*mutation*/; }
-public:
+    { return ! mutations. empty () && ! empty () && ! replacement; }
   string getMutationStr () const;
   size_t getStop () const
     { return start + len; }
@@ -286,6 +285,12 @@ public:
     }
 
 
+  bool hasMutation () const
+    { for (const SeqChange& seqChange : seqChanges)
+        if (seqChange. hasMutation ())
+          return true;
+      return false;
+    }
   double pIdentity () const
     { return (double) nident / (double) targetSeq. size (); }
   double refCoverage () const
