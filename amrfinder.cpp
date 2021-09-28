@@ -33,6 +33,8 @@
 *               cat, cp, cut, head, ln, mv, sort, tail
 *
 * Release changes:
+*   3.10.16 09/22/2021 PD-3958  point mutations oiverride HMM hits
+*   3.10.15 08/23/2021          -mt_mode 1 is used only for multi-FASTA files: SB-3162
 *   3.10.14 08/19/2021 PD-3918  BLAST output to stderr is not checked
 *   3.10.13 08/19/2021 PD-3918  BLAST -mt_mode 1 is turned off for Mac, see SB-3163
 *   3.10.12 08/19/2021 PD-3918  BLAST output to stderr is reported as error, except for BLASTN due to SB-3162
@@ -219,8 +221,6 @@ constexpr double partial_coverage_min_def = 0.5;
 
 
 
-
-// ThisApplication
 
 struct ThisApplication : ShellApplication
 {
@@ -608,7 +608,6 @@ struct ThisApplication : ShellApplication
 
 
 		// PD-3051
-		try
 		{
   	  istringstream versionIss (version);
   		const SoftwareVersion softwareVersion (versionIss);
@@ -621,11 +620,7 @@ struct ThisApplication : ShellApplication
       if (softwareVersion < softwareVersion_min)
         throw runtime_error ("Database requires sofware version at least " + softwareVersion_min. str ());
       if (dataVersion < dataVersion_min)
-        throw runtime_error ("Software requires database version at least " + dataVersion_min. str ());
-    }
-    catch (const exception &e)
-    {
-      throw runtime_error (e. what () + downloadLatestInstr);
+        throw runtime_error ("Software requires database version at least " + dataVersion_min. str () + downloadLatestInstr);
     }
 
 
@@ -888,7 +883,7 @@ struct ThisApplication : ShellApplication
       			const Chronometer_OnePass cop ("blastp", cerr, false, qc_on && ! quiet);
       			// " -task blastp-fast -word_size 6  -threshold 21 "  // PD-2303
       			exec (fullProg ("blastp") + " -query " + prot1 + " -db " + tmp + ".db/AMRProt" + "  " 
-      			      + blastp_par + get_num_threads_param ("blastp", protLen_total / 10000) + " " BLAST_FMT " -out " + tmp + ".blastp > /dev/null 2> " + tmp + ".blastp-err", logFName);
+      			      + blastp_par + get_num_threads_param ("blastp", min (nProt, protLen_total / 10000)) + " " BLAST_FMT " -out " + tmp + ".blastp > /dev/null 2> " + tmp + ".blastp-err", logFName);
       		//checkBlastErr (tmp + ".blastp-err");
       		}
     			  
@@ -950,7 +945,7 @@ struct ThisApplication : ShellApplication
       			if (blastx == "blastx")
       			{
         			exec (fullProg ("blastx") + "  -query " + dna + " -db " + tmp + ".db/AMRProt" + "  "
-            			  + blastx_par + " " BLAST_FMT " " + get_num_threads_param ("blastx", dnaLen_total / 10002)
+            			  + blastx_par + " " BLAST_FMT " " + get_num_threads_param ("blastx", min (nDna, dnaLen_total / 10002))
             			  + " -out " + tmp + ".blastx > /dev/null 2> " + tmp + ".blastx-err", logFName);
         		//checkBlastErr (tmp + ".blastx-err");
             }
@@ -990,7 +985,7 @@ struct ThisApplication : ShellApplication
       			stderr << "Running blastn...\n";
        			const Chronometer_OnePass cop ("blastn", cerr, false, qc_on && ! quiet);
       			exec (fullProg ("blastn") + " -query " + dna + " -db " + tmp + ".db/AMR_DNA-" + organism1 + " -evalue 1e-20  -dust no  " 
-      			      + get_num_threads_param ("blastn", dnaLen_total / 2500000) + " " BLAST_FMT " -out " + tmp + ".blastn > " + logFName + " 2> " + tmp + ".blastn-err", logFName);
+      			      + get_num_threads_param ("blastn", min (nDna, dnaLen_total / 2500000)) + " " BLAST_FMT " -out " + tmp + ".blastn > " + logFName + " 2> " + tmp + ".blastn-err", logFName);
       		//checkBlastErr (tmp + ".blastn-err");  // SB-3162 ??
       		}
     		}

@@ -682,6 +682,7 @@ struct BlastAlignment : Alignment
   		            td << na;        	
   		        }
   	        }
+  	        IMPLY ((isMutation () && ! seqChange. empty () && mut && ! seqChange. replacement), hasMutation ());
   	        if (   ! isMutation ()
   	            || (! seqChange. empty () && mut && ! seqChange. replacement)  // resistant mutation
   	            || verbose ()
@@ -1051,8 +1052,7 @@ private:
 	      	  && !        insideEq (other)
 	      	 )
 	        return false;
-	    //if (targetProt)
-	      //{ LESS_PART (other, *this, isMutation ()); }
+	      LESS_PART (other, *this, hasMutation ());
 	      LESS_PART (other, *this, refExactlyMatched ());  // PD-1261, PD-1678
 	      LESS_PART (other, *this, nident);
 	      LESS_PART (*this, other, refEffectiveLen ());  
@@ -1103,8 +1103,8 @@ public:
   bool better (const HmmAlignment& other) const
     { ASSERT (other. good ());
     	ASSERT (other. blastAl. get ());
-    	if (! inFam ())
-    	  return false;
+    /*if (! inFam ())
+    	  return false; */
     	if (targetProt)
     	{ if (targetName != other. sseqid)
 	        return false;
@@ -1112,6 +1112,8 @@ public:
 	    else
 	    	if (! other. blastAl->matchesCds (*this))
 	    		return false;
+    	if (hasMutation ())
+    	  return true;
       return    refExactlyMatched () 
              || getFam () -> descendantOf (other. fam)
              ;
@@ -1711,8 +1713,11 @@ public:
     	  for (const BlastAlignment* blastAl : it. second)
     	    if (blastAl->better (**hmmIt))
   	      {
-  	        ASSERT (! blastAl->hmmAl);
-  	        var_cast (blastAl) -> hmmAl = *hmmIt;
+  	        if (! blastAl->isMutation ())
+  	        {
+    	        ASSERT (! blastAl->hmmAl);
+    	        var_cast (blastAl) -> hmmAl = *hmmIt;
+    	      }
             hmmIt. erase ();
             found = true;
   	        break;
@@ -2011,7 +2016,7 @@ struct ThisApplication : Application
       addKey ("hmmsearch", "Output of hmmsearch");
       addKey ("organism", "Taxonomy group for mutations");
       addKey ("mutation", "Mutations table");
-      addKey ("susceptible", "Table of susceptibel proteins with resistance cutoffs");
+      addKey ("susceptible", "Table of susceptible proteins with resistance cutoffs");
       addKey ("mutation_all", "File to report all mutations");
       addKey ("suppress_prot", "File with protein accessions to suppress");
       addKey ("ident_min", "Min. identity to the reference protein (0..1). -1 means use a curated threshold if it exists and " + toString (ident_min_def) + " otherwise", "-1");

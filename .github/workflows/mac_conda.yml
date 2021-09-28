@@ -39,18 +39,20 @@ jobs:
       run: |
           source /Users/runner/miniconda3/bin/activate
           /Users/runner/miniconda3/bin/amrfinder -u
-    - name: Test protein
+    - name: Download tests
+      run: |
+          BASE_URL=https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/master
+          curl --silent -L \
+             -O ${BASE_URL}/test_dna.fa \
+             -O ${BASE_URL}/test_prot.fa \
+             -O ${BASE_URL}/test_prot.gff \
+             -O ${BASE_URL}/test_both.expected \
+             -O ${BASE_URL}/test_dna.expected \
+             -O ${BASE_URL}/test_dna_mut_all.expected \
+             -O ${BASE_URL}/test_prot.expected \
+             -O ${BASE_URL}/test_amrfinder.sh
+    - name: Run tests
       run: |
           source /Users/runner/miniconda3/bin/activate
-          amrfinder --plus -p test_prot.fa -g test_prot.gff -O Escherichia > test_prot.got
-          diff test_prot.expected test_prot.got
-    - name: Test dna
-      run: |
-          source /Users/runner/miniconda3/bin/activate
-          amrfinder --plus -n test_dna.fa -O Escherichia --mutation_all test_dna_mut_all.got > test_dna.got
-          diff test_dna.expected test_dna.got
-    - name: Test combined
-      run: |
-          source /Users/runner/miniconda3/bin/activate
-          amrfinder --plus -n test_dna.fa -p test_prot.fa -g test_prot.gff -O Escherichia > test_both.got
-          diff test_both.expected test_both.got
+          echo CONDA_PREFIX = $CONDA_PREFIX
+          bash ./test_amrfinder.sh path

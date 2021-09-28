@@ -16,6 +16,7 @@ then
     echo "Test failed: "
     echo "  $AMRFINDER --plus -p test_prot.fa -g test_prot.gff -O Escherichia > test_prot.got"
     echo "  diff test_prot.expected test_prot.got "
+    diff test_prot.expected test_prot.got
     exit 1
 fi
 
@@ -25,6 +26,7 @@ then
     echo "Test failed: "
     echo "  $AMRFINDER --plus -n test_dna.fa -O Escherichia --mutation_all test_dna_mut_all.got > test_dna.got"
     echo "  diff test_dna.expected test_dna.got"
+    diff test_dna.expected test_dna.got
     exit 1
 fi
 if ! diff -q test_dna_mut_all.expected test_dna_mut_all.got
@@ -32,6 +34,7 @@ then
 	echo "Test failed: "
     echo "  $AMRFINDER --plus -n test_dna.fa -O Escherichia --mutation_all test_dna_mut_all.got > test_dna.got"
     echo "  diff test_dna_mut_all.expected test_dna_mut_all.got"
+    diff test_dna_mut_all.expected test_dna_mut_all.got
     exit 1
 fi
 
@@ -41,6 +44,7 @@ then
     echo "Test failed: "
     echo "  $AMRFINDER --plus -n test_dna.fa -p test_prot.fa -g test_prot.gff -O Escherichia > test_both.got" 
     echo "  diff test_both.expected test_both.got "
+    diff test_both.expected test_both.got
     exit 1
 fi
 
