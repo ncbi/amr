@@ -16,6 +16,7 @@ jobs:
           echo "GITHUB_REPOSTIORY=${GITHUB_REPOSITORY}"
           echo "GITHUB_SHA=${GITHUB_SHA}"
           amrfinder --version
+          apt-get update
           apt-get install curl
           # For docker always read off of master branch
           #BASE_URL="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${GITHUB_SHA}/"
