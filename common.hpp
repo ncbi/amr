@@ -779,8 +779,8 @@ template <typename Key, typename Value>
     }
 
 template <typename T, typename UnaryPredicate>
-  inline long count_if (T &t, UnaryPredicate pred)
-    { return std::count_if (t. begin (), t. end (), pred); }
+  inline size_t count_if (T &t, UnaryPredicate pred)
+    { return (size_t) std::count_if (t. begin (), t. end (), pred); }
 
 template <typename To, typename From>
   inline void insertAll (To &to,
@@ -1260,7 +1260,7 @@ struct Dir
 
 bool getChar (istream &is,
               char &c);
-  // Output: s if (bool)Return
+  // Output: c if (bool)Return
 
 void skipLine (istream &is);
 
@@ -3758,13 +3758,15 @@ private:
   string fName;
   ifstream f;
   unique_ptr<FileItemGenerator> fig;
+  bool skipHeader {false};
 public:
   
   
   FileItemGenerator (size_t progress_displayPeriod,
                      bool isDir_arg,
                      bool large_arg,
-                     const string& fName_arg);
+                     const string& fName_arg,
+                     bool skipHeader_arg);
  ~FileItemGenerator ()
     { if (isDir)
 	      remove (fName. c_str ());

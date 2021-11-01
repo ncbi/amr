@@ -412,7 +412,7 @@ struct BlastAlignment : Alignment
 			    str2<long> (refName);  // gi: dummy
   		    if (contains (refAccession, ':'))
   		    {
-  		      QC_ASSERT (isMutation ());
+  		      QC_ASSERT (isMutationProt ());
   		      const string geneMutation =               rfindSplit (refAccession, ':');
   		      const size_t pos          = str2<size_t> (rfindSplit (refAccession, ':'));
   		      ASSERT (refMutation. empty ());
@@ -482,7 +482,7 @@ struct BlastAlignment : Alignment
 		    {
 		    	if (verbose ())
 		        cout << "AmrMutation protein found: " << refAccession << endl << line << endl;
-  	      QC_ASSERT (isMutation ());  	      
+  	      QC_ASSERT (isMutationProt ());  	      
   	      setSeqChanges (*refMutations, 0);
   	      if (verbose ())
   	        cout << endl;
@@ -542,10 +542,10 @@ struct BlastAlignment : Alignment
 	    QC_ASSERT (part <= parts);
 	  //QC_IMPLY (part > 1, ! fusions. empty () || fusionRedundant);
 	    QC_IMPLY (! fusions. empty (), parts >= 2);
-	    QC_IMPLY (isMutation (), ! isSusceptible ());
-	    QC_IMPLY (susceptible, isSusceptible ());
-	    QC_IMPLY (isSusceptible (), fusions. empty () && ! fusionRedundant);
-	    QC_IMPLY (isMutation (), fusions. empty () && ! fusionRedundant);
+	    QC_IMPLY (isMutationProt (), ! isSusceptibleProt ());
+	    QC_IMPLY (susceptible, isSusceptibleProt ());
+	    QC_IMPLY (isSusceptibleProt (), fusions. empty () && ! fusionRedundant);
+	    QC_IMPLY (isMutationProt (), fusions. empty () && ! fusionRedundant);
 	    QC_IMPLY (! fusions. empty (), fusions. size () >= 2);
 	    QC_IMPLY (! fusions. empty (), fusions. front () == this);
 	    QC_IMPLY (fusionRedundant, fusions. empty ());
@@ -562,7 +562,7 @@ struct BlastAlignment : Alignment
 	    QC_ASSERT (nident <= targetAlign_aa);
 	  //QC_IMPLY (! targetProt, cdss. empty ());
 	    QC_IMPLY (! refAccession. empty (), targetAlign_aa <= targetSeq. size ());
-	    QC_IMPLY (! refMutation. empty (), isMutation ());
+	    QC_IMPLY (! refMutation. empty (), isMutationProt ());
 	  #if 0
 	    if (targetProt)
     	  for (const Locus& cds : cdss)
@@ -570,11 +570,11 @@ struct BlastAlignment : Alignment
         	           || cds. size () == 3 * targetLen 
         	          );
     #endif
-	    QC_IMPLY (! seqChanges. empty (), isMutation ());
+	    QC_IMPLY (! seqChanges. empty (), isMutationProt ());
     }
   void saveText (ostream& os) const override
     { // PD-736, PD-774, PD-780, PD-799
-      const string proteinName (isMutation () 
+      const string proteinName (isMutationProt () 
                                   ? product /*string ()*/
                                   : susceptible
                                     ? susceptible->name
@@ -598,7 +598,7 @@ struct BlastAlignment : Alignment
             mutations << nullptr;
           for (const AmrMutation* mut : mutations)
           {
-            IMPLY (! verbose (), isMutation () == ! (seqChange. empty () && ! mut));
+            IMPLY (! verbose (), isMutationProt () == ! (seqChange. empty () && ! mut));
   	        TabDel td (2, false);
       	    if (! input_name. empty ())
       	      td << input_name;;
@@ -608,7 +608,7 @@ struct BlastAlignment : Alignment
   	             << (empty () ? 0  : (cds. contig. empty () ? targetStart : cds. start) + 1)
   	             << (empty () ? 0  : (cds. contig. empty () ? targetEnd  : cds. stop))
   	             << (empty () ? na : (cds. contig. empty () ? (targetStrand ? "+" : "-") : (cds. strand ? "+" : "-")));
-  	        td << (isMutation ()
+  	        td << (isMutationProt ()
   			             ? mut 
   			               ? seqChange. empty ()
                          ? mut->wildtype ()
@@ -618,7 +618,7 @@ struct BlastAlignment : Alignment
   			               ? famId
   			               : fusion2geneSymbols ()
   	              )
-  	           << (isMutation ()
+  	           << (isMutationProt ()
   	                 ? mut 
                        ? seqChange. empty ()
                          ? proteinName + " [WILDTYPE]"
@@ -626,9 +626,9 @@ struct BlastAlignment : Alignment
                        : proteinName + " [UNKNOWN]"
   	                 : proteinName 
   	              )
-  	           << (isMutation () || fusion2core () ? "core" : "plus");  // PD-2825
+  	           << (isMutationProt () || fusion2core () ? "core" : "plus");  // PD-2825
             // PD-1856
-  	        if (isMutation ())
+  	        if (isMutationProt ())
   	          td << "AMR"
   	             << "POINT"
   	             << (mut ? nvl (mut->classS,   na) : na)
@@ -656,7 +656,7 @@ struct BlastAlignment : Alignment
   	             << product
   	             ;
   	        // PD-775
-  	        if (isMutation ())
+  	        if (isMutationProt ())
   	          td << na
   	             << na;
   	        else 
@@ -682,8 +682,8 @@ struct BlastAlignment : Alignment
   		            td << na;        	
   		        }
   	        }
-  	        IMPLY ((isMutation () && ! seqChange. empty () && mut && ! seqChange. replacement), hasMutation ());
-  	        if (   ! isMutation ()
+  	        IMPLY ((isMutationProt () && ! seqChange. empty () && mut && ! seqChange. replacement), hasMutation ());
+  	        if (   ! isMutationProt ()
   	            || (! seqChange. empty () && mut && ! seqChange. replacement)  // resistant mutation
   	            || verbose ()
   	           )
@@ -701,20 +701,20 @@ struct BlastAlignment : Alignment
     	             << '\t';
   	          os << td. str () << endl;
   	        }
-  	        if (mutation_all. get () && isMutation ())
+  	        if (mutation_all. get () && isMutationProt ())
   	          *mutation_all << td. str () << endl;
   	      }
 	      }
     }
     
 
-  bool isMutation () const
+  bool isMutationProt () const
     { return resistance == "mutation"; }
-  bool isSusceptible () const
+  bool isSusceptibleProt () const
     { return resistance == "susceptible"; }
   bool inFam () const
-    { return    ! isMutation () 
-             && ! isSusceptible (); 
+    { return    ! isMutationProt () 
+             && ! isSusceptibleProt (); 
     } 
   Set<string> getMutationSymbols () const
     { Set<string> mutationSymbols;
@@ -867,7 +867,7 @@ struct BlastAlignment : Alignment
       return nullptr;
     }    
 	string getMethod (const Locus &cds) const
-	  { //IMPLY (refExactlyMatched () && ! mutation_all. get (), ! isMutation ())
+	  { //IMPLY (refExactlyMatched () && ! mutation_all. get (), ! isMutationProt ())
 	    string method (fromHmm
 	                     ? "HMM"
 	                     : refExactlyMatched () 
@@ -879,11 +879,11 @@ struct BlastAlignment : Alignment
         	                 ? truncated (cds)
         	                   ? "PARTIAL_CONTIG_END"  // PD-2267
         	                   : "PARTIAL"
-        	                 : isMutation ()
+        	                 : isMutationProt ()
         	                   ? "POINT"
         	                   : "BLAST"
         	             #else
-      	                 : isMutation ()
+      	                 : isMutationProt ()
       	                   ? "POINT"
           	               : partial ()
           	                 ? truncated (cds)
@@ -937,7 +937,7 @@ struct BlastAlignment : Alignment
            )
           return false;
       }
-      if (isSusceptible () && ! susceptible)
+      if (isSusceptibleProt () && ! susceptible)
         return false;
 		  if (susceptible && pIdentity () > susceptible->cutoff + frac_delta)
 		    return false;
@@ -1031,7 +1031,7 @@ private:
 	    }
 	  #if 0
 	    // Moved below
-      if (isMutation () && other. isMutation ())  
+      if (isMutationProt () && other. isMutationProt ())  
       {
 			  const Set<string> mutationSymbols      (       getMutationSymbols ());
 			  const Set<string> otherMutationSymbols (other. getMutationSymbols ());
@@ -1044,18 +1044,32 @@ private:
 			}
 		#endif
 	    if (targetProt == other. targetProt)  
-      {
-	      // PD-807
-	      if (   ! (targetProt && famId == other. famId)  // PD-2441
-	      	//&& ! sameTarget (other)
-	          && ! other. insideEq (*this)
-	      	  && !        insideEq (other)
-	      	 )
-	        return false;
-	      LESS_PART (other, *this, hasMutation ());
-	      LESS_PART (other, *this, refExactlyMatched ());  // PD-1261, PD-1678
-	      LESS_PART (other, *this, nident);
-	      LESS_PART (*this, other, refEffectiveLen ());  
+      {        
+        if (   ! isMutationProt ()
+            && ! refAccession. empty () 
+            && refAccession == other. refAccession  // PD-4013
+           )  
+        {
+  	      LESS_PART (other, *this, nident);
+  	      LESS_PART (*this, other, targetStart);
+  	      LESS_PART (other, *this, targetEnd);
+  	      LESS_PART (*this, other, refStart);
+  	      LESS_PART (other, *this, refEnd);
+        }
+        else
+        {
+  	      // PD-807
+  	      if (   ! (targetProt && famId == other. famId)  // PD-2441
+  	      	//&& ! sameTarget (other)
+  	          && ! other. insideEq (*this)
+  	      	  && !        insideEq (other)
+  	      	 )
+  	        return false;
+  	      LESS_PART (other, *this, hasMutation ());
+  	      LESS_PART (other, *this, refExactlyMatched ());  // PD-1261, PD-1678
+  	      LESS_PART (other, *this, nident);
+  	      LESS_PART (*this, other, refEffectiveLen ());  
+  	    }
 	    }
 	    else
 	    { 
@@ -1065,7 +1079,7 @@ private:
 	    //LESS_PART (*this, other, partial ());  
 	    //LESS_PART (other, *this, targetProt);  // moved below
 	    }
-      if (isMutation () && other. isMutation ())  
+      if (isMutationProt () && other. isMutationProt ())  
       {
 			  const Set<string> mutationSymbols      (       getMutationSymbols ());
 			  const Set<string> otherMutationSymbols (other. getMutationSymbols ());
@@ -1713,7 +1727,7 @@ public:
     	  for (const BlastAlignment* blastAl : it. second)
     	    if (blastAl->better (**hmmIt))
   	      {
-  	        if (! blastAl->isMutation ())
+  	        if (! blastAl->isMutationProt ())
   	        {
     	        ASSERT (! blastAl->hmmAl);
     	        var_cast (blastAl) -> hmmAl = *hmmIt;
@@ -1778,7 +1792,7 @@ public:
         const BlastAlignment* fusionMain = nullptr;
         for (const BlastAlignment* blastAl : goodBlastAls_)
         {
-          if (blastAl->isMutation ())
+          if (blastAl->isMutationProt ())
             continue;
           if (blastAl->fromHmm)
             continue;
@@ -1846,6 +1860,7 @@ public:
 	    TabDel td;
 	    if (! input_name. empty ())
 	      td << "Name";
+	    // Target
 	    td << "Protein identifier";                  //  1  // targetName  // PD-2534  
 	    if (cdsExist)  
 	      // Contig
@@ -1853,6 +1868,7 @@ public:
 	         << "Start"    // targetStart            //  3
 	         << "Stop"     // targetEnd              //  4
 	         << "Strand";  // targetStrand           //  5
+	    // Reference
 	    td << "Gene symbol"                          //  6 or 2
 	       << "Sequence name"                        //  7 or 3
 	       << "Scope"  // PD-2825                    //  8 or 4
@@ -1887,7 +1903,7 @@ public:
     	for (const BlastAlignment* blastAl : it. second)
     	{
     	  ASSERT (blastAl);
-     	  if (blastAl->isMutation ())
+     	  if (blastAl->isMutationProt ())
     	  	if (blastAl->seqChanges. empty ())
     	  	  ;
     	  	else
@@ -1916,7 +1932,7 @@ public:
  	  for (const auto& it : goodBlastAls)
     	for (const BlastAlignment* blastAl : it. second)
     	  if (   blastAl->targetProt
-    	  	  && ! blastAl->isMutation ()
+    	  	  && ! blastAl->isMutationProt ()
     	  	  && blastAl->fusion2reportable () >= reportable_min
     	  	 )
           os << blastAl->targetName << endl;

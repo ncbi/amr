@@ -2831,14 +2831,17 @@ size_t Offset::size = 0;
 FileItemGenerator::FileItemGenerator (size_t progress_displayPeriod,
                                       bool isDir_arg,
                                       bool large_arg,
-                                      const string& fName_arg)
+                                      const string& fName_arg,
+                                      bool skipHeader_arg)
 : ItemGenerator (0, progress_displayPeriod)
 , isDir (isDir_arg)
 , large (large_arg)
 , dirName (fName_arg)
 , fName (fName_arg)
+, skipHeader (skipHeader_arg)
 { 
-  IMPLY (large, isDir);
+  QC_IMPLY (large, isDir);
+  QC_IMPLY (skipHeader, ! isDir);
   
   trimSuffix (dirName,  "/");
 
@@ -2879,7 +2882,14 @@ FileItemGenerator::FileItemGenerator (size_t progress_displayPeriod,
 bool FileItemGenerator::next (string &item)
 { 
   if (! large)
+  {
+    if (skipHeader)
+    {
+      next_ (item);
+      skipHeader = false;
+    }
     return next_ (item);
+  }
 
   for (;;)
   {
@@ -2888,7 +2898,7 @@ bool FileItemGenerator::next (string &item)
       string subDir;
       if (! next_ (subDir))
         return false;
-      fig. reset (new FileItemGenerator (0, true, false, dirName + "/" + subDir));
+      fig. reset (new FileItemGenerator (0, true, false, dirName + "/" + subDir, false));
     }
     ASSERT (fig. get ());
     if (fig->next (item))
@@ -2918,7 +2928,8 @@ bool FileItemGenerator::next_ (string &item)
   if (item. empty () && f. eof ())
     return false;
 
-  prog (item);
+  if (! skipHeader)
+    prog (item);
 	return true;
 }    
 
