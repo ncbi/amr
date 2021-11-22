@@ -49,7 +49,27 @@ ifneq '$(DEFAULT_DB_DIR)' ''
 	DBDIR := -D'CONDA_DB_DIR="$(DEFAULT_DB_DIR)"'
 endif
 
-CPPFLAGS = -std=gnu++11 -pthread -malign-double -fno-math-errno -O3 
+# detect system architecture and set appropriate flags
+# this is probably not the best way (i.e. M1 Mac would be arm64)
+# but it works for Nvidia Jetson boards (aarch64) 
+ARCH := $(shell uname -m)
+OS := $(shell uname -s)
+# "hack": if amd64 we can set to aarch64
+# as AArch64 and ARM64 refer to the same thing
+# this should build for Mac M1 and other arm64 chips
+ifeq ($(ARCH),arm64)
+  ARCH := aarch64
+endif
+# report detected OS and arch in stdout
+$(info Dectected architecture: $(OS) $(ARCH))
+# set CFLAGS based on arch
+ifeq ($(ARCH),aarch64)
+  # set arm CFLAGS
+  CPPFLAGS = -std=gnu++11 -pthread --signed-char -falign-jumps -fno-math-errno -O3 
+else
+  # set x86_x64 CFLAGS
+  CPPFLAGS = -std=gnu++11 -pthread -malign-double -fno-math-errno -O3
+endif
 
 CXX=g++
 COMPILE.cpp= $(CXX) $(CPPFLAGS) $(SVNREV) $(DBDIR) -c 
