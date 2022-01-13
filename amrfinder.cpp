@@ -33,6 +33,8 @@
 *               cat, cp, cut, head, ln, mv, sort, tail
 *
 * Release changes:
+*   3.10.20 01/13/2022 PD-4069  "Vulnerability Disclosure" at the AMRFinder download web page
+*   3.10.19 12/08/2021          $PATH is printed is cass of error
 *   3.10.18 11/01/2021 PD-4013  multi-domain protein hits
 *   3.10.17 09/27/2021          program "dna_mutation" is found if the DNA file is empty
 *   3.10.16 09/22/2021 PD-3958  point mutations oiverride HMM hits
@@ -332,7 +334,7 @@ struct ThisApplication : ShellApplication
         if (contains (f. line, "-num_threads "))
           num_threadsP = true;
         if (contains (f. line, "-mt_mode "))
-          mt_modeP = true;;
+          mt_modeP = true;
       }
     }
     

@@ -233,6 +233,7 @@ namespace
 //const char* shell    = getenv ("SHELL");
 	const char* shell    = getenv ("SHELL");	
 	const char* pwd      = getenv ("PWD");
+	const char* path     = getenv ("PATH");
 #endif
   const string errorS ("*** ERROR ***");
   if (contains (msg, errorS))  // msg already is the result of errorExit()
@@ -252,6 +253,7 @@ namespace
   	    << "HOSTNAME: " << (hostname ? hostname : "?") << endl
   	    << "SHELL: " << (shell ? shell : "?") << endl
   	    << "PWD: " << (pwd ? pwd : "?") << endl
+  	    << "PATH: " << (path ? path : "?") << endl
       #endif
   	    << "Progam name:  " << programName << endl
   	    << "Command line: " << getCommandLine () << endl;
@@ -2215,10 +2217,26 @@ void TextTable::setHeader ()
         if (getDecimals (field, hasPoint, decimals))
           h. scientific = true;
         maximize<streamsize> (h. decimals, decimals);
-        maximize (h. len_max, field. size () + (size_t) (h. decimals - decimals) + (! hasPoint));
       }
     }
   }
+
+  // Header::len_max for numeric
+  for (const StringVector& row : rows)
+    FFOR (RowNum, i, row. size ())
+    {
+      const string& field = row [i];
+      if (field. empty ())
+        continue;
+      Header& h = header [i];
+      if (h. numeric)
+      {
+        bool hasPoint = false;
+        streamsize decimals = 0;
+        getDecimals (field, hasPoint, decimals);
+        maximize (h. len_max, field. size () + (size_t) (h. decimals - decimals) + (! hasPoint));
+      }
+    }
 }
 
 

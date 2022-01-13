@@ -172,30 +172,28 @@ string getLatestMinor (Curl &curl)
   StringVector dir (curl. read (URL), '\n', true);
   if (verbose ())
   {
-    save (cout, dir, '\t'); 
+    save (cout, dir, '\n'); 
     cout << endl;
   }
     
   Vector<SoftwareVersion> vers;  
   for (string& line : dir)
     if (isLeft (line, "<a href="))
-    {
-      const size_t pos1 = line. find ('>');
-      QC_ASSERT (pos1 != string::npos);
-      line. erase (0, pos1 + 1);
-
-      const size_t pos2 = line. find ("/<");
-      QC_ASSERT (pos2 != string::npos);
-      line. erase (pos2);
-      
-  	  istringstream iss (line);
   	  try 
   	  {
+        const size_t pos1 = line. find ('>');
+        QC_ASSERT (pos1 != string::npos);
+        line. erase (0, pos1 + 1);
+
+        const size_t pos2 = line. find ("/<");
+        QC_ASSERT (pos2 != string::npos);
+        line. erase (pos2);
+        
+    	  istringstream iss (line);
   		  SoftwareVersion ver (iss, true);
   		  vers << move (ver);
   		}
   		catch (...) {}
-    }
   if (vers. empty ())
     return string ();
     
@@ -212,7 +210,7 @@ string getLatestDataVersion (Curl &curl,
   StringVector dir (curl. read (URL + minor + "/"), '\n', true);
   if (verbose ())
   {
-    save (cout, dir, '\t');
+    save (cout, dir, '\n');
     cout << endl;
   }
     
@@ -235,10 +233,11 @@ string getLatestDataVersion (Curl &curl,
     		  dataVersions << move (dv);
     		}
     	}
-  		catch (const exception &e) 
+  		catch (...) {}
+  /*catch (const exception &e) 
   		{
   		  throw runtime_error ("Cannot get latest data version: " + minor + "\n\n" + e. what ());
-  		}
+  		} */
   if (dataVersions. empty ())
     return string ();
     
