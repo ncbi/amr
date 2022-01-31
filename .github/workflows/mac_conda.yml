@@ -2,7 +2,7 @@ name: Mac bioconda
 on:
     workflow_dispatch:
     schedule:
-        - cron: '30 3 * * *' # 3:30am everyday
+        - cron: '15 9 * * *' # 9:15am everyday
     repository_dispatch:
         types: [mac-bioconda-test, install-test]
 jobs:

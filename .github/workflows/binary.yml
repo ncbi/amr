@@ -7,7 +7,7 @@ on:
     repository_dispatch:
         types: [linux-binary-test, install-test]
     schedule: 
-        - cron: '12     25  *   *   *' # 12:25pm every day
+        - cron: '15  15  *   *   *' # 3:15pm every day
         - branches: [ master ]
 jobs:
   build:

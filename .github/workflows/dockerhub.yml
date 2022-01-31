@@ -2,7 +2,7 @@ name: dockerhub image
 
 on:
     schedule: 
-        - cron: '15 4 * * *' # 4:15am everyday
+        - cron: '15 21 * * *' # 9:15pm everyday
     workflow_dispatch:
     repository_dispatch:
         types: [docker-test, install-test]
