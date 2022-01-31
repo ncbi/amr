@@ -6,6 +6,9 @@ on:
         branches: [ master ]
     repository_dispatch:
         types: [linux-binary-test, install-test]
+    schedule: 
+        - cron: '15  15  *   *   *' # 3:15pm every day
+        - branches: [ master ]
 jobs:
   build:
     runs-on: ubuntu-latest
