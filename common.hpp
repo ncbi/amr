@@ -2033,6 +2033,7 @@ public:
   size_t findDuplicate () const
     { if (P::size () <= 1)
         return no_index;
+      checkSorted ();
       FOR_START (size_t, i, 1, P::size ())
         if ((*this) [i] == (*this) [i - 1])
           return i;
@@ -3342,6 +3343,8 @@ struct TextTable : Named
     // size() = number of columns
   Vector<StringVector> rows;
     // StringVector::size() = header.size()
+  typedef  size_t  ColNum;
+    // no_index <=> no column
   typedef  size_t  RowNum;
     // no_index <=> no row
 
@@ -3375,26 +3378,26 @@ public:
     // Return: true => scientific number
   void printHeader (ostream &os) const;
 private:
-  size_t col2index_ (const string &columnName) const;
+  ColNum col2num_ (const string &columnName) const;
 public:
-  size_t col2index (const string &columnName) const
-  { const size_t i = col2index_ (columnName);
+  ColNum col2num (const string &columnName) const
+  { const ColNum i = col2num_ (columnName);
     if (i == no_index)
       throw Error (*this, "Cannot find column name " + strQuote (columnName));
     return i;
   }
-  Vector<size_t> columns2indexes (const StringVector &columns) const
-    { Vector<size_t> indexes;  indexes. reserve (columns. size ());
+  Vector<ColNum> columns2nums (const StringVector &columns) const
+    { Vector<ColNum> nums;  nums. reserve (columns. size ());
       for (const string &s : columns)
-        indexes << col2index (s);
-      return indexes;
+        nums << col2num (s);
+      return nums;
     }
   bool hasColumn (const string &columnName) const
-    { return col2index_ (columnName) != no_index; }
+    { return col2num_ (columnName) != no_index; }
 private:
   int compare (const StringVector& row1,
                const StringVector& row2,
-               size_t column) const;
+               ColNum column) const;
 public:
   void filterColumns (const StringVector &newColumnNames);
     // Input: newColumnNames: in header::name's
@@ -3405,23 +3408,23 @@ public:
               const StringVector &aggr);
     // Invokes: filterColumns(by + sum + aggr)
 private:
-  void merge (RowNum toIndex,
-              RowNum fromIndex,
-              const Vector<size_t> &sum,
-              const Vector<size_t> &aggr);
+  void merge (RowNum toRowNum,
+              RowNum fromRowNum,
+              const Vector<ColNum> &sum,
+              const Vector<ColNum> &aggr);
 public:
-  void indexes2values (const Vector<size_t> &indexes,
+  void colNums2values (const Vector<ColNum> &colNums,
                        RowNum row_num,
                        StringVector &values) const;
     // Output: values
-  RowNum find (const Vector<size_t> &indexes,
+  RowNum find (const Vector<ColNum> &colNums,
                const StringVector &targetValues,
-               RowNum row_num_start) const;
+               RowNum rowNum_start) const;
 
 
   struct Key
   {
-    const Vector<size_t> indexes;
+    const Vector<ColNum> colNums;
     unordered_map<StringVector,RowNum,StringVector::Hasher> data;
 
     Key (const TextTable &tab,
@@ -3432,6 +3435,23 @@ public:
         if (it != data. end ())
           return it->second;
         return no_index;
+      }
+  };
+
+
+  struct Index
+  {
+    const Vector<ColNum> colNums;
+    unordered_map<StringVector,Vector<RowNum>,StringVector::Hasher> data;
+
+    Index (const TextTable &tab,
+           const StringVector &columns);
+         
+    const Vector<RowNum>* find (const StringVector &values) const
+      { const auto& it = data. find (values);
+        if (it == data. end ())
+          return nullptr;
+        return & it->second;
       }
   };
 };
