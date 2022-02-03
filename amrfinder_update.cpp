@@ -161,8 +161,8 @@ string Curl::read (const string &url)
 #undef HTTPS  // Otherwise: ftp
 
 
-#if 0
-  #define URL "https://ftp.ncbi.nlm.nih.gov/pathogen/Technical/AMRFinder_technical/test_database/"
+#ifdef TEST_UPDATE
+  #define URL "ftp://ftp.ncbi.nlm.nih.gov/pathogen/Technical/AMRFinder_technical/test_database/"
 #else
   #ifdef HTTPS
     #define URL "https://ftp.ncbi.nlm.nih.gov/pathogen/Antimicrobial_resistance/AMRFinderPlus/database/"  
