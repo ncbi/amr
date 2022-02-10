@@ -69,7 +69,8 @@ struct Curl
 
   Curl ()
     { eh = curl_easy_init ();
-      ASSERT (eh);
+      QC_ASSERT (eh);
+      curl_easy_setopt (eh, CURLOPT_FTP_USE_EPSV, 0);
     }
  ~Curl ()
    { curl_easy_cleanup (eh); }
