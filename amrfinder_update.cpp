@@ -38,6 +38,11 @@
 */
 
 
+
+#define HTTPS  // Otherwise: FTP
+
+
+
 #ifdef _MSC_VER
   #error "UNIX is required"
 #endif
@@ -70,7 +75,9 @@ struct Curl
   Curl ()
     { eh = curl_easy_init ();
       QC_ASSERT (eh);
+    #ifndef HTTPS
       curl_easy_setopt (eh, CURLOPT_FTP_USE_EPSV, 0);
+    #endif
     }
  ~Curl ()
    { curl_easy_cleanup (eh); }
@@ -112,7 +119,8 @@ void Curl::download (const string &url,
     curl_easy_setopt (eh, CURLOPT_URL, url. c_str ());
     curl_easy_setopt (eh, CURLOPT_WRITEFUNCTION, write_stream_cb);
     curl_easy_setopt (eh, CURLOPT_WRITEDATA, & f);
-    EXEC_ASSERT (curl_easy_perform (eh) == 0);
+    if (curl_easy_perform (eh))
+      throw runtime_error ("CURL: Cannot download from " + url);
   }
   
   ifstream f (fName);
@@ -150,16 +158,14 @@ string Curl::read (const string &url)
   curl_easy_setopt (eh, CURLOPT_URL, url. c_str ());
   curl_easy_setopt (eh, CURLOPT_WRITEFUNCTION, write_string_cb);
   curl_easy_setopt (eh, CURLOPT_WRITEDATA, & s);
-  EXEC_ASSERT (curl_easy_perform (eh) == 0);
+  if (curl_easy_perform (eh))
+    throw runtime_error ("CURL: Cannot read from " + url);
   
   return s;
 }
 
 //
 
-
-
-#undef HTTPS  // Otherwise: ftp
 
 
 #ifdef TEST_UPDATE

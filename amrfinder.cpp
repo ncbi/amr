@@ -33,7 +33,8 @@
 *               cat, cp, cut, head, ln, mv, sort, tail
 *
 * Release changes:
-*   3.10.22 02/10/2022          FTP EPSV mode is turned off (PASV is turned on)
+*   3.10.23 02/11/2022 PD-4098  HTTPS connection for database downloading is restored
+*   3.10.22 02/10/2022 PD-4098  For FTP: FTP EPSV mode is turned off (PASV is turned on)
 *   3.10.21 01/31/2022 PD-4071  https --> ftp
 *   3.10.20 01/13/2022 PD-4069  "Vulnerability Disclosure" at the AMRFinder download web page
 *   3.10.19 12/08/2021          $PATH is printed is case of error
