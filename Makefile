@@ -49,6 +49,11 @@ ifneq '$(DEFAULT_DB_DIR)' ''
 	DBDIR := -D'CONDA_DB_DIR="$(DEFAULT_DB_DIR)"'
 endif
 
+# for testing database updates using 
+ifdef TEST_UPDATE
+	TEST_UPDATE_DB := '-D TEST_UPDATE'
+endif
+
 # detect system architecture and set appropriate flags
 # this is probably not the best way (i.e. M1 Mac would be arm64)
 # but it works for Nvidia Jetson boards (aarch64) 
@@ -72,10 +77,10 @@ else
 endif
 
 CXX=g++
-COMPILE.cpp= $(CXX) $(CPPFLAGS) $(SVNREV) $(DBDIR) -c 
+COMPILE.cpp= $(CXX) $(CPPFLAGS) $(SVNREV) $(DBDIR) $(TEST_UPDATE_DB) -c 
 
 
-.PHONY: all clean install release
+.PHONY: all clean install release 
 
 BINARIES= amr_report amrfinder amrfinder_update fasta_check fasta_extract fasta2parts gff_check dna_mutation 
 
@@ -101,8 +106,13 @@ amrfinder:	$(amrfinderOBJS)
 
 amrfinder_update.o:  common.hpp common.inc 
 amrfinder_updateOBJS=amrfinder_update.o common.o
-amrfinder_update:      $(amrfinder_updateOBJS)
-	$(CXX) -o $@ $(amrfinder_updateOBJS) -lcurl
+amrfinder_update:      $(amrfinder_updateOBJS) 
+	@if [ "$(TEST_UPDATE)" != "" ]  ; \
+	then  \
+		touch amrfinder_update.cpp ;\
+	fi # make sure the next make command rebuilds amrfinder_update
+	$(CXX) -o $@ $(amrfinder_updateOBJS) -lcurl 
+
 
 fasta_check.o:	common.hpp common.inc 
 fasta_checkOBJS=fasta_check.o common.o 
@@ -128,6 +138,7 @@ dna_mutation.o:	common.hpp common.inc alignment.hpp
 dna_mutationOBJS=dna_mutation.o common.o alignment.o
 dna_mutation:	$(dna_mutationOBJS)
 	$(CXX) -o $@ $(dna_mutationOBJS)
+
 
 
 clean:
@@ -161,38 +172,6 @@ github_binaries:
 #	tar cvfz $(GITHUB_FILE).tar.gz $(GITHUB_FILE)/*
 	rm -r $(GITHUB_FILE)/*
 	rmdir $(GITHUB_FILE)
-
-DISTFILES=$(GITHUB_FILES) Makefile *.cpp *.hpp *.inc LICENSE README.md version.txt
-DISTDIR=amrfinder_dist_v$(VERSION_STRING)
-dist:
-	@if [ ! -e version.txt ]; \
-	then \
-		echo >&2 "version.txt required to make a distribution file"; \
-		false; \
-	fi
-	mkdir $(DISTDIR)
-	echo $(VERSION_STRING) > $(DISTDIR)/version.txt
-	cp $(DISTFILES) $(DISTDIR)
-	datalink=`basename $$(readlink -f ../releases/current)`; \
-		mkdir -p $(DISTDIR)/data/$$datalink; \
-		cd $(DISTDIR)/data; \
-		ln -s $$datalink latest; \
-		cd ../../../data; \
-		$(MAKE) dist INSTALL_DIR=../src/$(DISTDIR)/data/$$datalink;
-	if [ -e $(DISTDIR).tar.gz ]; then rm $(DISTDIR).tar.gz; fi
-	tar cvfz $(DISTDIR).tar.gz $(DISTDIR)/*
-	rm -r $(DISTDIR)/*
-	rmdir $(DISTDIR)
-
-SRC_DIST=amrfinder_src_dist_v$(VERSION_STRING)
-src_dist:
-	@if [ ! -e version.txt ]; \
-    then \
-        echo >&2 "version.txt required to make a distribution file"; \
-        false; \
-    fi	
-	if [ -e $(SRC_DIST).tar.gz ]; then rm $(SRC_DIST).tar.gz; fi
-	tar cvfz $(SRC_DIST).tar.gz $(DISTFILES)
 
 test : $(DISTFILES) Makefile *.cpp *.hpp *.inc test_dna.fa test_prot.fa test_prot.gff test_dna.fa test_dna.expected test_prot.expected test_both.expected
 	./test_amrfinder.sh
