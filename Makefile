@@ -107,7 +107,7 @@ amrfinder:	$(amrfinderOBJS)
 amrfinder_update.o:  common.hpp common.inc 
 amrfinder_updateOBJS=amrfinder_update.o common.o
 amrfinder_update:      $(amrfinder_updateOBJS) 
-	if [ "$(TEST_UPDATE)" != "" ]  ; \
+	@if [ "$(TEST_UPDATE)" != "" ]  ; \
 	then  \
 		touch amrfinder_update.cpp ;\
 	fi # make sure the next make command rebuilds amrfinder_update
