@@ -102,7 +102,7 @@ struct ThisApplication : Application
         #endif
       	  for (const char c : id)
       	  	if (! printable (c))
-      	  		throw runtime_error (errorS + "Non-printable character in the sequence identifier: " + c);
+      	  		throw runtime_error (errorS + "Non-printable character in the sequence identifier: " + to_string ((int) c));
       	  if (! first && seqSize == 0)
      	  		throw runtime_error (errorS + "Empty sequence");
      	  	if (lenF. get () && ! ids. empty ())
@@ -129,13 +129,13 @@ struct ThisApplication : Application
   	    	  	if (aa)
   	    	  	{
   		    	  	if (! charInSet (c1, "acdefghiklmnpqrstvwyxbzjuoacdefghiklmnpqrstvwyxbzjuo*"))
-  		    	  		throw runtime_error (errorS + "Wrong amino acid character: '" + c + "'");
+  		    	  		throw runtime_error (errorS + "Wrong amino acid character: (code = " + to_string ((int) c) + ") '" + c + "'");
   		    	    if (charInSet (c1, "acgt"))
   		    	    	nuc++;
   		    	  }
   	    	  	else
   		    	  	if (! charInSet (c1, "acgtbdhkmnrsvwyacgtbdhkmnrsvwy"))
-  		    	  		throw runtime_error (errorS + "Wrong nucleotide character: '" + c + "'");
+  		    	  		throw runtime_error (errorS + "Wrong nucleotide character: (code = " + to_string ((int) c) + ") '" + c + "'");
   		    	}
       	}
       	first = false;

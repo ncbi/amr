@@ -698,6 +698,10 @@ struct BlastAlignment : Alignment
     	             << '\t' << stopCodon             // 7
     	             << '\t' << frameShift            // 8
     	             << '\t' << resistance            // 9
+    	             << '\t' << isMutationProt ()     // 10
+    	             << '\t' << seqChange. empty ()   // 11
+    	             << '\t' << (bool) mut            // 12 
+    	             << '\t' << (bool) seqChange. replacement // 13
     	             << '\t';
   	          os << td. str () << endl;
   	        }
@@ -1430,6 +1434,7 @@ struct Batch
   	  	  	  throw runtime_error ("Duplicate mutations for " + it. first);
   	  	  }
   	  	}
+  	  	if (! susceptible_tab. empty ())
 	      {
   	    	if (verbose ())
   	    		cout << "Reading " << susceptible_tab << endl;
