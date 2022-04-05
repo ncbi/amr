@@ -1185,6 +1185,14 @@ inline string shellQuote (string s)
   	return "\'" + s + "\'";
   }
 
+inline string trimExtension (const string &path)
+  {
+    const size_t pos = path. rfind ('.');
+    if (pos == string::npos)
+      return path;
+    return path. substr (0, pos);
+  }
+
 bool fileExists (const string &fName);
 
 inline void checkFile (const string &fName)
@@ -3358,7 +3366,10 @@ struct TextTable : Named
   };
     
 
-  explicit TextTable (const string &fName);
+  explicit TextTable (const string &tableFName,
+                      const string &columnSynonymsFName = string());
+    // columnSynonymsFName: syn_format
+  static constexpr const char* syn_format {"Column synonyms file with the format: {<main synonym> <eol> {<synonym> <eol>}* {<eol>|<eof>}}*"};
   TextTable () = default;
   TextTable (bool pound_arg,
              const Vector<Header> &header_arg)
@@ -3377,9 +3388,8 @@ public:
                            streamsize &decimals);
     // Return: true => scientific number
   void printHeader (ostream &os) const;
-private:
   ColNum col2num_ (const string &columnName) const;
-public:
+    // Retuirn: no_index <=> no columnName
   ColNum col2num (const string &columnName) const
   { const ColNum i = col2num_ (columnName);
     if (i == no_index)
@@ -3778,15 +3788,15 @@ private:
   string fName;
   ifstream f;
   unique_ptr<FileItemGenerator> fig;
-  bool skipHeader {false};
 public:
+  const bool tsv;
   
   
   FileItemGenerator (size_t progress_displayPeriod,
                      bool isDir_arg,
                      bool large_arg,
                      const string& fName_arg,
-                     bool skipHeader_arg);
+                     bool tsv_arg);
  ~FileItemGenerator ()
     { if (isDir)
 	      remove (fName. c_str ());
@@ -3795,7 +3805,8 @@ public:
   
   bool next (string &item) final;
 private:
-  bool next_ (string &item);
+  bool next_ (string &item,
+              bool report);
 };
 
   

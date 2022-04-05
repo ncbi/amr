@@ -2153,29 +2153,60 @@ void TextTable::Header::qc () const
 
 
 
-TextTable::TextTable (const string &fName)
-: Named (fName)
-{
-  LineInput f (fName);
-
-  if (! f. nextLine ())
-    throw Error (*this, "Cannot read the table header");
-  if (! f. line. empty () && f. line. front () == '#')
+TextTable::TextTable (const string &tableFName,
+                      const string &columnSynonymsFName)
+: Named (tableFName)
+{  
   {
-    pound = true;
-    f. line. erase (0, 1);
+    LineInput f (tableFName);
+    if (! f. nextLine ())
+      throw Error (*this, "Cannot read the table header");
+    if (! f. line. empty () && f. line. front () == '#')
+    {
+      pound = true;
+      f. line. erase (0, 1);
+    }
+    {
+      StringVector h (f. line, '\t', true);
+      for (string& s : h)
+        header << move (Header (move (s)));
+    }
+    while (f. nextLine ())
+    {
+      StringVector line (f. line, '\t', true);
+      rows << move (line);
+      ASSERT (line. empty ());
+    }
   }
+  
+  if (! columnSynonymsFName. empty ())
   {
-    StringVector h (f. line, '\t', true);
-    for (string& s : h)
-      header << move (Header (move (s)));
-  }
-
-  while (f. nextLine ())
-  {
-    StringVector line (f. line, '\t', true);
-    rows << move (line);
-    ASSERT (line. empty ());
+    LineInput colF (columnSynonymsFName);
+    string mainSyn;
+    while (colF. nextLine ())
+    {
+      trim (colF. line);
+      const string& syn = colF. line;
+      if (syn. empty ())
+        mainSyn. clear ();
+      else
+      {
+        if (mainSyn. empty ())
+          mainSyn = syn;
+        else
+          if (mainSyn != syn)
+          {
+            const ColNum i = col2num_ (syn);
+            if (i != no_index)
+            {
+              if (hasColumn (mainSyn))
+                throw runtime_error ("Table " + strQuote (name) + ": Column " + strQuote (mainSyn) + " already exists");
+              else
+                header [i]. name = mainSyn;
+            }
+          }
+      }
+    }
   }
   
   setHeader ();
@@ -2877,16 +2908,16 @@ FileItemGenerator::FileItemGenerator (size_t progress_displayPeriod,
                                       bool isDir_arg,
                                       bool large_arg,
                                       const string& fName_arg,
-                                      bool skipHeader_arg)
+                                      bool tsv_arg)
 : ItemGenerator (0, progress_displayPeriod)
 , isDir (isDir_arg)
 , large (large_arg)
 , dirName (fName_arg)
 , fName (fName_arg)
-, skipHeader (skipHeader_arg)
+, tsv (tsv_arg)
 { 
   QC_IMPLY (large, isDir);
-  QC_IMPLY (skipHeader, ! isDir);
+  QC_IMPLY (tsv, ! isDir);
   
   trimSuffix (dirName,  "/");
 
@@ -2920,6 +2951,12 @@ FileItemGenerator::FileItemGenerator (size_t progress_displayPeriod,
     readLine (f, s);
     ASSERT (s == "..");
   }
+
+  if (tsv)
+  {
+    string item;
+    next_ (item, false);
+  }
 }
 
 
@@ -2927,21 +2964,14 @@ FileItemGenerator::FileItemGenerator (size_t progress_displayPeriod,
 bool FileItemGenerator::next (string &item)
 { 
   if (! large)
-  {
-    if (skipHeader)
-    {
-      next_ (item);
-      skipHeader = false;
-    }
-    return next_ (item);
-  }
+    return next_ (item, true);
 
   for (;;)
   {
     if (! fig. get ())
     {
       string subDir;
-      if (! next_ (subDir))
+      if (! next_ (subDir, true))
         return false;
       fig. reset (new FileItemGenerator (0, true, false, dirName + "/" + subDir, false));
     }
@@ -2957,7 +2987,8 @@ bool FileItemGenerator::next (string &item)
 
 
 
-bool FileItemGenerator::next_ (string &item)
+bool FileItemGenerator::next_ (string &item,
+                               bool report)
 { 
   if (f. eof ())
     return false;
@@ -2969,11 +3000,12 @@ bool FileItemGenerator::next_ (string &item)
   	if (pos != string::npos)
       item. erase (0, pos + 1);
   }
-  trim (item);
+  if (! tsv)
+    trim (item);
   if (item. empty () && f. eof ())
     return false;
 
-  if (! skipHeader)
+  if (report)
     prog (item);
 	return true;
 }    

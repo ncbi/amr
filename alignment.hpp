@@ -156,7 +156,6 @@ struct SeqChange : Root
   SeqChange (const Alignment* al_arg,
              const AmrMutation* mutation_arg)
     : al (al_arg)
-  //, mutation (checkPtr (mutation_arg))
     { mutations << checkPtr (mutation_arg); }
 #if 0
   SeqChange (const Alignment* al_arg,
@@ -170,7 +169,6 @@ struct SeqChange : Root
          << ' ' << start_ref + 1 << ".." << stop_ref
          << ' ' << start_target + 1 
          << ' ' << neighborhoodMismatch;
-    //if (mutation)
       for (const AmrMutation* mutation : mutations)
       { os << ' ' ;
         mutation->saveText (os);
@@ -236,7 +234,7 @@ struct Alignment : Root
   size_t refEnd {0};
   size_t refLen {0};  
   AmrMutation refMutation;
-    // !empty() => original refSeq is the result of refMutation.apply() to the original refSeq
+    // !empty() => refSeq is the result of refMutation.apply() to the original refSeq
 //int ref_offset {0};
   
   // Alignment

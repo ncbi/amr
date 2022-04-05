@@ -720,8 +720,12 @@ void Alignment::setSeqChanges (const Vector<AmrMutation> &refMutations,
 	     if (allMutationsP)
       	  seqChanges_add << SeqChange (this, & mut);  // "seqChanges <<" destroys seqChange
     #endif
-		  if (mut. getStop () > seqChange. stop_ref)
+		  if (mut. pos >= seqChange. stop_ref)
 		    break;
+		#if 0
+		  cout << mut << endl;
+		  PRINT (seqChange. matchesMutation (mut));  
+		#endif
 		  if (seqChange. matchesMutation (mut))
 		  {
 		    seqChange. mutations << & mut;
