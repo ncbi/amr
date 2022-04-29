@@ -30,9 +30,10 @@
 *   AMRFinder
 *
 * Dependencies: NCBI BLAST, HMMer
-*               cat, cp, cut, head, ln, mv, sort, tail
+*               cat, cp, ln, tail
 *
 * Release changes:
+*   3.10.25 04/29/2022 PD-3292  dependence on "mv", "cut", "head" and "sort" is removed
 *   3.10.24 03/25/2022 PD-4132  pmrB_RPISLR6del shadows pmrB_L10P
 *   3.10.23 02/11/2022 PD-4098  HTTPS connection for database downloading is restored (only this connection is guaranteed to exist for a user because it is needed for software installation)
 *   3.10.22 02/10/2022 PD-4098  For FTP: FTP EPSV mode is turned off (PASV is turned on)
@@ -369,56 +370,19 @@ struct ThisApplication : ShellApplication
 
   StringVector db2organisms () const
   {
-		checkFile (tmp + ".db/taxgroup.tab");
-		checkFile (tmp + ".db/AMRProt-mutation.tab");
-		checkFile (tmp + ".db/AMRProt-susceptible.tab");
-    exec ("tail -n +2 " + tmp + ".db/taxgroup.tab" + "            | cut -f 1 > " + tmp + ".tax_org");
-    exec ("tail -n +2 " + tmp + ".db/AMRProt-mutation.tab" + "    | cut -f 1 > " + tmp + ".prot_org");
-    exec ("tail -n +2 " + tmp + ".db/AMRProt-susceptible.tab" + " | cut -f 1 > " + tmp + ".susc_org");
-    exec ("cat " + tmp + ".tax_org " + tmp + ".prot_org " + tmp + ".susc_org | sort -u > " + tmp + ".org");
-    return StringVector (tmp + ".org", (size_t) 100, true);  // PAR
+    const TextTable taxgroup            (tmp + ".db/taxgroup.tab");
+    const TextTable AMRProt_mutation    (tmp + ".db/AMRProt-mutation.tab");
+    const TextTable AMRProt_susceptible (tmp + ".db/AMRProt-susceptible.tab");
+    StringVector vec (taxgroup. col2values (0));
+    vec << AMRProt_mutation. col2values (0);
+    vec << AMRProt_susceptible. col2values (0);
+    vec. sort ();
+    vec. uniq ();
+    return vec;
   }
   
   
   
-  string col2num (const string &colName) const
-  // Return: number
-  // Input: tmp + ".amr": must have the header line
-  {
-    LineInput f (tmp + ".amr");
-    EXEC_ASSERT (f. nextLine ());
-    const List<string> columns (str2list (f. line, '\t'));
-    size_t n = 1;
-    for (const string& column : columns)
-      if (column == colName)
-        return to_string (n);
-      else
-        n++;
-    throw runtime_error ("Column " + strQuote (colName) + " not found in " + tmp + ".amr");    
-  }
-  
-  
-  
-  struct SortField : Named
-  {
-    bool numeric {false};
-    
-    explicit SortField (const string &name_arg,
-                        bool numeric_arg = false)
-      : Named (name_arg)
-      , numeric (numeric_arg)
-      {
-        ASSERT (str2<int> (name) > 0);
-      }
-    void saveText (ostream &os) const
-      { os << "-k" << name << ',' << name;
-        if (numeric)
-          os << 'n';
-      }
-  };
-
-
-
   void prepare_fasta_extract (StringVector &&columns,
                               const string &tmpSuf,
                               bool saveHeader) const
@@ -459,13 +423,13 @@ struct ThisApplication : ShellApplication
     const uint   gencode         =             arg2uint ("translation_table"); 
     const bool   add_plus        =             getFlag ("plus");
     const bool   report_common   =             getFlag ("report_common");
-    const string mutation_all    = shellQuote (getArg ("mutation_all"));  
+    const string mutation_all    =             getArg ("mutation_all");  
   //const string type            =             getArg ("type");
           string blast_bin       =             getArg ("blast_bin");
     const bool   equidistant     =             getFlag ("report_all_equal");
     const string input_name      = shellQuote (getArg ("name"));
     const string parm            =             getArg ("parm");  
-    const string output          = shellQuote (getArg ("output"));
+    const string output          =             getArg ("output");
     const string prot_out        = shellQuote (getArg ("protein_output"));
     const string dna_out         = shellQuote (getArg ("nucleotide_output"));
     const string dnaFlank5_out   = shellQuote (getArg ("nucleotide_flank5_output"));
@@ -501,7 +465,7 @@ struct ThisApplication : ShellApplication
 		  
 		  		  
 		// PD-3437
-	  if (! emptyArg (mutation_all) && emptyArg (organism))
+	  if (! mutation_all. empty () && emptyArg (organism))
 	  {
 	    const Warning warning (stderr);
 		  stderr << "--mutation_all option used without -O/--organism option. No point mutations will be screened";
@@ -525,9 +489,9 @@ struct ThisApplication : ShellApplication
 		}
   #endif
 
-		if (! emptyArg (output))
-		  try { OFStream f (unQuote (output)); }
-		    catch (...) { throw runtime_error ("Cannot create output file " + output); }
+		if (! output. empty ())
+		  try { OFStream f (output); }
+		    catch (...) { throw runtime_error ("Cannot create output file " + shellQuote (output)); }
 
     
     // For timing... 
@@ -962,8 +926,8 @@ struct ThisApplication : ShellApplication
             {
               ASSERT (blastx == "tblastn");
         			findProg ("makeblastdb");
-        			exec ("cp " + dna + " " + tmp + ".nucl");
-           	  exec (fullProg ("makeblastdb") + " -in " + tmp + ".nucl" + "  -dbtype nucl  -logfile /dev/null");  
+        	  //exec ("cp " + dna + " " + tmp + ".nucl");
+           	  exec (fullProg ("makeblastdb") + " -in " + dna + " -out " + tmp + ".nucl" + "  -dbtype nucl  -logfile /dev/null");  
         			if (threads_max > 1)
         			{
           		  createDirectory (tmp + ".AMRProt_chunk");
@@ -1045,7 +1009,7 @@ struct ThisApplication : ShellApplication
     const string nameS (emptyArg (input_name) ? "" : " -name " + input_name);
     {
  			const Chronometer_OnePass cop ("amr_report", cerr, false, qc_on && ! quiet);
-      const string mutation_allS (emptyArg (mutation_all) ? "" : ("-mutation_all " + tmp + ".mutation_all"));      
+      const string mutation_allS (mutation_all. empty () ? "" : ("-mutation_all " + tmp + ".mutation_all"));      
       const string coreS (add_plus ? "" : " -core");
       const string equidistantS (equidistant ? " -report_equidistant" : "");
   		exec (fullProg ("amr_report") + " -fam " + shellQuote (db + "/fam.tab") + "  " + amr_report_blastp + "  " + amr_report_blastx
@@ -1065,11 +1029,11 @@ struct ThisApplication : ShellApplication
 		   )
 		{
  			const Chronometer_OnePass cop ("dna_mutation", cerr, false, qc_on && ! quiet);
-      const string mutation_allS (emptyArg (mutation_all) ? "" : ("-mutation_all " + tmp + ".mutation_all.dna")); 
+      const string mutation_allS (mutation_all. empty () ? "" : ("-mutation_all " + tmp + ".mutation_all.dna")); 
 			exec (fullProg ("dna_mutation") + tmp + ".blastn " + shellQuote (db + "/AMR_DNA-" + organism1 + ".tab") + " " + strQuote (organism1) + " " + mutation_allS 
 			      + nameS + qcS + " -log " + logFName + " > " + tmp + ".amr-snp", logFName);
 			exec ("tail -n +2 " + tmp + ".amr-snp >> " + tmp + ".amr");
-      if (! emptyArg (mutation_all))
+      if (! mutation_all. empty ())
   			exec ("tail -n +2 " + tmp + ".mutation_all.dna >> " + tmp + ".mutation_all");
 	  }
 
@@ -1077,38 +1041,31 @@ struct ThisApplication : ShellApplication
 
     // Sorting AMR report
     // PD-2244, PD-3230
-    string sortS;
     {
-      Vector<SortField> sortFields;
+      StringVector amrSortColumns;
       if (! (emptyArg (dna) && emptyArg (gff)))
-        sortFields << SortField (col2num ("Contig id"))
-                   << SortField (col2num ("Start"), true)
-                   << SortField (col2num ("Stop"), true)
-                   << SortField (col2num ("Strand"));
-      sortFields << SortField (col2num ("Protein identifier"))
-                 << SortField (col2num ("Gene symbol"));
-      for (const SortField& sf : sortFields)
-        sortS += " " + sf. str ();
+        amrSortColumns << "Contig id" << "Start" << "Stop" << "Strand";    
+      amrSortColumns << "Protein identifier" << "Gene symbol";
+
+      {
+        TextTable amrTab (tmp + ".amr");
+        amrTab. sort (amrSortColumns);
+    		if (output. empty ())
+    		  amrTab. saveText (cout);
+    		else
+    		  amrTab. saveFile (output);
+      }
+
+      // Sorting mutation_all
+      if (! mutation_all. empty ())
+      {
+        TextTable mutation_allTab (tmp + ".mutation_all");
+        mutation_allTab. sort (amrSortColumns);
+        mutation_allTab. rows. uniq ();
+        mutation_allTab. saveFile (mutation_all);
+      }
     }
-		exec ("head -1 "              + tmp + ".amr                      >  " + tmp + ".amr-out");
-		exec ("LANG=C && tail -n +2 " + tmp + ".amr | sort " + sortS + " >> " + tmp + ".amr-out");
- 		exec ("mv " + tmp + ".amr-out " + tmp + ".amr");
 
-    // Sorting mutation_all
-    if (! emptyArg (mutation_all))
-    {
-  		exec ("head -1 "              + tmp + ".mutation_all                                >  " + tmp + ".mutation_all-out");
-  		exec ("LANG=C && tail -n +2 " + tmp + ".mutation_all | sort -u | sort " + sortS + " >> " + tmp + ".mutation_all-out");  
-  		  // "sort -u | sort <sortS>" replaces "sort <sortS> | uniq"
-   		exec ("mv " + tmp + ".mutation_all-out " + mutation_all);
-    }
-
-
-		if (emptyArg (output))
-		  exec ("cat " + tmp + ".amr");
-		else
-		  exec ("cp " + tmp + ".amr " + output);
-		  		  
 
     if (! emptyArg (prot_out))
     {

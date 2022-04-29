@@ -408,7 +408,7 @@ bool goodName (const string &name)
   if (name. back () == ' ')
     return false;
 
-  for (const char c : name)
+  for (const char c : name)  
     if (! printable (c))
       return false;
       
@@ -435,14 +435,17 @@ string pad (const string &s,
 
 
 
-bool isIdentifier (const string& name)
+bool isIdentifier (const string& name,
+                   bool dashInName)
 {
   if (name. empty ())
     return false;
   if (isDigit (name [0]))
     return false;
+  if (dashInName && name [0] == '-')
+    return false;
   for (const char c : name)
-    if (! isLetter (c))
+    if (! isLetter (c) && (! dashInName || c != '-'))
       return false;
   return true;
 }
@@ -804,8 +807,8 @@ string list2str (const List<string> &strList,
 
 
 bool fileExists (const string &fName)
-{
-  ifstream f (fName. c_str ());
+{ 
+  const ifstream f (fName. c_str ());
   bool ok = f. good ();
 #ifndef _MSC_VER
   if (ok)
@@ -1741,7 +1744,9 @@ string CharInput::getLine ()
 
 // Token
 
-void Token::readInput (CharInput &in)
+void Token::readInput (CharInput &in,
+                       bool dashInName_arg,
+                       bool consecutiveQuotesInText)
 {
 	ASSERT (empty ());
 
@@ -1761,16 +1766,35 @@ void Token::readInput (CharInput &in)
 	{
 		type = eText;
 		quote = c;
+		bool prevQuote = false;  // Valid if consecutiveQuotesInText
 		for (;;)
 		{ 
 			c = in. get (); 
-			if (in. eof)
+			if (in. eof && (! consecutiveQuotesInText || ! prevQuote))
 		    in. error ("Text is not finished: end of file", false);
 			if (in. eol)
-		  //in. error ("ending quote", false);
 		    continue;
 			if (c == quote)
-				break;
+			{
+			  if (consecutiveQuotesInText)
+  			{
+  		    if (prevQuote)
+  		      prevQuote = false;
+  		    else
+  		    {
+  		      prevQuote = true;
+  		      continue;
+  		    }
+  		  }
+  		  else 
+  		    break;
+  		}
+		  else
+		    if (consecutiveQuotesInText && prevQuote)
+		    {
+		      in. unget ();
+		      break;
+		    }
 			name += c;
 		}
 	}
@@ -1806,7 +1830,8 @@ void Token::readInput (CharInput &in)
 	else if (isLetter (c))
 	{
 		type = eName;
-		while (! in. eof && isLetter (c))
+		dashInName = dashInName_arg;
+		while (! in. eof && (isLetter (c) || (dashInName && c == '-')))
 		{ 
 			name += c;
 			c = in. get (); 
@@ -1838,13 +1863,14 @@ void Token::qc () const
   if (! empty ())
   {
   	QC_IMPLY (type != eText, ! name. empty ());
-  	QC_IMPLY (type != eText, ! contains (name, ' '));
+  	QC_IMPLY (type != eText,  ! contains (name, ' '));
     QC_IMPLY (type == eName || type == eDelimiter, quote == '\0');
-    QC_ASSERT (! contains (name, quote));
+    QC_IMPLY (dashInName, type == eName);
+  //QC_ASSERT (! contains (name, quote));
     QC_IMPLY (type != eDouble, decimals == 0);
   	switch (type)
   	{ 
-  		case eName:      if (! isIdentifier (name))
+  		case eName:      if (! isIdentifier (name, dashInName))
   		                   throw runtime_error ("Not an identifier: " + strQuote (name));
   		                 break;
   	  case eText:      break;
@@ -1983,7 +2009,7 @@ Token TokenInput::get ()
     
   for (;;)  
   { 
-    Token t (ci);
+    Token t (ci, dashInName, consecutiveQuotesInText);
     if (t. empty ())
       break;
     if (! t. isDelimiter (commentStart))
@@ -2002,17 +2028,118 @@ Token TokenInput::getXmlText ()
 
   Token t;
   t. charNum = ci. charNum;
+  size_t htmlTags = 0;
+  bool prevSlash = false;
 	for (;;)
 	{ 
 	  char c = ci. get (); 
 		if (ci. eof)
-	    ci. error ("XML text is not finished: end of file", false);
+	    ci. error ("XML text is not finished: end of file\n" + t. name, false);
 	  if (c == '<')
-	    break;
+	  {
+	    const char nextChar = getNextChar ();
+	    if (nextChar == '/')
+	    {
+	      if (htmlTags)
+	        htmlTags--;
+	      else
+	        break;
+	    }
+	    else if (   nextChar != '?' 
+	             && nextChar != '!' 
+	            )
+	      htmlTags++;
+	  }
+	  else if (c == '>')
+	    if (prevSlash)
+	    {
+	      QC_ASSERT (htmlTags);
+	      htmlTags--;
+	    }
 	  if (isSpace (c))
 	    c = ' ';
 		t. name += c;
+		prevSlash = (c == '/');		  
 	}
+	
+	trim (t. name);
+	if (! t. name. empty ())
+    t. type = Token::eText;  
+  else
+    { ASSERT (t. empty ()); }
+	
+  return t;
+}
+
+
+
+Token TokenInput::getXmlComment ()
+{ 
+  QC_ASSERT (last. empty ());
+
+  // Embedded comments ??
+
+  QC_ASSERT (ci. get () == '-');
+  QC_ASSERT (ci. get () == '-');
+
+  Token t;
+  t. charNum = ci. charNum;
+  array<char,4> lastChars {{'-', '-', '\0', '\0'}};
+  size_t i = 2; 
+	for (;;)
+	{ 
+	  char c = ci. get (); 
+		if (ci. eof)
+	    ci. error ("XML comment is not finished: end of file", false);
+	  QC_ASSERT (c);
+	  if (isSpace (c))
+	    c = ' ';
+
+    ASSERT (i < 4);
+    lastChars [i] = c;
+    i = (i + 1) % 4;
+    if (   lastChars [(i + 1) % 4] == '-'
+        && lastChars [(i + 2) % 4] == '-'
+        && lastChars [(i + 3) % 4] == '>'
+       )
+      break;
+      
+    if (lastChars [i])
+		  t. name += lastChars [i];
+	}
+	
+	trim (t. name);
+	if (! t. name. empty ())
+    t. type = Token::eText;  
+  else
+    { ASSERT (t. empty ()); }
+	
+  return t;
+}
+
+
+
+Token TokenInput::getXmlProcessingInstruction ()
+{ 
+  QC_ASSERT (last. empty ());
+  
+  // Embedded processing instructions ??
+
+  Token t;
+  t. charNum = ci. charNum;
+	for (;;)
+	{ 
+	  char c = ci. get (); 
+		if (ci. eof)
+	    ci. error ("XML comment is not finished: end of file", false);
+	  QC_ASSERT (c);
+	  if (isSpace (c))
+	    c = ' ';	    
+	  if (c == '?')
+	    break;
+    t. name += c;
+	}
+	get ('>');
 	
 	trim (t. name);
 	if (! t. name. empty ())
@@ -2144,7 +2271,7 @@ void TextTable::Header::qc () const
 {
   if (! qc_on)
     return;
-    
+
   Named::qc ();
     
   QC_IMPLY (scientific, numeric);
@@ -2287,7 +2414,7 @@ void TextTable::qc () const
       try { h. qc (); }
         catch (const exception &e)
         {
-          throw ("Header column #" + to_string (i + 1) + ": " + e. what ());
+          throw runtime_error ("Header column #" + to_string (i + 1) + ": " + e. what ());
         }
       v << h. name;
     }
@@ -2437,6 +2564,29 @@ void TextTable::filterColumns (const StringVector &newColumnNames)
 
 
 
+void TextTable::sort (const StringVector &by)
+{
+  const Vector<ColNum> byIndex (columns2nums (by));
+  
+  const auto lt = [&byIndex,this] (const StringVector &a, const StringVector &b) 
+                    { for (const ColNum i : byIndex) 
+                        switch (this->compare (a, b, i))
+                        { case -1: return true;
+                          case  1: return false;
+                        }
+                      // Tie resolution
+                      FFOR (size_t, i, a. size ())
+                        switch (this->compare (a, b, i))
+                        { case -1: return true;
+                          case  1: return false;
+                        }
+                      return false;
+                    };
+  Common_sp::sort (rows, lt);
+}
+
+
+
 void TextTable::group (const StringVector &by,
                        const StringVector &sum,
                        const StringVector &aggr)
@@ -2527,9 +2677,9 @@ void TextTable::merge (RowNum toRowNum,
 
 
 
-void TextTable::colNums2values (const Vector<ColNum> &colNums,
-                                RowNum row_num,
-                                StringVector &values) const
+void TextTable::colNumsRow2values (const Vector<ColNum> &colNums,
+                                   RowNum row_num,
+                                   StringVector &values) const
 {
   values. clear ();
   values. reserve (colNums. size ());
@@ -2549,11 +2699,28 @@ TextTable::RowNum TextTable::find (const Vector<ColNum> &colNums,
   StringVector values;
   FOR_START (RowNum, i, row_num_start, rows. size ())
   {
-    colNums2values (colNums, i, values);
+    colNumsRow2values (colNums, i, values);
     if (values == targetValues)
       return i;
   }
   return no_index;
+}
+
+
+
+StringVector TextTable::col2values (ColNum col) const
+{
+  QC_ASSERT (col < header. size ());
+  
+  Set<string> s;
+  for (const StringVector& row : rows)
+    if (! row [col]. empty ())
+      s << row [col];
+            
+  StringVector vec;  vec. reserve (s. size ());
+  insertAll (vec, s);
+  
+  return vec;
 }
 
 
@@ -2570,7 +2737,7 @@ TextTable::Key::Key (const TextTable &tab,
   StringVector values;  
   FFOR (RowNum, i, tab. rows. size ())
   {
-    tab. colNums2values (colNums, i, values);
+    tab. colNumsRow2values (colNums, i, values);
     for (const string& s : values)
       if (s. empty ())
         throw Error (tab, "Empty value in key, in row " + to_string (i + 1));
@@ -2595,7 +2762,7 @@ TextTable::Index::Index (const TextTable &tab,
   StringVector values;  
   FFOR (RowNum, i, tab. rows. size ())
   {
-    tab. colNums2values (colNums, i, values);
+    tab. colNumsRow2values (colNums, i, values);
     data [values] << i;
   }  
 }
@@ -2775,14 +2942,14 @@ JsonArray::JsonArray (CharInput& in,
   bool first = true;
   for (;;)
   {
-    Token token (in);
+    Token token (in, false, false);
     if (token. isDelimiter (']'))
       break;
     if (! first)
     {
       if (! token. isDelimiter (','))
         in. error ("\',\'");
-      token = Token (in);
+      token = Token (in, false, false);
     }
     parse (in, token, this, string());
     first = false;
@@ -2821,7 +2988,7 @@ JsonMap::JsonMap ()
 JsonMap::JsonMap (const string &fName)
 {
   CharInput in (fName);
-  const Token token (in);
+  const Token token (in, false, false);
   if (! token. isDelimiter ('{'))
     in. error ("Json file " + shellQuote (fName) + ": text should start with '{'", false);
   parse (in);
@@ -2836,24 +3003,24 @@ void JsonMap::parse (CharInput& in)
   bool first = true;
   for (;;)
   {
-    Token token (in);
+    Token token (in, false, false);
     if (token. isDelimiter ('}'))
       break;
     if (! first)
     {
       if (! token. isDelimiter (','))
         in. error ("\',\'");
-      token = Token (in);
+      token = Token (in, false, false);
     }
     if (   token. type != Token::eName
         && token. type != Token::eText
        )
       in. error ("name or text");
     string name (token. name);
-    const Token colon (in);
+    const Token colon (in, false, false);
     if (! colon. isDelimiter (':'))
       in. error ("\':\'");
-    token = Token (in);
+    token = Token (in, false, false);
     Json::parse (in, token, this, name);
     first = false;
   }

@@ -1035,7 +1035,8 @@ string pad (const string &s,
 
 bool goodName (const string &name);
 
-bool isIdentifier (const string& name);
+bool isIdentifier (const string& name,
+                   bool dashInName);
 
 void strUpper (string &s);
 
@@ -1203,6 +1204,12 @@ inline void checkFile (const string &fName)
 streamsize getFileSize (const string &fName);
 
 #ifndef _MSC_VER
+  inline void moveFile (const string &from,
+                        const string &to)
+    { if (::rename (from. c_str (), to. c_str ()))
+        throw runtime_error ("Cannot move file + " + shellQuote (from) + " to " + shellQuote (to));
+    }
+
   inline void removeFile (const string &fName)
     { if (::remove (fName. c_str ()))
         throw runtime_error ("Cannot remove file + " + shellQuote (fName));
@@ -2985,11 +2992,13 @@ struct Token : Root
 	          , eDouble
 	          , eDateTime
 	          };
+ // Valid if !empty()
 	Type type {eDelimiter};
+	bool dashInName {false};
 	string name;
 	  // eName => !empty(), printable()
 	  // eText => embracing quote's are removed
-	  // Valid if !empty()
+	  // eDilimiter => name.size() = 1
 	char quote {'\0'};
 	  // '\0': no quote
 	long long n {0};
@@ -3003,8 +3012,10 @@ struct Token : Root
 
 	  
 	Token () = default;
-	explicit Token (const string& name_arg)
+	Token (const string& name_arg,
+	       bool dashInName_arg)
 	  : type (eName)
+	  , dashInName (dashInName_arg)
 	  , name (name_arg)
 	  {}
 	Token (const string& name_arg,
@@ -3025,18 +3036,25 @@ struct Token : Root
 	  : type (eDelimiter)
 	  , name (1, delimiter_arg)
 	  {}
-	explicit Token (CharInput &in)
-	  { readInput (in); }
 	Token (CharInput &in,
-	       Type expected)
-    { readInput (in);
+	       bool dashInName_arg,
+	       bool consecutiveQuotesInText)
+	  { readInput (in, dashInName_arg, consecutiveQuotesInText); }
+	Token (CharInput &in,
+	       Type expected,
+	       bool dashInName_arg,
+	       bool consecutiveQuotesInText)
+    { readInput (in, dashInName_arg, consecutiveQuotesInText);
     	if (empty ())
  			  in. error ("No token", false); 
     	if (type != expected)
  			  in. error (type2str (type)); 
     }
 private:
-	void readInput (CharInput &in);  
+	void readInput (CharInput &in,
+	                bool dashInName_arg,
+	                bool consecutiveQuotesInText);  
+	  // Input: consecutiveQuotesInText means that '' = '
 public:
 	void qc () const override;
 	void saveText (ostream &os) const override;
@@ -3102,23 +3120,34 @@ struct TokenInput : Root
 {
 private:
   CharInput ci;
-  const char commentStart {'\0'};
+  const char commentStart;
+  const bool dashInName;
+  const bool consecutiveQuotesInText;
+    // Two quotes encode one quote
   Token last;
 public:
 
 
   explicit TokenInput (const string &fName,
                        char commentStart_arg = '\0',
+                       bool dashInName_arg = false,
+                       bool consecutiveQuotesInText_arg = false,
                 	     size_t bufSize = 100 * 1024,
                        uint displayPeriod = 0)
     : ci (fName, bufSize, displayPeriod)
     , commentStart (commentStart_arg)
+    , dashInName (dashInName_arg)
+    , consecutiveQuotesInText (consecutiveQuotesInText_arg)
     {}
   explicit TokenInput (istream &is_arg,
                        char commentStart_arg = '\0',
+                       bool dashInName_arg = false,
+                       bool consecutiveQuotesInText_arg = false,
                        uint displayPeriod = 0)
     : ci (is_arg, displayPeriod)
     , commentStart (commentStart_arg)
+    , dashInName (dashInName_arg)
+    , consecutiveQuotesInText (consecutiveQuotesInText_arg)
     {}
 
 
@@ -3128,6 +3157,11 @@ public:
   Token get ();
     // Return: empty() <=> EOF
   Token getXmlText ();
+    // Last character read is '<', must be followed by '/'
+  Token getXmlComment ();
+    // -- ... -->
+  Token getXmlProcessingInstruction ();
+    // ... &>
   char getNextChar ();
     // Return: '\0' <=> EOF
     // Invokes: ci.unget()
@@ -3355,7 +3389,7 @@ struct TextTable : Named
     // no_index <=> no column
   typedef  size_t  RowNum;
     // no_index <=> no row
-
+    
     
   struct Error : runtime_error
   {
@@ -3413,6 +3447,7 @@ public:
     // Input: newColumnNames: in header::name's
     //          can be repeated
     //          ordered
+  void sort (const StringVector &by);
   void group (const StringVector &by,
               const StringVector &sum,
               const StringVector &aggr);
@@ -3423,13 +3458,14 @@ private:
               const Vector<ColNum> &sum,
               const Vector<ColNum> &aggr);
 public:
-  void colNums2values (const Vector<ColNum> &colNums,
-                       RowNum row_num,
-                       StringVector &values) const;
+  void colNumsRow2values (const Vector<ColNum> &colNums,
+                          RowNum row_num,
+                          StringVector &values) const;
     // Output: values
   RowNum find (const Vector<ColNum> &colNums,
                const StringVector &targetValues,
                RowNum rowNum_start) const;
+  StringVector col2values (ColNum col) const;
 
 
   struct Key
