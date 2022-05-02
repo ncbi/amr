@@ -50,6 +50,7 @@
 #undef NDEBUG 
 #include "common.inc"
 
+#include <unistd.h>
 #include <curl/curl.h>
 
 #include "common.hpp"
@@ -338,7 +339,8 @@ Requirement: the database directory contains subdirectories named by database ve
     const string latestLink (mainDirS + "latest");
     if (directoryExists (latestLink))
       removeFile (latestLink);
-    exec ("ln -s " + shellQuote (path2canonical (latestDir)) + " " + shellQuote (latestLink));
+  //exec ("ln -s " + shellQuote (path2canonical (latestDir)) + " " + shellQuote (latestLink));
+    symlink (path2canonical (latestDir). c_str (), latestLink. c_str ());
   }
 
 
@@ -468,7 +470,8 @@ Requirement: the database directory contains subdirectories named by database ve
     
     stderr << "Indexing" << "\n";
     exec (fullProg ("hmmpress") + " -f " + shellQuote (latestDir + "AMR.LIB") + " > /dev/null 2> /dev/null");
-    exec ("ln -s " + shellQuote (path2canonical (latestDir)) + " " + tmp + ".db");
+  //exec ("ln -s " + shellQuote (path2canonical (latestDir)) + " " + tmp + ".db");
+    symlink (path2canonical (latestDir). c_str (), (tmp + ".db"). c_str ());
 	  exec (fullProg ("makeblastdb") + " -in " + tmp + ".db/AMRProt" + "  -dbtype prot  -logfile /dev/null");  
 	  exec (fullProg ("makeblastdb") + " -in " + tmp + ".db/AMR_CDS" + "  -dbtype nucl  -logfile /dev/null");  
     for (const string& dnaPointMut : dnaPointMuts)

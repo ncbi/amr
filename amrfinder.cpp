@@ -30,10 +30,11 @@
 *   AMRFinder
 *
 * Dependencies: NCBI BLAST, HMMer
-*               cat, cp, ln, tail
+*               cat, ln, tail
 *
 * Release changes:
-*   3.10.25 04/29/2022 PD-3292  dependence on "mv", "cut", "head" and "sort" is removed
+*   3.10.26 05/02/2022 PD-3292  dependence on "ln" is removed
+*   3.10.25 04/29/2022 PD-3292  dependence on "mv", "cp", "cut", "head" and "sort" is removed
 *   3.10.24 03/25/2022 PD-4132  pmrB_RPISLR6del shadows pmrB_L10P
 *   3.10.23 02/11/2022 PD-4098  HTTPS connection for database downloading is restored (only this connection is guaranteed to exist for a user because it is needed for software installation)
 *   3.10.22 02/10/2022 PD-4098  For FTP: FTP EPSV mode is turned off (PASV is turned on)
@@ -191,6 +192,8 @@
    
 #undef NDEBUG 
 #include "common.inc"
+
+#include <unistd.h>
 
 #include "common.hpp"
 using namespace Common_sp;
@@ -576,7 +579,8 @@ struct ThisApplication : ShellApplication
 		if (! directoryExists (db))  // PD-2447
 		  throw runtime_error ("No valid AMRFinder database found.\nSymbolic link is not found: " + db + ifS (! update, downloadLatestInstr));
 		stderr << "Database directory: " << shellQuote (path2canonical (db)) << "\n";		
-    exec ("ln -s " + shellQuote (path2canonical (db)) + " " + tmp + ".db");
+  //exec ("ln -s " + shellQuote (path2canonical (db)) + " " + tmp + ".db");
+    symlink (path2canonical (db). c_str (), (tmp + ".db"). c_str ());
 
 
 		// PD-3051
@@ -926,7 +930,6 @@ struct ThisApplication : ShellApplication
             {
               ASSERT (blastx == "tblastn");
         			findProg ("makeblastdb");
-        	  //exec ("cp " + dna + " " + tmp + ".nucl");
            	  exec (fullProg ("makeblastdb") + " -in " + dna + " -out " + tmp + ".nucl" + "  -dbtype nucl  -logfile /dev/null");  
         			if (threads_max > 1)
         			{
