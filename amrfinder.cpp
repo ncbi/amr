@@ -30,9 +30,10 @@
 *   AMRFinder
 *
 * Dependencies: NCBI BLAST, HMMer
-*               cat, ln, tail
+*               cat, tail
 *
 * Release changes:
+*   3.10.27 05/06/2022 PD-4119  --database_version
 *   3.10.26 05/02/2022 PD-3292  dependence on "ln" is removed
 *   3.10.25 04/29/2022 PD-3292  dependence on "mv", "cp", "cut", "head" and "sort" is removed
 *   3.10.24 03/25/2022 PD-4132  pmrB_RPISLR6del shadows pmrB_L10P
@@ -272,6 +273,7 @@ struct ThisApplication : ShellApplication
       addFlag ("quiet", "Suppress messages to STDERR", 'q');
       addFlag ("gpipe_org", "NCBI internal GPipe organism names");
     	addKey ("parm", "amr_report parameters for testing: -nosame -noblast -skip_hmm_check -bed", "", '\0', "PARM");
+    	addFlag ("database_version", "Print database version", 'V');
 	    version = SVN_REV;  
     }
 
@@ -414,31 +416,32 @@ struct ThisApplication : ShellApplication
   #else
                                    "";
   #endif
-    const string prot            = shellQuote (prependS (getArg ("protein"),    dir));
-    const string dna             = shellQuote (prependS (getArg ("nucleotide"), dir));
-    const string gff             = shellQuote (prependS (getArg ("gff"),        dir));
-          string db              =             getArg ("database");
-    const bool   pgap            =             getFlag ("pgap");
-    const double ident           =             arg2double ("ident_min");
-    const double cov             =             arg2double ("coverage_min");
-    const string organism        = shellQuote (getArg ("organism"));   
-    const bool   list_organisms  =             getFlag ("list_organisms");
-    const uint   gencode         =             arg2uint ("translation_table"); 
-    const bool   add_plus        =             getFlag ("plus");
-    const bool   report_common   =             getFlag ("report_common");
-    const string mutation_all    =             getArg ("mutation_all");  
-  //const string type            =             getArg ("type");
-          string blast_bin       =             getArg ("blast_bin");
-    const bool   equidistant     =             getFlag ("report_all_equal");
-    const string input_name      = shellQuote (getArg ("name"));
-    const string parm            =             getArg ("parm");  
-    const string output          =             getArg ("output");
-    const string prot_out        = shellQuote (getArg ("protein_output"));
-    const string dna_out         = shellQuote (getArg ("nucleotide_output"));
-    const string dnaFlank5_out   = shellQuote (getArg ("nucleotide_flank5_output"));
-    const uint   dnaFlank5_size  =             arg2uint ("nucleotide_flank5_size");
-    const bool   quiet           =             getFlag ("quiet");
-    const bool   gpipe_org       =             getFlag ("gpipe_org");
+    const string prot             = shellQuote (prependS (getArg ("protein"),    dir));
+    const string dna              = shellQuote (prependS (getArg ("nucleotide"), dir));
+    const string gff              = shellQuote (prependS (getArg ("gff"),        dir));
+          string db               =             getArg ("database");
+    const bool   pgap             =             getFlag ("pgap");
+    const double ident            =             arg2double ("ident_min");
+    const double cov              =             arg2double ("coverage_min");
+    const string organism         = shellQuote (getArg ("organism"));   
+    const bool   list_organisms   =             getFlag ("list_organisms");
+    const uint   gencode          =             arg2uint ("translation_table"); 
+    const bool   add_plus         =             getFlag ("plus");
+    const bool   report_common    =             getFlag ("report_common");
+    const string mutation_all     =             getArg ("mutation_all");  
+  //const string type             =             getArg ("type");
+          string blast_bin        =             getArg ("blast_bin");
+    const bool   equidistant      =             getFlag ("report_all_equal");
+    const string input_name       = shellQuote (getArg ("name"));
+    const string parm             =             getArg ("parm");  
+    const string output           =             getArg ("output");
+    const string prot_out         = shellQuote (getArg ("protein_output"));
+    const string dna_out          = shellQuote (getArg ("nucleotide_output"));
+    const string dnaFlank5_out    = shellQuote (getArg ("nucleotide_flank5_output"));
+    const uint   dnaFlank5_size   =             arg2uint ("nucleotide_flank5_size");
+    const bool   quiet            =             getFlag ("quiet");
+    const bool   gpipe_org        =             getFlag ("gpipe_org");
+    const bool   database_version =             getFlag ("database_version");
     
     
 		const string logFName (tmp + ".log");  // Command-local log file
@@ -446,8 +449,14 @@ struct ThisApplication : ShellApplication
 
     Stderr stderr (quiet);
     stderr << "Running: "<< getCommandLine () << '\n';
-    stderr << "Software directory: " << shellQuote (execDir) << "\n";
-	  stderr << "Software version: " << version << '\n'; 
+    if (database_version)
+      cout   << "Software directory: " << shellQuote (execDir) << endl;
+    else
+      stderr << "Software directory: " << shellQuote (execDir) << '\n';
+    if (database_version)
+      cout   << "Software version: " << version << endl; 
+    else
+	    stderr << "Software version: " << version << '\n'; 
     
     if (contains (input_name, '\t'))
       throw runtime_error ("NAME cannot contain a tab character");
@@ -517,12 +526,12 @@ struct ThisApplication : ShellApplication
         defaultDb = string (s) + "/share/amrfinderplus/data/latest";
       } else if (const char* s = getenv("PREFIX")) {
         const Warning warning (stderr);
-        stderr << "This was compiled for running under bioconda, but $CONDA_PREFIX was not found" << "\n";
+        stderr << "This was compiled for running under bioconda, but $CONDA_PREFIX was not found" << '\n';
         defaultDb = string (s) + "/share/amrfinderplus/data/latest";
         stderr << "Reverting to $PREFIX: " << defaultDb;
       } else {
         const Warning warning (stderr);
-        stderr << "This was compiled for running under bioconda, but $CONDA_PREFIX was not found" << "\n";
+        stderr << "This was compiled for running under bioconda, but $CONDA_PREFIX was not found" << '\n';
         stderr << "Reverting to hard coded directory: " << CONDA_DB_DIR "/latest";
         defaultDb = CONDA_DB_DIR "/latest";
       }
@@ -566,7 +575,7 @@ struct ThisApplication : ShellApplication
       else
       {
         const Warning warning (stderr);
-        stderr << "Updating database directory works only for databases with the default data directory format." << "\n"
+        stderr << "Updating database directory works only for databases with the default data directory format." << '\n'
                << "         Please see https://github.com/ncbi/amr/wiki for details." << "\n"
                << "         Current database directory is: " << dbDir. get () << "\n"
                << "         New database directories will be created as subdirectories of " << dbDir. getParent ();
@@ -578,8 +587,10 @@ struct ThisApplication : ShellApplication
     
 		if (! directoryExists (db))  // PD-2447
 		  throw runtime_error ("No valid AMRFinder database found.\nSymbolic link is not found: " + db + ifS (! update, downloadLatestInstr));
-		stderr << "Database directory: " << shellQuote (path2canonical (db)) << "\n";		
-  //exec ("ln -s " + shellQuote (path2canonical (db)) + " " + tmp + ".db");
+    if (database_version)
+      cout   << "Database directory: " << shellQuote (path2canonical (db)) << endl;
+    else
+		  stderr << "Database directory: " << shellQuote (path2canonical (db)) << '\n';
     symlink (path2canonical (db). c_str (), (tmp + ".db"). c_str ());
 
 
@@ -592,14 +603,19 @@ struct ThisApplication : ShellApplication
   		const DataVersion dataVersion (db + "/version.txt");
   		istringstream dataVersionIss (DATA_VER_MIN); 
   		const DataVersion dataVersion_min (dataVersionIss);  
-      stderr << "Database version: " << dataVersion. str () << '\n';
+      if (database_version)
+        cout   << "Database version: " << dataVersion. str () << endl;
+      else
+        stderr << "Database version: " << dataVersion. str () << '\n';
       if (softwareVersion < softwareVersion_min)
         throw runtime_error ("Database requires sofware version at least " + softwareVersion_min. str ());
       if (dataVersion < dataVersion_min)
         throw runtime_error ("Software requires database version at least " + dataVersion_min. str () + downloadLatestInstr);
+      if (database_version)
+        return;
     }
-
-
+    
+    
     if (list_organisms)
     {
       const StringVector organisms (db2organisms ());
