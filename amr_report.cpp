@@ -1012,8 +1012,10 @@ private:
     		#endif
     			const size_t intersectionStart = max (protStart, dnaStart);
     			const size_t intersectionStop  = min (protStop,  dnaStop);
-    			if (   intersectionStart < intersectionStop
-    				  && double (intersectionStop - intersectionStart) / double (protStop - protStart) > 0.75  // PAR
+    			if (   (   intersectionStart < intersectionStop
+    				      && double (intersectionStop - intersectionStart) / double (protStop - protStart) > 0.75  // PAR
+    				     )
+    				  || (intersectionStart - min (protStart, dnaStart)) + (max (protStop,  dnaStop) - intersectionStop) <= 60 * 3  // PAR, PD-4169
     				 )
     				return true;
     		}

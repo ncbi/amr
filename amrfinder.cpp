@@ -33,6 +33,7 @@
 *               cat, tail
 *
 * Release changes:
+*   3.10.28 05/11/2022 PD-4169  N-terminus is the same if shorter than 60 aa
 *   3.10.27 05/06/2022 PD-4119  --database_version
 *   3.10.26 05/02/2022 PD-3292  dependence on "ln" is removed
 *   3.10.25 04/29/2022 PD-3292  dependence on "mv", "cp", "cut", "head" and "sort" is removed
