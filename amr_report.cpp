@@ -1251,7 +1251,7 @@ public:
   bool sameMatch (const BlastAlignment* other) const
     // Cf. less()
     { ASSERT (other);
-      ASSERT (targetName     == other->targetName);
+      ASSERT (targetName == other->targetName);
       return    targetStart    == other->targetStart
              && targetEnd      == other->targetEnd
              && getCdsStart () == other->getCdsStart ()
@@ -1844,16 +1844,20 @@ public:
              )
           {
             QC_ASSERT (blastAl->parts == prev->parts);
-            QC_ASSERT (blastAl->parts >= 2);
-            QC_ASSERT (blastAl->part > prev->part);
-            if (! fusionMain)
+            if (blastAl->parts < 2)  // multi-domain tccP problem, PD-4217
+              fusionMain = nullptr;
+            else
             {
-              fusionMain = prev;
-              var_cast (fusionMain) -> fusions << fusionMain;
+              QC_ASSERT (blastAl->part > prev->part);
+              if (! fusionMain)
+              {
+                fusionMain = prev;
+                var_cast (fusionMain) -> fusions << fusionMain;
+              }
+              ASSERT (fusionMain);
+              var_cast (fusionMain) -> fusions << blastAl;
+              var_cast (blastAl) -> fusionRedundant = true;
             }
-            ASSERT (fusionMain);
-            var_cast (fusionMain) -> fusions << blastAl;
-            var_cast (blastAl) -> fusionRedundant = true;
           }
           else
             fusionMain = nullptr;
