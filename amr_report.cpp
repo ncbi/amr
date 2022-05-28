@@ -1844,11 +1844,12 @@ public:
              )
           {
             QC_ASSERT (blastAl->parts == prev->parts);
-            if (blastAl->parts < 2)  // multi-domain tccP problem, PD-4217
+            QC_ASSERT (blastAl->part  >= prev->part);
+            if (blastAl->part == prev->part)  // multi-domain tccP problem, PD-4217
               fusionMain = nullptr;
             else
             {
-              QC_ASSERT (blastAl->part > prev->part);
+              QC_ASSERT (blastAl->parts >= 2);
               if (! fusionMain)
               {
                 fusionMain = prev;
