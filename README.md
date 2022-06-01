@@ -35,7 +35,6 @@ Feldgarden M, Brover V, Gonzalez-Escalona N, Frye JG, Haendiges J, Haft DH,
 Hoffmann M, Pettengill JB, Prasad AB, Tillman GE, Tyson GH, Klimke W.
 AMRFinderPlus and the Reference Gene Catalog facilitate examination of the
 genomic links among antimicrobial resistance, stress response, and virulence.
-Sci Rep. 2021 Jun 16;11(1):12728. doi: 10.1038/s41598-021-91456-0. PMID:
-34135355; PMCID: PMC8208984.
+Sci Rep. 2021 Jun 16;11(1):12728. doi: [10.1038/s41598-021-91456-0](https://doi.org/10.1038/s41598-021-91456-0). PMID: [34135355](https://pubmed.ncbi.nlm.nih.gov/34135355/); PMCID: [PMC8208984](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8208984/).
 
 
