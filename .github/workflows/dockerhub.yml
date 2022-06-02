@@ -19,6 +19,8 @@ jobs:
       run: docker run hello-world
     - name: Version
       run: docker run ncbi/amr amrfinder --version
+    - name: image ls for debugging
+      run: docker image ls
     - name: Protein
       run: docker run --rm -v ${PWD}:/data ncbi/amr amrfinder --plus -n test_dna.fa -O Escherichia --mutation_all test_dna_mut_all.got > test_dna.got
     - name: Check results
