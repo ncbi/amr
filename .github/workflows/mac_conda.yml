@@ -31,10 +31,10 @@ jobs:
       run: |
           source /Users/runner/miniconda3/bin/activate
           conda install -c bioconda -c conda-forge -y ncbi-amrfinderplus
-    - name: version
+    - name: Software and DB version
       run: |
           source /Users/runner/miniconda3/bin/activate
-          amrfinder --version
+          amrfinder --database_version
     - name: Download AMRFinderPlus database
       run: |
           source /Users/runner/miniconda3/bin/activate

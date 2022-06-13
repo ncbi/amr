@@ -21,7 +21,7 @@ jobs:
     - name: version
       run: |
           cat version.txt
-          ./amrfinder --version
+          ./amrfinder --database_version
     - name: download db
       run: ./amrfinder -u
     - name: make test

@@ -19,8 +19,8 @@ jobs:
               sudo apt-get install -y hmmer ncbi-blast+ curl build-essential
         - name: download
           run: bash -x .github/workflows/get_binary_release.sh
-        - name: software version
-          run: ./amrfinder --version
+        - name: Software and db version
+          run: ./amrfinder --database_version
         - name: run tests included with distribution
           run: |
               ./amrfinder --plus -p test_prot.fa -g test_prot.gff -O Escherichia > test_prot.got
