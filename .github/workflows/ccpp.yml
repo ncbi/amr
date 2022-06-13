@@ -17,13 +17,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y hmmer ncbi-blast+ git libcurl4-openssl-dev build-essential curl
     - name: make
-      run: make
-    - name: version
-      run: |
-          cat version.txt
-          ./amrfinder --database_version
+      run: cat version.txt; make
     - name: download db
       run: ./amrfinder -u
+    - name: Software and DB version
+      run: ./amrfinder --database_version
     - name: make test
       run: make test
     - name: test for no-overwrite database update (PD-3469 / https://github.com/ncbi/amr/issues/16)
