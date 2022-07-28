@@ -1203,6 +1203,11 @@ inline void checkFile (const string &fName)
 
 streamsize getFileSize (const string &fName);
 
+void copyText (const string &inFName,
+               size_t skipLines,
+               ostream &os);
+
+
 #ifndef _MSC_VER
   inline void moveFile (const string &from,
                         const string &to)
@@ -1214,26 +1219,42 @@ streamsize getFileSize (const string &fName);
     { if (::remove (fName. c_str ()))
         throw runtime_error ("Cannot remove file + " + shellQuote (fName));
     }
-#endif
-  
-inline string path2canonical (const string &path)
-  { if (char* p = realpath (path. c_str (), nullptr))
-    { const string s (p);
-      free (p);
-      return s;
+
+      
+  inline string path2canonical (const string &path)
+    { if (char* p = realpath (path. c_str (), nullptr))
+      { const string s (p);
+        free (p);
+        return s;
+      }
+      else
+        throw runtime_error ("path2canonical " + shellQuote (path));
     }
-    else
-      throw runtime_error ("path2canonical " + shellQuote (path));
-  }
+  
+  
+  enum class Filetype {none, dir, terminal, disk, file, pipe, link, socket};
+
+  string filetype2name (Filetype t);
+
+  Filetype getFiletype (const string &path,
+                        bool expandLink);
+#endif
 
 
 
 // Directory
 
 #ifndef _MSC_VER
-  bool directoryExists (const string &dirName);
+  inline bool directoryExists (const string &dirName)
+    { return getFiletype (dirName, true) == Filetype::dir; }
   
   void createDirectory (const string &dirName);
+
+  void removeDirectory (const string &dirName);
+    // With its contents
+
+  void concatTextDir (const string &inDirName,
+                      const string &outFName);
 #endif
 
 
@@ -3162,6 +3183,8 @@ public:
     // -- ... -->
   Token getXmlProcessingInstruction ();
     // ... &>
+  Token getXmlMarkupDeclaration ();
+    // ... >
   char getNextChar ();
     // Return: '\0' <=> EOF
     // Invokes: ci.unget()
@@ -3374,12 +3397,17 @@ struct TextTable : Named
     // Valid if numeric
     bool scientific {false};
     streamsize decimals {0};
+    bool null {false};
     explicit Header (const string &name_arg)
       : Named (name_arg)
       {}
     void qc () const override;
     void saveText (ostream& os) const override
-      { os << name << '\t' << len_max << '\t' << (numeric ? ((scientific ? "float" : "int") + string ("(") + to_string (decimals) + ")") : "char"); }
+      { os         << name 
+           << '\t' << len_max 
+           << '\t' << (numeric ? ((scientific ? "float" : "int") + string ("(") + to_string (decimals) + ")") : "char") 
+           << '\t' << (null ? "null" : "not null"); 
+      }
   };
   Vector<Header> header;
     // size() = number of columns
@@ -3817,33 +3845,50 @@ public:
 
 struct FileItemGenerator : ItemGenerator, Nocopy
 {
-  const bool isDir;
-  const bool large;
 private:
-  string dirName;
   string fName;
   ifstream f;
-  unique_ptr<FileItemGenerator> fig;
 public:
   const bool tsv;
   
   
   FileItemGenerator (size_t progress_displayPeriod,
-                     bool isDir_arg,
-                     bool large_arg,
                      const string& fName_arg,
                      bool tsv_arg);
- ~FileItemGenerator ()
-    { if (isDir)
-	      remove (fName. c_str ());
-	  }
   
   
   bool next (string &item) final;
+};
+
+  
+
+#ifndef _MSC_VER
+struct DirItemGenerator : ItemGenerator, Nocopy
+{
+private:
+  string dirName;
+  struct Imp;  
+  Imp* imp {nullptr};
+  unique_ptr<DirItemGenerator> dig;
+public:
+  const bool large;
+  
+  
+  DirItemGenerator (size_t progress_displayPeriod,
+                    const string& dirName_arg,
+                    bool large_arg);
+ ~DirItemGenerator ();
+
+  
+  bool next (string &item) final;
+    // Raw order
 private:
   bool next_ (string &item,
               bool report);
+public:
+  StringVector toVector ();
 };
+#endif
 
   
 
@@ -4121,7 +4166,7 @@ struct ShellApplication : Application
   // Environment
   const bool useTmp;
   string tmp;
-    // Temporary file prefix: ($TMPDIR or "/tmp") + "/" + programName + "XXXXXX"
+    // Temporary directory: ($TMPDIR or "/tmp") + "/" + programName + "XXXXXX"
     // If log is used then tmp is printed in the log file and the temporary files are not deleted 
 private:
   bool tmpCreated {false};
@@ -4160,7 +4205,7 @@ protected:
   string exec2str (const string &cmd,
                    const string &tmpName,
                    const string &logFName = string()) const;
-    // Return: `cmd > <tmp>.tmpName && cat <tmp>.tmpName`
+    // Return: `cmd > <tmp>/tmpName && cat <tmp>/tmpName`
     // Requires: cmd produces one line
 };
 #endif

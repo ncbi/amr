@@ -315,7 +315,7 @@ Requirement: the database directory contains subdirectories named by database ve
 ", false, true, true)
     {
     	addKey ("database", "Directory for all versions of AMRFinder databases", "$BASE/data", 'd', "DATABASE_DIR");
-    	  // Symbolic link ??
+    	addKey ("blast_bin", "Directory for BLAST ending with '/'", "", '\0', "BLAST_DIR");
     	addFlag ("force_update", "Force updating the AMRFinder database");  // PD-3469
       addFlag ("quiet", "Suppress messages to STDERR", 'q');
 	    version = SVN_REV;
@@ -346,6 +346,7 @@ Requirement: the database directory contains subdirectories named by database ve
   void shellBody () const final
   {
     const string mainDirOrig  = getArg ("database");
+    const string blast_bin    = getArg ("blast_bin");
     const bool   force_update = getFlag ("force_update");
     const bool   quiet        = getFlag ("quiet");
     
@@ -384,9 +385,11 @@ Requirement: the database directory contains subdirectories named by database ve
                 "a newer version of the software (" << latest_minor << ") to install.\n"
                 "See https://github.com/ncbi/amr/wiki/Upgrading for more information.\n\n";
     }
+ 
                       
-    
-    findProg ("makeblastdb");
+    if (! blast_bin. empty ())
+      prog2dir ["makeblastdb"] = blast_bin;    
+    findProg ("makeblastdb");    
     findProg ("hmmpress");
     
 
@@ -468,11 +471,11 @@ Requirement: the database directory contains subdirectories named by database ve
     
     stderr << "Indexing" << "\n";
     exec (fullProg ("hmmpress") + " -f " + shellQuote (latestDir + "AMR.LIB") + " > /dev/null 2> /dev/null");
-    symlink (path2canonical (latestDir). c_str (), (tmp + ".db"). c_str ());
-	  exec (fullProg ("makeblastdb") + " -in " + tmp + ".db/AMRProt" + "  -dbtype prot  -logfile /dev/null");  
-	  exec (fullProg ("makeblastdb") + " -in " + tmp + ".db/AMR_CDS" + "  -dbtype nucl  -logfile /dev/null");  
+    symlink (path2canonical (latestDir). c_str (), (tmp + "/db"). c_str ());
+	  exec (fullProg ("makeblastdb") + " -in " + tmp + "/db/AMRProt" + "  -dbtype prot  -logfile /dev/null");  
+	  exec (fullProg ("makeblastdb") + " -in " + tmp + "/db/AMR_CDS" + "  -dbtype nucl  -logfile /dev/null");  
     for (const string& dnaPointMut : dnaPointMuts)
-  	  exec (fullProg ("makeblastdb") + " -in " + tmp + ".db/AMR_DNA-" + dnaPointMut + "  -dbtype nucl  -logfile /dev/null");
+  	  exec (fullProg ("makeblastdb") + " -in " + tmp + "/db/AMR_DNA-" + dnaPointMut + "  -dbtype nucl  -logfile /dev/null");
 
     createLatestLink (mainDirS, latestDir);
   }

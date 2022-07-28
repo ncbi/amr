@@ -43,10 +43,11 @@
 #include <csignal>  
 
 #ifndef _MSC_VER
-  #include <dirent.h>
   #include <execinfo.h>
   #include <sys/types.h>
   #include <sys/stat.h>
+  #include <unistd.h>
+  #include <dirent.h>
   #ifdef __APPLE__
     #include <sys/sysctl.h>
   #endif
@@ -269,7 +270,7 @@ namespace
 
 
 string getStack ()
-// Print function names: addr2line -f -C -e <progname>  -a <address>  // --> exec() ??
+// Print function names:   // --> exec() ??
 {
 #ifdef _MSC_VER
   return "Stack trace is not implemented";
@@ -282,8 +283,11 @@ string getStack ()
     errorExit (("backtrace size is " + to_string (nptrs)). c_str ());
   char** strings = backtrace_symbols (buffer, nptrs);
   if (strings /*&& ! which ("addr2line"). empty ()*/) 
+  {
     FOR_START (int, i, 1, nptrs)
       s += string (strings [i]) + "\n";  
+    s += "Use: addr2line -f -C -e " + programArgs [0] + "  -a <address>";
+  }
   else
     s = "Cannot get stack trace";
 //free (strings);
@@ -808,29 +812,108 @@ string list2str (const List<string> &strList,
 
 bool fileExists (const string &fName)
 { 
+#ifdef _MSC_VER
   const ifstream f (fName. c_str ());
   bool ok = f. good ();
-#ifndef _MSC_VER
+#if 0
   if (ok)
     ok = ! directoryExists (fName);
 #endif
-
   return ok;
+#else
+  return getFiletype (fName, true) == Filetype::file;
+#endif
+}
+
+
+
+streamsize getFileSize (const string &fName)
+{
+  ifstream f (fName, ifstream::binary);
+  if (! f. good ())
+    throw runtime_error ("Cannot open file " + shellQuote (fName) + " to get file size");
+
+  const streampos start = f. tellg ();
+  QC_ASSERT (start >= 0); 
+
+  f. seekg (0, ios_base::end);
+  if (! f. good ())
+    throw runtime_error ("Cannot go to the beginning of the file " + shellQuote (fName));
+
+  const streampos end = f. tellg ();
+  QC_ASSERT (end >= 0); 
+
+  if (end < start)
+    throw runtime_error ("Bad file " + shellQuote (fName));    
+  const streampos len = end - start;
+  ASSERT (len >= 0);
+  QC_ASSERT (len <= (streampos) numeric_limits<streamsize>::max());
+  
+  return (streamsize) len; 
+}
+
+
+
+void copyText (const string &inFName,
+               size_t skipLines,
+               ostream &os)
+{
+  QC_ASSERT (os. good ());
+  LineInput li (inFName);
+  while (li. nextLine ())
+    if (li. lineNum > skipLines)
+      os << li. line << endl;
 }
 
 
 
 #ifndef _MSC_VER
-bool directoryExists (const string &dirName)
+string filetype2name (Filetype t)
 {
-  DIR* dir = opendir (dirName. c_str ());
-  const bool yes = (bool) dir;
-  if (yes)
+  switch (t)
   {
-    if (closedir (dir))
-      ERROR;
+    case Filetype::none:     return "none";
+    case Filetype::dir:      return "dir";
+    case Filetype::terminal: return "terminal";
+    case Filetype::disk:     return "disk";      
+    case Filetype::file:     return "file";
+    case Filetype::pipe:     return "pipe";
+    case Filetype::link:     return "link";
+    case Filetype::socket:   return "socket";
+    default:
+      NEVER_CALL;
   }
-  return yes;
+}
+
+
+
+Filetype getFiletype (const string &path,
+                      bool expandLink)
+{
+  struct stat buf;
+  if (expandLink)
+  {
+    if (stat (path. c_str (), & buf))
+      return Filetype::none;
+  }
+  else
+  {
+    if (lstat (path. c_str (), & buf))
+      return Filetype::none;
+  }
+    
+  if (S_ISDIR  (buf. st_mode))  return Filetype::dir;
+  if (S_ISCHR  (buf. st_mode))  return Filetype::terminal;
+  if (S_ISBLK  (buf. st_mode))  return Filetype::disk;
+  if (S_ISREG  (buf. st_mode))  return Filetype::file;
+  if (S_ISFIFO (buf. st_mode))  return Filetype::pipe;
+  if (! expandLink)
+  {
+    if (S_ISLNK  (buf. st_mode))  return Filetype::link;
+  }
+  if (S_ISSOCK (buf. st_mode))  return Filetype::socket;
+    
+  NEVER_CALL;
 }
 
 
@@ -839,6 +922,48 @@ void createDirectory (const string &dirName)
 {
   if (mkdir (dirName. c_str (), 0777) != 0)  // PAR
     throw runtime_error ("Cannot create directory " + strQuote (dirName));
+}
+
+
+
+void removeDirectory (const string &dirName)
+{
+  DirItemGenerator dig (0, dirName, false);
+  string item;
+  while (dig. next (item))
+  {
+    const string name (dirName + "/" + item);
+    const Filetype t = getFiletype (name, false);
+    switch (t)
+    {
+      case Filetype::link: 
+        if (unlink (name. c_str ()))
+          throw runtime_error ("cannot unlink " + strQuote (name));
+        break;
+      case Filetype::dir:
+        removeDirectory (name);
+        break;
+      case Filetype::file:
+        removeFile (name);
+        break;
+      default:
+        throw runtime_error ("Cannot remove directory item " + strQuote (name) + " of type " + strQuote (filetype2name (t)));
+    }
+  }
+  if (rmdir (dirName. c_str ()))
+    throw runtime_error ("Cannot remove directory " + strQuote (dirName));
+}
+
+
+
+void concatTextDir (const string &inDirName,
+                   const string &outFName)
+{
+  DirItemGenerator dig (0, inDirName, false);
+  OFStream outF (outFName);
+  string item;
+  while (dig. next (item))
+    copyText (inDirName + "/" + item, 0, outF);
 }
 #endif
 
@@ -905,7 +1030,7 @@ size_t Dir::create ()
 
   const string path (get ());
 
-  if (directoryExists (path))
+  if (getFiletype (path, true) == Filetype::dir)
     return 0;
 
   const string item (items. popBack ());
@@ -918,35 +1043,6 @@ size_t Dir::create ()
 }
 #endif
 
-
-
-
-//
-
-streamsize getFileSize (const string &fName)
-{
-  ifstream f (fName, ifstream::binary);
-  if (! f. good ())
-    throw runtime_error ("Cannot open file " + shellQuote (fName) + " to get file size");
-
-  const streampos start = f. tellg ();
-  QC_ASSERT (start >= 0); 
-
-  f. seekg (0, ios_base::end);
-  if (! f. good ())
-    throw runtime_error ("Cannot go to the beginning of the file " + shellQuote (fName));
-
-  const streampos end = f. tellg ();
-  QC_ASSERT (end >= 0); 
-
-  if (end < start)
-    throw runtime_error ("Bad file " + shellQuote (fName));    
-  const streampos len = end - start;
-  ASSERT (len >= 0);
-  QC_ASSERT (len <= (streampos) numeric_limits<streamsize>::max());
-  
-  return (streamsize) len; 
-}
 
 
 
@@ -2152,6 +2248,36 @@ Token TokenInput::getXmlProcessingInstruction ()
 
 
 
+Token TokenInput::getXmlMarkupDeclaration ()
+{ 
+  QC_ASSERT (last. empty ());
+  
+  Token t;
+  t. charNum = ci. charNum;
+	for (;;)
+	{ 
+	  char c = ci. get (); 
+		if (ci. eof)
+	    ci. error ("XML comment is not finished: end of file", false);
+	  QC_ASSERT (c);
+	  if (isSpace (c))
+	    c = ' ';	    
+	  if (c == '>')
+	    break;
+    t. name += c;
+	}
+	
+	trim (t. name);
+	if (! t. name. empty ())
+    t. type = Token::eText;  
+  else
+    { ASSERT (t. empty ()); }
+	
+  return t;
+}
+
+
+
 char TokenInput::getNextChar () 
 { 
   QC_ASSERT (last. empty ());
@@ -2352,9 +2478,12 @@ void TextTable::setHeader ()
     FFOR (RowNum, i, row. size ())
     {
       const string& field = row [i];
-      if (field. empty ())
-        continue;
       Header& h = header [i];
+      if (field. empty ())
+      {
+        h. null = true;
+        continue;
+      }
       maximize (h. len_max, field. size ());
       if (! h. numeric)
         continue;
@@ -3072,22 +3201,77 @@ size_t Offset::size = 0;
 // FileItemGenerator
 
 FileItemGenerator::FileItemGenerator (size_t progress_displayPeriod,
-                                      bool isDir_arg,
-                                      bool large_arg,
                                       const string& fName_arg,
                                       bool tsv_arg)
 : ItemGenerator (0, progress_displayPeriod)
-, isDir (isDir_arg)
-, large (large_arg)
-, dirName (fName_arg)
 , fName (fName_arg)
 , tsv (tsv_arg)
 { 
-  QC_IMPLY (large, isDir);
-  QC_IMPLY (tsv, ! isDir);
+  f. open (fName);
+  QC_ASSERT (f. good ()); 
   
+  if (tsv)
+  {
+    string item;
+    next (item);
+  }
+}
+
+
+
+bool FileItemGenerator::next (string &item)
+{ 
+  if (f. eof ())
+    return false;
+    
+	readLine (f, item);
+  if (! tsv)
+    trim (item);
+  if (item. empty () && f. eof ())
+    return false;
+
+  prog (item);
+    
+	return true;
+}    
+
+
+
+
+#ifndef _MSC_VER
+// DirItemGenerator
+
+struct DirItemGenerator::Imp
+{
+  DIR* dir {nullptr};
+  
+  
+  explicit Imp (const string &dirName)
+    : dir (opendir (dirName. c_str ()))
+    {
+      if (! dir)
+        throw runtime_error ("Cannot open directory " + strQuote (dirName));
+    }
+ ~Imp ()
+    {   
+      closedir (dir);
+    }
+};
+
+
+
+DirItemGenerator::DirItemGenerator (size_t progress_displayPeriod,
+                                    const string& dirName_arg,
+                                    bool large_arg)
+: ItemGenerator (0, progress_displayPeriod)
+, dirName (dirName_arg)
+, imp (new Imp (dirName_arg))
+, large (large_arg)
+{ 
   trimSuffix (dirName,  "/");
 
+
+#if 0
   // fName
   if (isDir)
   { 
@@ -3118,45 +3302,45 @@ FileItemGenerator::FileItemGenerator (size_t progress_displayPeriod,
     readLine (f, s);
     ASSERT (s == "..");
   }
-
-  if (tsv)
-  {
-    string item;
-    next_ (item, false);
-  }
+#endif
 }
 
 
 
-bool FileItemGenerator::next (string &item)
+DirItemGenerator::~DirItemGenerator ()
+{ 
+  delete imp; 
+}
+
+
+
+bool DirItemGenerator::next (string &item)
 { 
   if (! large)
     return next_ (item, true);
 
   for (;;)
   {
-    if (! fig. get ())
+    if (! dig. get ())
     {
       string subDir;
-      if (! next_ (subDir, true))
+      if (! next_ (subDir, false))
         return false;
-      fig. reset (new FileItemGenerator (0, true, false, dirName + "/" + subDir, false));
+      dig. reset (new DirItemGenerator (0, dirName + "/" + subDir, false));
+      QC_ASSERT (dig. get ());
     }
-    ASSERT (fig. get ());
-    if (fig->next (item))
-    {
-      prog (item);
+    if (dig->next (item))
       return true;
-    }
-    fig. reset (nullptr);
+    dig. reset (nullptr);
   }
 }    
 
 
 
-bool FileItemGenerator::next_ (string &item,
-                               bool report)
+bool DirItemGenerator::next_ (string &item,
+                              bool report)
 { 
+#if 0
   if (f. eof ())
     return false;
     
@@ -3171,11 +3355,41 @@ bool FileItemGenerator::next_ (string &item,
     trim (item);
   if (item. empty () && f. eof ())
     return false;
+#else
+  ASSERT (imp);
+  for (;;)
+  {
+    if (const dirent* f = readdir (imp->dir))    
+      item = move (string (f->d_name));
+    else
+      return false;
+    if (item == ".")
+      continue;
+    if (item == "..")
+      continue;
+    break;
+  }
+#endif
 
   if (report)
     prog (item);
+
 	return true;
 }    
+
+
+
+
+StringVector DirItemGenerator::toVector ()
+{
+  StringVector vec;
+  string s;
+  while (next (s))
+    vec << move (s);
+    
+  return vec;
+}
+#endif
 
 
 
@@ -3871,7 +4085,7 @@ int Application::run (int argc,
 ShellApplication::~ShellApplication ()
 {
 	if (tmpCreated && ! logPtr)
-	  exec ("rm -fr " + tmp + "*");  
+	  removeDirectory (tmp);
 }
 
 
@@ -3885,7 +4099,7 @@ void ShellApplication::initEnvironment ()
   if (useTmp)
   {
     if (const char* s = getenv ("TMPDIR"))
-      tmp = s;
+      tmp = move (string (s));
     else
       tmp = "/tmp";
   }
@@ -3919,13 +4133,13 @@ void ShellApplication::createTmp ()
   {
     const string tmpDir (tmp);
     tmp += "/" + programName + ".XXXXXX";
-    if (mkstemp (var_cast (tmp. c_str ())) == -1)
-      throw runtime_error ("Error creating a temporary file in " + tmpDir);
+    if (! mkdtemp (var_cast (tmp. c_str ())))
+      throw runtime_error ("Error creating a temporary directory in " + tmpDir);
   	if (tmp. empty ())
-  		throw runtime_error ("Cannot create a temporary file in " + tmpDir);
+  		throw runtime_error ("Cannot create a temporary directory in " + tmpDir);
 
     {
-    	const string testFName (tmp + ".test");
+    	const string testFName (tmp + "/test");
       {
         ofstream f (testFName);
         f << "abc" << endl;
@@ -4001,7 +4215,7 @@ string ShellApplication::exec2str (const string &cmd,
                                    const string &logFName) const
 {
   ASSERT (! contains (tmpName, ' '));
-  const string out (tmp + "." + tmpName);
+  const string out (tmp + "/" + tmpName);
   exec (cmd + " > " + out, logFName);
   const StringVector vec (out, (size_t) 1, false);
   if (vec. size () != 1)
