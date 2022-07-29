@@ -32,6 +32,8 @@
 * Dependencies: NCBI BLAST, HMMer
 *
 * Release changes:
+*   3.10.32 07/29.2022          "amrfinder -u" crashes if the directiry "data/" already exists
+*                               GFF code refactoring
 *           07/28/2022 PD-4274  "amrfinder -u" can use --blast_bin
 *           07/28/2022 PD-3292  dependence on ls, rm, tail, cat is removed
 *   3.10.31 07/27/2022          AMRProt.phr is checked earlier; locus_tagP is checked faster; fasta2parts is not using tmp.db
@@ -264,8 +266,6 @@ struct ThisApplication : ShellApplication
     	addFlag ("plus", "Add the plus genes to the report");  // PD-2789
       addFlag ("report_common", "Report proteins common to a taxonomy group");  // PD-2756
     	addKey ("mutation_all", "File to report all mutations", "", '\0', "MUT_ALL_FILE");
-    //addKey ("type", "Limit search to specific element types: " + all_types. toString (",") + ". A comma delimited list, case-insensitive", "", '\0', "TYPE");
-    	  // "Element type" is a column name in the report
     	addKey ("blast_bin", "Directory for BLAST. Deafult: $BLAST_BIN", "", '\0', "BLAST_DIR");
     //addKey ("hmmer_bin" ??
       addFlag ("report_all_equal", "Report all equally-scoring BLAST and HMM matches");  // PD-3772
@@ -434,7 +434,6 @@ struct ThisApplication : ShellApplication
     const bool   add_plus         =             getFlag ("plus");
     const bool   report_common    =             getFlag ("report_common");
     const string mutation_all     =             getArg ("mutation_all");  
-  //const string type             =             getArg ("type");
           string blast_bin        =             getArg ("blast_bin");
     const bool   equidistant      =             getFlag ("report_all_equal");
     const string input_name       = shellQuote (getArg ("name"));
@@ -487,24 +486,6 @@ struct ThisApplication : ShellApplication
 	    const Warning warning (stderr);
 		  stderr << "--mutation_all option used without -O/--organism option. No point mutations will be screened";
 		}
-
-  #if 0		
-    StringVector typeVec;
-		if (! type. empty ())
-		{
-		  const List<string> typeList (str2list (type, ','));
-		  for (string s: typeList)
-		  {
-		    trim (s);
-		    if (s. empty ())
-		      continue;
-		    strUpper (s);
-		    if (! all_types. contains (s))
-		      throw runtime_error ("Unknown element type " + strQuote (s));
-		    typeVec << s;
-		  }
-		}
-  #endif
 
 		if (! output. empty ())
 		  try { OFStream f (output); }
@@ -873,7 +854,7 @@ struct ThisApplication : ShellApplication
     			      if (vec [0]. empty ())
     			        vec. eraseAt (0);
     			    if (! vec. empty ())
-    			      if (vec [0] == "*** ERROR ***")
+    			      if (vec [0] == error_caption)
     			        vec. eraseAt (0);
     			    throw runtime_error ("GFF file mismatch.\n" + vec. toString ("\n"));  // PD-3289, PD-3345
     			  } 
@@ -921,7 +902,7 @@ struct ThisApplication : ShellApplication
 
   		  amr_report_blastp = "-blastp " + tmp + "/blastp  -hmmsearch " + tmp + "/hmmsearch  -hmmdom " + tmp + "/dom";
   			if (! emptyArg (gff))
-  			  amr_report_blastp += "  -gff " + gff + gff_match;
+  			  amr_report_blastp += "  -gff " + gff + gff_match + pgapS;
   		}  		
 
   		
@@ -1047,7 +1028,7 @@ struct ThisApplication : ShellApplication
       		  + force_cds_report + " -pseudo" + coreS + equidistantS
       		  + (ident == -1 ? string () : "  -ident_min "    + toString (ident)) 
       		  + "  -coverage_min " + toString (cov)
-      		  + ifS (suppress_common, " -suppress_prot " + tmp + "/suppress_prot") + pgapS
+      		  + ifS (suppress_common, " -suppress_prot " + tmp + "/suppress_prot")  
       		  + nameS + qcS + " " + parm + " -log " + logFName + " > " + tmp + "/amr", logFName);
   	}
 		if (   ! emptyArg (dna) 

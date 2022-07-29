@@ -236,15 +236,14 @@ namespace
 	const char* pwd      = getenv ("PWD");
 	const char* path     = getenv ("PATH");
 #endif
-  const string errorS ("*** ERROR ***");
-  if (contains (msg, errorS))  // msg already is the result of errorExit()
+  if (contains (msg, error_caption))  // msg already is the result of errorExit()
     *os << endl << msg << endl;
   else
   	*os << endl
       #ifndef _MSC_VER
         << Color::code (Color::red, true) 
       #endif
-        << errorS 
+        << error_caption 
       #ifndef _MSC_VER
         << Color::code ()
       #endif
@@ -1317,6 +1316,8 @@ void exec (const string &cmd,
   	*logPtr << cmd << endl;
   	
 	const int status = system (cmd. c_str ());  // pipefail's are not caught
+	if (logPtr)
+	  *logPtr << "status = " << status << endl;	
 	if (status)
 	{
 	  if (! logFName. empty ())

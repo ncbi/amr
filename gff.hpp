@@ -107,22 +107,27 @@ struct Locus
 struct Annot : Root
 {	
   map<string/*protein accession*/, Set<Locus>> prot2cdss; 
+  map<string/*seqid*/,string/*locusTag*/> fasta2gff_prot;  
 
 
   class Gff {};
   Annot (Gff,
          const string &fName,
-         bool trimProject,
+       //bool trimProject,
          bool locus_tag,
          bool pgap,
          bool lcl);
 		// https://github.com/The-Sequence-Ontology/Specifications/blob/master/gff3.md
-		// Requirement: the protein id should be in the attribute "Name=<id>" (9th field) of the rows with type "CDS" or "gene" (3rd field)
-    // Input: fName may be empty
   class Bed {};
   Annot (Bed,
          const string &fName);
 		// https://genome.ucsc.edu/FAQ/FAQformat.html#format1
+		
+		
+  void load_fasta2gff_prot (const string &fName);
+    // Output: fasta2gff_prot
+  const Set<Locus>& findLoci (const string &fasta_prot) const;
+    // throw if not found
 };
 
 

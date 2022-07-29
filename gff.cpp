@@ -131,13 +131,13 @@ void pgap_accession (string &accession,
 
 Annot::Annot (Gff,
 	            const string &fName,
-	            bool trimProject,
+	          //bool trimProject,
 	            bool locus_tag,
 	            bool pgap,
 	            bool lcl)
 {
-  IMPLY (pgap, ! locus_tag);
-  IMPLY (pgap, ! trimProject);
+  IMPLY (locus_tag, ! pgap);
+//IMPLY (trimProject, ! pgap);
   IMPLY (lcl, pgap);
 
 	if (fName. empty ())
@@ -174,9 +174,11 @@ Annot::Annot (Gff,
     if (attributes. empty ())
     	throw runtime_error (errorS + "9 fields are expected in each line");
 
+  #if 0
     if (trimProject)
       if (contains (contig, ":"))
         findSplit (contig, ':');  // = project_id
+  #endif
     if (contig. empty ())
     	throw runtime_error (errorS + "empty sequence indentifier");
 	  for (const char c : contig)
@@ -333,5 +335,49 @@ Annot::Annot (Bed,
 }
   
   
+
+void Annot::load_fasta2gff_prot (const string &fName)
+{
+  ASSERT (fasta2gff_prot. empty ());
+
+  LineInput f (fName);
+	Istringstream iss;
+	string seqId, locusTag;
+  while (f. nextLine ())
+  {
+  	iss. reset (f. line);
+  	seqId. clear ();
+  	locusTag. clear ();
+  	iss >> seqId >> locusTag;
+  	QC_ASSERT (! locusTag. empty ());
+  	fasta2gff_prot [seqId] = locusTag;
+  }
+  if (fasta2gff_prot. empty ())
+  	throw runtime_error ("File " + fName + " is empty");
+}
+
+
+
+const Set<Locus>& Annot::findLoci (const string &fasta_prot) const
+{
+  ASSERT (! fasta_prot. empty ());
+
+  string gff_prot (fasta_prot);
+  if (! fasta2gff_prot. empty ())
+  {
+  	string s;
+  	if (! find (fasta2gff_prot, gff_prot, s))
+  	  throw runtime_error ("FASTA protein " + strQuote (fasta_prot) + " is not found in GFF-match file");
+  	gff_prot = move (s);
+  }
+  ASSERT (! gff_prot. empty ());
+  const Set<Locus>* loci = findPtr (prot2cdss, gff_prot);
+  if (! loci)
+    throw runtime_error ("FASTA protein " + fasta_prot + (fasta_prot == gff_prot ? "" : " (converted to GFF protein " + gff_prot +")") + " is misssing in .gff-file");
+
+  return *loci;
+}
+
+
 
 }

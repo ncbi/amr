@@ -130,6 +130,8 @@ bool isMainThread ();
 
 
 
+constexpr const char* error_caption ("*** ERROR ***");
+
 [[noreturn]] void errorExit (const char* msg,
                              bool segmFault = false);
   // Input: programArgs, programName, logptr

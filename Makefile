@@ -70,10 +70,10 @@ $(info Dectected architecture: $(OS) $(ARCH))
 # set CFLAGS based on arch
 ifeq ($(ARCH),aarch64)
   # set arm CFLAGS
-  CPPFLAGS = -std=gnu++11 -pthread --signed-char -falign-jumps -fno-math-errno -O3 
+  CPPFLAGS = -std=gnu++14 -pthread --signed-char -falign-jumps -fno-math-errno -O3 
 else
   # set x86_x64 CFLAGS
-  CPPFLAGS = -std=gnu++11 -pthread -malign-double -fno-math-errno -O3
+  CPPFLAGS = -std=gnu++14 -pthread -malign-double -fno-math-errno -O3
 endif
 
 CXX=g++

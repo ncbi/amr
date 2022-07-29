@@ -63,7 +63,7 @@ struct ThisApplication : Application
       addFlag ("pgap", "Protein, genomic and GFF files are created by the NCBI PGAP");
       addFlag ("lcl", "Nucleotide FASTA created by PGAP has \"lcl|\" prefix in accessions");  
       // Output
-      addKey ("locus_tag", "Output file with matches: \"<FASTA id> <GFF id>\", where <id> is from " + strQuote (locus_tagS + "<id>") + " in the FASTA comment and from the .gff-file");
+      addKey ("locus_tag", "Output file with pairs: \"<FASTA id> <GFF id>\", where <id> is from " + strQuote (locus_tagS + "<id>") + " in the FASTA comment and from the .gff-file");
 	    version = SVN_REV;
     }
 
@@ -87,7 +87,7 @@ struct ThisApplication : Application
     
 
     Annot::Gff gff;
-    const Annot annot (gff, gffName, false, ! locus_tagFName. empty (), pgap, lcl);
+    const Annot annot (gff, gffName, /*false,*/ ! locus_tagFName. empty (), pgap, lcl);
     
     
     if (! protFName. empty ())
@@ -114,6 +114,8 @@ struct ThisApplication : Application
 	    		fastaId. clear ();
     		  iss >> fastaId;
     		  QC_ASSERT (! fastaId. empty ());
+	    		ASSERT (! contains (fastaId, ' '));
+    			fastaIds << fastaId;
     		  // gffId
     			string gffId (fastaId);
 	    		if (! locus_tagFName. empty ())
@@ -127,13 +129,11 @@ struct ThisApplication : Application
 	    				throw runtime_error (__FILE__ ": ']' is not found after " + strQuote (locus_tagS) + " in: " + line_orig);
 	    		  gffId. erase (end);
 	    		}
-	    		ASSERT (! contains (fastaId, ' '));
 	    		if (contains (gffId, ' '))
 	    			throw runtime_error (__FILE__ ": " + strQuote (gffId) + " contains space");
 	    		if (gffId. empty ())
 	    			throw runtime_error (__FILE__ ": No protein identifier in: " + line_orig);
     			gffIds << gffId;
-    			fastaIds << fastaId;
     			if (outF. is_open ())
     				outF << fastaId << '\t' << gffId << endl;
 			  }
@@ -152,7 +152,6 @@ struct ThisApplication : Application
   			    s_prev = & s;
   			  }
   			}
-			//gffIds. uniq ();
 			  ASSERT (gffIds. size () == fastaIds. size ());
 			}
 			if (verbose ())
@@ -194,7 +193,6 @@ struct ThisApplication : Application
   			    s_prev = & s;
   			  }
   			}
-			//contigIds. uniq ();
 			}
 			for (const auto& it : annot. prot2cdss)
 			  for (const Locus& cds : it. second)

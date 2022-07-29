@@ -414,9 +414,9 @@ Requirement: the database directory contains subdirectories named by database ve
         stderr << shellQuote (latestDir) << " already exists, overwriting what was there\n";
       else
       {
-        curl. download (urlDir + versionFName, tmp);
+        curl. download (urlDir + versionFName, tmp + "/curl");
         const StringVector version_old (latestDir + versionFName, (size_t) 100, true);
-        const StringVector version_new (tmp, (size_t) 100, true);
+        const StringVector version_new (tmp + "/curl", (size_t) 100, true);
         if (   ! version_old. empty () 
             && ! version_new. empty ()
             && version_old. front () == version_new. front ()

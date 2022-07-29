@@ -1201,36 +1201,23 @@ public:
         targetAlign_aa = targetAlign / 3;
       }
     }
-  void setCdss (const map<string/*seqid*/,string/*locusTag*/> &seqId2locusTag,
-                const Annot &annot)
+  void setCdss (const Annot &annot)
     { ASSERT (targetProt);
     	ASSERT (cdss. empty ());
-  	  string locusTag (targetName);
-  	  if (! seqId2locusTag. empty ())
-  	  {
-  	  	string s;
-  	  	if (! find (seqId2locusTag, locusTag, s))
-  	  	  throw runtime_error ("Target " + strQuote (locusTag) + " is not found in GFF-match file");
-  	  	locusTag = s;
-  	  }
-  	  if (const Set<Locus>* cdss_ = findPtr (annot. prot2cdss, locusTag))
-  	  {
-    	  insertAll (cdss, *cdss_);
-    	#if 0
-    	  // PD-2269
-    	  for (const Locus& cds : *cdss_)
-    	    // PD-2138
-    	    if (   ! cds. partial
-    	        && cds. size () != 3 * targetLen + 3
-    	        && cds. size () != 3 * targetLen     // PD-2159
-    	       )
-    	      throw runtime_error ("Mismatch in protein length between the protein " + targetName 
-    	                           + " and the length of the protein on line " + toString (cds. lineNum) 
-    	                           + " of the GFF file. Please check that the GFF and protein files match.");
-    	#endif
-    	}
-  	  else
-  	    throw runtime_error ("Locus tag " + strQuote (locusTag) + " is misssing in .gff-file. Protein name: " + targetName);
+    	const Set<Locus> &cdss_ = annot. findLoci (targetName);
+  	  insertAll (cdss, cdss_);
+  	#if 0
+  	  // PD-2269
+  	  for (const Locus& cds : *cdss_)
+  	    // PD-2138
+  	    if (   ! cds. partial
+  	        && cds. size () != 3 * targetLen + 3
+  	        && cds. size () != 3 * targetLen     // PD-2159
+  	       )
+  	      throw runtime_error ("Mismatch in protein length between the protein " + targetName 
+  	                           + " and the length of the protein on line " + toString (cds. lineNum) 
+  	                           + " of the GFF file. Please check that the GFF and protein files match.");
+  	#endif
   	  qc ();
     }
   static bool less (const BlastAlignment* a,
@@ -2070,11 +2057,13 @@ struct ThisApplication : Application
       const string blastFormat (string (Alignment::format) + ". qseqid format: gi|Protein accession|fusion part|# fusions|FAM.id|FAM.class|Product name");
       addKey ("blastp", "blastp output in the format: " + blastFormat);  
       addKey ("blastx", "blastx output in the format: " + blastFormat);  
+
       addKey ("gff", ".gff assembly file");
       addKey ("gff_match", ".gff-FASTA matching file for \"locus_tag\": \"<FASTA id> <locus_tag>\"");
-      addFlag ("bed", "Browser Extensible Data format of the <gff> file");
       addFlag ("pgap", "Protein, genomic and GFF files are created by the NCBI PGAP");
       addFlag ("lcl", "Nucleotide FASTA created by PGAP has \"lcl|\" prefix in accessions");  
+      addFlag ("bed", "Browser Extensible Data format of the <gff> file");
+
       addKey ("dna_len", "File with lines: <dna id> <dna length>");
       addKey ("hmmdom", "HMM domain alignments");
       addKey ("hmmsearch", "Output of hmmsearch");
@@ -2087,6 +2076,7 @@ struct ThisApplication : Application
       addKey ("coverage_min", "Min. coverage of the reference protein (0..1) for partial hits", toString (partial_coverage_min_def));
       addFlag ("skip_hmm_check", "Skip checking HMM for a BLAST hit");
       addFlag ("report_equidistant", "Report all equidistant BLAST and HMM matches");  // PD-3772
+      
       // Output
       addKey ("out", "Identifiers of the reported input proteins");
       addFlag ("print_fam", "Print the FAM.id instead of gene symbol"); 
@@ -2095,11 +2085,13 @@ struct ThisApplication : Application
       addFlag ("non_reportable", "Report non-reportable families");
       addFlag ("core", "Report only core reportale families");
       addKey ("name", "Text to be added as the first column \"name\" to all rows of the report");
+      
       // Testing
       addFlag ("nosame", "Exclude the same reference protein accessions from the BLAST output (for testing)"); 
       addFlag ("noblast", "Exclude the BLAST output (for testing)"); 
       addFlag ("nohmm", "Exclude the HMMer output (for testing)"); 
       addFlag ("retain_blasts", "Retain all blast hits (for testing)");
+      
  	    version = SVN_REV;  
     }
 
@@ -2114,9 +2106,9 @@ struct ThisApplication : Application
     const string blastxFName          = getArg ("blastx");
     const string gffFName             = getArg ("gff");
     const string gffMatchFName        = getArg ("gff_match");
-    const bool   bedP                 = getFlag ("bed");
     const bool   pgap                 = getFlag ("pgap");
     const bool   lcl                  = getFlag ("lcl");
+    const bool   bedP                 = getFlag ("bed");
     const string dnaLenFName          = getArg ("dna_len");
     const string hmmDom               = getArg ("hmmdom");
     const string hmmsearch            = getArg ("hmmsearch");  
@@ -2148,7 +2140,15 @@ struct ThisApplication : Application
     QC_IMPLY (! gffFName. empty (), ! blastpFName. empty ());
     if (! blastpFName. empty () && ! blastxFName. empty () && gffFName. empty ())
     	throw runtime_error ("If BLASTP and BLASTX files are present then a GFF file must be present");
-       			  
+    	
+    if (gffFName. empty ())
+    {
+      QC_ASSERT (gffMatchFName. empty ());
+      QC_ASSERT (! pgap);
+      QC_ASSERT (! lcl);
+      QC_ASSERT (! bedP);
+    }
+           			  
     
     if (ident_min == -1.0)
       ident_min = ident_min_def;
@@ -2309,31 +2309,20 @@ struct ThisApplication : Application
     	unique_ptr<const Annot> annot;
     	if (bedP)
     	{
+    	  QC_ASSERT (gffMatchFName. empty ());
+    	  QC_ASSERT (! pgap)
+    	  QC_ASSERT (! lcl);
 	    	Annot::Bed bed;
 		    annot. reset (new Annot (bed, gffFName));
 		  }
     	else
     	{
 	    	Annot::Gff gff;
-		    annot. reset (new Annot (gff, gffFName, false, ! gffMatchFName. empty (), pgap, lcl));
+		    annot. reset (new Annot (gff, gffFName, /*false,*/ ! gffMatchFName. empty (), pgap, lcl));
+  	    if (! gffMatchFName. empty ())
+    		  var_cast (annot. get ()) -> load_fasta2gff_prot (gffMatchFName);	
 		  }
-		  ASSERT (annot. get ());
-	    map<string/*seqid*/,string/*locusTag*/> seqId2locusTag;
-	    if (! gffMatchFName. empty ())
-	    {
-	      LineInput f (gffMatchFName);
-   	  	Istringstream iss;
-  	  	string seqId, locusTag;
-	  	  while (f. nextLine ())
-	  	  {
-    	  	iss. reset (f. line);
-	  	  	iss >> seqId >> locusTag;
-	  	  	ASSERT (! locusTag. empty ());
-	  	  	seqId2locusTag [seqId] = locusTag;
-	  	  }
-	  	  if (seqId2locusTag. empty ())
-	  	  	throw runtime_error ("File " + gffMatchFName + " is empty");
-	    }
+		  ASSERT (annot);
 	    {
 	      // Locus::contigLen
   	    map<string,size_t> contig2len;
@@ -2360,9 +2349,9 @@ struct ThisApplication : Application
     	for (const auto& it : batch. blastAls)
       	for (const BlastAlignment* al : it. second)
       	  if (al->targetProt)
-      	  	var_cast (al) -> setCdss (seqId2locusTag, * annot. get ());
+      	  	var_cast (al) -> setCdss (*annot);
 	    for (const HmmAlignment* hmmAl : batch. hmmAls)
-        var_cast (hmmAl->blastAl. get ()) -> setCdss (seqId2locusTag, * annot. get ());;
+        var_cast (hmmAl->blastAl. get ()) -> setCdss (*annot);;
     }
     
     
