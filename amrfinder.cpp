@@ -32,7 +32,8 @@
 * Dependencies: NCBI BLAST, HMMer
 *
 * Release changes:
-*   3.10.32 07/29.2022          "amrfinder -u" crashes if the directiry "data/" already exists
+*   3.10.33 07/29/2022 PD-4264  --annotation_format 
+*   3.10.32 07/29.2022 PD-4274  "amrfinder -u" crashes if the directiry "data/" already exists
 *                               GFF code refactoring
 *           07/28/2022 PD-4274  "amrfinder -u" can use --blast_bin
 *           07/28/2022 PD-3292  dependence on ls, rm, tail, cat is removed
@@ -205,7 +206,8 @@
 
 #include "common.hpp"
 using namespace Common_sp;
-
+#include "gff.hpp"
+using namespace GFF_sp;
 
 
 #undef DIR  // PD-3613
@@ -255,7 +257,8 @@ struct ThisApplication : ShellApplication
     	addKey ("protein", "Input protein FASTA file", "", 'p', "PROT_FASTA");
     	addKey ("nucleotide", "Input nucleotide FASTA file", "", 'n', "NUC_FASTA");
     	addKey ("gff", "GFF file for protein locations. Protein id should be in the attribute 'Name=<id>' (9th field) of the rows with type 'CDS' or 'gene' (3rd field).", "", 'g', "GFF_FILE");
-      addFlag ("pgap", "Input files PROT_FASTA, NUC_FASTA and GFF_FILE are created by the NCBI PGAP");
+      addFlag ("pgap", "Input files PROT_FASTA, NUC_FASTA and GFF_FILE are created by the NCBI PGAP");  // For compatibility ??
+      addKey ("annotation_format", "Type of GFF file: " + Gff::names. toString (", "), "genbank", 'a', "ANNOTATION_FORMAT");
     	addKey ("database", "Alternative directory with AMRFinder database. Default: $AMRFINDER_DB", "", 'd', "DATABASE_DIR");
     	addKey ("ident_min", "Minimum proportion of identical amino acids in alignment for hit (0..1). -1 means use a curated threshold if it exists and " + toString (ident_min_def) + " otherwise", "-1", 'i', "MIN_IDENT");
     	  // "PD-3482
@@ -413,39 +416,40 @@ struct ThisApplication : ShellApplication
 
   void shellBody () const final
   {
-    const bool   force_update    =             getFlag ("force_update");
-    const bool   update          =             getFlag ("update") || force_update;
-    const string dir             =    
+    const bool    force_update    =             getFlag ("force_update");
+    const bool    update          =             getFlag ("update") || force_update;
+    const string  dir             =    
   #ifdef DIR
-                                   appendS (getArg ("dir"), "/"); 
+                                    appendS (getArg ("dir"), "/"); 
   #else
-                                   "";
+                                    "";
   #endif
-    const string prot             = shellQuote (prependS (getArg ("protein"),    dir));
-    const string dna              = shellQuote (prependS (getArg ("nucleotide"), dir));
-    const string gff              = shellQuote (prependS (getArg ("gff"),        dir));
-          string db               =             getArg ("database");
-    const bool   pgap             =             getFlag ("pgap");
-    const double ident            =             arg2double ("ident_min");
-    const double cov              =             arg2double ("coverage_min");
-    const string organism         = shellQuote (getArg ("organism"));   
-    const bool   list_organisms   =             getFlag ("list_organisms");
-    const uint   gencode          =             arg2uint ("translation_table"); 
-    const bool   add_plus         =             getFlag ("plus");
-    const bool   report_common    =             getFlag ("report_common");
-    const string mutation_all     =             getArg ("mutation_all");  
-          string blast_bin        =             getArg ("blast_bin");
-    const bool   equidistant      =             getFlag ("report_all_equal");
-    const string input_name       = shellQuote (getArg ("name"));
-    const string parm             =             getArg ("parm");  
-    const string output           =             getArg ("output");
-    const string prot_out         = shellQuote (getArg ("protein_output"));
-    const string dna_out          = shellQuote (getArg ("nucleotide_output"));
-    const string dnaFlank5_out    = shellQuote (getArg ("nucleotide_flank5_output"));
-    const uint   dnaFlank5_size   =             arg2uint ("nucleotide_flank5_size");
-    const bool   quiet            =             getFlag ("quiet");
-    const bool   gpipe_org        =             getFlag ("gpipe_org");
-    const bool   database_version =             getFlag ("database_version");
+    const string  prot             = shellQuote (prependS (getArg ("protein"),    dir));
+    const string  dna              = shellQuote (prependS (getArg ("nucleotide"), dir));
+    const string  gff              = shellQuote (prependS (getArg ("gff"),        dir));
+          string  db               =             getArg ("database");
+    const bool    pgap             =             getFlag ("pgap");
+          Gff::Type gffType        = Gff::name2type (getArg ("annotation_format"));
+    const double  ident            =             arg2double ("ident_min");
+    const double  cov              =             arg2double ("coverage_min");
+    const string  organism         = shellQuote (getArg ("organism"));   
+    const bool    list_organisms   =             getFlag ("list_organisms");
+    const uint    gencode          =             arg2uint ("translation_table"); 
+    const bool    add_plus         =             getFlag ("plus");
+    const bool    report_common    =             getFlag ("report_common");
+    const string  mutation_all     =             getArg ("mutation_all");  
+          string  blast_bin        =             getArg ("blast_bin");
+    const bool    equidistant      =             getFlag ("report_all_equal");
+    const string  input_name       = shellQuote (getArg ("name"));
+    const string  parm             =             getArg ("parm");  
+    const string  output           =             getArg ("output");
+    const string  prot_out         = shellQuote (getArg ("protein_output"));
+    const string  dna_out          = shellQuote (getArg ("nucleotide_output"));
+    const string  dnaFlank5_out    = shellQuote (getArg ("nucleotide_flank5_output"));
+    const uint    dnaFlank5_size   =             arg2uint ("nucleotide_flank5_size");
+    const bool    quiet            =             getFlag ("quiet");
+    const bool    gpipe_org        =             getFlag ("gpipe_org");
+    const bool    database_version =             getFlag ("database_version");
     
     
 		const string logFName (tmp + "/log");  // Command-local log file
@@ -755,9 +759,19 @@ struct ThisApplication : ShellApplication
 		prog2dir ["dna_mutation"]  = execDir;
     prog2dir ["fasta_extract"] = execDir;
     
+
+    if (pgap)
+    {
+      switch (gffType)
+      {
+        case Gff::genbank: gffType = Gff::pgap; break;
+        case Gff::pgap: break;
+        default: throw runtime_error ("--pgap conflicts with GFF type " + strQuote (Gff::names [(size_t) gffType]));
+      }
+    }
     
     bool lcl = false;
-    if (pgap && ! emptyArg (dna))  // PD-3347
+    if (gffType == Gff::pgap && ! emptyArg (dna))  // PD-3347
     {
       LineInput f (unQuote (dna));
       while (f. nextLine ())
@@ -774,7 +788,7 @@ struct ThisApplication : ShellApplication
  		string amr_report_blastx;
  		bool hmmChunks = false;
  		bool tblastnChunks = false;
-	  const string pgapS (ifS (pgap, " -pgap" + ifS (lcl, " -lcl")));
+	  const string annotS (" -gfftype " + Gff::names [(size_t) gffType] + ifS (lcl, " -lcl"));
     {
   		#define BLAST_FMT    "-outfmt '6 qseqid sseqid qstart qend qlen sstart send slen qseq sseq'"
   		#define TBLASTN_FMT  "-outfmt '6 sseqid qseqid sstart send slen qstart qend qlen sseq qseq'"
@@ -819,25 +833,28 @@ struct ThisApplication : ShellApplication
    			  // gff_check
     			if (! emptyArg (gff) && ! contains (parm, "-bed"))
     			{
-    			  string locus_tag;
     			  {
-      			  bool locus_tagP = false;
+      			  bool gffMatchP = false;
+      			  switch (gffType)
       			  {
-        			  LineInput f (unQuote (prot1));
-        			  while (f. nextLine ())
-        			    if (   ! f. line. empty () 
-        			        && f. line [0] == '>'
-        			       )
-        			    {
-        			      locus_tagP = contains (f. line, "[locus_tag=");  
-        			      break;
-        			    }
-        			}
-      			  if (locus_tagP)
-      			  {
-      			    locus_tag = " -locus_tag " + tmp + "/match";
+      			    case Gff::genbank:
+          			  {
+            			  LineInput f (unQuote (prot1));
+            			  while (f. nextLine ())
+            			    if (   ! f. line. empty () 
+            			        && f. line [0] == '>'
+            			       )
+            			    {
+            			      gffMatchP = contains (f. line, "[locus_tag=");  
+            			      break;
+            			    }
+            			}
+            			break;
+            	  case Gff::microscope: gffMatchP = true; break;
+            	  default: break;
+            	}
+      			  if (gffMatchP)
       			    gff_match = " -gff_match " + tmp + "/match";
-      			  }
       			}
     			  prog2dir ["gff_check"] = execDir;		
     			  string dnaPar;
@@ -845,7 +862,7 @@ struct ThisApplication : ShellApplication
     			    dnaPar = " -dna " + dna;
     			  try 
     			  {
-    			    exec (fullProg ("gff_check") + gff + " -prot " + prot1 + dnaPar + pgapS + locus_tag + qcS + " -log " + logFName, logFName);
+    			    exec (fullProg ("gff_check") + gff + " -prot " + prot1 + dnaPar + annotS + gff_match + qcS + " -log " + logFName, logFName);
     			  }
     			  catch (...)
     			  {
@@ -902,7 +919,7 @@ struct ThisApplication : ShellApplication
 
   		  amr_report_blastp = "-blastp " + tmp + "/blastp  -hmmsearch " + tmp + "/hmmsearch  -hmmdom " + tmp + "/dom";
   			if (! emptyArg (gff))
-  			  amr_report_blastp += "  -gff " + gff + gff_match + pgapS;
+  			  amr_report_blastp += "  -gff " + gff + gff_match + annotS;
   		}  		
 
   		

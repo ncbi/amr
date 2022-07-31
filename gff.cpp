@@ -100,6 +100,27 @@ bool Locus::operator< (const Locus& other) const
 
 // Gff
 
+const StringVector Gff::names {"bakta", "genbank", "microscope", "patric", "pgap", "prokka", "pseudomonasdb", "rast"};
+
+
+Gff::Type Gff::name2type (const string &name)
+{
+  if (name == "bakta")          return bakta;
+  if (name == "genbank")        return genbank;
+  if (name == "microscope")     return microscope;
+  if (name == "patric")         return patric;
+  if (name == "pgap")           return pgap;
+  if (name == "prokka")         return prokka;
+  if (name == "pseudomonasdb")  return pseudomonasdb;
+  if (name == "rast")           return rast;
+  throw runtime_error ("Unknown GFF type: " + strQuote (name));
+}
+
+
+
+
+// Annot
+
 namespace
 {
   
@@ -129,16 +150,15 @@ void pgap_accession (string &accession,
 
 
 
-Annot::Annot (Gff,
-	            const string &fName,
-	          //bool trimProject,
-	            bool locus_tag,
-	            bool pgap,
+Annot::Annot (const string &fName,
+              Gff::Type gffType,
+	            bool protMatch,
 	            bool lcl)
 {
-  IMPLY (locus_tag, ! pgap);
-//IMPLY (trimProject, ! pgap);
-  IMPLY (lcl, pgap);
+  IMPLY (protMatch, gffType == Gff::genbank || gffType == Gff::microscope);
+  IMPLY (gffType == Gff::microscope, protMatch);
+//IMPLY (trimProject, gffType == Gff::genbank);
+  IMPLY (lcl, gffType == Gff::pgap);
 
 	if (fName. empty ())
 		throw runtime_error ("Empty GFF file name");
@@ -191,7 +211,7 @@ Annot::Annot (Gff,
        )
       continue;
       
-    if (pgap && type != "CDS")
+    if (gffType == Gff::pgap && type != "CDS")
       continue;
       
     long start = -1;
@@ -229,65 +249,91 @@ Annot::Annot (Gff,
     //continue;
     
     const bool partial = contains (attributes, "partial=true");
-
-    string locusTag;
+    
+    string protAttr = "Name";
+    switch (gffType)
+    {
+      case Gff::bakta:         protAttr = "ID"; break;
+      case Gff::genbank:       protAttr = (protMatch || pseudo) ? "locus_tag" : "Name"; break;
+      case Gff::microscope:    protAttr = "ID"; break;
+      case Gff::patric:        protAttr = "ID"; break;
+      case Gff::prokka:        protAttr = "ID"; break;
+      case Gff::pseudomonasdb: protAttr = "Alias"; break;  // for type = "gene", "locus" for type = "CDS"
+      case Gff::rast:          protAttr = "ID"; break;
+      default: break;
+    }
+    ASSERT (! protAttr. empty ());
+    protAttr += "=";
+        
+    string prot;
     string gene;
     string product;
-    const string locusTagName (! pgap && (locus_tag || pseudo) ? "locus_tag=" : "Name=");
-    while (! attributes. empty ())
     {
-	    string s (findSplit (attributes, ';'));
-  	  trim (s, tmpSpace);
-	    if (isLeft (s, locusTagName))
-	      locusTag = s;
-	    else if (isLeft (s, "gene="))
-	    {
-	      gene = s;
-	      findSplit (gene, '=');
-	    }
-	    else if (isLeft (s, "product="))
-	    {
-	      product = s;
-	      findSplit (product, '=');
-	      replace (product, tmpSpace, ' ');
-	    }
-	  }
-    if (locusTag. empty ())
-    	continue;
-    //throw runtime_error (errorS + "No attribute '" + locusTagName + "': " + f. line);
-	  if (! pgap && contains (locusTag, ":"))
-	    { EXEC_ASSERT (isLeft (findSplit (locusTag, ':'), locusTagName)); }
-	  else
-	    findSplit (locusTag, '='); 
-	  trimPrefix (locusTag, "\"");
-	  trimSuffix (locusTag, "\"");
-	  trim (locusTag, tmpSpace);
-	  if (pgap)
+      string locusTag;
+      while (! attributes. empty ())
+      {
+  	    string s (findSplit (attributes, ';'));
+    	  trim (s, tmpSpace);
+  	    if (isLeft (s, protAttr))
+  	    {
+  	      prot = s;
+          findSplit (prot, '='); 
+  	    }
+  	    else if (isLeft (s, "gene="))
+  	    {
+  	      gene = s;
+  	      findSplit (gene, '=');
+  	    }
+  	    else if (isLeft (s, "product="))
+  	    {
+  	      product = s;
+  	      findSplit (product, '=');
+  	      replace (product, tmpSpace, ' ');
+  	    }
+  	    else if (gffType == Gff::patric && isLeft (s, "locus_tag="))
+  	    {
+  	      locusTag = s;
+  	      findSplit (locusTag, '=');
+  	    }
+  	  }
+  	  trimPrefix (prot, "\"");
+  	  trimSuffix (prot, "\"");
+      if (prot. empty ())
+      	continue;
+      //throw runtime_error (errorS + "no attribute '" + protAttr + "': " + f. line);
+      switch (gffType)
+      {
+        case Gff::genbank:  if (contains (prot, ":"))  findSplit (prot, ':');  break;
+        case Gff::patric:   if (! locusTag. empty ())  prot += "|" + locusTag;  break;
+        default:  break;
+      }
+    }
+	  trim (prot, tmpSpace);
+	  if (gffType == Gff::pgap)
 	  {
-	    pgap_accession (locusTag, false);
+	    pgap_accession (prot, false);
 	    pgap_accession (contig, lcl);
 	  }
-	  QC_ASSERT (! locusTag. empty ());
+	  QC_ASSERT (! prot. empty ());
 	  
 	  Locus locus (f. lineNum, contig, (size_t) start, (size_t) stop, strand == "+", partial, 0, gene, product);
 	#if 0
 	  // DNA may be truncated
     if (type == "CDS" && ! pseudo && locus. size () % 3 != 0)
     {
-      cout << "Locus tag: " << locusTag << endl;
+      cout << "Locus tag: " << prot << endl;
       locus. print (cout);
       ERROR;
     }
   #endif
 
-    prot2cdss [locusTag] << move (locus);
+    prot2cdss [prot] << move (locus);
   }
 }
   
   
 
-Annot::Annot (Bed,
-	            const string &fName)
+Annot::Annot (const string &fName)
 {
 	if (fName. empty ())
 		throw runtime_error ("Empty BED file name");
@@ -305,13 +351,13 @@ Annot::Annot (Bed,
 
    	const string errorS ("File " + fName + ", line " + toString (f. lineNum) + ": ");
 
-    string contig, locusTag;
+    string contig, prot;
     size_t start, stop;
     double score;
     char strand = ' ';
     static Istringstream iss;
     iss. reset (f. line);
-    iss >> contig >> start >> stop >> locusTag >> score >> strand;
+    iss >> contig >> start >> stop >> prot >> score >> strand;
 
     if (strand == ' ')
     	throw runtime_error (errorS + "at least 5 fields are expected in each line");
@@ -328,9 +374,9 @@ Annot::Annot (Bed,
        )
     	throw runtime_error (errorS + "strand should be '+' or '-'");
            
-	  trim (locusTag, '_');
-	  ASSERT (! locusTag. empty ());
-    prot2cdss [locusTag] << Locus (f. lineNum, contig, start, stop, strand == '+', false/*partial*/, 0, string (), string ());
+	  trim (prot, '_');
+	  ASSERT (! prot. empty ());
+    prot2cdss [prot] << Locus (f. lineNum, contig, start, stop, strand == '+', false/*partial*/, 0, string (), string ());
   }
 }
   
@@ -342,15 +388,15 @@ void Annot::load_fasta2gff_prot (const string &fName)
 
   LineInput f (fName);
 	Istringstream iss;
-	string seqId, locusTag;
+	string seqId, prot;
   while (f. nextLine ())
   {
   	iss. reset (f. line);
   	seqId. clear ();
-  	locusTag. clear ();
-  	iss >> seqId >> locusTag;
-  	QC_ASSERT (! locusTag. empty ());
-  	fasta2gff_prot [seqId] = locusTag;
+  	prot. clear ();
+  	iss >> seqId >> prot;
+  	QC_ASSERT (! prot. empty ());
+  	fasta2gff_prot [seqId] = prot;
   }
   if (fasta2gff_prot. empty ())
   	throw runtime_error ("File " + fName + " is empty");

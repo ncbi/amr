@@ -99,8 +99,8 @@ amr_reportOBJS=amr_report.o common.o gff.o alignment.o
 amr_report:	$(amr_reportOBJS)
 	$(CXX) -o $@ $(amr_reportOBJS)
 
-amrfinder.o:  common.hpp common.inc 
-amrfinderOBJS=amrfinder.o common.o
+amrfinder.o:  common.hpp common.inc gff.hpp
+amrfinderOBJS=amrfinder.o common.o gff.o
 amrfinder:	$(amrfinderOBJS)
 	$(CXX) -o $@ $(amrfinderOBJS) -pthread $(DBDIR)
 

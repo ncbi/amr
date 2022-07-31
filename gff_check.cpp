@@ -58,12 +58,12 @@ struct ThisApplication : Application
     {
       // Input
       addPositional ("gff", ".gff-file, if " + strQuote (noFile) + " then exit 0");
+      addKey ("gfftype", "Type of GFF file: " + Gff::names. toString (", "), "genbank");
       addKey ("prot", "Protein FASTA file");
       addKey ("dna", "DNA FASTA file");
-      addFlag ("pgap", "Protein, genomic and GFF files are created by the NCBI PGAP");
       addFlag ("lcl", "Nucleotide FASTA created by PGAP has \"lcl|\" prefix in accessions");  
       // Output
-      addKey ("locus_tag", "Output file with pairs: \"<FASTA id> <GFF id>\", where <id> is from " + strQuote (locus_tagS + "<id>") + " in the FASTA comment and from the .gff-file");
+      addKey ("gff_match", "Output file with pairs: \"<FASTA id> <GFF id>\", where for genbank <GFF id> is from " + strQuote (locus_tagS + "<id>") + " in the FASTA comment, and for microscope <GFF id> is ID:<num> from '><acc>|ID:<num>|<gene>|'");
 	    version = SVN_REV;
     }
 
@@ -71,23 +71,22 @@ struct ThisApplication : Application
 
   void body () const final
   {
-    const string gffName        = getArg ("gff");
-    const string protFName      = getArg ("prot");
-    const string dnaFName       = getArg ("dna");
-    const string locus_tagFName = getArg ("locus_tag");
-    const bool   pgap           = getFlag ("pgap"); 
-    const bool   lcl            = getFlag ("lcl"); 
+    const string  gffName       = getArg ("gff");
+    const Gff::Type type        = Gff::name2type (getArg ("gfftype"));
+    const string  protFName     = getArg ("prot");
+    const string  dnaFName      = getArg ("dna");
+    const string  gffMatchFName = getArg ("gff_match");
+    const bool    lcl           = getFlag ("lcl"); 
     
-    if (lcl && ! pgap)
-      throw runtime_error ("-lcl requires -pgap");
+    if (lcl && type != Gff::pgap)
+      throw runtime_error ("-lcl requires type pgap");
     
     
     if (isRight (gffName, noFile))
     	return;
     
 
-    Annot::Gff gff;
-    const Annot annot (gff, gffName, /*false,*/ ! locus_tagFName. empty (), pgap, lcl);
+    const Annot annot (gffName, type, ! gffMatchFName. empty (), lcl);
     
     
     if (! protFName. empty ())
@@ -95,8 +94,8 @@ struct ThisApplication : Application
 	    StringVector gffIds;  gffIds. reserve (10000);  // PAR
     	{
 	    	OFStream outF;
-	    	if (! locus_tagFName. empty ())
-	    		outF. open ("", locus_tagFName, "");
+	    	if (! gffMatchFName. empty ())
+	    		outF. open ("", gffMatchFName, "");
 	    	StringVector fastaIds;  fastaIds. reserve (gffIds. capacity ());
 			  LineInput f (protFName /*, 100 * 1024, 1*/);
     		Istringstream iss;
@@ -118,17 +117,34 @@ struct ThisApplication : Application
     			fastaIds << fastaId;
     		  // gffId
     			string gffId (fastaId);
-	    		if (! locus_tagFName. empty ())
-	    		{
-	    			const size_t pos = f. line. find (locus_tagS);
-	    			if (pos == string::npos)
-	    				throw runtime_error (__FILE__ ": " + strQuote (locus_tagS) + " is not found in: " + line_orig);
-	    			gffId = f. line. substr (pos + locus_tagS. size ());
-	    			const size_t end = gffId. find (']');
-	    			if (end == string::npos)
-	    				throw runtime_error (__FILE__ ": ']' is not found after " + strQuote (locus_tagS) + " in: " + line_orig);
-	    		  gffId. erase (end);
-	    		}
+	    		if (! gffMatchFName. empty ())
+	    		  switch (type)
+	    		  {
+	    		    case Gff::genbank:
+      	    		{
+      	    			const size_t pos = f. line. find (locus_tagS);
+      	    			if (pos == string::npos)
+      	    				throw runtime_error (__FILE__ ": " + strQuote (locus_tagS) + " is not found in: " + line_orig);
+      	    			gffId = f. line. substr (pos + locus_tagS. size ());
+      	    			const size_t end = gffId. find (']');
+      	    			if (end == string::npos)
+      	    				throw runtime_error (__FILE__ ": ']' is not found after " + strQuote (locus_tagS) + " in: " + line_orig);
+      	    		  gffId. erase (end);
+      	    		}
+      	    		break;
+      	    	case Gff::microscope:
+      	    	  {
+      	    	    string s (move (gffId));
+      	    	    findSplit (s, '|');
+      	    	    gffId = findSplit (s, '|');
+      	    	    const string idS ("ID:");
+      	    	    if (! isLeft (gffId, idS))
+      	    	      throw runtime_error (__FILE__ ": 'ID:' is not found in: " + line_orig);
+      	    	    gffId. erase (0, idS. size ());
+      	    	  }      	    	  
+      	    	  break;
+      	      default: break;
+      	    }
 	    		if (contains (gffId, ' '))
 	    			throw runtime_error (__FILE__ ": " + strQuote (gffId) + " contains space");
 	    		if (gffId. empty ())

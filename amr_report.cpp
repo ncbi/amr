@@ -2059,8 +2059,8 @@ struct ThisApplication : Application
       addKey ("blastx", "blastx output in the format: " + blastFormat);  
 
       addKey ("gff", ".gff assembly file");
+      addKey ("gfftype", "Type of GFF file: " + Gff::names. toString (", "), "genbank");
       addKey ("gff_match", ".gff-FASTA matching file for \"locus_tag\": \"<FASTA id> <locus_tag>\"");
-      addFlag ("pgap", "Protein, genomic and GFF files are created by the NCBI PGAP");
       addFlag ("lcl", "Nucleotide FASTA created by PGAP has \"lcl|\" prefix in accessions");  
       addFlag ("bed", "Browser Extensible Data format of the <gff> file");
 
@@ -2101,37 +2101,37 @@ struct ThisApplication : Application
   {
     static_assert (complete_coverage_min_def > partial_coverage_min_def, "complete_coverage_min_def > partial_coverage_min_def");
     
-    const string famFName             = getArg ("fam");
-    const string blastpFName          = getArg ("blastp");
-    const string blastxFName          = getArg ("blastx");
-    const string gffFName             = getArg ("gff");
-    const string gffMatchFName        = getArg ("gff_match");
-    const bool   pgap                 = getFlag ("pgap");
-    const bool   lcl                  = getFlag ("lcl");
-    const bool   bedP                 = getFlag ("bed");
-    const string dnaLenFName          = getArg ("dna_len");
-    const string hmmDom               = getArg ("hmmdom");
-    const string hmmsearch            = getArg ("hmmsearch");  
-          string organism             = getArg ("organism");  
-    const string mutation_tab         = getArg ("mutation");  
-    const string susceptible_tab      = getArg ("susceptible");  
-    const string mutation_all_FName   = getArg ("mutation_all");
-    const string suppress_prot_FName  = getArg ("suppress_prot");
-          double ident_min            = str2<double> (getArg ("ident_min"));  
-    const double partial_coverage_min = str2<double> (getArg ("coverage_min"));  
-    const bool   skip_hmm_check       = getFlag ("skip_hmm_check"); 
-                 equidistant          = getFlag ("report_equidistant");
-    const string outFName             = getArg ("out");
-                 print_fam            = getFlag ("print_fam");
-                 reportPseudo         = getFlag ("pseudo");
-    const bool   force_cds_report     = getFlag ("force_cds_report");
-    const bool   non_reportable       = getFlag ("non_reportable");
-    const bool   report_core_only     = getFlag ("core");
-                 input_name           = getArg ("name");
-    const bool   nosame               = getFlag ("nosame");
-    const bool   noblast              = getFlag ("noblast");
-    const bool   nohmm                = getFlag ("nohmm");
-    const bool   retainBlasts         = getFlag ("retain_blasts");
+    const string  famFName             = getArg ("fam");
+    const string  blastpFName          = getArg ("blastp");
+    const string  blastxFName          = getArg ("blastx");
+    const string  gffFName             = getArg ("gff");
+    const Gff::Type gffType            = Gff::name2type (getArg ("gfftype"));
+    const string  gffMatchFName        = getArg ("gff_match");
+    const bool    lcl                  = getFlag ("lcl");
+    const bool    bedP                 = getFlag ("bed");
+    const string  dnaLenFName          = getArg ("dna_len");
+    const string  hmmDom               = getArg ("hmmdom");
+    const string  hmmsearch            = getArg ("hmmsearch");  
+          string  organism             = getArg ("organism");  
+    const string  mutation_tab         = getArg ("mutation");  
+    const string  susceptible_tab      = getArg ("susceptible");  
+    const string  mutation_all_FName   = getArg ("mutation_all");
+    const string  suppress_prot_FName  = getArg ("suppress_prot");
+          double  ident_min            = str2<double> (getArg ("ident_min"));  
+    const double  partial_coverage_min = str2<double> (getArg ("coverage_min"));  
+    const bool    skip_hmm_check       = getFlag ("skip_hmm_check"); 
+                  equidistant          = getFlag ("report_equidistant");
+    const string  outFName             = getArg ("out");
+                  print_fam            = getFlag ("print_fam");
+                  reportPseudo         = getFlag ("pseudo");
+    const bool    force_cds_report     = getFlag ("force_cds_report");
+    const bool    non_reportable       = getFlag ("non_reportable");
+    const bool    report_core_only     = getFlag ("core");
+                  input_name           = getArg ("name");
+    const bool    nosame               = getFlag ("nosame");
+    const bool    noblast              = getFlag ("noblast");
+    const bool    nohmm                = getFlag ("nohmm");
+    const bool    retainBlasts         = getFlag ("retain_blasts");
     
     replace (organism, '_', ' ');
     
@@ -2144,7 +2144,7 @@ struct ThisApplication : Application
     if (gffFName. empty ())
     {
       QC_ASSERT (gffMatchFName. empty ());
-      QC_ASSERT (! pgap);
+      QC_ASSERT (gffType == Gff::genbank);
       QC_ASSERT (! lcl);
       QC_ASSERT (! bedP);
     }
@@ -2310,15 +2310,12 @@ struct ThisApplication : Application
     	if (bedP)
     	{
     	  QC_ASSERT (gffMatchFName. empty ());
-    	  QC_ASSERT (! pgap)
     	  QC_ASSERT (! lcl);
-	    	Annot::Bed bed;
-		    annot. reset (new Annot (bed, gffFName));
+		    annot. reset (new Annot (gffFName));
 		  }
     	else
     	{
-	    	Annot::Gff gff;
-		    annot. reset (new Annot (gff, gffFName, /*false,*/ ! gffMatchFName. empty (), pgap, lcl));
+		    annot. reset (new Annot (gffFName, gffType, ! gffMatchFName. empty (), lcl));
   	    if (! gffMatchFName. empty ())
     		  var_cast (annot. get ()) -> load_fasta2gff_prot (gffMatchFName);	
 		  }
