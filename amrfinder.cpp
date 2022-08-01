@@ -32,6 +32,7 @@
 * Dependencies: NCBI BLAST, HMMer
 *
 * Release changes:
+*   3.10.35 08/01/2022 PD-4277  repeated allele is not reported correctly
 *   3.10.34 08/01/2022 PD-4264  prokka and bakta have nucleotide FASTA in GFF files
 *   3.10.33 07/29/2022 PD-4264  --annotation_format 
 *   3.10.32 07/29.2022 PD-4274  "amrfinder -u" crashes if the directiry "data/" already exists

@@ -1030,42 +1030,18 @@ private:
 	    }
 	    else
 	    { // PD-1902, PD-2139, PD-2313, PD-2320
-      #if 0
-        if (   (   refAccession == "AFM31243.1"
-                || refAccession == "BAF45432.1"
-               )
-            && (   other. refAccession == "AFM31243.1"
-                || other. refAccession == "BAF45432.1"
-               )
-           )
-        {
-          PRINT (targetProt);
-          PRINT (other. targetProt);
-          PRINT (matchesCds (other));
-          PRINT (other. matchesCds (*this));
-        }
-      #endif
 	    	if (targetProt && ! matchesCds (other))
 	    	  return false;
 	    	if (! targetProt && ! other. matchesCds (*this))
 	    	  return false;
 	    }
-	  #if 0
-	    // Moved below
-      if (isMutationProt () && other. isMutationProt ())  
-      {
-			  const Set<string> mutationSymbols      (       getMutationSymbols ());
-			  const Set<string> otherMutationSymbols (other. getMutationSymbols ());
-			  if (mutationSymbols == otherMutationSymbols && targetProt != other. targetProt)
-			    return targetProt;
-			  if (   mutationSymbols. containsAll (otherMutationSymbols)
-			      && ! otherMutationSymbols. containsAll (mutationSymbols)
-			     )
-			    return true;
-			}
-		#endif
 	    if (targetProt == other. targetProt)  
       {     
+        // PD-807, PD-4277
+        if (   ! other. insideEq (*this)
+        	  && !        insideEq (other)
+        	 )
+          return false;
         if (   ! isMutationProt ()
             && ! refAccession. empty () 
             && refAccession == other. refAccession  // PD-4013
@@ -1080,26 +1056,6 @@ private:
         else
         {
         #if 0
-          if (   (   refAccession == "AFM31243.1"
-                  || refAccession == "BAF45432.1"
-                 )
-              && (   other. refAccession == "AFM31243.1"
-                  || other. refAccession == "BAF45432.1"
-                 )
-             )
-          {
-            PRINT (other. insideEq (*this));
-            PRINT (insideEq (other));
-            PRINT (targetStrand);
-            PRINT (targetStart);
-            PRINT (targetEnd);
-            PRINT (mismatchTailTarget ());
-            PRINT (other. targetStrand);
-            PRINT (other. targetStart);
-            PRINT (other. targetEnd);
-            PRINT (other. mismatchTailTarget ());
-          }
-        #endif
   	      // PD-807
   	      if (   ! (targetProt && famId == other. famId)  // PD-2441
   	      	//&& ! sameTarget (other)
@@ -1107,6 +1063,7 @@ private:
   	      	  && !        insideEq (other)
   	      	 )
   	        return false;
+  	    #endif
   	      LESS_PART (other, *this, hasMutation ());
   	      LESS_PART (other, *this, refExactlyMatched ());  // PD-1261, PD-1678
   	      LESS_PART (other, *this, nident);
