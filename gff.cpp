@@ -167,6 +167,14 @@ Annot::Annot (const string &fName,
   while (f. nextLine ())
   {
     trim (f. line);
+    
+    if (   (   gffType == Gff::prokka
+            || gffType == Gff::bakta
+           )
+        && f. line == "##FASTA"
+       )
+      break;
+    
     if (   f. line. empty () 
         || f. line [0] == '#'
        )
@@ -388,15 +396,15 @@ void Annot::load_fasta2gff_prot (const string &fName)
 
   LineInput f (fName);
 	Istringstream iss;
-	string seqId, prot;
+	string fasta_prot, gff_prot;
   while (f. nextLine ())
   {
   	iss. reset (f. line);
-  	seqId. clear ();
-  	prot. clear ();
-  	iss >> seqId >> prot;
-  	QC_ASSERT (! prot. empty ());
-  	fasta2gff_prot [seqId] = prot;
+  	fasta_prot. clear ();
+  	gff_prot. clear ();
+  	iss >> fasta_prot >> gff_prot;
+  	QC_ASSERT (! gff_prot. empty ());
+  	fasta2gff_prot [fasta_prot] = gff_prot;
   }
   if (fasta2gff_prot. empty ())
   	throw runtime_error ("File " + fName + " is empty");
@@ -417,9 +425,11 @@ const Set<Locus>& Annot::findLoci (const string &fasta_prot) const
   	gff_prot = move (s);
   }
   ASSERT (! gff_prot. empty ());
+  
   const Set<Locus>* loci = findPtr (prot2cdss, gff_prot);
   if (! loci)
     throw runtime_error ("FASTA protein " + fasta_prot + (fasta_prot == gff_prot ? "" : " (converted to GFF protein " + gff_prot +")") + " is misssing in .gff-file");
+  ASSERT (! loci->empty ());
 
   return *loci;
 }

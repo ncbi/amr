@@ -53,6 +53,7 @@ struct Locus
     // >= 1
     // 0 - unknown
   string contig;
+    // DNA FASTA id
   size_t start {0};
   size_t stop {0};
     // start <= stop
@@ -116,8 +117,10 @@ struct Gff
 
 struct Annot : Root
 {	
-  map<string/*protein accession*/, Set<Locus>> prot2cdss; 
-  map<string/*seqid*/,string/*locusTag*/> fasta2gff_prot;  
+  // Protein GFF id is a function of attributes (column in GFF)
+  map<string/*protein GFF id*/,Set<Locus>> prot2cdss; 
+  map<string/*protein FASTA id*/,string/*protein GFF id*/> fasta2gff_prot;  
+    // empty() => protein FASTA id = protein GFF id
 
 
   Annot (const string &fName,
@@ -126,13 +129,14 @@ struct Annot : Root
          bool lcl);
     // GFF
 		// https://github.com/The-Sequence-Ontology/Specifications/blob/master/gff3.md
+		// https://github.com/ncbi/amr/issues/91
 		// Input: protMatch: property of protein FASTA:  
 		//                     genbank: "[locus_tag=...]" in comment
 		//                     microscope: "><acc>|ID:<num>|<gene>|
 		//        lcl: property of DNA FASTA: >lcl|...
     /*
-      gffType        protein id in attributes
-      -------        ------------------------
+      gffType        protein GFF id
+      -------        --------------
       bakta          ID=       
       genbank        locus_tag=[project:]acc  // if pseudo or protMatch
                      Name=[project:]acc       // else                    
@@ -152,9 +156,10 @@ struct Annot : Root
 		
 		
   void load_fasta2gff_prot (const string &fName);
-    // Input: fName is created by gff_check.cpp
+    // Input: fName: file is created by gff_check.cpp
     // Output: fasta2gff_prot
   const Set<Locus>& findLoci (const string &fasta_prot) const;
+    // Return: !empty()
     // throw if not found
 };
 
