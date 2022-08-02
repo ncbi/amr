@@ -21,15 +21,15 @@ jobs:
     - name: install AMRFinderPlus
       run: |
           conda install -c bioconda -c conda-forge -y ncbi-amrfinderplus
-    - name: Software and DB version
-      run: |
-          source /usr/share/miniconda/bin/activate
-          amrfinder --database_version
     - name: download latest AMRFinderPlus database
       run: |
           source /usr/share/miniconda/bin/activate
           echo CONDA_PREFIX = ${CONDA_PREFIX}
           /usr/share/miniconda/bin/amrfinder --force_update
+    - name: Software and DB version
+      run: |
+          source /usr/share/miniconda/bin/activate
+          amrfinder --database_version
     - name: download tests
       run: |
           BASE_URL=https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/master
