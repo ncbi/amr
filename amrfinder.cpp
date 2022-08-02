@@ -32,6 +32,7 @@
 * Dependencies: NCBI BLAST, HMMer
 *
 * Release changes:
+*   3.10.36 08/02/2022 PD-4277  --annotation_format is removed 
 *   3.10.35 08/01/2022 PD-4277  repeated allele is not reported correctly
 *   3.10.34 08/01/2022 PD-4264  prokka and bakta have nucleotide FASTA in GFF files
 *   3.10.33 07/29/2022 PD-4264  --annotation_format 
@@ -260,7 +261,7 @@ struct ThisApplication : ShellApplication
     	addKey ("nucleotide", "Input nucleotide FASTA file", "", 'n', "NUC_FASTA");
     	addKey ("gff", "GFF file for protein locations. Protein id should be in the attribute 'Name=<id>' (9th field) of the rows with type 'CDS' or 'gene' (3rd field).", "", 'g', "GFF_FILE");
       addFlag ("pgap", "Input files PROT_FASTA, NUC_FASTA and GFF_FILE are created by the NCBI PGAP");  // For compatibility ??
-      addKey ("annotation_format", "Type of GFF file: " + Gff::names. toString (", "), "genbank", 'a', "ANNOTATION_FORMAT");
+    //addKey ("annotation_format", "Type of GFF file: " + Gff::names. toString (", "), "genbank", 'a', "ANNOTATION_FORMAT");  ??
     	addKey ("database", "Alternative directory with AMRFinder database. Default: $AMRFINDER_DB", "", 'd', "DATABASE_DIR");
     	addKey ("ident_min", "Minimum proportion of identical amino acids in alignment for hit (0..1). -1 means use a curated threshold if it exists and " + toString (ident_min_def) + " otherwise", "-1", 'i', "MIN_IDENT");
     	  // "PD-3482
@@ -431,7 +432,7 @@ struct ThisApplication : ShellApplication
     const string  gff              = shellQuote (prependS (getArg ("gff"),        dir));
           string  db               =             getArg ("database");
     const bool    pgap             =             getFlag ("pgap");
-          Gff::Type gffType        = Gff::name2type (getArg ("annotation_format"));
+          Gff::Type gffType        = Gff::genbank;  // Gff::name2type (getArg ("annotation_format"));  ??
     const double  ident            =             arg2double ("ident_min");
     const double  cov              =             arg2double ("coverage_min");
     const string  organism         = shellQuote (getArg ("organism"));   
