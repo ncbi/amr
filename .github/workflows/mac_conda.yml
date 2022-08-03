@@ -31,14 +31,14 @@ jobs:
       run: |
           source /Users/runner/miniconda3/bin/activate
           conda install -c bioconda -c conda-forge -y ncbi-amrfinderplus
-    - name: Software and DB version
-      run: |
-          source /Users/runner/miniconda3/bin/activate
-          amrfinder --database_version
     - name: Download AMRFinderPlus database
       run: |
           source /Users/runner/miniconda3/bin/activate
           /Users/runner/miniconda3/bin/amrfinder -u
+    - name: Software and DB version
+      run: |
+          source /Users/runner/miniconda3/bin/activate
+          amrfinder --database_version
     - name: Download tests
       run: |
           BASE_URL=https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/master
