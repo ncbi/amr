@@ -311,8 +311,10 @@ Annot::Annot (const string &fName,
       //throw runtime_error (errorS + "no attribute '" + protAttr + "': " + f. line);
       switch (gffType)
       {
-        case Gff::genbank:  if (contains (prot, ":"))  findSplit (prot, ':');  break;
-        case Gff::patric:   if (! locusTag. empty ())  prot += "|" + locusTag;  break;
+        case Gff::genbank:       if (contains (prot, ":"))  findSplit (prot, ':');  break;
+        case Gff::patric:        if (! locusTag. empty ())  prot += "|" + locusTag;  
+                                 if (isLeft (contig, "accn|"))  contig. erase (0, 5);
+                                 break;
         default:  break;
       }
     }
@@ -335,7 +337,7 @@ Annot::Annot (const string &fName,
     }
   #endif
 
-    prot2cdss [prot] << move (locus);
+    prot2loci [prot] << move (locus);
   }
 }
   
@@ -384,7 +386,7 @@ Annot::Annot (const string &fName)
            
 	  trim (prot, '_');
 	  ASSERT (! prot. empty ());
-    prot2cdss [prot] << Locus (f. lineNum, contig, start, stop, strand == '+', false/*partial*/, 0, string (), string ());
+    prot2loci [prot] << Locus (f. lineNum, contig, start, stop, strand == '+', false/*partial*/, 0, string (), string ());
   }
 }
   
@@ -412,6 +414,41 @@ void Annot::load_fasta2gff_prot (const string &fName)
 
 
 
+void Annot::load_fasta2gff_dna (const string &fName)
+{
+  map<string/*DNA GFF id*/,string/*DNA FASTA id*/> gff2fasta;  
+  {
+    LineInput f (fName);
+  	Istringstream iss;
+  	string fasta_dna, gff_dna;
+    while (f. nextLine ())
+    {
+    	iss. reset (f. line);
+    	fasta_dna. clear ();
+    	gff_dna. clear ();
+    	iss >> fasta_dna >> gff_dna;
+    	QC_ASSERT (! gff_dna. empty ());
+    	gff2fasta [gff_dna] = fasta_dna;
+    }
+  }
+  if (gff2fasta. empty ())
+  	throw runtime_error ("File " + fName + " is empty");
+  
+  for (auto& it : prot2loci)
+  {
+    Set<Locus>& loci = it. second;
+    for (const Locus& locus : loci)
+    {
+    	string s;
+    	if (! find (gff2fasta, locus. contig, s))
+    	  throw runtime_error ("FASTA DNA contig " + strQuote (locus. contig) + " is not found in GFF-DNA match file " + strQuote (fName));
+    	var_cast (locus). contig = move (s);
+    }
+  }
+}
+
+
+
 const Set<Locus>& Annot::findLoci (const string &fasta_prot) const
 {
   ASSERT (! fasta_prot. empty ());
@@ -421,12 +458,12 @@ const Set<Locus>& Annot::findLoci (const string &fasta_prot) const
   {
   	string s;
   	if (! find (fasta2gff_prot, gff_prot, s))
-  	  throw runtime_error ("FASTA protein " + strQuote (fasta_prot) + " is not found in GFF-match file");
+  	  throw runtime_error ("FASTA protein " + strQuote (fasta_prot) + " is not found in GFF-protein match file");
   	gff_prot = move (s);
   }
   ASSERT (! gff_prot. empty ());
   
-  const Set<Locus>* loci = findPtr (prot2cdss, gff_prot);
+  const Set<Locus>* loci = findPtr (prot2loci, gff_prot);
   if (! loci)
     throw runtime_error ("FASTA protein " + fasta_prot + (fasta_prot == gff_prot ? "" : " (converted to GFF protein " + gff_prot +")") + " is misssing in .gff-file");
   ASSERT (! loci->empty ());

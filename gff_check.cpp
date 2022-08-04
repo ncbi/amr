@@ -27,7 +27,7 @@
 * Author: Vyacheslav Brover
 *
 * File Description:
-*   Check the correctness of a .gff-file
+*   Check the correctness of a GFF file
 *
 */
    
@@ -54,16 +54,17 @@ const string noFile ("emptystring");
 struct ThisApplication : Application
 {
   ThisApplication ()
-    : Application ("Check the correctness of a .gff-file. Exit with an error if it is incorrect.")
+    : Application ("Check the correctness of a GFF file. Exit with an error if it is incorrect.")
     {
       // Input
-      addPositional ("gff", ".gff-file, if " + strQuote (noFile) + " then exit 0");
+      addPositional ("gff", "GFF file, if " + strQuote (noFile) + " then exit 0");
       addKey ("gfftype", "Type of GFF file: " + Gff::names. toString (", "), "genbank");
       addKey ("prot", "Protein FASTA file");
       addKey ("dna", "DNA FASTA file");
       addFlag ("lcl", "Nucleotide FASTA created by PGAP has \"lcl|\" prefix in accessions");  
       // Output
-      addKey ("gff_match", "Output file with pairs: \"<FASTA id> <GFF id>\", where for genbank <GFF id> is from " + strQuote (locus_tagS + "<id>") + " in the FASTA comment, and for microscope <GFF id> is ID:<num> from '><acc>|ID:<num>|<gene>|'");
+      addKey ("gff_prot_match", "Output file with pairs: \"<protein FASTA id> <protein GFF id>\", where for genbank: <protein GFF id> is from " + strQuote (locus_tagS + "<id>") + " in the protein FASTA comment, and for microscope: <protein GFF id> is ID:<num> from '><acc>|ID:<num>|<gene>|'");
+      addKey ("gff_dna_match",  "Output file with pairs: \"<DNA FASTA id> <DNA GFF id>\", where for pseudomonasdb: <DNA GFF id> is the suffix after '|' in the DNA FASTA identifier");
 	    version = SVN_REV;
     }
 
@@ -71,12 +72,13 @@ struct ThisApplication : Application
 
   void body () const final
   {
-    const string  gffName       = getArg ("gff");
-    const Gff::Type type        = Gff::name2type (getArg ("gfftype"));
-    const string  protFName     = getArg ("prot");
-    const string  dnaFName      = getArg ("dna");
-    const string  gffMatchFName = getArg ("gff_match");
-    const bool    lcl           = getFlag ("lcl"); 
+    const string  gffName        = getArg ("gff");
+    const Gff::Type type         = Gff::name2type (getArg ("gfftype"));
+    const string  protFName      = getArg ("prot");
+    const string  dnaFName       = getArg ("dna");
+    const string  protMatchFName = getArg ("gff_prot_match");
+    const string  dnaMatchFName  = getArg ("gff_dna_match");
+    const bool    lcl            = getFlag ("lcl"); 
     
     if (lcl && type != Gff::pgap)
       throw runtime_error ("-lcl requires type pgap");
@@ -86,7 +88,7 @@ struct ThisApplication : Application
     	return;
     
 
-    const Annot annot (gffName, type, ! gffMatchFName. empty (), lcl);
+    const Annot annot (gffName, type, ! protMatchFName. empty (), lcl);
     
     
     if (! protFName. empty ())
@@ -94,8 +96,8 @@ struct ThisApplication : Application
 	    StringVector gffIds;  gffIds. reserve (10000);  // PAR
     	{
 	    	OFStream outF;
-	    	if (! gffMatchFName. empty ())
-	    		outF. open ("", gffMatchFName, "");
+	    	if (! protMatchFName. empty ())
+	    		outF. open ("", protMatchFName, "");
 	    	StringVector fastaIds;  fastaIds. reserve (gffIds. capacity ());
 			  LineInput f (protFName /*, 100 * 1024, 1*/);
     		Istringstream iss;
@@ -117,7 +119,7 @@ struct ThisApplication : Application
     			fastaIds << fastaId;
     		  // gffId
     			string gffId (fastaId);
-	    		if (! gffMatchFName. empty ())
+	    		if (! protMatchFName. empty ())
 	    		  switch (type)
 	    		  {
 	    		    case Gff::genbank:
@@ -145,6 +147,7 @@ struct ThisApplication : Application
       	    	  break;
       	      default: break;
       	    }
+	    	  //
 	    		if (contains (gffId, ' '))
 	    			throw runtime_error (__FILE__ ": " + strQuote (gffId) + " contains space");
 	    		if (gffId. empty ())
@@ -171,49 +174,90 @@ struct ThisApplication : Application
 			  ASSERT (gffIds. size () == fastaIds. size ());
 			}
 			if (verbose ())
-			  cout << "# Proteins in GFF: " << annot. prot2cdss. size () << endl;
+			  cout << "# Proteins in GFF: " << annot. prot2loci. size () << endl;
 		  for (const string& seqid : gffIds)
-		  	if (! contains (annot. prot2cdss, seqid))
-		  		throw runtime_error (__FILE__ ": Protein id " + strQuote (seqid) + " is not in the .gff-file");
+		  	if (! contains (annot. prot2loci, seqid))
+		  		throw runtime_error (__FILE__ ": Protein FASTA id " + strQuote (seqid) + " is not in the GFF file");
+    #if 0
+		  for (const auto& it : annot. prot2loci)
+		    if (! gffIds. containsFast (it. first))
+		  		throw runtime_error (__FILE__ ": GFF protein id " + strQuote (it. first) + " is not in the protein FASTA file");  // pseudogene ??
+		#endif
     }   
 
 
     if (! dnaFName. empty ())
     {
     	StringVector contigIds;  contigIds. reserve (10000);  // PAR
+    	StringVector gffIds;  gffIds. reserve (10000);  // PAR
     	{
+      	OFStream outF;
+      	if (! dnaMatchFName. empty ())
+      		outF. open ("", dnaMatchFName, "");
 			  LineInput f (dnaFName /*, 100 * 1024, 1*/);
     		Istringstream iss;
     		string contigId;
 			  while (f. nextLine ())
-			    if (! f. line. empty ())
-			    	if (f. line [0] == '>')
-			    	{
-			    		iss. reset (f. line. substr (1));
-			    		contigId. clear ();
-		    		  iss >> contigId;
-			    		ASSERT (! contains (contigId, ' '));
-			    		if (contigId. empty ())
-			    			throw runtime_error (__FILE__ ": No contig identifier in:\n" + f. line);
-			    		if (lcl && ! isLeft (contigId, "lcl|"))
-			    			throw runtime_error (__FILE__ ": Contig identifier does not start with " + strQuote ("lcl|") + ":\n" + f. line);
-		    			contigIds << move (contigId);
-			    	}
-			  contigIds. sort ();
-			  {
-  			  const string* s_prev = nullptr;
-  			  for (const string& s : contigIds)
-  			  {
-  			    if (s_prev && *s_prev == s)
-    			  	throw runtime_error (__FILE__ ": Contig identifier " + strQuote (s) + " is not unique");
-  			    s_prev = & s;
-  			  }
-  			}
+	    	{
+          trimTrailing (f. line);
+			    if (f. line. empty ())
+			      continue;
+		    	if (f. line [0] != '>')
+		    	  continue;
+	    		iss. reset (f. line. substr (1));
+	    		contigId. clear ();
+    		  iss >> contigId;
+	    		ASSERT (! contains (contigId, ' '));
+    		  // gffId
+    			string gffId (contigId);
+	    		if (! dnaMatchFName. empty ())
+	    		  switch (type)
+	    		  {
+	    		    case Gff::pseudomonasdb:
+      	    		{
+      	    			const size_t pos = gffId. rfind ('|');
+      	    			if (pos != string::npos)
+      	    				gffId. erase (0, pos + 1);
+      	    		}
+      	    		break;
+      	      default: break;
+      	    }
+      	  //
+	    		if (gffId. empty ())
+	    			throw runtime_error (__FILE__ ": No contig identifier in:\n" + f. line);
+	    		if (lcl && ! isLeft (gffId, "lcl|"))
+	    			throw runtime_error (__FILE__ ": Contig identifier does not start with " + strQuote ("lcl|") + ":\n" + f. line);
+    			gffIds << gffId;
+    			contigIds << contigId;
+    			if (outF. is_open ())
+    				outF << contigId << '\t' << gffId << endl;
+	    	}
 			}
-			for (const auto& it : annot. prot2cdss)
+			ASSERT (contigIds. size () == gffIds. size ());
+		  gffIds. sort ();
+		  {
+			  const string* s_prev = nullptr;
+			  for (const string& s : gffIds)
+			  {
+			    if (s_prev && *s_prev == s)
+  			  	throw runtime_error (__FILE__ ": DNA GFF identifier " + strQuote (s) + " is not unique");
+			    s_prev = & s;
+			  }
+			}
+		  contigIds. sort ();
+		  {
+			  const string* s_prev = nullptr;
+			  for (const string& s : contigIds)
+			  {
+			    if (s_prev && *s_prev == s)
+  			  	throw runtime_error (__FILE__ ": DNA contig identifier " + strQuote (s) + " is not unique");
+			    s_prev = & s;
+			  }
+			}
+			for (const auto& it : annot. prot2loci)
 			  for (const Locus& cds : it. second)
-			    if (! contigIds. contains (cds. contig))
-  		  		throw runtime_error (__FILE__ ": Contig id " + strQuote (cds. contig) + " is not in the file " + dnaFName);
+			    if (! gffIds. contains (cds. contig))
+  		  		throw runtime_error (__FILE__ ": GFF contig id " + strQuote (cds. contig) + " is not in the DNA FASTA file");
     }   
   }
 };

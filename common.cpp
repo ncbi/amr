@@ -297,6 +297,48 @@ string getStack ()
 
 
 
+
+// Chronometer_OnePass
+
+Chronometer_OnePass::Chronometer_OnePass (const string &name_arg,
+                                          ostream &os_arg,
+                                          bool addNewLine_arg,
+                                          bool active_arg)
+: name (name_arg)
+, os (os_arg)
+, os_cerr (& os_arg == & cerr)
+, addNewLine (addNewLine_arg)
+, active (active_arg)
+, start (active_arg ? time (nullptr) : 0)
+{}
+
+
+
+Chronometer_OnePass::~Chronometer_OnePass ()
+{ 
+  if (! active)
+    return;
+  if (uncaught_exception ())
+    return;
+    
+  const time_t stop = time (nullptr);
+  if (os_cerr)
+    os << Color::code (Color::magenta);
+  os << "CHRON: " << name << ": ";
+  const ONumber on (os, 0, false);
+  os << difftime (stop, start) << " sec.";
+  if (os_cerr) 
+    os << Color::code ();
+  os << endl;
+  if (addNewLine)
+    os << endl;
+}
+
+
+
+
+//
+
 namespace
 {
 	

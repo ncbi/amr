@@ -118,7 +118,7 @@ struct Gff
 struct Annot : Root
 {	
   // Protein GFF id is a function of attributes (column in GFF)
-  map<string/*protein GFF id*/,Set<Locus>> prot2cdss; 
+  map<string/*protein GFF id*/,Set<Locus>> prot2loci; 
   map<string/*protein FASTA id*/,string/*protein GFF id*/> fasta2gff_prot;  
     // empty() => protein FASTA id = protein GFF id
 
@@ -156,8 +156,11 @@ struct Annot : Root
 		
 		
   void load_fasta2gff_prot (const string &fName);
-    // Input: fName: file is created by gff_check.cpp
+    // Input: fName: file is created by gff_check.cpp -gff_prot_match
     // Output: fasta2gff_prot
+  void load_fasta2gff_dna (const string &fName);
+    // Input: fName: file is created by gff_check.cpp -gff_dna_match
+    // Output: Locus:;contig
   const Set<Locus>& findLoci (const string &fasta_prot) const;
     // Return: !empty()
     // throw if not found

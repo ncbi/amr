@@ -305,34 +305,21 @@ public:
 
 struct Chronometer_OnePass : Nocopy
 {
+private:
 	const string name;
   ostream &os;
+  const bool os_cerr;
   const bool addNewLine;
   const bool active;
 	const time_t start;
+public:
+	
 	
   explicit Chronometer_OnePass (const string &name_arg,
                                 ostream &os_arg = cout,
                                 bool addNewLine_arg = true,
-                                bool active_arg = true)
-    : name (name_arg)
-    , os (os_arg)
-    , addNewLine (addNewLine_arg)
-    , active (active_arg)
-    , start (active_arg ? time (nullptr) : 0)
-    {}
- ~Chronometer_OnePass ()
-    { if (! active)
-        return;
-      if (uncaught_exception ())
-        return;
-      const time_t stop = time (nullptr);
-      os << "CHRON: " << name << ": ";
-      const ONumber on (os, 0, false);
-      os << difftime (stop, start) << " sec." << endl;
-      if (addNewLine)
-        os << endl;
-    }
+                                bool active_arg = true);
+ ~Chronometer_OnePass ();
 };
 	
 	

@@ -32,7 +32,7 @@
 * Dependencies: NCBI BLAST, HMMer
 *
 * Release changes:
-*   3.10.37 08/02/2022 PD-4277  Reintroduce --annotation_format to continue testing
+*   3.10.37 08/02/2022 PD-4277  --annotation_format is restored, amr_report is faster, -a patric allows "accn|" in nucleotide FASTA, -a pseudomonasdb
 *   3.10.36 08/02/2022 PD-4277  --annotation_format is removed 
 *   3.10.35 08/01/2022 PD-4277  repeated allele is not reported correctly
 *   3.10.34 08/01/2022 PD-4264  prokka and bakta have nucleotide FASTA in GFF files
@@ -262,7 +262,7 @@ struct ThisApplication : ShellApplication
     	addKey ("nucleotide", "Input nucleotide FASTA file", "", 'n', "NUC_FASTA");
     	addKey ("gff", "GFF file for protein locations. Protein id should be in the attribute 'Name=<id>' (9th field) of the rows with type 'CDS' or 'gene' (3rd field).", "", 'g', "GFF_FILE");
       addFlag ("pgap", "Input files PROT_FASTA, NUC_FASTA and GFF_FILE are created by the NCBI PGAP");  // For compatibility ??
-    	addKey ("annotation_format", "Type of GFF file: " + Gff::names. toString (", "), "genbank", 'a', "ANNOTATION_FORMAT");
+      addKey ("annotation_format", "Type of GFF file: " + Gff::names. toString (", "), "genbank", 'a', "ANNOTATION_FORMAT");  
     	addKey ("database", "Alternative directory with AMRFinder database. Default: $AMRFINDER_DB", "", 'd', "DATABASE_DIR");
     	addKey ("ident_min", "Minimum proportion of identical amino acids in alignment for hit (0..1). -1 means use a curated threshold if it exists and " + toString (ident_min_def) + " otherwise", "-1", 'i', "MIN_IDENT");
     	  // "PD-3482
@@ -390,6 +390,9 @@ struct ThisApplication : ShellApplication
     const TextTable taxgroup            (tmp + "/db/taxgroup.tab");
     const TextTable AMRProt_mutation    (tmp + "/db/AMRProt-mutation.tab");
     const TextTable AMRProt_susceptible (tmp + "/db/AMRProt-susceptible.tab");
+    taxgroup. qc ();
+    AMRProt_mutation. qc ();
+    AMRProt_susceptible. qc ();
     StringVector vec (taxgroup. col2values (0));
     vec << AMRProt_mutation. col2values (0);
     vec << AMRProt_susceptible. col2values (0);
@@ -433,7 +436,7 @@ struct ThisApplication : ShellApplication
     const string  gff              = shellQuote (prependS (getArg ("gff"),        dir));
           string  db               =             getArg ("database");
     const bool    pgap             =             getFlag ("pgap");
-          Gff::Type gffType        = Gff::name2type (getArg ("annotation_format")); 
+          Gff::Type gffType        = Gff::name2type (getArg ("annotation_format"));  // Gff::genbank; ??
     const double  ident            =             arg2double ("ident_min");
     const double  cov              =             arg2double ("coverage_min");
     const string  organism         = shellQuote (getArg ("organism"));   
@@ -753,7 +756,7 @@ struct ThisApplication : ShellApplication
  	  ASSERT (! contains (organism1, ' '));
 
 
-    const string qcS (qc_on ? " -qc" : "");
+    const string qcS (qc_on ? " -qc -profile" : "");
 		const string force_cds_report (! emptyArg (dna) && ! organism1. empty () ? "-force_cds_report" : "");  // Needed for dna_mutation
 		
 								  
@@ -803,7 +806,8 @@ struct ThisApplication : ShellApplication
   		  // was: -culling_limit 20  // PD-2967
   		if (! emptyArg (prot))
   		{
-  			string gff_match;
+  			string gff_prot_match;
+ 			  string gff_dna_match;
   			if (getFileSize (unQuote (prot)))
   			{
     			findProg ("blastp");  			
@@ -838,7 +842,7 @@ struct ThisApplication : ShellApplication
     			if (! emptyArg (gff) && ! contains (parm, "-bed"))
     			{
     			  {
-      			  bool gffMatchP = false;
+      			  bool gffProtMatchP = false;
       			  switch (gffType)
       			  {
       			    case Gff::genbank:
@@ -849,24 +853,28 @@ struct ThisApplication : ShellApplication
             			        && f. line [0] == '>'
             			       )
             			    {
-            			      gffMatchP = contains (f. line, "[locus_tag=");  
+            			      gffProtMatchP = contains (f. line, "[locus_tag=");  
             			      break;
             			    }
             			}
             			break;
-            	  case Gff::microscope: gffMatchP = true; break;
+            	  case Gff::microscope: gffProtMatchP = true; break;
             	  default: break;
             	}
-      			  if (gffMatchP)
-      			    gff_match = " -gff_match " + tmp + "/match";
+      			  if (gffProtMatchP)
+      			    gff_prot_match = " -gff_prot_match " + tmp + "/prot_match";
       			}
     			  prog2dir ["gff_check"] = execDir;		
     			  string dnaPar;
     			  if (! emptyArg (dna))
+    			  {
     			    dnaPar = " -dna " + dna;
+    			    if (gffType == Gff::pseudomonasdb)
+    			      gff_dna_match = " -gff_dna_match " + tmp + "/dna_match";
+    			  }
     			  try 
     			  {
-    			    exec (fullProg ("gff_check") + gff + " -prot " + prot1 + dnaPar + annotS + gff_match + qcS + " -log " + logFName, logFName);
+    			    exec (fullProg ("gff_check") + gff + annotS + " -prot " + prot1 + dnaPar + gff_prot_match + gff_dna_match + qcS + " -log " + logFName, logFName);
     			  }
     			  catch (...)
     			  {
@@ -923,7 +931,7 @@ struct ThisApplication : ShellApplication
 
   		  amr_report_blastp = "-blastp " + tmp + "/blastp  -hmmsearch " + tmp + "/hmmsearch  -hmmdom " + tmp + "/dom";
   			if (! emptyArg (gff))
-  			  amr_report_blastp += "  -gff " + gff + gff_match + annotS;
+  			  amr_report_blastp += "  -gff " + gff + gff_prot_match + gff_dna_match + annotS;
   		}  		
 
   		
@@ -1085,6 +1093,8 @@ struct ThisApplication : ShellApplication
       {
         TextTable amrTab (tmp + "/amr");
         amrTab. sort (amrSortColumns);
+      //amrTab. rows. uniq ();
+        amrTab. qc ();
     		if (output. empty ())
     		  amrTab. saveText (cout);
     		else
@@ -1097,6 +1107,7 @@ struct ThisApplication : ShellApplication
         TextTable mutation_allTab (tmp + "/mutation_all");
         mutation_allTab. sort (amrSortColumns);
         mutation_allTab. rows. uniq ();
+        mutation_allTab. qc ();
         mutation_allTab. saveFile (mutation_all);
       }
     }
