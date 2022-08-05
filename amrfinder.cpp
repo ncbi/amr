@@ -32,6 +32,7 @@
 * Dependencies: NCBI BLAST, HMMer
 *
 * Release changes:
+*   3.10.38 08/04/2022 PD-4264  prohibition of the same contig and protein names is removed
 *   3.10.37 08/02/2022 PD-4277  --annotation_format is restored, amr_report is faster, -a patric allows "accn|" in nucleotide FASTA, -a pseudomonasdb
 *   3.10.36 08/02/2022 PD-4277  --annotation_format is removed 
 *   3.10.35 08/01/2022 PD-4277  repeated allele is not reported correctly

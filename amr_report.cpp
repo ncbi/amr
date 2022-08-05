@@ -2094,50 +2094,28 @@ struct ThisApplication : Application
   	// BlastAlignment::good()
   	ASSERT (batch. blastAls. empty ());
   	ASSERT (batch. target2blastAls. empty ());
-    if (! noblast)
+    if (   ! noblast
+        && ! blastpFName. empty ()
+       )
     {
-      if (! blastpFName. empty ())
-      {
-    		const Chronometer_OnePass cop ("blastp", cerr, false, Chronometer::enabled);
-        LineInput f (blastpFName, 1024 * 1024 * 128);  // PAR
-    	  while (f. nextLine ())
-    	  {
-    	    { 
-    	      Unverbose unv;
-    	      if (verbose ())
-    	        cout << f. line << endl;  
-    	    }
-    	    auto al = new BlastAlignment (f. line, true);
-    	    al->qc ();  
-    	    if (nosame && al->refAccession == al->targetName)
-    	      continue;
- 	        batch. blastAls << al;
- 	        ASSERT (! al->targetName. empty ());
- 	        batch. target2blastAls [al->targetName] << al;
-    	  }
-    	}
-
-      if (! blastxFName. empty ())
-      {
-    		const Chronometer_OnePass cop ("blastx", cerr, false, Chronometer::enabled);  
-        LineInput f (blastxFName);
-    	  while (f. nextLine ())
-    	  {
-    	    { 
-    	      Unverbose unv;
-    	      if (verbose ())
-    	        cout << f. line << endl;  
-    	    }
-    	    auto al = new BlastAlignment (f. line, false);
-    	    al->qc ();  
-    	    if (nosame && al->refAccession == al->targetName)
-    	      continue;
-    	    if (contains (batch. target2blastAls, al->targetName))
-    	      throw runtime_error ("Same sequence identifier for a protein and a contig: " + al->targetName);
-   	      batch. blastAls << al;
-    	  }
-    	}
-    }
+  		const Chronometer_OnePass cop ("blastp", cerr, false, Chronometer::enabled);
+      LineInput f (blastpFName);  
+  	  while (f. nextLine ())
+  	  {
+  	    { 
+  	      Unverbose unv;
+  	      if (verbose ())
+  	        cout << f. line << endl;  
+  	    }
+  	    auto al = new BlastAlignment (f. line, true);
+  	    al->qc ();  
+  	    if (nosame && al->refAccession == al->targetName)
+  	      continue;
+        batch. blastAls << al;
+        ASSERT (! al->targetName. empty ());
+        batch. target2blastAls [al->targetName] << al;
+  	  }
+  	}
   	if (verbose ())
   	  cout << "# Blasts: " << batch. blastAls. size () << endl;
   	
@@ -2220,6 +2198,30 @@ struct ThisApplication : Application
    	  cout << "# Good initial HMMs: " << batch. hmmAls. size () << endl;
   
   
+    if (   ! noblast
+        && ! blastxFName. empty ()
+       )       
+    {
+  		const Chronometer_OnePass cop ("blastx", cerr, false, Chronometer::enabled);  
+      LineInput f (blastxFName);
+  	  while (f. nextLine ())
+  	  {
+  	    { 
+  	      Unverbose unv;
+  	      if (verbose ())
+  	        cout << f. line << endl;  
+  	    }
+  	    auto al = new BlastAlignment (f. line, false);
+  	    al->qc ();  
+  	    if (nosame && al->refAccession == al->targetName)
+  	      continue;
+ 	      batch. blastAls << al;
+  	  }
+  	}
+  	if (verbose ())
+  	  cout << "# Blasts: " << batch. blastAls. size () << endl;
+
+
     // For Batch::report()
     if (! gffFName. empty ())
     {

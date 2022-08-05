@@ -161,10 +161,6 @@ size_t get_threads_max_max ()
 
 
 
-bool Chronometer::enabled = false;
-
-
-
 #ifndef _MSC_VER
 namespace 
 {
@@ -286,10 +282,10 @@ string getStack ()
     FOR_START (int, i, 1, nptrs)
       s += string (strings [i]) + "\n";  
     s += "Use: addr2line -f -C -e " + programArgs [0] + "  -a <address>";
+  //free (strings);
   }
   else
     s = "Cannot get stack trace";
-//free (strings);
 
   return s;
 #endif
@@ -297,6 +293,12 @@ string getStack ()
 
 
 
+
+// Chronometer
+
+bool Chronometer::enabled = false;
+  
+ 
 
 // Chronometer_OnePass
 
@@ -306,7 +308,6 @@ Chronometer_OnePass::Chronometer_OnePass (const string &name_arg,
                                           bool active_arg)
 : name (name_arg)
 , os (os_arg)
-, os_cerr (& os_arg == & cerr)
 , addNewLine (addNewLine_arg)
 , active (active_arg)
 , start (active_arg ? time (nullptr) : 0)
@@ -322,14 +323,22 @@ Chronometer_OnePass::~Chronometer_OnePass ()
     return;
     
   const time_t stop = time (nullptr);
-  if (os_cerr)
+  
+#ifndef _MSC_VER
+  const bool colorP = (& os == & cerr);
+  if (colorP)
     os << Color::code (Color::magenta);
+#endif
+  
   os << "CHRON: " << name << ": ";
   const ONumber on (os, 0, false);
-  os << difftime (stop, start) << " sec.";
-  if (os_cerr) 
+  os << difftime (stop, start) << " sec." << endl;
+  
+#ifndef _MSC_VER
+  if (colorP)
     os << Color::code ();
-  os << endl;
+#endif
+
   if (addNewLine)
     os << endl;
 }
@@ -741,7 +750,7 @@ string str2streamWord (const string &s,
   string word;
   FOR (size_t, i, wordNum + 1)
     if (iss. eof ())
-    	return string ();
+    	return noString;
     else
       iss >> word;
   return word;
@@ -1130,9 +1139,9 @@ bool getChar (istream &is,
 
   const int i = is. get ();
   c = EOF;
-  if (is. eof ())
+  if (i == c)
   {
-    ASSERT (i == c);
+    QC_ASSERT (is. eof ());
     return false;
   }
   if (! (i >= 0 && i <= 255))
@@ -1146,18 +1155,9 @@ bool getChar (istream &is,
 
 void skipLine (istream &is)
 {
-#if 1
   char c;
   while (getChar (is, c) && c != '\n')  // UNIX
     ;
-#else
-	char c = '\0';
-	while (! is. eof () && c != '\n')  // UNIX
-  {	
-  	QC_ASSERT (is. good ());
-	  c = (char) is. get ();
-	}
-#endif
 }
 
 
@@ -1189,7 +1189,7 @@ string getColumn (istream &is,
     IMPLY (! is. eof (), is. good ());
     const char c = (char) is. get ();
     if (is. eof ())
-      return string ();
+      return noString;
     ASSERT (c);
     if (charInSet (c, skip))
       continue;
@@ -1385,7 +1385,7 @@ string which (const string &progName)
        )
       return path + "/";
 
-  return string ();
+  return noString;
 }
 #endif
 
@@ -1556,7 +1556,7 @@ StringVector::StringVector (const string &s,
 	while (! s1. empty ())
 	  *this << move (findSplit (s1, sep));
 	if (! s. empty () && s. back () == sep)
-	  *this << string ();
+	  *this << noString;
 	  
 	if (trimP)
 	  for (string& member : *this)
@@ -1700,17 +1700,13 @@ void Progress::report () const
 // Input
 
 Input::Input (const string &fName,
-	            size_t bufSize,
 	            uint displayPeriod)
-: buf (new char [bufSize])
-, ifs (fName)
+: ifs (fName)
 , is (& ifs)
 , prog (0, displayPeriod)  
 { 
   if (! ifs. good ())
     throw runtime_error ("Cannot open file " + shellQuote (fName));
-  if (! ifs. rdbuf () -> pubsetbuf (buf. get (), (long) bufSize))
-  	throw runtime_error ("Cannot allocate buffer to file " + shellQuote (fName));
 }
  
 
@@ -1729,10 +1725,12 @@ Input::Input (istream &is_arg,
 
 void Input::reset ()
 { 
-  ASSERT (is == & ifs);
+  ASSERT (is);
+  ASSERT (is->good ());
 
-  ifs. seekg (0); 
-  QC_ASSERT (ifs. good ());
+  is->seekg (0); 
+  QC_ASSERT (is->good ());
+  
   prog. reset ();
 }
 
@@ -1751,10 +1749,15 @@ bool LineInput::nextLine ()
 	  return false;
 	}
 	
-	try 
+  try 
 	{
+	#if 0
   	readLine (*is, line);
-  	const bool end = line. empty () && is->eof ();
+  #else
+    getline (*is, line);  // faster
+  #endif
+  	eof = is->eof ();
+  	const bool end = line. empty () && eof;
 
     if (! commentStart. empty ())
     {
@@ -1764,7 +1767,6 @@ bool LineInput::nextLine ()
     }
   //trimTrailing (line); 
 
-  	eof = is->eof ();
   	lineNum++;
   
   	if (! end)
@@ -1785,7 +1787,7 @@ bool LineInput::nextLine ()
 
 bool ObjectInput::next (Root &row)
 { 
-  ASSERT (is);
+  QC_ASSERT (is);
 
 	row. clear ();
 
@@ -1819,10 +1821,10 @@ bool ObjectInput::next (Root &row)
 char CharInput::get ()
 { 
   ASSERT (is);
-
-	const char c = (char) is->get ();
-
+  
+  const char c = (char) is->get ();
 	eof = is->eof ();
+	
 	ASSERT (eof == (c == (char) EOF));
 
   if (ungot)
@@ -1856,9 +1858,9 @@ char CharInput::get ()
 void CharInput::unget ()
 { 
   ASSERT (is);
-	ASSERT (! ungot);
+	QC_ASSERT (! ungot);
 	
-	is->unget (); 
+  is->unget (); 
 	charNum--;  // May be (uint) (-1)
 	ungot = true;
 }
