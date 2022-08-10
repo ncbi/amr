@@ -1085,8 +1085,7 @@ private:
 	      LESS_PART (other, *this, refExactlyMatched ());  
 	    //LESS_PART (other, *this, allele ());  // PD-2352
 	      LESS_PART (other, *this, alleleReported ());  
-	    //LESS_PART (*this, other, partial ());  ??
-	    //LESS_PART (other, *this, targetProt);  // moved below
+	    //LESS_PART (*this, other, partial ());  // targetProt => supposed to be a correct annotation
 	    }
       if (isMutationProt () && other. isMutationProt ())  
       {
@@ -1679,7 +1678,7 @@ public:
   	      {
   	        if (! blastAl->isMutationProt ())
   	        {
-    	        ASSERT (! blastAl->hmmAl);
+    	        IMPLY (blastAl->hmmAl, blastAl->hmmAl == *hmmIt);  // PD-4290
     	        var_cast (blastAl) -> hmmAl = *hmmIt;
     	      }
             hmmIt. erase ();

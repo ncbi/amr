@@ -1283,7 +1283,7 @@ struct Dir
 
 
 
-// istream/FILE
+// istream
 
 bool getChar (istream &is,
               char &c);
@@ -2808,6 +2808,7 @@ public:
 	const size_t displayPeriod;
 	size_t n {0};
 	string step;
+	  // To report in case of throw
 	
 
 	explicit Progress (size_t n_max_arg = 0,
@@ -2822,7 +2823,8 @@ public:
 	  }
  ~Progress () 
     { if (active)
-    	{ cerr << endl;
+    	{ report ();
+    	  cerr << endl;
     	  beingUsed--;
     	}
     }
@@ -2830,11 +2832,11 @@ public:
 
   bool operator() (const string& step_arg = noString)
     { n++;
+    	step = step_arg;
     	if (   active 
     		  && n % displayPeriod == 0
     		 )
-    	{ step = step_arg;
-    	  report ();
+    	{ report ();
     	  return true;
     	}
     	return false;
@@ -2844,7 +2846,7 @@ private:
 	  // Output: cerr
 public:
   void reset ()
-    { n = 0;
+    { n = 0; 
       step. clear ();
     }
 	static void disable ()
