@@ -32,6 +32,7 @@
 * Dependencies: NCBI BLAST, HMMer
 *
 * Release changes:
+*   3.10.40 08/12/2022 PD-4297  duplicated rows in amr_report output
 *   3.10.39 08/10/2022 PD-4290  wrong QC in amr_report.cpp is removed
 *   3.10.38 08/04/2022 PD-4264  prohibition of the same contig and protein names is removed
 *   3.10.37 08/02/2022 PD-4277  --annotation_format is restored, amr_report is faster, -a patric allows "accn|" in nucleotide FASTA, -a pseudomonasdb
@@ -1095,7 +1096,7 @@ struct ThisApplication : ShellApplication
       {
         TextTable amrTab (tmp + "/amr");
         amrTab. sort (amrSortColumns);
-      //amrTab. rows. uniq ();
+        amrTab. rows. uniq ();  // PD-4297
         amrTab. qc ();
     		if (output. empty ())
     		  amrTab. saveText (cout);
