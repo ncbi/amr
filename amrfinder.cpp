@@ -631,7 +631,7 @@ struct ThisApplication : ShellApplication
       else
         stderr << "Database version: " << dataVersion. str () << '\n';
       if (softwareVersion < softwareVersion_min)
-        throw runtime_error ("Database requires sofware version at least " + softwareVersion_min. str ());
+        throw runtime_error ("Database requires software version at least " + softwareVersion_min. str ());
       if (dataVersion < dataVersion_min)
         throw runtime_error ("Software requires database version at least " + dataVersion_min. str () + downloadLatestInstr);
       if (database_version)
