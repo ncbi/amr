@@ -53,6 +53,6 @@ jobs:
              -O ${BASE_URL}/test_amrfinder.sh
     - name: Run tests
       run: |
-          source /Users/runner/miniconda3/bin/activate
+          source /Users/runner/miniconda3/etc/profile.d/conda.sh
           echo CONDA_PREFIX = $CONDA_PREFIX
           bash ./test_amrfinder.sh path
