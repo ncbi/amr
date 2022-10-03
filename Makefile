@@ -100,7 +100,7 @@ amr_report:	$(amr_reportOBJS)
 	$(CXX) -o $@ $(amr_reportOBJS)
 
 amrfinder.o:  common.hpp common.inc gff.hpp
-amrfinderOBJS=amrfinder.o common.o gff.o
+amrfinderOBJS=amrfinder.o common.o gff.o tsv.o
 amrfinder:	$(amrfinderOBJS)
 	$(CXX) -o $@ $(amrfinderOBJS) -pthread $(DBDIR)
 

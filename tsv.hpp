@@ -1,0 +1,215 @@
+// tsv.hpp
+
+/*===========================================================================
+*
+*                            PUBLIC DOMAIN NOTICE                          
+*               National Center for Biotechnology Information
+*                                                                          
+*  This software/database is a "United States Government Work" under the   
+*  terms of the United States Copyright Act.  It was written as part of    
+*  the author's official duties as a United States Government employee and 
+*  thus cannot be copyrighted.  This software/database is freely available 
+*  to the public for use. The National Library of Medicine and the U.S.    
+*  Government have not placed any restriction on its use or reproduction.  
+*                                                                          
+*  Although all reasonable efforts have been taken to ensure the accuracy  
+*  and reliability of the software and data, the NLM and the U.S.          
+*  Government do not and cannot warrant the performance or results that    
+*  may be obtained by using this software or data. The NLM and the U.S.    
+*  Government disclaim all warranties, express or implied, including       
+*  warranties of performance, merchantability or fitness for any particular
+*  purpose.                                                                
+*                                                                          
+*  Please cite the author in any work or product based on this material.   
+*
+* ===========================================================================
+*
+* Author: Vyacheslav Brover
+*
+* File Description:
+*   TSV-table
+*
+*/
+
+
+#ifndef TSV_HPP
+#define TSV_HPP
+
+
+#include "common.hpp"
+using namespace Common_sp;
+
+
+
+namespace Common_sp
+{
+
+
+
+struct TextTable : Named
+// Tab-delimited (tsv) table with a header
+// name: file name or empty()
+{
+  bool pound {false};
+    // '#' in the beginning of header
+  bool saveHeader {true};
+  struct Header : Named
+  { 
+    size_t len_max {0};
+    // Type
+    bool numeric {true};
+    // Valid if numeric
+    bool scientific {false};
+    streamsize decimals {0};
+    bool null {false};
+    explicit Header (const string &name_arg)
+      : Named (name_arg)
+      {}
+    void qc () const override;
+    void saveText (ostream& os) const override
+      { os         << name 
+           << '\t' << len_max 
+           << '\t' << (numeric ? ((scientific ? "float" : "int") + string ("(") + to_string (decimals) + ")") : "char") 
+           << '\t' << (null ? "null" : "not null"); 
+      }
+  };
+  Vector<Header> header;
+    // size() = number of columns
+  Vector<StringVector> rows;
+    // StringVector::size() = header.size()
+  typedef  size_t  ColNum;
+    // no_index <=> no column
+  typedef  size_t  RowNum;
+    // no_index <=> no row
+    
+    
+  struct Error : runtime_error
+  {
+    Error (const TextTable &tab,
+           const string &what)
+      : runtime_error (what + "\nIn table file: " + tab. name)
+      {}
+  };
+    
+
+  explicit TextTable (const string &tableFName,
+                      const string &columnSynonymsFName = string());
+    // columnSynonymsFName: syn_format
+  static constexpr const char* syn_format {"Column synonyms file with the format: {<main synonym> <eol> {<synonym> <eol>}* {<eol>|<eof>}}*"};
+  TextTable () = default;
+  TextTable (bool pound_arg,
+             const Vector<Header> &header_arg)
+    : pound (pound_arg)
+    , header (header_arg)
+    {}
+private:
+  void setHeader ();
+public:
+  void qc () const override;
+  void saveText (ostream &os) const override;    
+        
+  
+  static bool getDecimals (string s,
+                           bool &hasPoint,
+                           streamsize &decimals);
+    // Return: true => scientific number
+  void printHeader (ostream &os) const;
+  ColNum col2num_ (const string &columnName) const;
+    // Retuirn: no_index <=> no columnName
+  ColNum col2num (const string &columnName) const
+    { const ColNum i = col2num_ (columnName);
+      if (i == no_index)
+        throw Error (*this, "Table has no column " + strQuote (columnName));
+      return i;
+    }
+  Vector<ColNum> columns2nums (const StringVector &columns) const
+    { Vector<ColNum> nums;  nums. reserve (columns. size ());
+      for (const string &s : columns)
+        nums << col2num (s);
+      return nums;
+    }
+  bool hasColumn (const string &columnName) const
+    { return col2num_ (columnName) != no_index; }
+  void duplicateColumn (const string &columnName_from,
+                        const string &columnName_to);
+  void substitueColumn (string &columnName_from,
+                        const string &columnName_to)
+    { duplicateColumn (columnName_from, columnName_to);
+      columnName_from = columnName_to;
+    }
+private:
+  int compare (const StringVector& row1,
+               const StringVector& row2,
+               ColNum column) const;
+public:
+  void filterColumns (const StringVector &newColumnNames);
+    // Input: newColumnNames: in header::name's
+    //          can be repeated
+    //          ordered
+  void sort (const StringVector &by);
+  void group (const StringVector &by,
+              const StringVector &sum,
+              const StringVector &minV,
+              const StringVector &maxV,
+              const StringVector &aggr);
+    // Invokes: filterColumns(by + sum + aggr)
+private:
+  void merge (RowNum toRowNum,
+              RowNum fromRowNum,
+              const Vector<ColNum> &sum,
+              const Vector<ColNum> &minV,
+              const Vector<ColNum> &maxV,
+              const Vector<ColNum> &aggr);
+public:
+  void colNumsRow2values (const Vector<ColNum> &colNums,
+                          RowNum row_num,
+                          StringVector &values) const;
+    // Output: values
+  RowNum find (const Vector<ColNum> &colNums,
+               const StringVector &targetValues,
+               RowNum rowNum_start) const;
+  StringVector col2values (ColNum col) const;
+
+
+  struct Key
+  {
+    const Vector<ColNum> colNums;
+    unordered_map<StringVector,RowNum,StringVector::Hasher> data;
+
+    Key (const TextTable &tab,
+         const StringVector &columns);
+         
+    RowNum find (const StringVector &values) const
+      { const auto& it = data. find (values);
+        if (it != data. end ())
+          return it->second;
+        return no_index;
+      }
+  };
+
+
+  struct Index
+  {
+    const Vector<ColNum> colNums;
+    unordered_map<StringVector,Vector<RowNum>,StringVector::Hasher> data;
+
+    Index (const TextTable &tab,
+           const StringVector &columns);
+         
+    const Vector<RowNum>* find (const StringVector &values) const
+      { const auto& it = data. find (values);
+        if (it == data. end ())
+          return nullptr;
+        return & it->second;
+      }
+  };
+};
+
+
+		
+}
+
+
+
+#endif
+
