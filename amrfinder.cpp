@@ -32,6 +32,8 @@
 * Dependencies: NCBI BLAST, HMMer
 *
 * Release changes:
+*   3.10.42 09/30/2022 PD-4333  https://github.com/ncbi/amr/issues/99
+*   3.10.41 08/19/2022          "-max_target_seqs 10000" is used in all BLAST commands
 *   3.10.40 08/12/2022 PD-4297  duplicated rows in amr_report output
 *   3.10.39 08/10/2022 PD-4290  wrong QC in amr_report.cpp is removed
 *   3.10.38 08/04/2022 PD-4264  prohibition of the same contig and protein names is removed
@@ -71,7 +73,7 @@
 *                      PD-3867  "BLAST -mt_mode 1" is used
 *                               makeblastdb and tblastn are used for large sequences 
 *                               hmmsearch and tbasltn: query file is split into threads_max files
-*                              "blastp -seg no" is used
+*                               "blastp -seg no" is used
 *   3.10.7  05/18/2021 PD-3820  message for missing AMRProt blast database; https://github.com/ncbi/amr/issues/53
 *   3.10.6  05/07/2021 PD-3796  for POINTN reported "target length" column = targetEnd - targetStart 
 *   3.10.5  04/12/2021 PD-3772  --report_equidistant
@@ -212,6 +214,7 @@
 #include <unistd.h>
 
 #include "common.hpp"
+#include "tsv.hpp"
 using namespace Common_sp;
 #include "gff.hpp"
 using namespace GFF_sp;
@@ -631,7 +634,7 @@ struct ThisApplication : ShellApplication
       else
         stderr << "Database version: " << dataVersion. str () << '\n';
       if (softwareVersion < softwareVersion_min)
-        throw runtime_error ("Database requires software version at least " + softwareVersion_min. str ());
+        throw runtime_error ("Database requires sofware version at least " + softwareVersion_min. str ());
       if (dataVersion < dataVersion_min)
         throw runtime_error ("Software requires database version at least " + dataVersion_min. str () + downloadLatestInstr);
       if (database_version)
@@ -805,7 +808,7 @@ struct ThisApplication : ShellApplication
 
   		
   		// PD-2967
-  		const string blastp_par ("-comp_based_stats 0  -evalue 1e-10  -seg no");  
+  		const string blastp_par ("-comp_based_stats 0  -evalue 1e-10  -seg no  -max_target_seqs 10000");  
   		  // was: -culling_limit 20  // PD-2967
   		if (! emptyArg (prot))
   		{
@@ -953,7 +956,7 @@ struct ThisApplication : ShellApplication
     			findProg (blastx);
           {
        			const Chronometer_OnePass cop (blastx, cerr, false, qc_on && ! quiet);
-        		const string tblastn_par (blastp_par + "  -word_size 3  -max_target_seqs 10000");
+        		const string tblastn_par (blastp_par + "  -word_size 3");  //   -max_target_seqs 10000
         		const string blastx_par (tblastn_par + "  -query_gencode " + to_string (gencode));
       			ASSERT (threads_max >= 1);
       			if (blastx == "blastx")
@@ -996,7 +999,7 @@ struct ThisApplication : ShellApplication
       			findProg ("blastn");
       			stderr << "Running blastn...\n";
        			const Chronometer_OnePass cop ("blastn", cerr, false, qc_on && ! quiet);
-      			exec (fullProg ("blastn") + " -query " + dna + " -db " + tmp + "/db/AMR_DNA-" + organism1 + " -evalue 1e-20  -dust no  " 
+      			exec (fullProg ("blastn") + " -query " + dna + " -db " + tmp + "/db/AMR_DNA-" + organism1 + " -evalue 1e-20  -dust no  -max_target_seqs 10000  " 
       			      + get_num_threads_param ("blastn", min (nDna, dnaLen_total / 2500000)) + " " BLAST_FMT " -out " + tmp + "/blastn > " + logFName + " 2> " + tmp + "/blastn-err", logFName);
       		//checkBlastErr (tmp + "/blastn-err");  // SB-3162 ??
       		}
