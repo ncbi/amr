@@ -387,6 +387,8 @@ struct BlastAlignment : Alignment
   static constexpr size_t mismatchTail_aa = 10;  // PAR
   
   const Susceptible* susceptible {nullptr};
+    // In accession2susceptible
+    // Only for the right organism
   
   const HmmAlignment* hmmAl {nullptr};
 
@@ -786,7 +788,8 @@ struct BlastAlignment : Alignment
   bool alleleReportable () const  // PD-3583
     { return alleleMatch () && reportable >= 2; }
   uchar fusion2reportable () const
-    { if (susceptible)
+    { ASSERT (! isMutationProt ());
+      if (susceptible)
         return 2;
       if (fusions. empty ())
         return getFam () -> reportable;
@@ -795,6 +798,7 @@ struct BlastAlignment : Alignment
         maximize (reportable_max, fusion->getFam () -> reportable);
       return reportable_max;
     }
+private:
   string getGeneSymbol () const
     { return susceptible
                ? susceptible->genesymbol
@@ -802,8 +806,10 @@ struct BlastAlignment : Alignment
                  ? famId 
                  : nvl (getFam () -> genesymbol, na); 
     }
+public:
   string fusion2geneSymbols () const
-    { if (fusions. empty ())
+    { ASSERT (! isMutationProt ());
+      if (fusions. empty ())
         return getGeneSymbol ();
       string s;
       for (const BlastAlignment* fusion : fusions)
@@ -813,20 +819,26 @@ struct BlastAlignment : Alignment
       }
       return s;
     }
+private:
   bool isCore () const 
     { return fusion2reportable () >= 2 || alleleReportable (); }
+public:
   bool fusion2core () const
-    { if (fusions. empty ())
+    { ASSERT (! isMutationProt ());
+      if (fusions. empty ())
         return isCore ();
       for (const BlastAlignment* fusion : fusions)
         if (fusion->isCore ())
           return true;
       return false;
     }
+private:
   string getType () const
     { return susceptible ? "AMR" : getFam () -> type; }
+public:
   string fusion2type () const
-    { if (fusions. empty ())
+    { ASSERT (! isMutationProt ());
+      if (fusions. empty ())
         return getType ();
       StringVector vec;
       for (const BlastAlignment* fusion : fusions)
@@ -835,10 +847,13 @@ struct BlastAlignment : Alignment
       vec. uniq ();
       return vec. toString ("/");
     }    
+private:
   string getSubtype () const
     { return susceptible ? "AMR" : getFam () -> subtype; }
+public:
   string fusion2subtype () const
-    { if (fusions. empty ())
+    { ASSERT (! isMutationProt ());
+      if (fusions. empty ())
         return getSubtype ();
       StringVector vec;
       for (const BlastAlignment* fusion : fusions)
@@ -847,13 +862,16 @@ struct BlastAlignment : Alignment
       vec. uniq ();
       return vec. toString ("/");
     }    
+private:
 	string getClass () const
 	  { if (alleleMatch () && ! subclass. empty ())  // class may be empty()
 	      return classS;
 	    return susceptible ? susceptible->classS : getFam () -> classS;
 	  }
+public:
   string fusion2class () const
-    { if (fusions. empty ())
+    { ASSERT (! isMutationProt ());
+      if (fusions. empty ())
         return getClass ();
       StringVector vec;
       for (const BlastAlignment* fusion : fusions)
@@ -861,14 +879,17 @@ struct BlastAlignment : Alignment
       vec. sort ();
       vec. uniq ();
       return vec. toString ("/");
-    }    
+    }   
+private: 
 	string getSubclass () const
 	  { if (alleleMatch () && ! subclass. empty ())
 	      return subclass;
 	    return susceptible ? susceptible->subclass : getFam () -> subclass;
 	  }
+public:
   string fusion2subclass () const
-    { if (fusions. empty ())
+    { ASSERT (! isMutationProt ());
+      if (fusions. empty ())
         return getSubclass ();
       StringVector vec;
       for (const BlastAlignment* fusion : fusions)
@@ -1125,8 +1146,6 @@ public:
   bool better (const HmmAlignment& other) const
     { ASSERT (other. good ());
     	ASSERT (other. blastAl. get ());
-    /*if (! inFam ())
-    	  return false; */
     	if (targetProt)
     	{ if (targetName != other. sseqid)
 	        return false;
@@ -1136,8 +1155,17 @@ public:
 	    		return false;
     	if (hasMutation ())
     	  return true;
+    #if 0  // PD-4333
+    	if (verbose () && ! inFam ())
+    	{ cout << "!inFam(): ";
+    	  PRINT (isMutationProt ());
+    	  PRINT (isSusceptibleProt ());
+    	  saveText (cout);
+    	  other. saveText (cout);
+    	}
+    #endif
       return    refExactlyMatched () 
-             || getFam () -> descendantOf (other. fam)
+             || (inFam () && getFam () -> descendantOf (other. fam))
              ;
     }
   size_t getCdsStart () const
@@ -1535,6 +1563,10 @@ public:
       for (Iter<VectorPtr<BlastAlignment>> iter (it. second); iter. next ();)
         if (! (*iter)->good ())
           iter. erase ();
+        else
+        {
+          ASSERT ((bool) (*iter)->susceptible == (*iter)->isSusceptibleProt ());
+        }
  	  reportDebug ("Good Blasts");
         
 	  // PD-2322
