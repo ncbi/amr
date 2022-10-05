@@ -1293,6 +1293,11 @@ struct Dir
 
 
 
+void setSymlink (const string &path,
+                 const string &fName);
+
+
+
 // istream
 
 bool getChar (istream &is,

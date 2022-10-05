@@ -1096,7 +1096,17 @@ size_t Dir::create ()
 
 
 
+
 //
+
+void setSymlink (const string &path,
+                 const string &fName)
+{ 
+  if (symlink (path2canonical (path). c_str (), fName. c_str ()))
+    throw runtime_error ("Cannot make a symlink for " + strQuote (path) + " as " + strQuote (fName));
+}
+
+
 
 size_t strMonth2num (const string& month)
 {
