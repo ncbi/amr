@@ -32,6 +32,7 @@
 * Dependencies: NCBI BLAST, HMMer
 *
 * Release changes:
+*   3.10.44 10/12/2022 PD-4348  "latest" symbolic link is relative, and it is updated by "amrfinder -u"
 *   3.10.43 10/05/2022 PD-4341  Non-existant GPipe taxgroup
 *   3.10.42 10/03/2022 PD-4333  https://github.com/ncbi/amr/issues/99
 *   3.10.41 08/19/2022          "-max_target_seqs 10000" is used in all BLAST commands
