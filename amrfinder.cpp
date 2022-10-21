@@ -32,6 +32,7 @@
 * Dependencies: NCBI BLAST, HMMer
 *
 * Release changes:
+*   3.10.45 10/21/2022          path2canonical() is sometimes needed for setsymlink()
 *   3.10.44 10/12/2022 PD-4348  "latest" symbolic link is relative, and it is updated by "amrfinder -u"
 *   3.10.43 10/05/2022 PD-4341  Non-existant GPipe taxgroup
 *   3.10.42 10/03/2022 PD-4333  https://github.com/ncbi/amr/issues/99
@@ -615,7 +616,7 @@ struct ThisApplication : ShellApplication
       cout   << "Database directory: " << shellQuote (path2canonical (db)) << endl;
     else
 		  stderr << "Database directory: " << shellQuote (path2canonical (db)) << '\n';
-    setSymlink (db, tmp + "/db");
+    setSymlink (path2canonical (db), tmp + "/db");
 
 		if (! fileExists (db + "/AMRProt.phr"))
 			throw runtime_error ("The BLAST database for AMRProt was not found. Use amrfinder -u to download and prepare database for AMRFinderPlus");

@@ -453,24 +453,6 @@ bool trimTailAt (string &s,
 
 
 
-bool goodName (const string &name)
-{
-  if (name. empty ())
-    return false;
-  if (name. front () == ' ')
-    return false;
-  if (name. back () == ' ')
-    return false;
-
-  for (const char c : name)  
-    if (! printable (c))
-      return false;
-      
-  return true;
-}
-
-
-
 string pad (const string &s,
             size_t size,
             bool right)
@@ -489,6 +471,24 @@ string pad (const string &s,
 
 
 
+bool goodName (const string &name)
+{
+  if (name. empty ())
+    return false;
+  if (name. front () == ' ')
+    return false;
+  if (name. back () == ' ')
+    return false;
+
+  for (const char c : name)  
+    if (! printable (c))
+      return false;
+      
+  return true;
+}
+
+
+
 bool isIdentifier (const string& name,
                    bool dashInName)
 {
@@ -501,6 +501,22 @@ bool isIdentifier (const string& name,
   for (const char c : name)
     if (! isLetter (c) && (! dashInName || c != '-'))
       return false;
+  return true;
+}
+
+
+
+bool isNatural (const string& name)
+{
+  if (name. empty ())
+    return false;
+  for (const char c : name)
+    if (! isDigit (c))
+      return false;
+  if (name. size () == 1)
+    return true;
+  if (name [0] == '0')
+    return false;
   return true;
 }
 
@@ -1102,7 +1118,7 @@ size_t Dir::create ()
 void setSymlink (const string &path,
                  const string &fName)
 { 
-  if (symlink (/*path2canonical*/ (path). c_str (), fName. c_str ()))
+  if (symlink (path. c_str (), fName. c_str ()))
     throw runtime_error ("Cannot make a symlink for " + strQuote (path) + " as " + strQuote (fName));
 }
 
@@ -1372,12 +1388,13 @@ void exec (const string &cmd,
 	  *logPtr << "status = " << status << endl;	
 	if (status)
 	{
+	  string err (/*"Command failed:\n" +*/ cmd + "\nstatus = " + to_string (status));
 	  if (! logFName. empty ())
 	  {
 	    const StringVector vec (logFName, (size_t) 10, false);  // PAR
-	    throw runtime_error (vec. toString ("\n"));
+	    err += "\n" + vec. toString ("\n");
 	  }
-		throw runtime_error ("Command failed:\n" + cmd + "\nstatus = " + to_string (status));		
+		throw runtime_error (err);		
 	}
 }
 

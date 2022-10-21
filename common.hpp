@@ -1039,6 +1039,8 @@ bool goodName (const string &name);
 bool isIdentifier (const string& name,
                    bool dashInName);
 
+bool isNatural (const string& name);
+
 void strUpper (string &s);
 
 void strLower (string &s);
@@ -3423,7 +3425,7 @@ public:
 
 protected:
   static string toStr (const string& s)
-    { return "'" + to_c (s) + "'"; }    
+    { return isNatural (s) ? s : ("'" + to_c (s) + "'"); } 
   static void parse (CharInput &in,
                      const Token& firstToken,
                      JsonContainer* parent,
