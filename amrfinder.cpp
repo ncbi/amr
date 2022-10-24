@@ -32,7 +32,10 @@
 * Dependencies: NCBI BLAST, HMMer
 *
 * Release changes:
-*   3.10.42 09/30/2022 PD-4333  https://github.com/ncbi/amr/issues/99
+*   3.10.45 10/21/2022          path2canonical() is sometimes needed for setsymlink()
+*   3.10.44 10/12/2022 PD-4348  "latest" symbolic link is relative, and it is updated by "amrfinder -u"
+*   3.10.43 10/05/2022 PD-4341  Non-existant GPipe taxgroup
+*   3.10.42 10/03/2022 PD-4333  https://github.com/ncbi/amr/issues/99
 *   3.10.41 08/19/2022          "-max_target_seqs 10000" is used in all BLAST commands
 *   3.10.40 08/12/2022 PD-4297  duplicated rows in amr_report output
 *   3.10.39 08/10/2022 PD-4290  wrong QC in amr_report.cpp is removed
@@ -613,7 +616,7 @@ struct ThisApplication : ShellApplication
       cout   << "Database directory: " << shellQuote (path2canonical (db)) << endl;
     else
 		  stderr << "Database directory: " << shellQuote (path2canonical (db)) << '\n';
-    symlink (path2canonical (db). c_str (), (tmp + "/db"). c_str ());
+    setSymlink (path2canonical (db), tmp + "/db");
 
 		if (! fileExists (db + "/AMRProt.phr"))
 			throw runtime_error ("The BLAST database for AMRProt was not found. Use amrfinder -u to download and prepare database for AMRFinderPlus");
@@ -746,20 +749,28 @@ struct ThisApplication : ShellApplication
             break;
           }
         }
-        if (! found)
-          organism1. clear ();
-      }
-      if (! organism1. empty ())
-      {
-        const StringVector organisms (db2organisms ());
-        if (! organisms. contains (organism1))
-          throw runtime_error ("Possible organisms: " + organisms. toString (", "));  
+        if (! found)  // PD-4341
+        #if 0
+          throw runtime_error ("Non-existant GPipe taxgroup: " + organism);  
+        #else
+        {
+    	    const Warning warning (stderr);
+    		  stderr << "Non-existant GPipe taxgroup: " << organism;
+    		  organism1. clear ();
+        }
+        #endif
       }
  	  }
+ 	  ASSERT (! contains (organism1, ' '));
+
 	  if (! organism1. empty ())
+	  {
+      const StringVector organisms (db2organisms ());
+      if (! organisms. contains (organism1))
+        throw runtime_error ("Possible organisms: " + organisms. toString (", "));  
  	  	if (! report_common)
  	  	  suppress_common = true;
- 	  ASSERT (! contains (organism1, ' '));
+ 	  }
 
 
     const string qcS (qc_on ? " -qc" : "");

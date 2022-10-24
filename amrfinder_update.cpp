@@ -336,9 +336,8 @@ Requirement: the database directory contains subdirectories named by database ve
     ASSERT (! mainDirS. empty ()); 
     ASSERT (! latestDir. empty ()); 
     const string latestLink (mainDirS + "latest");
-    if (directoryExists (latestLink))
-      removeFile (latestLink);
-    symlink (path2canonical (latestDir). c_str (), latestLink. c_str ());
+    ::remove (latestLink. c_str ());
+    setSymlink (latestDir, latestLink);
   }
 
 
@@ -425,7 +424,7 @@ Requirement: the database directory contains subdirectories named by database ve
           const Warning w (stderr);
           stderr << shellQuote (latestDir) << " contains the latest version: " << version_old. front () << '\n';
           stderr << "Skipping update, use amrfinder --force_update to overwrite the existing database\n";
-          createLatestLink (mainDirS, latestDir);
+          createLatestLink (mainDirS, /*latestDir*/ latest_data_version);
           return;
         }
       }
@@ -471,13 +470,13 @@ Requirement: the database directory contains subdirectories named by database ve
     
     stderr << "Indexing" << "\n";
     exec (fullProg ("hmmpress") + " -f " + shellQuote (latestDir + "AMR.LIB") + " > /dev/null 2> /dev/null");
-    symlink (path2canonical (latestDir). c_str (), (tmp + "/db"). c_str ());
+    setSymlink (path2canonical (latestDir), tmp + "/db");
 	  exec (fullProg ("makeblastdb") + " -in " + tmp + "/db/AMRProt" + "  -dbtype prot  -logfile /dev/null");  
 	  exec (fullProg ("makeblastdb") + " -in " + tmp + "/db/AMR_CDS" + "  -dbtype nucl  -logfile /dev/null");  
     for (const string& dnaPointMut : dnaPointMuts)
   	  exec (fullProg ("makeblastdb") + " -in " + tmp + "/db/AMR_DNA-" + dnaPointMut + "  -dbtype nucl  -logfile /dev/null");
 
-    createLatestLink (mainDirS, latestDir);
+    createLatestLink (mainDirS, /*latestDir*/ latest_data_version);
   }
 };
 
