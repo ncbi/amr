@@ -430,7 +430,7 @@ void TextTable::group (const StringVector &by,
   for (const string& s : sum)
     if (! header [col2num (s)]. numeric)
       throw runtime_error ("Summation column " + strQuote (s) + " is not numeric");
-  
+
   const auto lt = [&byIndex,this] (const StringVector &a, const StringVector &b) 
                     { for (const ColNum i : byIndex) 
                         switch (this->compare (a, b, i))
@@ -491,7 +491,11 @@ void TextTable::merge (RowNum toRowNum,
     ASSERT (h. numeric);
     ostringstream oss;
     ONumber on (oss, h. decimals, h. scientific);
-    oss << stod (to [i]) + stod (from [i]);
+    const string& s1 = to   [i];
+    const string& s2 = from [i];
+    const double d1 = s1. empty () ? 0.0 : stod (s1);
+    const double d2 = s2. empty () ? 0.0 : stod (s2);
+    oss << (d1 + d2);
     to [i] = oss. str ();
   }
 

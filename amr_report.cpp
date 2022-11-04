@@ -333,7 +333,7 @@ map <string/*accession*/, Susceptible>  accession2susceptible;
 
 
 bool cdsExist = false;
-bool print_fam = false;
+bool print_node = false;
 
 bool reportPseudo = false; 
 //const string stopCodonS ("[stop]");
@@ -630,8 +630,8 @@ struct BlastAlignment : Alignment
                          ? mut->wildtype ()
   			                 : mut->geneMutation
   			               : gene + "_" + seqChange. getMutationStr ()
-  	                 : print_fam 
-  			               ? famId
+  	               /*: print_node 
+  			               ? famId */
   			               : fusion2geneSymbols ()
   	              )
   	           << (isMutationProt ()
@@ -698,6 +698,8 @@ struct BlastAlignment : Alignment
   		            td << na;        	
   		        }
   	        }
+  	        if (print_node)
+  	          td << famId;
   	        IMPLY ((isMutationProt () && ! seqChange. empty () && mut && ! seqChange. replacement), hasMutation ());
   	        if (   ! isMutationProt ()
   	            || (! seqChange. empty () && mut && ! seqChange. replacement)  // resistant mutation
@@ -1862,6 +1864,8 @@ public:
       if (cdsExist)
 	    	if (useCrossOrigin)
 	      	 td << "Cross-origin length";
+      if (print_node)
+	      td << "Hierarchy node"; 
 	    os << td. str () << endl;
       if (mutation_all. get ())
         *mutation_all << td. str () << endl;
@@ -2013,7 +2017,7 @@ struct ThisApplication : Application
       
       // Output
       addKey ("out", "Identifiers of the reported input proteins");
-      addFlag ("print_fam", "Print the FAM.id instead of gene symbol"); 
+      addFlag ("print_node", "Print FAM.id"); 
       addFlag ("pseudo", "Indicate pseudo-genes as method INTERNAL_STOP");  //  or FRAME_SHIFT
       addFlag ("force_cds_report", "Report contig/start/stop/strand even if this information does not exist");
       addFlag ("non_reportable", "Report non-reportable families");
@@ -2057,7 +2061,7 @@ struct ThisApplication : Application
     const bool    skip_hmm_check       = getFlag ("skip_hmm_check"); 
                   equidistant          = getFlag ("report_equidistant");
     const string  outFName             = getArg ("out");
-                  print_fam            = getFlag ("print_fam");
+                  print_node           = getFlag ("print_node");
                   reportPseudo         = getFlag ("pseudo");
     const bool    force_cds_report     = getFlag ("force_cds_report");
     const bool    non_reportable       = getFlag ("non_reportable");

@@ -198,14 +198,14 @@ bool initCommon ()
   #pragma warning (disable : 4127)
 #endif
   static_assert (numeric_limits<char>::is_signed, "char is signed");
-  static_assert (sizeof (long) >= 4, "long size >= 4");
+  static_assert (sizeof (long) >= 4);
 #ifdef _MSC_VER
   #pragma warning (default : 4127)
 #endif
 
-  static_assert (SIZE_MAX == std::numeric_limits<size_t>::max (), "SIZE_MAX is correct");
+  static_assert (SIZE_MAX == std::numeric_limits<size_t>::max ());
 
-  static_assert (sizeof (size_t) == 8, "Size of size_t must be 8 bytes");
+  static_assert (sizeof (size_t) == 8);
     
   return true;
 }
@@ -319,7 +319,7 @@ Chronometer_OnePass::~Chronometer_OnePass ()
 { 
   if (! active)
     return;
-  if (uncaught_exception ())
+  if (uncaught_exceptions ())
     return;
     
   const time_t stop = time (nullptr);
@@ -1112,14 +1112,28 @@ size_t Dir::create ()
 
 
 
-
 //
 
-void setSymlink (const string &path,
-                 const string &fName)
+void setSymlink (string path,
+                 const string &fName,
+                 bool pathIsAbsolute)
 { 
+  ASSERT (! path. empty ());
+  ASSERT (! fName. empty ());
+  const string err (string ("Cannot make ") + (pathIsAbsolute ? "an absolute" : "a relative") + " symlink for " + strQuote (path) + " as " + strQuote (fName));
+  if (pathIsAbsolute)
+    path = path2canonical (path);
+  else
+  { 
+    if (path [0] == '/')
+      throw runtime_error (err + " because " + strQuote (path) + " is absolute");
+    const Dir dir (fName);
+    const string absPath (dir. getParent () + "/" + path);
+    if (getFiletype (absPath, false) == Filetype::none)
+      throw runtime_error (err + " because " + strQuote (absPath) + " does not exist");
+  }
   if (symlink (path. c_str (), fName. c_str ()))
-    throw runtime_error ("Cannot make a symlink for " + strQuote (path) + " as " + strQuote (fName));
+    throw runtime_error (err);
 }
 
 
@@ -1388,7 +1402,7 @@ void exec (const string &cmd,
 	  *logPtr << "status = " << status << endl;	
 	if (status)
 	{
-	  string err (/*"Command failed:\n" +*/ cmd + "\nstatus = " + to_string (status));
+	  string err (cmd + "\nstatus = " + to_string (status));
 	  if (! logFName. empty ())
 	  {
 	    const StringVector vec (logFName, (size_t) 10, false);  // PAR

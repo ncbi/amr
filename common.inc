@@ -86,7 +86,7 @@ namespace Common_sp
 }
 
 #define ERROR_MSG(msg)                       \
-  { if (! std::uncaught_exception ())        \
+  { if (! std::uncaught_exceptions ())       \
     { std::ostringstream oss_;               \
       oss_ << WHERE << ": " << (msg);        \
       oss_ << endl << "Stack:" << endl <<    \

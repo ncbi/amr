@@ -32,7 +32,12 @@
 * Dependencies: NCBI BLAST, HMMer
 *
 * Release changes:
-*   3.10.45 10/21/2022          path2canonical() is sometimes needed for setsymlink()
+*           11/04/2022 PD-4394  --print_node
+*           10/25/2022          setSymlink(,,bool); g++ -std=gnu++17
+*   3.10.47 10/22/2022          exec(,logFile) is added
+*           10/21/2022          Simplified: "No valid AMRFinder database found.\nSymbolic link is not found: " + db
+*   3.10.46 10/21/2022          blast error messages are printed if blast fails
+*   3.10.45 10/21/2022 PD-4348  path2canonical() is sometimes needed for setSymlink(); exec() throw prints command and exit code
 *   3.10.44 10/12/2022 PD-4348  "latest" symbolic link is relative, and it is updated by "amrfinder -u"
 *   3.10.43 10/05/2022 PD-4341  Non-existant GPipe taxgroup
 *   3.10.42 10/03/2022 PD-4333  https://github.com/ncbi/amr/issues/99
@@ -285,6 +290,7 @@ struct ThisApplication : ShellApplication
     	addKey ("blast_bin", "Directory for BLAST. Deafult: $BLAST_BIN", "", '\0', "BLAST_DIR");
     //addKey ("hmmer_bin" ??
       addFlag ("report_all_equal", "Report all equally-scoring BLAST and HMM matches");  // PD-3772
+      addFlag ("print_node", "print hierarchy node (family)");  // PD-4394
       addKey ("name", "Text to be added as the first column \"name\" to all rows of the report, for example it can be an assembly name", "", '\0', "NAME");
       addKey ("output", "Write output to OUTPUT_FILE instead of STDOUT", "", 'o', "OUTPUT_FILE");
       addKey ("protein_output", "Output protein FASTA file of reported proteins", "", '\0', "PROT_FASTA_OUT");
@@ -383,17 +389,6 @@ struct ThisApplication : ShellApplication
 
 
 
-#if 0
-  void checkBlastErr (const string &errFName) const
-  {
-  	const StringVector blastErr (errFName, (size_t) 10, true);  // PAR
-  	if (! blastErr. empty ())
-		  throw runtime_error (blastErr. toString ("\n"));
-  }
-#endif
-  
-
-
   StringVector db2organisms () const
   {
     const TextTable taxgroup            (tmp + "/db/taxgroup.tab");
@@ -445,7 +440,7 @@ struct ThisApplication : ShellApplication
     const string  gff              = shellQuote (prependS (getArg ("gff"),        dir));
           string  db               =             getArg ("database");
     const bool    pgap             =             getFlag ("pgap");
-          Gff::Type gffType        = Gff::name2type (getArg ("annotation_format"));  // Gff::genbank; ??
+          Gff::Type gffType        = Gff::name2type (getArg ("annotation_format"));  
     const double  ident            =             arg2double ("ident_min");
     const double  cov              =             arg2double ("coverage_min");
     const string  organism         = shellQuote (getArg ("organism"));   
@@ -456,6 +451,7 @@ struct ThisApplication : ShellApplication
     const string  mutation_all     =             getArg ("mutation_all");  
           string  blast_bin        =             getArg ("blast_bin");
     const bool    equidistant      =             getFlag ("report_all_equal");
+    const bool    print_node       =             getFlag ("print_node");
     const string  input_name       = shellQuote (getArg ("name"));
     const string  parm             =             getArg ("parm");  
     const string  output           =             getArg ("output");
@@ -611,12 +607,13 @@ struct ThisApplication : ShellApplication
     const string downloadLatestInstr ("\nTo download the latest version to the default directory run: amrfinder -u");
     
 		if (! directoryExists (db))  // PD-2447
-		  throw runtime_error ("No valid AMRFinder database found.\nSymbolic link is not found: " + db + ifS (! update, downloadLatestInstr));
+		  throw runtime_error ("No valid AMRFinder database found: " + db + ifS (! update, downloadLatestInstr));
+		//throw runtime_error ("No valid AMRFinder database found.\nSymbolic link is not found: " + db + ifS (! update, downloadLatestInstr));
     if (database_version)
       cout   << "Database directory: " << shellQuote (path2canonical (db)) << endl;
     else
 		  stderr << "Database directory: " << shellQuote (path2canonical (db)) << '\n';
-    setSymlink (path2canonical (db), tmp + "/db");
+    setSymlink (db, tmp + "/db", true);
 
 		if (! fileExists (db + "/AMRProt.phr"))
 			throw runtime_error ("The BLAST database for AMRProt was not found. Use amrfinder -u to download and prepare database for AMRFinderPlus");
@@ -911,8 +908,7 @@ struct ThisApplication : ShellApplication
       			const Chronometer_OnePass cop ("blastp", cerr, false, qc_on && ! quiet);
       			// " -task blastp-fast -word_size 6  -threshold 21 "  // PD-2303
       			exec (fullProg ("blastp") + " -query " + prot1 + " -db " + tmp + "/db/AMRProt" + "  " 
-      			      + blastp_par + get_num_threads_param ("blastp", min (nProt, protLen_total / 10000)) + " " BLAST_FMT " -out " + tmp + "/blastp > /dev/null 2> " + tmp + "/blastp-err", logFName);
-      		//checkBlastErr (tmp + "/blastp-err");
+      			      + blastp_par + get_num_threads_param ("blastp", min (nProt, protLen_total / 10000)) + " " BLAST_FMT " -out " + tmp + "/blastp > /dev/null 2> " + tmp + "/blastp-err", tmp + "/blastp-err");
       		}
     			  
     			stderr << "Running hmmsearch...\n";
@@ -971,17 +967,14 @@ struct ThisApplication : ShellApplication
         		const string blastx_par (tblastn_par + "  -query_gencode " + to_string (gencode));
       			ASSERT (threads_max >= 1);
       			if (blastx == "blastx")
-      			{
         			exec (fullProg ("blastx") + "  -query " + dna + " -db " + tmp + "/db/AMRProt" + "  "
             			  + blastx_par + " " BLAST_FMT " " + get_num_threads_param ("blastx", min (nDna, dnaLen_total / 10002))
-            			  + " -out " + tmp + "/blastx > /dev/null 2> " + tmp + "/blastx-err", logFName);
-        		//checkBlastErr (tmp + "/blastx-err");
-            }
+            			  + " -out " + tmp + "/blastx > /dev/null 2> " + tmp + "/blastx-err", tmp + "/blastx-err");
             else
             {
               ASSERT (blastx == "tblastn");
         			findProg ("makeblastdb");
-           	  exec (fullProg ("makeblastdb") + " -in " + dna + " -out " + tmp + "/nucl" + "  -dbtype nucl  -logfile /dev/null");  
+           	  exec (fullProg ("makeblastdb") + " -in " + dna + " -out " + tmp + "/nucl" + "  -dbtype nucl  -logfile " + tmp + "/makeblastdb.log", tmp + "/makeblastdb.log");  
         			if (threads_max > 1)
         			{
           		  createDirectory (tmp + "/AMRProt_chunk");
@@ -997,11 +990,8 @@ struct ThisApplication : ShellApplication
           		  tblastnChunks = true;
           	  }
           	  else
-          	  {
           			exec (fullProg ("tblastn") + "  -db " + tmp + "/nucl  -query " + tmp + "/db/AMRProt  "
-              			  + tblastn_par + " " TBLASTN_FMT "  -out " + tmp + "/blastx > /dev/null 2> " + tmp + "/tblastn-err", logFName);
-          		//checkBlastErr (tmp + "/tblastn-err");
-              }
+              			  + tblastn_par + " " TBLASTN_FMT "  -out " + tmp + "/blastx > /dev/null 2> " + tmp + "/tblastn-err", tmp + "/tblastn-err");
             }
           }
 
@@ -1011,8 +1001,7 @@ struct ThisApplication : ShellApplication
       			stderr << "Running blastn...\n";
        			const Chronometer_OnePass cop ("blastn", cerr, false, qc_on && ! quiet);
       			exec (fullProg ("blastn") + " -query " + dna + " -db " + tmp + "/db/AMR_DNA-" + organism1 + " -evalue 1e-20  -dust no  -max_target_seqs 10000  " 
-      			      + get_num_threads_param ("blastn", min (nDna, dnaLen_total / 2500000)) + " " BLAST_FMT " -out " + tmp + "/blastn > " + logFName + " 2> " + tmp + "/blastn-err", logFName);
-      		//checkBlastErr (tmp + "/blastn-err");  // SB-3162 ??
+      			      + get_num_threads_param ("blastn", min (nDna, dnaLen_total / 2500000)) + " " BLAST_FMT " -out " + tmp + "/blastn > " + logFName + " 2> " + tmp + "/blastn-err", tmp + "/blastn-err");
       		}
     		}
     		else
@@ -1036,8 +1025,7 @@ struct ThisApplication : ShellApplication
   	if (tblastnChunks)
   	{
   	  concatTextDir (tmp + "/tblastn_dir",     tmp + "/blastx");
-  	  concatTextDir (tmp + "/tblastn_dir.err", tmp + "/tblastn-err");
- 		//checkBlastErr (tmp + "/tblastn-err");
+  	//concatTextDir (tmp + "/tblastn_dir.err", tmp + "/tblastn-err");
   	}
 
 
@@ -1060,6 +1048,7 @@ struct ThisApplication : ShellApplication
 
     // tmp + "/amr", tmp + "/mutation_all"
 		stderr << "Making report...\n";
+    const string printNode (print_node ? " -print_node" : "");
     const string nameS (emptyArg (input_name) ? "" : " -name " + input_name);
     {
  			const Chronometer_OnePass cop ("amr_report", cerr, false, qc_on && ! quiet);
@@ -1071,7 +1060,7 @@ struct ThisApplication : ShellApplication
       		  + "  -mutation "    + shellQuote (db + "/AMRProt-mutation.tab") 
       		  + "  -susceptible " + shellQuote (db + "/AMRProt-susceptible.tab") 
       		  + " " + mutation_allS + " "
-      		  + force_cds_report + " -pseudo" + coreS + equidistantS
+      		  + force_cds_report + " -pseudo" + coreS + equidistantS + printNode
       		  + (ident == -1 ? string () : "  -ident_min "    + toString (ident)) 
       		  + "  -coverage_min " + toString (cov)
       		  + ifS (suppress_common, " -suppress_prot " + tmp + "/suppress_prot")  
@@ -1085,7 +1074,7 @@ struct ThisApplication : ShellApplication
  			const Chronometer_OnePass cop ("dna_mutation", cerr, false, qc_on && ! quiet);
       const string mutation_allS (mutation_all. empty () ? "" : ("-mutation_all " + tmp + "/mutation_all.dna")); 
 			exec (fullProg ("dna_mutation") + tmp + "/blastn " + shellQuote (db + "/AMR_DNA-" + organism1 + ".tab") + " " + strQuote (organism1) + " " + mutation_allS 
-			      + nameS + qcS + " -log " + logFName + " > " + tmp + "/amr-snp", logFName);
+			      + nameS + printNode + qcS + " -log " + logFName + " > " + tmp + "/amr-snp", logFName);
 	    {
   			ofstream f (tmp + "/amr", ios_base::out | ios_base::app);
   			copyText (tmp + "/amr-snp", 1, f);
