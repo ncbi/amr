@@ -1,6 +1,6 @@
 # NCBI Antimicrobial Resistance Gene Finder (AMRFinderPlus)
 
-This software and the accompanying database are designed to find acquired antimicrobial resistance genes and some point mutations in protein or assembled nucleotide sequences. We have also added "plus" stress, head, and biocide resistance as well as some virulence factors and E. coli antigens.
+This software and the accompanying database are designed to find acquired antimicrobial resistance genes and point mutations in protein and/or assembled nucleotide sequences. We have also added "plus" stress, heat, and biocide resistance and virulence factors for [some organisms](https://github.com/evolarjun/amr/wiki/Curated-organisms).
 
 ## See [the wiki for documentation](https://github.com/ncbi/amr/wiki)
 [Please subscribe to our announce list](https://www.ncbi.nlm.nih.gov/mailman/listinfo/amrfinder-announce) for announcements of database and software updates.
