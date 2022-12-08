@@ -139,6 +139,8 @@ void TextTable::setHeader ()
         continue;
       }
       maximize (h. len_max, field. size ());
+      if (h. choices. size () <= Header::choices_max)
+        h. choices << field;
       if (! h. numeric)
         continue;
       {

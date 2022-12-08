@@ -32,6 +32,8 @@
 * Dependencies: NCBI BLAST, HMMer
 *
 * Release changes:
+*           12/05/2022          detect reference frameshited proteins
+*   3.11.1  11/23/2022 PD-4414  modified reference proteins can have unequal lengths of reference and allele sequences
 *           11/04/2022 PD-4394  --print_node
 *           10/25/2022          setSymlink(,,bool); g++ -std=gnu++17
 *   3.10.47 10/22/2022          exec(,logFile) is added

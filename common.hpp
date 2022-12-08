@@ -591,6 +591,7 @@ public:
     {}
   Pair (const Pair<T> &other) = default;
   Pair& operator= (const Pair<T> &other) = default;
+
     
   bool same () const
     { return P::first == P::second; }
@@ -1032,7 +1033,8 @@ inline bool isLeftBlank (const string &s,
 
 string pad (const string &s,
             size_t size,
-            bool right);
+            ebool right);
+  // right: enull - center
 
 bool goodName (const string &name);
 

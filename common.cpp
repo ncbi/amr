@@ -455,7 +455,7 @@ bool trimTailAt (string &s,
 
 string pad (const string &s,
             size_t size,
-            bool right)
+            ebool right)
 {
   if (s. size () >= size)
     return s. substr (0, size);
@@ -464,9 +464,17 @@ string pad (const string &s,
   while (sp. size () + s. size () < size)
     sp += ' ';
     
-  if (right)
-    return s + sp;
-  return sp + s;
+  switch (right)
+  {
+    case efalse: return sp + s; 
+    case etrue:  return s + sp; 
+    case enull:  
+      {
+        const size_t half = sp. size () / 2;
+        return sp. substr (0, half) + s + sp. substr (0, sp. size () - half);
+      }
+  }
+  NEVER_CALL;
 }
 
 
