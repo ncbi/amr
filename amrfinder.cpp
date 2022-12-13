@@ -32,6 +32,7 @@
 * Dependencies: NCBI BLAST, HMMer
 *
 * Release changes:
+*   3.11.2  12/13/2022 PD-4427  a database of the older software minor is loaded for a new software minor version
 *           12/05/2022          detect reference frameshited proteins
 *   3.11.1  11/23/2022 PD-4414  modified reference proteins can have unequal lengths of reference and allele sequences
 *           11/04/2022 PD-4394  --print_node
@@ -636,7 +637,7 @@ struct ThisApplication : ShellApplication
       else
         stderr << "Database version: " << dataVersion. str () << '\n';
       if (softwareVersion < softwareVersion_min)
-        throw runtime_error ("Database requires sofware version at least " + softwareVersion_min. str ());
+        throw runtime_error ("Database requires software version at least " + softwareVersion_min. str ());
       if (dataVersion < dataVersion_min)
         throw runtime_error ("Software requires database version at least " + dataVersion_min. str () + downloadLatestInstr);
       if (database_version)
