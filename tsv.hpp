@@ -62,6 +62,9 @@ struct TextTable : Named
     bool scientific {false};
     streamsize decimals {0};
     bool null {false};
+    static constexpr size_t choices_max {7};  // PAR
+    Set<string> choices;
+      // size() <= choices_max + 1
     explicit Header (const string &name_arg)
       : Named (name_arg)
       {}

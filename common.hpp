@@ -424,7 +424,7 @@ template <typename T/*:number*/>
   
 template <typename T/*:integer*/> 
   inline bool even (T x)
-    { static_assert (numeric_limits<T>::is_integer, "Must be integer");
+    { static_assert (numeric_limits<T>::is_integer);
       return x % 2 == 0; 
     }
 
@@ -457,7 +457,7 @@ size_t powInt (size_t a,
 
 
 constexpr size_t no_index = numeric_limits<size_t>::max ();
-static_assert ((size_t) 0 - 1 == no_index, "0 - 1 != no_index");
+static_assert ((size_t) 0 - 1 == no_index);
 
 
 
@@ -591,6 +591,7 @@ public:
     {}
   Pair (const Pair<T> &other) = default;
   Pair& operator= (const Pair<T> &other) = default;
+
     
   bool same () const
     { return P::first == P::second; }
@@ -690,6 +691,18 @@ template <typename Key, typename KeyParent>
   inline bool contains (const unordered_set <Key> &m,
                         const KeyParent& key)
     { return m. find (key) != m. end (); }
+
+template <typename T, size_t N>
+  size_t indexOf (const array<T,N> &arr, const T item)
+    { for (size_t i = 0; i < N; i++)
+        if (arr [i] == item)
+          return i;
+      return no_index;
+    }
+
+template <typename T, size_t N>
+  bool contains (const array<T,N> &arr, const T item)
+    { return indexOf (arr, item) != no_index; }
 
 template <typename Key, typename Value, typename KeyParent>
   bool find (const map <Key, Value> &m,
@@ -1032,7 +1045,8 @@ inline bool isLeftBlank (const string &s,
 
 string pad (const string &s,
             size_t size,
-            bool right);
+            ebool right);
+  // right: enull - center
 
 bool goodName (const string &name);
 
@@ -1295,8 +1309,9 @@ struct Dir
 
 
 
-void setSymlink (const string &path,
-                 const string &fName);
+void setSymlink (string path,
+                 const string &fName,
+                 bool pathIsAbsolute);
 
 
 
@@ -1804,21 +1819,25 @@ public:
           n++;
       return n;
     }
+  void unsetSearchSorted ()
+    { if (P::size () > 1)
+        searchSorted = false;
+    }
   Vector<T>& operator<< (const T &value)
     { P::push_back (value);
-      searchSorted = false;
+      unsetSearchSorted ();
     	return *this;
     }
   Vector<T>& operator<< (T &&value)
     { P::push_back (move (value));
-      searchSorted = false;
+      unsetSearchSorted ();
     	return *this;
     }
   template <typename U/*:<T>*/>
     Vector<T>& operator<< (const vector<U> &other)
       { reserveInc (other. size ());
         P::insert (P::end (), other. begin (), other. end ());
-        searchSorted = false;
+        unsetSearchSorted ();
       	return *this;
       }
   template <typename U/*:<T>*/>
@@ -1826,7 +1845,7 @@ public:
       { reserveInc (other. size ());
         for (U& t : other)
           P::push_back (move (t));
-        searchSorted = false;
+        unsetSearchSorted ();
         other. clear ();
       	return *this;
       }
@@ -1834,13 +1853,13 @@ public:
     Vector<T>& operator<< (const list<U> &other)
       { reserveInc (other. size ());
         P::insert (P::end (), other. begin (), other. end ());
-        searchSorted = false;
+        unsetSearchSorted ();
       	return *this;
       }
   void setAll (const T &value)
     { for (T &t : *this)
     	  t = value;
-    	searchSorted = false;
+      unsetSearchSorted ();
     }
   void eraseAt (size_t index)
     { eraseMany (index, index + 1); }
@@ -1868,7 +1887,7 @@ public:
     			break;
     	  std::swap ((*this) [i], (*this) [j]);
     	}
-    	searchSorted = false;
+     unsetSearchSorted ();
     }
   const T& getRandom (Rand &rand) const
     { return (*this) [rand. get (P::size ())]; }
@@ -1876,7 +1895,7 @@ public:
 		{ Rand rand (seed_global);
 			for (T &t : *this)
 	      std::swap (t, (*this) [(size_t) rand. get ((ulong) P::size ())]);
-    	searchSorted = false;
+    	unsetSearchSorted ();
 		}
   void pop_back ()
     { 
@@ -1945,7 +1964,7 @@ public:
   template <typename StrictlyLess>
     void sort (const StrictlyLess &strictlyLess)
       { Common_sp::sort (*this, strictlyLess); 
-        searchSorted = false;
+        unsetSearchSorted ();
       }    
   void sortBubble ()  
     // Fast if *this is almost sort()'ed
@@ -2100,6 +2119,11 @@ public:
 	    }
 	void uniq ()
 	  { uniq ([] (const T& a, const T& b) { return a == b; }); }
+	bool checkUniq () const
+	  { Vector<T> other (*this);
+	    other. sort ();
+	    return other. isUniq ();
+	  }
   size_t getIntersectionSize (const Vector<T> &other) const
     // Input: *this, vec: unique
     { if (other. empty ())
@@ -2220,7 +2244,7 @@ public:
         	  std::swap ((*this) [j], (*this) [j + 1]);
 		      else
 		      	break;
-		  P::searchSorted = false;
+		  P::unsetSearchSorted ();
     }
 };
 
@@ -2264,6 +2288,24 @@ public:
       { P::operator<< (other); 
         return *this;
       }
+
+
+  class Stack
+  {
+    VectorOwn<T> &vec;
+    const size_t size;
+  public:
+    explicit Stack (VectorOwn<T> &vec_arg)
+      : vec (vec_arg)
+      , size (vec_arg. size ())
+      {}
+   ~Stack ()
+      { while (vec. size () > size)
+        { const T* t = vec. pop ();
+          delete t;
+        }
+      }
+  };
 };
 
 

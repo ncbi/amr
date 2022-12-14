@@ -337,7 +337,7 @@ Requirement: the database directory contains subdirectories named by database ve
     ASSERT (! latestDir. empty ()); 
     const string latestLink (mainDirS + "latest");
     ::remove (latestLink. c_str ());
-    setSymlink (latestDir, latestLink);
+    setSymlink (latestDir, latestLink, false);
   }
 
 
@@ -359,32 +359,45 @@ Requirement: the database directory contains subdirectories named by database ve
     Curl curl;    
         
     
-    stderr << "Looking up databases at " << URL << '\n';
-
     // FTP site files
-    const string latest_minor (getLatestMinor (curl));
-    if (latest_minor. empty ())
-      throw runtime_error ("Cannot get the latest software minor version");
-  //stderr << "Latest software minor version: " << latest_minor << "\n";
-    
-    const string latest_data_version (getLatestDataVersion (curl, curMinor));
-    if (latest_data_version. empty ())
-      throw runtime_error ("Cannot get the latest database version for the current software");
-  //stderr << "Latest database version: " << latest_data_version << "\n";
+    stderr << "Looking up the published databases at " << URL << '\n';    
+    string load_minor = curMinor;
+    string load_data_version;    
+    {
+      const string published_minor (getLatestMinor (curl));
+      if (published_minor. empty ())
+        throw runtime_error ("Cannot get the software minor version of the latest published database version");
+    //if (qc_on)
+      //stderr << "Latest published software minor version: " << published_minor << "\n";
       
-    const string cur_latest_data_version (getLatestDataVersion (curl, latest_minor));
-    if (cur_latest_data_version. empty ())
-      throw runtime_error ("Cannot get the latest database version for the latest software (" + latest_minor + ")");
+      // ASSERT: published_minor >= curMinor
+      
+      const string published_data_version (getLatestDataVersion (curl, published_minor));
+      if (published_data_version. empty ())
+        throw runtime_error ("Cannot get the latest published database version for the software minor version " + published_minor);
 
-    if (latest_data_version != cur_latest_data_version)  
-    {   
-      stderr << "\n";
-      const Warning w (stderr);
-      stderr << "A newer version of the database exists (" << cur_latest_data_version << "), but it requires "
-                "a newer version of the software (" << latest_minor << ") to install.\n"
-                "See https://github.com/ncbi/amr/wiki/Upgrading for more information.\n\n";
+      const string cur_data_version (getLatestDataVersion (curl, curMinor));
+      load_data_version = cur_data_version;    
+      if (cur_data_version. empty ())
+      {
+        stderr << "\n";
+        const Warning w (stderr);
+        stderr << "Cannot get the latest published database version for the current software minor version " + curMinor + ".\n"
+               << "The latest published database version " + published_data_version + " for the latest published software minor version " + published_minor + " will be used instead.\n";
+        load_minor        = published_minor;
+        load_data_version = published_data_version;
+      }
+      else if (cur_data_version != published_data_version)  // cur_data_version < published_data_version
+      {   
+        stderr << "\n";
+        const Warning w (stderr);
+        stderr << "A newer version of the database exists (" << published_data_version << "), but it requires "
+                  "a newer version of the software (" << published_minor << ") to install.\n"
+                  "See https://github.com/ncbi/amr/wiki/Upgrading for more information.\n\n";
+      }
     }
- 
+    ASSERT (! load_data_version. empty ());
+   
                       
     if (! blast_bin. empty ())
       prog2dir ["makeblastdb"] = blast_bin;    
@@ -404,9 +417,9 @@ Requirement: the database directory contains subdirectories named by database ve
   //Dir (mainDirS). create ();
     
     const string versionFName ("version.txt");
-    const string urlDir (URL + curMinor + "/" + latest_data_version + "/");
+    const string urlDir (URL + load_minor + "/" + load_data_version + "/");
     
-    const string latestDir (mainDirS + latest_data_version + "/");
+    const string latestDir (mainDirS + load_data_version + "/");
     if (directoryExists (latestDir))
     {
       if (force_update)
@@ -424,7 +437,7 @@ Requirement: the database directory contains subdirectories named by database ve
           const Warning w (stderr);
           stderr << shellQuote (latestDir) << " contains the latest version: " << version_old. front () << '\n';
           stderr << "Skipping update, use amrfinder --force_update to overwrite the existing database\n";
-          createLatestLink (mainDirS, /*latestDir*/ latest_data_version);
+          createLatestLink (mainDirS, /*latestDir*/ load_data_version);
           return;
         }
       }
@@ -432,7 +445,7 @@ Requirement: the database directory contains subdirectories named by database ve
     else
       Dir (latestDir). create ();
     
-    stderr << "Downloading AMRFinder database version " << latest_data_version << " into " << shellQuote (latestDir) << "\n";
+    stderr << "Downloading AMRFinder database version " << load_data_version << " into " << shellQuote (latestDir) << "\n";
     fetchAMRFile (curl, urlDir, latestDir, "AMR.LIB");
     fetchAMRFile (curl, urlDir, latestDir, "AMRProt");
     fetchAMRFile (curl, urlDir, latestDir, "AMRProt-mutation.tab");
@@ -469,14 +482,14 @@ Requirement: the database directory contains subdirectories named by database ve
     fetchAMRFile (curl, urlDir, latestDir, "changes.txt");
     
     stderr << "Indexing" << "\n";
-    exec (fullProg ("hmmpress") + " -f " + shellQuote (latestDir + "AMR.LIB") + " > /dev/null 2> /dev/null");
-    setSymlink (path2canonical (latestDir), tmp + "/db");
-	  exec (fullProg ("makeblastdb") + " -in " + tmp + "/db/AMRProt" + "  -dbtype prot  -logfile /dev/null");  
-	  exec (fullProg ("makeblastdb") + " -in " + tmp + "/db/AMR_CDS" + "  -dbtype nucl  -logfile /dev/null");  
+    exec (fullProg ("hmmpress") + " -f " + shellQuote (latestDir + "AMR.LIB") + " > /dev/null 2> " + tmp + "/hmmpress.err", tmp + "/hmmpress.err");
+    setSymlink (latestDir, tmp + "/db", true);
+	  exec (fullProg ("makeblastdb") + " -in " + tmp + "/db/AMRProt" + "  -dbtype prot  -logfile " + tmp + "/makeblastdb.AMRProt", tmp + "/makeblastdb.AMRProt");  
+	  exec (fullProg ("makeblastdb") + " -in " + tmp + "/db/AMR_CDS" + "  -dbtype nucl  -logfile " + tmp + "/makeblastdb.AMR_CDS", tmp + "/makeblastdb.AMR_CDS");  
     for (const string& dnaPointMut : dnaPointMuts)
-  	  exec (fullProg ("makeblastdb") + " -in " + tmp + "/db/AMR_DNA-" + dnaPointMut + "  -dbtype nucl  -logfile /dev/null");
+  	  exec (fullProg ("makeblastdb") + " -in " + tmp + "/db/AMR_DNA-" + dnaPointMut + "  -dbtype nucl  -logfile " + tmp + "/makeblastdb.AMR_DNA-" + dnaPointMut, tmp + "/makeblastdb.AMR_DNA-" + dnaPointMut);
 
-    createLatestLink (mainDirS, /*latestDir*/ latest_data_version);
+    createLatestLink (mainDirS, /*latestDir*/ load_data_version);
   }
 };
 

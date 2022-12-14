@@ -60,35 +60,42 @@ struct AmrMutation : Root
 	string name;
 	  // Species binomial + resistance
 	
-  // Function of geneMutation
+  // Function of geneMutation_arg
   // Upper-case
   string reference;
 	string allele;
 	string gene;
 	int ref_pos {0};
+	size_t frameshift {no_index};
+	  // Position of '*' after getStop()
+	int frameshift_insertion {0};
 
 	
 	AmrMutation (size_t pos_arg,
-						const string &geneMutation_arg,
-						const string &class_arg = "X",
-						const string &subclass_arg = "X",
-						const string &name_arg = "X");
+  		 				 const string &geneMutation_arg,
+  			 			 const string &class_arg = "X",
+  				 		 const string &subclass_arg = "X",
+  					 	 const string &name_arg = "X");
 		// Input: pos_arg: 1-based
 	AmrMutation () = default;
 	AmrMutation (AmrMutation &&other) = default;
+	AmrMutation& operator= (const AmrMutation &other) = default;
 	AmrMutation& operator= (AmrMutation &&other) = default;
 private:
-	static void parse (const string &geneMutation,
+	static void parse (string &geneMutation,
 	                   string &reference,
 	                   string &allele,
                      string &gene,
-                     int &ref_pos);
+                     int &ref_pos,
+                     size_t &frameshift,
+                     int &frameshift_insertion);
 public:
+  void qc () const override;
   void saveText (ostream &os) const override
     { if (empty ())
         os << "empty";
       else
-        os << pos + 1 << ' ' << geneMutation << ' ' << name; 
+        os << pos + 1 << ' ' << geneMutation << ' ' << frameshift_insertion << ' ' << name; 
     }
   bool empty () const override
     { return geneMutation. empty (); }
@@ -104,6 +111,8 @@ public:
   void apply (string &seq) const
     { if (pos >= seq. size ())
         throw runtime_error ("AmrMutation position " + to_string (pos) + " is outside the sequence: " + seq);
+      if (frameshift != no_index)
+        throw runtime_error ("AmrMutation is a frameshift");
       if (verbose ())
         cerr         << seq. substr (0, pos) 
              << endl << allele 
@@ -123,8 +132,8 @@ struct SeqChange : Root
 // Observation
 {
   const Alignment* al {nullptr};
-    // !nullptr
-    
+    // !nullptr    
+  bool fromAllele {false};
   
   // In alignment
   size_t start {0};
@@ -141,7 +150,6 @@ struct SeqChange : Root
 	double neighborhoodMismatch {0.0};
 	  // 0..1
 	  
-	char prev {'\0'};
 	VectorPtr<AmrMutation> mutations;
 	  // !nullptr
 	
@@ -150,17 +158,15 @@ struct SeqChange : Root
   
   
   SeqChange () = default;
-  explicit SeqChange (const Alignment* al_arg)
+  SeqChange (const Alignment* al_arg,
+             bool fromAllele_arg)
     : al (al_arg)
+    , fromAllele (fromAllele_arg)
     {}
   SeqChange (const Alignment* al_arg,
              const AmrMutation* mutation_arg)
     : al (al_arg)
     { mutations << checkPtr (mutation_arg); }
-#if 0
-  SeqChange (const Alignment* al_arg,
-             size_t targetStopPos);    
-#endif
   void qc () const override;
   void saveText (ostream &os) const override
     { os        << start + 1 
@@ -180,7 +186,9 @@ struct SeqChange : Root
     
     
   bool hasMutation () const
-    { return ! mutations. empty () && ! empty () && ! replacement; }
+    { return ! empty () && ! mutations. empty () && ! replacement; }
+  bool hasFrameshift () const
+    { return hasMutation () && mutations [0] -> frameshift != no_index; }
   string getMutationStr () const;
   size_t getStop () const
     { return start + len; }
@@ -189,7 +197,9 @@ struct SeqChange : Root
   bool finish (const string &refSeq,
                size_t flankingLen);
     // Return: good match
-    // Input: flankingLen: valid if > 0
+    // Invokes: finishPos()
+  bool finishPos (size_t flankingLen);
+    // Return: good match
 private:
   void setSeq ();
   void setStartStopRef ();
@@ -234,7 +244,7 @@ struct Alignment : Root
   size_t refEnd {0};
   size_t refLen {0};  
   AmrMutation refMutation;
-    // !empty() => refSeq is the result of refMutation.apply() to the original refSeq
+    // !empty() => refSeq is an allele
 //int ref_offset {0};
   
   // Alignment
@@ -252,15 +262,17 @@ struct Alignment : Root
   static constexpr const char* format {"qseqid sseqid qstart qend qlen sstart send slen sseq"};
     // 1-based
   Alignment () = default;
-protected:
+private:
   void set_nident ();
     // Output: nident
-  void refMutation2refSeq ();
-    // Update: refSeq
+protected:
   void setSeqChanges (const Vector<AmrMutation> &refMutations,
                       size_t flankingLen/*,
                       bool allMutationsP*/);
     // Input: flankingLen: valid if > 0
+private:
+  size_t refMutation2refSeq_pos ();
+    // Return: no_index <=> refMutation is not detected
 public:
   bool empty () const override
     { return targetName. empty (); }
@@ -280,6 +292,9 @@ public:
          << '\t' << targetSeq
          << '\t' << refSeq
          << endl;
+      if (! refMutation. empty ())
+        os << refMutation << endl;
+	    os << "# Mutations: " << seqChanges. size () << endl;
     }
 
 
@@ -289,6 +304,8 @@ public:
           return true;
       return false;
     }
+  bool hasFrameshift () const
+    { return seqChanges. size () == 1 && seqChanges [0]. hasFrameshift (); }
   double pIdentity () const
     { return (double) nident / (double) targetSeq. size (); }
   double refCoverage () const
@@ -303,6 +320,9 @@ public:
              && nident == refLen 
              && nident == targetSeq. size ();
 	  }
+  long getGlobalTargetStart () const;
+    // Requires: !targetProt, refProt
+#if 0
 	bool getFrameShift (const Alignment &other,
 	                    size_t diff_max) const
 	  // Return: success
@@ -316,6 +336,7 @@ public:
 private:
 	bool getFrameShift_right (const Alignment &rightPart,
 	                          size_t diff_max) const;
+#endif
 };
 
 

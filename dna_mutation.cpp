@@ -51,6 +51,7 @@ namespace
 map <string/*accession*/, Vector<AmrMutation>>  accession2mutations;
 unique_ptr<OFStream> mutation_all;  
 string input_name;
+bool print_node = false;
 
 
 
@@ -161,6 +162,8 @@ struct BlastnAlignment : Alignment
           // HMM
           td << na
              << na;
+	        if (print_node)
+	          td << na;
           if (! seqChange. empty () && mutation && ! seqChange. replacement)  // resistant mutation
             os << td. str () << endl;
           if (mutation_all. get ())
@@ -252,6 +255,8 @@ struct Batch
 	       << "HMM id"
 	       << "HMM description"
 	       ;
+      if (print_node)
+	      td << "Hierarchy node"; 	      
 	    os << td. str () << endl;
       if (mutation_all. get ())
         *mutation_all << td. str () << endl;
@@ -281,6 +286,7 @@ struct ThisApplication : Application
       addPositional ("organism", "Organism name");
       addKey ("mutation_all", "File to report all mutations");
       addKey ("name", "Text to be added as the first column \"name\" to all rows of the report");
+      addFlag ("print_node", "Print FAM.id"); 
 	    version = SVN_REV;
     }
 
@@ -293,6 +299,7 @@ struct ThisApplication : Application
     const string organism           = getArg ("organism");  
     const string mutation_all_FName = getArg ("mutation_all");
                  input_name         = getArg ("name");
+                 print_node         = getFlag ("print_node");
     
     
     if (! mutation_all_FName. empty ())
