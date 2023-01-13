@@ -10,17 +10,19 @@ jobs:
   install_and_test:
     runs-on: ubuntu-latest
     steps:
+    - name: When was this run
+      run: date
     - name: configure conda
       run: |
           . $CONDA/bin/activate
           conda config --add channels defaults
           conda config --add channels bioconda
           conda config --add channels conda-forge
-          conda update conda
-          # conda search -f ncbi-amrfinderplus
     - name: install AMRFinderPlus
       run: |
-          conda install -c bioconda -c conda-forge -y ncbi-amrfinderplus
+          . $CONDA/bin/activate
+          conda install --update-deps -c conda-forge -c bioconda -y ncbi-amrfinderplus
+          amrfinder --version
     - name: download latest AMRFinderPlus database
       run: |
           source /usr/share/miniconda/bin/activate
