@@ -10,6 +10,21 @@ else
     AMRFINDER=./amrfinder
 fi
 
+# download fresh test data
+curl -s -f \
+     -O https://raw.githubusercontent.com/ncbi/amr/master/test_dna.fa \
+     -O https://raw.githubusercontent.com/ncbi/amr/master/test_prot.fa \
+     -O https://raw.githubusercontent.com/ncbi/amr/master/test_prot.gff \
+     -O https://raw.githubusercontent.com/ncbi/amr/master/test_both.expected \
+     -O https://raw.githubusercontent.com/ncbi/amr/master/test_dna.expected \
+     -O https://raw.githubusercontent.com/ncbi/amr/master/test_prot.expected
+
+if [ $? != 0 ]
+then
+    echo "WARNING: Could not download new test data, test data included with installation may"
+    echo "not match the latest database release"
+fi
+
 if ! $AMRFINDER --plus -p test_prot.fa -g test_prot.gff -O Escherichia > test_prot.got \
     || ! diff -q test_prot.expected test_prot.got
 then
