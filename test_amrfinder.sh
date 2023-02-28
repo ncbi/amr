@@ -10,7 +10,7 @@ else
     AMRFINDER=./amrfinder
 fi
 
-# download fresh test data
+echo Downloading fresh test data...
 curl -s -f \
      -O https://raw.githubusercontent.com/ncbi/amr/master/test_dna.fa \
      -O https://raw.githubusercontent.com/ncbi/amr/master/test_prot.fa \
