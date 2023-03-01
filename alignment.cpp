@@ -970,58 +970,6 @@ long Alignment::getGlobalTargetStart () const
 
 
 
-#if 0
-bool Alignment::getFrameShift_right (const Alignment &rightPart,
-                                     size_t diff_max) const
-{
-  ASSERT (! targetProt);
-  ASSERT (refProt);
-  ASSERT (rightPart. refProt);
-  
-  if (this == & rightPart)
-    return false;
-    
-  if (rightPart. targetProt)
-    return false;    
-    
-  if (   targetName   != rightPart. targetName
-      || refName      != rightPart. refName
-      || targetStrand != rightPart. targetStrand
-     )
-    return false;
-
-  if (   refStart     >= rightPart. refStart
-      || refEnd       >= rightPart. refEnd
-      || refEnd + diff_max / 3 < rightPart. refStart
-     )
-    return false;
-    
-  if (targetStrand)
-  {
-    if (   targetStart >= rightPart. targetStart
-        || targetEnd   >= rightPart. targetEnd
-        || targetEnd + diff_max < rightPart. targetStart
-       )
-      return false;
-  }
-  else
-  {
-    if (   targetStart <= rightPart. targetStart
-        || targetEnd   <= rightPart. targetEnd
-        || targetStart > rightPart. targetEnd + diff_max
-       )
-      return false;
-  }  
-
-  if (targetStart % 3 == rightPart. targetStart % 3)
-    return false;
-          
-  return true;
-}
-#endif
-
-
-
 }  // namespace
 
 
