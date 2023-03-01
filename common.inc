@@ -48,9 +48,6 @@
 // FOR(type,i,a) and FOR_REV(type,i,a) iterate over the same i
 // FOR_START(type,i,a,b) and FOR_REV_END(type,i,a,b) iterate over the same i
 
-//#define FOR_CHAR(i,s,c)  for (size_t i = 0; ((c) = (s) [i]); i++)
-//#define FOR_STRING(i,s)  FOR (size_t, i, (s). size ())
-
 #define ITER(ContainerType,iter,container) \
   for (ContainerType::iterator iter = (container). begin (); iter != (container). end (); iter++)
 #define CONST_ITER(ContainerType,iter,container) \
@@ -68,11 +65,9 @@
 // Exceptions
 
 #include <string>
-#include <stdexcept>
-#include <sstream>
+#include <exception>
 
 
-#define WHERE  "\"" __FILE__ "\", line " << __LINE__
 #ifdef _MSC_VER
   #define FUNC  std::string (__FUNCSIG__) + ":\n"
 #else
@@ -82,25 +77,21 @@
 
 namespace Common_sp
 {
-  std::string getStack ();
+  void throwf (const std::string &s);
 }
 
-#define ERROR_MSG(msg)                       \
-  { if (! std::uncaught_exceptions ())       \
-    { std::ostringstream oss_;               \
-      oss_ << WHERE << ": " << (msg);        \
-      oss_ << endl << "Stack:" << endl <<    \
-        Common_sp::getStack ();              \
-      throw std::logic_error (oss_. str ()); \
-    } else {}                                \
-    exit (1);                                \
+#define ERROR_MSG(msg)                     \
+  { if (! std::uncaught_exceptions ())     \
+      Common_sp::throwf (std::string ("\"" __FILE__ "\", line ") + to_string (__LINE__) + ": " + (msg));  \
+    else {}                                \
+    exit (1);                              \
   }
-#define ERROR            ERROR_MSG ("")
-#define NOT_IMPLEMENTED  ERROR_MSG ("Not implemented: ")
-#define NEVER_CALL       ERROR_MSG ("Never call: ")
+#define ERROR            ERROR_MSG (FUNC "ERROR")
+#define NOT_IMPLEMENTED  ERROR_MSG (FUNC "NOT IMPLEMENTED")
+#define NEVER_CALL       ERROR_MSG (FUNC "NEVER CALL")
 
 
-#define QC_ASSERT(cond)  if (! (cond)) ERROR_MSG (#cond) else {}   // Must be the last statement in a function body
+#define QC_ASSERT(cond)  if (! (cond)) ERROR_MSG (#cond) else {}   
 
 
 // Logic errors
@@ -134,10 +125,11 @@ namespace Common_sp
 
 #define LESS_PART(x,y,part)  { if ((x).part < (y).part) return true; \
                                if ((y).part < (x).part) return false; }
+#define LESS_COMP(comp)  { const ebool c = comp; if (c == etrue) return true; if (c == efalse) return false; }
 
 
 
-#define PRINT(x)  cout << #x << " = " << (x) << endl;
+#define PRINT(x)  { Offset::newLn (cout); cout << #x << " = " << (x); }
 
 
 #define XSTR(s) STR(s)
