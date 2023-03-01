@@ -83,7 +83,7 @@ COMPILE.cpp= $(CXX) $(CPPFLAGS) $(SVNREV) $(DBDIR) $(TEST_UPDATE_DB) -c
 
 .PHONY: all clean install release 
 
-BINARIES= amr_report amrfinder amrfinder_update fasta_check fasta_extract fasta2parts gff_check dna_mutation 
+BINARIES= amr_report amrfinder amrfinder_index amrfinder_update fasta_check fasta_extract fasta2parts gff_check dna_mutation 
 
 all:	$(BINARIES)
 
@@ -114,6 +114,10 @@ amrfinder_update:      $(amrfinder_updateOBJS)
 	fi # make sure the next make command rebuilds amrfinder_update
 	$(CXX) -o $@ $(amrfinder_updateOBJS) -lcurl 
 
+amrfinder_index.o:  common.hpp common.inc 
+amrfinder_indexOBJS=amrfinder_index.o common.o
+amrfinder_index:      $(amrfinder_indexOBJS) 
+	$(CXX) -o $@ $(amrfinder_indexOBJS) 
 
 fasta_check.o:	common.hpp common.inc 
 fasta_checkOBJS=fasta_check.o common.o 

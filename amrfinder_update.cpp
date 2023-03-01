@@ -29,7 +29,7 @@
 * File Description:
 *   Updating of AMRFinder data
 *
-* Dependencies: NCBI BLAST, HMMer
+* Dependencies: NCBI BLAST, HMMer --> moved to amrfinder_index.cpp
 *               curl.{h,c}
 *
 * Release changes: see amrfinder.cpp
@@ -369,9 +369,8 @@ Requirement: the database directory contains subdirectories named by database ve
         throw runtime_error ("Cannot get the software minor version of the latest published database version");
     //if (qc_on)
       //stderr << "Latest published software minor version: " << published_minor << "\n";
-      
       // ASSERT: published_minor >= curMinor
-      
+
       const string published_data_version (getLatestDataVersion (curl, published_minor));
       if (published_data_version. empty ())
         throw runtime_error ("Cannot get the latest published database version for the software minor version " + published_minor);
@@ -383,7 +382,7 @@ Requirement: the database directory contains subdirectories named by database ve
         stderr << "\n";
         const Warning w (stderr);
         stderr << "Cannot get the latest published database version for the current software minor version " + curMinor + ".\n"
-               << "The latest published database version " + published_data_version + " for the latest published software minor version " + published_minor + " will be used instead.\n";
+               << "The latest published database version " + published_data_version + " for the latest published software minor version " + published_minor + " will be used instead";
         load_minor        = published_minor;
         load_data_version = published_data_version;
       }
@@ -393,16 +392,18 @@ Requirement: the database directory contains subdirectories named by database ve
         const Warning w (stderr);
         stderr << "A newer version of the database exists (" << published_data_version << "), but it requires "
                   "a newer version of the software (" << published_minor << ") to install.\n"
-                  "See https://github.com/ncbi/amr/wiki/Upgrading for more information.\n\n";
+                  "See https://github.com/ncbi/amr/wiki/Upgrading for more information.\n";
       }
     }
     ASSERT (! load_data_version. empty ());
    
-                      
+
+  #if 0                      
     if (! blast_bin. empty ())
       prog2dir ["makeblastdb"] = blast_bin;    
     findProg ("makeblastdb");    
     findProg ("hmmpress");
+  #endif
     
 
     // Users's files  
@@ -413,13 +414,12 @@ Requirement: the database directory contains subdirectories named by database ve
     }
     if (! isRight (mainDirS, "/"))
       mainDirS += "/";    
-
-  //Dir (mainDirS). create ();
     
     const string versionFName ("version.txt");
-    const string urlDir (URL + load_minor + "/" + load_data_version + "/");
-    
+    const string urlDir (URL + load_minor + "/" + load_data_version + "/");    
     const string latestDir (mainDirS + load_data_version + "/");
+    
+    
     if (directoryExists (latestDir))
     {
       if (force_update)
@@ -436,7 +436,7 @@ Requirement: the database directory contains subdirectories named by database ve
         {
           const Warning w (stderr);
           stderr << shellQuote (latestDir) << " contains the latest version: " << version_old. front () << '\n';
-          stderr << "Skipping update, use amrfinder --force_update to overwrite the existing database\n";
+          stderr << "Skipping update, use amrfinder --force_update to overwrite the existing database";
           createLatestLink (mainDirS, /*latestDir*/ load_data_version);
           return;
         }
@@ -473,6 +473,7 @@ Requirement: the database directory contains subdirectories named by database ve
           dnaPointMuts << taxgroup;
       }
     }
+    
     for (const string& dnaPointMut : dnaPointMuts)
     {
       fetchAMRFile (curl, urlDir, latestDir, "AMR_DNA-" + dnaPointMut);
@@ -480,7 +481,17 @@ Requirement: the database directory contains subdirectories named by database ve
     }
 
     fetchAMRFile (curl, urlDir, latestDir, "changes.txt");
-    
+
+    createLatestLink (mainDirS, load_data_version);
+  
+
+  #if 1
+    prog2dir ["amrfinder_index"] = execDir;
+    string blast_bin_par;
+    if (! blast_bin. empty ())
+      blast_bin_par = "  --blast_bin " + shellQuote (blast_bin);
+	  exec (fullProg ("amrfinder_index") + shellQuote (latestDir) + blast_bin_par + ifS (quiet, " -q") + ifS (qc_on, " --debug") + " > " + tmp + "/amrfinder_index.err", tmp + "/amrfinder_index.err"); 
+  #else    
     stderr << "Indexing" << "\n";
     exec (fullProg ("hmmpress") + " -f " + shellQuote (latestDir + "AMR.LIB") + " > /dev/null 2> " + tmp + "/hmmpress.err", tmp + "/hmmpress.err");
     setSymlink (latestDir, tmp + "/db", true);
@@ -488,8 +499,7 @@ Requirement: the database directory contains subdirectories named by database ve
 	  exec (fullProg ("makeblastdb") + " -in " + tmp + "/db/AMR_CDS" + "  -dbtype nucl  -logfile " + tmp + "/makeblastdb.AMR_CDS", tmp + "/makeblastdb.AMR_CDS");  
     for (const string& dnaPointMut : dnaPointMuts)
   	  exec (fullProg ("makeblastdb") + " -in " + tmp + "/db/AMR_DNA-" + dnaPointMut + "  -dbtype nucl  -logfile " + tmp + "/makeblastdb.AMR_DNA-" + dnaPointMut, tmp + "/makeblastdb.AMR_DNA-" + dnaPointMut);
-
-    createLatestLink (mainDirS, /*latestDir*/ load_data_version);
+  #endif
   }
 };
 

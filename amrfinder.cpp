@@ -32,6 +32,10 @@
 * Dependencies: NCBI BLAST, HMMer
 *
 * Release changes:
+*           03/01/2023 PD-3597  amrfinder_index
+*           02/27/2023          section()
+*   3.11.4  01/24/2023          GPipe organism string in taxgroup.tab is a comma-separated list of GPipe organisms
+*   3.11.3  12/27/2022          "No valid AMRFinder database is found.\nThis directory (or symbolic link to directory) is not found: " + db
 *   3.11.2  12/13/2022 PD-4427  a database of the older software minor is loaded for a new software minor version
 *           12/05/2022          detect reference frameshited proteins
 *   3.11.1  11/23/2022 PD-4414  modified reference proteins can have unequal lengths of reference and allele sequences
@@ -610,8 +614,8 @@ struct ThisApplication : ShellApplication
     const string downloadLatestInstr ("\nTo download the latest version to the default directory run: amrfinder -u");
     
 		if (! directoryExists (db))  // PD-2447
-		  throw runtime_error ("No valid AMRFinder database found: " + db + ifS (! update, downloadLatestInstr));
-		//throw runtime_error ("No valid AMRFinder database found.\nSymbolic link is not found: " + db + ifS (! update, downloadLatestInstr));
+		//throw runtime_error ("No valid AMRFinder database found: " + db + ifS (! update, downloadLatestInstr));
+		  throw runtime_error ("No valid AMRFinder database is found.\nThis directory (or symbolic link to directory) is not found: " + db + ifS (! update, downloadLatestInstr));
     if (database_version)
       cout   << "Database directory: " << shellQuote (path2canonical (db)) << endl;
     else
@@ -736,13 +740,15 @@ struct ThisApplication : ShellApplication
 	  	    if (isLeft (f. line, "#"))
 	  	      continue;
           iss. reset (f. line);
-          string org, gpipeOrg;
+          string org, gpipeOrgs;
           int num = -1;
-          iss >> org >> gpipeOrg >> num;
+          iss >> org >> gpipeOrgs >> num;
           QC_ASSERT (! org. empty ());
           QC_ASSERT (num >= 0);
           QC_ASSERT (iss. eof ());
-          if (organism1 == gpipeOrg)
+          const StringVector gpipeOrgVec (gpipeOrgs, ',', true);
+          QC_ASSERT (gpipeOrgVec. size () >= 1);
+          if (gpipeOrgVec. contains (organism1))
           {
             organism1 = org;
             found = true;
@@ -906,7 +912,7 @@ struct ThisApplication : ShellApplication
     			  } 
     			}
     			    			
-    			stderr << "Running blastp...\n";
+    			stderr. section ("Running blastp");
     			{
       			const Chronometer_OnePass cop ("blastp", cerr, false, qc_on && ! quiet);
       			// " -task blastp-fast -word_size 6  -threshold 21 "  // PD-2303
@@ -914,7 +920,7 @@ struct ThisApplication : ShellApplication
       			      + blastp_par + get_num_threads_param ("blastp", min (nProt, protLen_total / 10000)) + " " BLAST_FMT " -out " + tmp + "/blastp > /dev/null 2> " + tmp + "/blastp-err", tmp + "/blastp-err");
       		}
     			  
-    			stderr << "Running hmmsearch...\n";
+    			stderr. section ("Running hmmsearch");
     			{
        			const Chronometer_OnePass cop ("hmmsearch", cerr, false, qc_on && ! quiet);
       			ASSERT (threads_max >= 1);
@@ -962,7 +968,7 @@ struct ThisApplication : ShellApplication
           EXEC_ASSERT (fastaCheck (dna, false, qcS, logFName, nDna, dnaLen_max, dnaLen_total));
           const string blastx (dnaLen_max > 100000 ? "tblastn" : "blastx");  // PAR
 
-    			stderr << "Running " << blastx << "...\n";
+    			stderr. section ("Running " + blastx);
     			findProg (blastx);
           {
        			const Chronometer_OnePass cop (blastx, cerr, false, qc_on && ! quiet);
@@ -1001,7 +1007,7 @@ struct ThisApplication : ShellApplication
           if (blastn)
       		{
       			findProg ("blastn");
-      			stderr << "Running blastn...\n";
+      			stderr. section ("Running blastn");
        			const Chronometer_OnePass cop ("blastn", cerr, false, qc_on && ! quiet);
       			exec (fullProg ("blastn") + " -query " + dna + " -db " + tmp + "/db/AMR_DNA-" + organism1 + " -evalue 1e-20  -dust no  -max_target_seqs 10000  " 
       			      + get_num_threads_param ("blastn", min (nDna, dnaLen_total / 2500000)) + " " BLAST_FMT " -out " + tmp + "/blastn > " + logFName + " 2> " + tmp + "/blastn-err", tmp + "/blastn-err");
@@ -1050,7 +1056,7 @@ struct ThisApplication : ShellApplication
 		
 
     // tmp + "/amr", tmp + "/mutation_all"
-		stderr << "Making report...\n";
+		stderr. section ("Making report");
     const string printNode (print_node ? " -print_node" : "");
     const string nameS (emptyArg (input_name) ? "" : " -name " + input_name);
     {
