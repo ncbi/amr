@@ -235,15 +235,13 @@ namespace
   if (contains (msg, error_caption))  // msg already is the result of errorExit()
     *os << endl << msg << endl;
   else
-  	*os << endl
-      #ifndef _MSC_VER
-        << Color::code (Color::red, true) 
-      #endif
-        << error_caption 
-      #ifndef _MSC_VER
-        << Color::code ()
-      #endif
-        << endl
+  {
+  	*os << endl;
+  	{
+  	  const OColor oc (*os, Color::red, true, true);
+      *os << error_caption;
+    }
+    *os << endl
         << msg << endl << endl
       #ifndef _MSC_VER
   	    << "HOSTNAME: " << (hostname ? hostname : "?") << endl
@@ -253,6 +251,7 @@ namespace
       #endif
   	    << "Progam name:  " << programName << endl
   	    << "Command line: " << getCommandLine () << endl;
+  }
   //system (("env >> " + logFName). c_str ());
 
   os->flush ();           
@@ -263,6 +262,16 @@ namespace
 }
 
 
+
+[[noreturn]] void errorExitStr (const string &msg)
+{ 
+  errorExit (msg. c_str ()); 
+}
+
+
+
+namespace
+{
 
 string getStack ()
 // Print function names:   // --> exec() ??
@@ -290,6 +299,21 @@ string getStack ()
   return s;
 #endif
 }
+
+}
+
+
+
+void throwf (const string &s)  
+{ 
+  if (cxml)
+  {
+    const Xml::Tag xml (*cxml, "ERROR");
+    *cxml << s;
+  }
+  throw runtime_error (s + "\nStack:\n" + getStack ()); 
+}
+
 
 
 
@@ -324,20 +348,12 @@ Chronometer_OnePass::~Chronometer_OnePass ()
     
   const time_t stop = time (nullptr);
   
-#ifndef _MSC_VER
-  const bool colorP = (& os == & cerr);
-  if (colorP)
-    os << Color::code (Color::magenta);
-#endif
-  
-  os << "CHRON: " << name << ": ";
-  const ONumber on (os, 0, false);
-  os << difftime (stop, start) << " sec." << endl;
-  
-#ifndef _MSC_VER
-  if (colorP)
-    os << Color::code ();
-#endif
+  {
+    const OColor oc (os, Color::magenta, false, true /*& os == & cerr*/);  
+    os << "CHRON: " << name << ": ";
+    const ONumber on (os, 0, false);
+    os << difftime (stop, start) << " sec." << endl;  
+  }
 
   if (addNewLine)
     os << endl;
@@ -1494,7 +1510,8 @@ Xml::Tag::Tag (Xml::File &f_arg,
 : name (name_arg)
 , f (f_arg)
 { 
-  ASSERT (! contains (name, ' '));
+  if (contains (name, ' '))
+    throwf ("tag name contains a space: " + strQuote (name_arg));
   if (f. printOffset)
   {
     f. print ("\n");
@@ -1546,6 +1563,19 @@ void Root::saveFile (const string &fName) const
 		return;
   OFStream f (fName);  // Declared after Root
   saveText (f);
+}
+
+
+
+
+void Root::trace (ostream& os,
+                  const string& title) const
+{ 
+  if (! verbose ())
+    return;
+  Offset::newLn (os);
+  os << title << ": ";
+  saveText (os);
 }
 
 
@@ -1645,47 +1675,7 @@ bool StringVector::same (const StringVector &vec,
 
 
 
-
-bool inc (vector<bool> &v)
-{
-  const size_t s = v. size ();
-
-  size_t i = 0;
-  while (i < s && v [i])
-  {
-    v [i] = false;
-    i++;
-  }
-  if (i == s)
-    return false;
-
-  v [i] = true;
-  
-  return true;
-}
-
-
-
-bool inc (vector<size_t> &indexes,
-          const vector<size_t> &indexes_max)
-{
-  ASSERT (indexes. size () == indexes_max. size ());
-
-  FFOR (size_t, i, indexes. size ())
-  {
-    ASSERT (indexes [i] <= indexes_max [i]);
-    if (indexes [i] < indexes_max [i])
-    {
-      indexes [i] ++;
-      return true;
-    }
-    indexes [i] = 0;
-  }
-
-  return false;
-}
-
-
+///////////////////////////////////////////////////////////////////////////////////////
 
 
 // DisjointCluster
@@ -1800,11 +1790,7 @@ bool LineInput::nextLine ()
 	
   try 
 	{
-	#if 0
-  	readLine (*is, line);
-  #else
-    getline (*is, line);  // faster
-  #endif
+    getline (*is, line);  // faster than readLine(*is,line)
   	eof = is->eof ();
   	const bool end = line. empty () && eof;
 
@@ -2856,40 +2842,6 @@ DirItemGenerator::DirItemGenerator (size_t progress_displayPeriod,
 , large (large_arg)
 { 
   trimSuffix (dirName,  "/");
-
-
-#if 0
-  // fName
-  if (isDir)
-  { 
-  #ifdef _MSC_VER
-    NOT_IMPLEMENTED;
-  #else
-	  char lsfName [4096] = {'\0'};
-    strcpy (lsfName, P_tmpdir);
-    strcat (lsfName, ("/" + programName + ".XXXXXX"). c_str ());
-    EXEC_ASSERT (mkstemp (lsfName) != -1);
-    ASSERT (lsfName [0]);
-    const string cmd ("ls -a " + dirName + " > " + lsfName);
-    const int res = system (cmd. c_str ());
-    if (res)
-      throw runtime_error ("Command " + strQuote (cmd) + " failed: status = " + to_string (res));
-    fName = lsfName;
-  #endif
-  }      
-  
-  f. open (fName);
-  QC_ASSERT (f. good ()); 
-  
-  if (isDir)
-  {
-    string s;
-    readLine (f, s);
-    ASSERT (s == ".");
-    readLine (f, s);
-    ASSERT (s == "..");
-  }
-#endif
 }
 
 
@@ -2927,22 +2879,6 @@ bool DirItemGenerator::next (string &item)
 bool DirItemGenerator::next_ (string &item,
                               bool report)
 { 
-#if 0
-  if (f. eof ())
-    return false;
-    
-	readLine (f, item);
-  if (isDir)
-  { 
-    const size_t pos = item. rfind ('/');
-  	if (pos != string::npos)
-      item. erase (0, pos + 1);
-  }
-  if (! tsv)
-    trim (item);
-  if (item. empty () && f. eof ())
-    return false;
-#else
   ASSERT (imp);
   for (;;)
   {
@@ -2956,7 +2892,6 @@ bool DirItemGenerator::next_ (string &item,
       continue;
     break;
   }
-#endif
 
   if (report)
     prog (item);
