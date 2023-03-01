@@ -128,7 +128,7 @@ void TextTable::setHeader ()
   {
     row_num++;
     if (row. size () != header. size ())
-      throw Error (*this, "Row " + to_string (row_num) + " contains " + to_string (row. size ()) + " fields whereas header has " + to_string (header. size ()) + " columns");
+      throw Error (*this, "Row " + to_string (row_num) + " contains " + to_string (row. size ()) + " columns whereas header has " + to_string (header. size ()) + " columns");
     FFOR (RowNum, i, row. size ())
     {
       const string& field = row [i];
@@ -212,7 +212,7 @@ void TextTable::qc () const
   FFOR (RowNum, i, rows. size ())
   {
     if (rows [i]. size () != header. size ())
-      throw Error (*this, "Row " + to_string (i + 1) + " contains " + to_string (rows [i]. size ()) + " fields whereas table has " + to_string (header. size ()) + " columns");
+      throw Error (*this, "Row " + to_string (i + 1) + " contains " + to_string (rows [i]. size ()) + " columns whereas table has " + to_string (header. size ()) + " columns");
     for (const string& field : rows [i])
     {
       if (contains (field, '\t'))
