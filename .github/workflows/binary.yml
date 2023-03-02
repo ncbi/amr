@@ -12,7 +12,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-        - uses: actions/checkout@v1
         - name: prerequisites
           run: |
               sudo apt-get update
