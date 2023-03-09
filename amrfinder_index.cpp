@@ -1,0 +1,140 @@
+// amrfinder_index.cpp
+
+/*===========================================================================
+*
+*                            PUBLIC DOMAIN NOTICE                          
+*               National Center for Biotechnology Information
+*                                                                          
+*  This software/database is a "United States Government Work" under the   
+*  terms of the United States Copyright Act.  It was written as part of    
+*  the author's official duties as a United States Government employee and 
+*  thus cannot be copyrighted.  This software/database is freely available 
+*  to the public for use. The National Library of Medicine and the U.S.    
+*  Government have not placed any restriction on its use or reproduction.  
+*                                                                          
+*  Although all reasonable efforts have been taken to ensure the accuracy  
+*  and reliability of the software and data, the NLM and the U.S.          
+*  Government do not and cannot warrant the performance or results that    
+*  may be obtained by using this software or data. The NLM and the U.S.    
+*  Government disclaim all warranties, express or implied, including       
+*  warranties of performance, merchantability or fitness for any particular
+*  purpose.                                                                
+*                                                                          
+*  Please cite the author in any work or product based on this material.   
+*
+* ===========================================================================
+*
+* Author: Vyacheslav Brover
+*
+* File Description:
+*   Indexing of AMRFinder data
+*
+* Dependencies: NCBI BLAST, HMMer
+*
+* Release changes: see amrfinder.cpp
+*
+*/
+
+
+
+
+#ifdef _MSC_VER
+  #error "UNIX is required"
+#endif
+   
+#undef NDEBUG 
+#include "common.inc"
+#include "common.hpp"
+using namespace Common_sp;
+
+
+
+
+namespace 
+{
+
+
+	
+// ThisApplication
+
+struct ThisApplication : ShellApplication
+{
+  ThisApplication ()
+    : ShellApplication ("Index the database for AMRFinder", true, true, true)
+    {
+    	addPositional ("DATABASE", "Directory with AMRFinder database");
+    	addKey ("blast_bin", "Directory for BLAST ending with '/'", "", '\0', "BLAST_DIR");
+      addFlag ("quiet", "Suppress messages to STDERR", 'q');
+	    version = SVN_REV;
+    }
+
+
+
+  void shellBody () const final
+  {
+    const string dbDir     = getArg ("DATABASE");
+    const string blast_bin = getArg ("blast_bin");
+    const bool   quiet     = getFlag ("quiet");
+    
+        
+    Stderr stderr (quiet);
+    stderr << "Running: "<< getCommandLine () << '\n';
+    const Verbose vrb (qc_on);
+    
+    
+    if (! directoryExists (dbDir))
+      throw runtime_error ("Database directory " + dbDir + " does not exist");
+      
+    const Dir dir (dbDir);
+    const string dbDirS (dir. get () + "/");
+                      
+    if (! blast_bin. empty ())
+      prog2dir ["makeblastdb"] = blast_bin;    
+    findProg ("makeblastdb");    
+    findProg ("hmmpress");
+    
+
+    // Cf. amrfinder_update.cpp
+    StringVector dnaPointMuts;
+    {
+      LineInput f (dbDirS + "taxgroup.tab");
+      while (f. nextLine ())
+      {
+   	    if (isLeft (f. line, "#"))
+	 	      continue;
+        string taxgroup, gpipe;
+        int n = -1;
+        istringstream iss (f. line);
+        iss >> taxgroup >> gpipe >> n;
+        QC_ASSERT (n >= 0);
+        if (n)
+          dnaPointMuts << taxgroup;
+      }
+    }
+    
+    
+    stderr << "Indexing" << "\n";
+    exec (fullProg ("hmmpress") + " -f " + shellQuote (dbDirS + "AMR.LIB") + " > /dev/null 2> " + tmp + "/hmmpress.err", tmp + "/hmmpress.err");
+    setSymlink (dbDirS, tmp + "/db", true);
+	  exec (fullProg ("makeblastdb") + " -in " + tmp + "/db/AMRProt" + "  -dbtype prot  -logfile " + tmp + "/makeblastdb.AMRProt", tmp + "/makeblastdb.AMRProt");  
+	  exec (fullProg ("makeblastdb") + " -in " + tmp + "/db/AMR_CDS" + "  -dbtype nucl  -logfile " + tmp + "/makeblastdb.AMR_CDS", tmp + "/makeblastdb.AMR_CDS");  
+    for (const string& dnaPointMut : dnaPointMuts)
+  	  exec (fullProg ("makeblastdb") + " -in " + tmp + "/db/AMR_DNA-" + dnaPointMut + "  -dbtype nucl  -logfile " + tmp + "/makeblastdb.AMR_DNA-" + dnaPointMut, tmp + "/makeblastdb.AMR_DNA-" + dnaPointMut);
+  }
+};
+
+
+
+}  // namespace
+
+
+
+int main (int argc, 
+          const char* argv[])
+{
+  ThisApplication app;
+  return app. run (argc, argv);  
+}
+
+
+

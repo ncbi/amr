@@ -208,7 +208,7 @@ struct Batch
      	  	iss. reset (f. line);
     	  	iss >> accession >> pos >> geneMutation >> classS >> subclass >> name;
     	  	QC_ASSERT (pos > 0);
-   	  		accession2mutations [accession]. push_back (move (AmrMutation ((size_t) pos, geneMutation, classS, subclass, name)));
+   	  		accession2mutations [accession] << move (AmrMutation ((size_t) pos, geneMutation, classS, subclass, name));
     	  }	    
     	}
   	  for (auto& it : accession2mutations)

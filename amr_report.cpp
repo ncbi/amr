@@ -1331,7 +1331,7 @@ struct Batch
 	  	// Pass 1  
 	    {
 	    	if (verbose ())
-	    		cout << "Reading " << famFName << " Pass 1 ..." << endl;
+	    		section ("Reading " + famFName + " Pass 1", true);
 	      LineInput f (famFName);  
 	  	  while (f. nextLine ())
 	  	    try
@@ -1381,7 +1381,7 @@ struct Batch
 	  	}
 	    {
 	    	if (verbose ())
-	    		cout << "Reading " << famFName << " Pass 2 ..." << endl;
+	    		section ("Reading " + famFName + " Pass 2", true);
 	      LineInput f (famFName);  
 	  	  while (f. nextLine ())
 	  	  {

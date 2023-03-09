@@ -137,8 +137,10 @@ constexpr const char* error_caption ("*** ERROR ***");
 	// Update: *logPtr
 	// Invokes: if segmFault then abort() else exit(1)
 
-[[noreturn]] inline void errorExitStr (const string &msg)
-  { errorExit (msg. c_str ()); }
+// For debugger
+[[noreturn]] void errorExitStr (const string &msg);
+
+void throwf (const string &s);
 
 
 
@@ -165,7 +167,7 @@ template <typename T>
   protected:
   	Singleton ()
   	  { if (beingRun)
-  	  	  throw runtime_error ("Singleton");
+  	  	  throwf ("Singleton");
   	  	beingRun = true;
   	  }
    ~Singleton () 
@@ -175,25 +177,26 @@ template <typename T> bool Singleton<T>::beingRun = false;
 
 
 
+struct Color
+{
+  enum Type { none    =  0
+              // UNIX
+            , black   = 30  
+            , red     = 31 	
+            , green   = 32
+            , yellow  = 33
+            , blue    = 34 	
+            , magenta = 35 	
+            , cyan    = 36 	
+            , white   = 37
+            };
+            
 #ifndef _MSC_VER
-  struct Color
-  {
-    enum Type { none    =  0
-              , black   = 30
-              , red     = 31 	
-              , green   = 32
-              , yellow  = 33
-              , blue    = 34 	
-              , magenta = 35 	
-              , cyan    = 36 	
-              , white   = 37
-              };
-              
-    static string code (Type color = none, 
-                        bool bright = false)
-      { return string ("\033[") + (bright ? "1;" : "") + to_string (color) + "m"; }
-  };
+  static string code (Type color = none, 
+                      bool bright = false)
+    { return string ("\033[") + (bright ? "1;" : "") + to_string (color) + "m"; }
 #endif
+};
   
   
 
@@ -235,7 +238,9 @@ extern const COutErr couterr;
 
 
 
+
 class ONumber
+// Output number format
 {
 	ostream &o;
   const streamsize prec_old;
@@ -258,6 +263,60 @@ public:
       o. precision (prec_old); 
     }
 };
+
+
+
+
+class OColor
+// Output color
+{
+	ostream &o;
+	const bool active;
+public:
+  OColor (ostream &o_arg,
+          Color::Type color, 
+          bool bright,
+          bool active_arg)
+	  : o (o_arg)
+	  , active (active_arg)
+    {
+    #ifndef _MSC_VER
+      if (active) 
+        o << Color::code (color, bright);
+    #endif
+    }
+ ~OColor ()    
+    {
+    #ifndef _MSC_VER
+      if (active) 
+        o << Color::code ();
+    #endif
+    }
+};
+
+
+
+inline void section (const string &title,
+                     bool useAlsoCout)
+  { const Color::Type color = Color::cyan;
+    const bool bright = false;
+    if (useAlsoCout)
+    {
+      { const OColor oc1 (cout, color, bright, true);
+        const OColor oc2 (cerr, color, bright, true);
+        couterr << title << " ...";
+      }
+      couterr << endl;
+    }
+    else
+    {
+      { const OColor oc (cerr, color, bright, true);
+        cerr << title << " ...";
+      }
+      cerr << endl;
+    }
+  }
+
 
 
 
@@ -285,14 +344,14 @@ public:
     { if (! on ())
         return;
       if (startTime != noclock)
-        throw logic_error ("Chronometer \""  + name + "\" is not stopped");
+        throwf ("Chronometer \""  + name + "\" is not stopped");
       startTime = clock (); 
     }  
   void stop () 
     { if (! on ())
         return;
       if (startTime == noclock)
-        throw logic_error ("Chronometer \"" + name + "\" is not started");
+        throwf ("Chronometer \"" + name + "\" is not started");
       time += clock () - startTime; 
       startTime = noclock;
     }
@@ -349,7 +408,8 @@ template <typename T>
   inline T* checkPtr (T* t)
     { if (t)
         return t;
-      throw runtime_error ("Dereferencing nullptr");
+      throwf ("Dereferencing nullptr");
+      return nullptr;
     }
 
 
@@ -876,7 +936,8 @@ public:
 	  	  	return t;
 	  	  else
 	  	  	i++;
-	  	throw runtime_error ("List index is out of range");
+	  	throwf ("List index is out of range");
+	  	return T ();  // dummy
 	  }
 	size_t find (const T &t) const
 	  { size_t i = 0;
@@ -930,14 +991,14 @@ public:
       }
   T popFront ()
     { if (P::empty ())
-        throw range_error ("popFront() empty list");
+        throwf ("popFront() empty list");
       const T t = P::front ();
       P::pop_front ();
       return t;
     }
   T popBack ()
     { if (P::empty ())
-        throw range_error ("popBack() empty list");
+        throwf ("popBack() empty list");
       const T t = P::back ();
       P::pop_back ();
       return t;
@@ -1002,7 +1063,7 @@ template <typename T>
           || ! iss. eof ()
           || iss. fail ()
          )
-        throw runtime_error ("Cannot convert " + strQuote (s) + " to number");
+        throwf ("Cannot convert " + strQuote (s) + " to number");
       return i;
     }
 
@@ -1215,7 +1276,7 @@ bool fileExists (const string &fName);
 
 inline void checkFile (const string &fName)
   { if (! fileExists (fName))
-      throw runtime_error ("File " + strQuote (fName) + " does not exist");
+      throwf ("File " + strQuote (fName) + " does not exist");
   }
 
 streamsize getFileSize (const string &fName);
@@ -1229,12 +1290,12 @@ void copyText (const string &inFName,
   inline void moveFile (const string &from,
                         const string &to)
     { if (::rename (from. c_str (), to. c_str ()))
-        throw runtime_error ("Cannot move file + " + shellQuote (from) + " to " + shellQuote (to));
+        throwf ("Cannot move file + " + shellQuote (from) + " to " + shellQuote (to));
     }
 
   inline void removeFile (const string &fName)
     { if (::remove (fName. c_str ()))
-        throw runtime_error ("Cannot remove file + " + shellQuote (fName));
+        throwf ("Cannot remove file + " + shellQuote (fName));
     }
 
       
@@ -1245,7 +1306,8 @@ void copyText (const string &inFName,
         return s;
       }
       else
-        throw runtime_error ("path2canonical " + shellQuote (path));
+        throwf ("path2canonical " + shellQuote (path));
+      return noString;  // dummy
     }
   
   
@@ -1296,7 +1358,7 @@ struct Dir
     { if (items. empty ())
         return "..";
       if (items. size () == 1 && items. front (). empty ())
-        throw runtime_error ("Cannot get the parent directory of the root");
+        throwf ("Cannot get the parent directory of the root");
       const Dir parent (get () + "/..");
       return parent. get ();
     }
@@ -1440,10 +1502,10 @@ public:
 	  { return threadsToStart < threads. size () ? 0 : (threadsToStart - threads. size ()); }
 	Threads& operator<< (thread &&t)
 	  { if (! getAvailable ())
-	  	  throw logic_error ("Too many threads created");
+	  	  throwf ("Too many threads created");
 	  	try { threads. push_back (move (t)); }
 	  	  catch (const exception &e) 
-	  	    { throw runtime_error (string ("Cannot start thread\n") + e. what ()); }
+	  	    { throwf (string ("Cannot start thread\n") + e. what ()); }
 	  	return *this;
 	  }
 	bool exec (const string cmd,
@@ -1469,7 +1531,8 @@ template <typename Func, typename Res, typename... Args>
   // Input: void func (size_t from, size_t to, Res& res, Args...)
   // Optimial thread_num minimizes (Time_SingleCPU/thread_num + Time_openCloseThread * (thread_num - 1)), which is sqrt(Time_SingleCPU/Time_openCloseThread)
   {
-  	ASSERT (threads_max >= 1);
+  	if (threads_max < 1)
+  	  throwf ("threads_max < 1");
 		results. clear ();
 		results. reserve (threads_max);
   	if (threads_max == 1 || i_max <= 1 || ! Threads::empty ())
@@ -1481,9 +1544,10 @@ template <typename Func, typename Res, typename... Args>
 		size_t chunk = max<size_t> (1, i_max / threads_max);
 		if (chunk * threads_max < i_max)
 			chunk++;
-		ASSERT (chunk * threads_max >= i_max);
+		if (chunk * threads_max < i_max)
+		  throwf ("chunk * threads_max < i_max");
 		Threads th (threads_max - 1, quiet);
-		FFOR (size_t, tn, threads_max)
+		for (size_t tn = 0; tn < threads_max; tn++)
 	  {
 	    const size_t from = tn * chunk;
 	  	if (from >= i_max)
@@ -1544,6 +1608,27 @@ struct JsonContainer;
 
 
 
+struct OFStream : ofstream
+{
+	OFStream () = default;
+	OFStream (const string &dirName,
+	          const string &fileName,
+	          const string &extension)
+	  { open (dirName, fileName, extension); }
+	explicit OFStream (const string &pathName)
+	  { open ("", pathName, ""); }
+	static void create (const string &pathName)
+	  { OFStream f (pathName); }
+
+
+	void open (const string &dirName,
+	           const string &fileName,
+	           const string &extension);
+	  // Input: !fileName.empty()
+};
+
+
+
 struct Xml
 {
   struct File;
@@ -1565,7 +1650,13 @@ struct Xml
   struct File
   {
   private:
-    ostream& os;
+    struct XmlStream : OFStream
+    { 
+      explicit XmlStream (const string &pathName)
+        : OFStream (pathName)
+        { *this << "<?xml version=\"1.0\" encoding=\"ISO-8859-1\" ?>" << endl; }  // PAR
+    };
+    XmlStream os;
     size_t offset {0};
     friend Tag;
   public:
@@ -1575,21 +1666,15 @@ struct Xml
     const Tag tag;
 
 
-    File (ostream &os_arg,
+    File (const string &pathName,
           bool printOffset_arg,
           bool printBrief_arg,
           const string &tagName)
-      : os (init (os_arg))
+      : os (pathName)
       , printOffset (printOffset_arg)
       , printBrief (printBrief_arg)
       , tag (*this, tagName)
       {}
-  private:
-    static ostream& init (ostream &os_arg)
-      { os_arg << "<?xml version=\"1.0\" encoding=\"ISO-8859-1\" ?>" << endl;  // PAR
-        return os_arg;
-      }
-  public:
 
 
     void print (const string &s)
@@ -1618,13 +1703,13 @@ public:
     {}
     // A desrtructor should be virtual to be automatically invoked by a descendant class destructor
   virtual Root* copy () const
-    { throw logic_error ("Root::copy() is not implemented"); }
+    { throwf ("Root::copy() is not implemented"); return nullptr; }
     // Return: the same type    
   virtual void qc () const
     {}
     // Input: qc_on
   virtual void saveText (ostream& /*os*/) const 
-    { throw logic_error ("Root::saveText() is not implemented"); }
+    { throwf ("Root::saveText() is not implemented"); }
   void saveFile (const string &fName) const;
     // if fName.empty() then do nothing
     // Invokes: saveText()
@@ -1633,18 +1718,20 @@ public:
       saveText (oss);
       return oss. str ();
     }
+  void trace (ostream& os,
+              const string& title) const;
   virtual void saveXml (Xml::File& /*f*/) const 
-    { throw logic_error ("Root::saveXml() is not implemented"); }
+    { throwf ("Root::saveXml() is not implemented"); }
   virtual Json* toJson (JsonContainer* /*parent_arg*/,
                         const string& /*name_arg*/) const
-    { throw logic_error ("Root::toJson() is not implemented"); }
+    { throwf ("Root::toJson() is not implemented"); return nullptr; }
 	virtual bool empty () const
 	  { return true; }
   virtual void clear ()
-    { throw logic_error ("Root::clear() is not implemented"); }
+    { throwf ("Root::clear() is not implemented"); }
     // Postcondition: empty()
   virtual void read (istream &/*is*/)
-    { throw logic_error ("Root::read() is not implemented"); }
+    { throwf ("Root::read() is not implemented"); }
 	  // Input: a line of is
 };
 
@@ -1752,7 +1839,7 @@ public:
     {}
 	explicit Vector (const vector<T> &other) 
     : P (other)
-	  {}
+    {}
 	
 	
 private:
@@ -1761,10 +1848,14 @@ private:
 	  {
 	  #ifndef NDEBUG
 	    if (index >= P::size ())
-	      throw range_error ("Vector " + operation + " operation: index = " + to_string (index) + ", but size = " + to_string (P::size ()));
+	      throwf ("Vector " + operation + " operation: index = " + to_string (index) + ", but size = " + to_string (P::size ()));
 	  #endif
 	  }
 public:
+  void unsetSearchSorted ()
+    { if (P::size () > 1)
+        searchSorted = false;
+    }
 	typename P::reference operator[] (size_t index)
 	  { checkIndex ("assignment", index);
 	    return P::operator[] (index);
@@ -1819,9 +1910,9 @@ public:
           n++;
       return n;
     }
-  void unsetSearchSorted ()
-    { if (P::size () > 1)
-        searchSorted = false;
+  void checkSorted () const
+    { if (! searchSorted)
+    	  throwf ("Vector is not sorted for search");
     }
   Vector<T>& operator<< (const T &value)
     { P::push_back (value);
@@ -1859,14 +1950,13 @@ public:
   void setAll (const T &value)
     { for (T &t : *this)
     	  t = value;
-      unsetSearchSorted ();
     }
   void eraseAt (size_t index)
     { eraseMany (index, index + 1); }
   void eraseMany (size_t from,
                   size_t to)
     { if (to < from)
-        throw logic_error ("Vector::eraseMany(): to < from");
+        throwf ("Vector::eraseMany(): to < from");
       if (to == from)
         return;
       checkIndex ("eraseMany", to - 1);
@@ -1901,7 +1991,7 @@ public:
     { 
     #ifndef NDEBUG
       if (P::empty ())
-        throw range_error ("Empty vector pop_back");
+        throwf ("Empty vector pop_back");
     #endif
       P::pop_back ();
     }
@@ -1909,7 +1999,7 @@ public:
     { T t = T ();
       while (n)
       { if (P::empty ())
-          throw runtime_error ("Cannot pop an empty vector");
+          throwf ("Cannot pop an empty vector");
         t = (*this) [P::size () - 1];
     	  P::pop_back ();
         n--;
@@ -1970,17 +2060,13 @@ public:
     // Fast if *this is almost sort()'ed
     { if (searchSorted)
         return;
-      FOR_START (size_t, i, 1, P::size ())
-		    FOR_REV (size_t, j, i)
+      for (size_t i = 1; i < P::size (); i++)
+		    for (size_t j = i; j-- > 0;)
 		      if ((*this) [j + 1] < (*this) [j])
         	  std::swap ((*this) [j], (*this) [j + 1]);
 		      else
 		      	break;
     	searchSorted = true;
-    }
-  void checkSorted () const
-    { if (! searchSorted)
-    	  throw logic_error ("Vector is not sorted for search");
     }
 
   size_t binSearch (const T &value,
@@ -2097,7 +2183,7 @@ public:
     { if (P::size () <= 1)
         return no_index;
       checkSorted ();
-      FOR_START (size_t, i, 1, P::size ())
+      for (size_t i = 1; i < P::size (); i++)
         if ((*this) [i] == (*this) [i - 1])
           return i;
       return no_index;
@@ -2109,7 +2195,7 @@ public:
 	    { if (P::size () <= 1)
 	        return;
 	      size_t j = 1;  
-	      FOR_START (size_t, i, 1, P::size ())
+	      for (size_t i = 1; i < P::size (); i++)
 	        if (! equal ((*this) [i], (*this) [i - 1]))
 	        { if (j != i)
 	            (*this) [j] = (*this) [i];
@@ -2160,12 +2246,59 @@ public:
         if (other [j] == x)
           res << x;
       }
+      res. searchSorted = true;
       return res;
+    }
+  bool setIntersection (const Vector<T> &other)
+    { other. checkSorted ();      
+      if (P::empty ())
+        *this = other;
+      else
+      { Vector<T> vec (getIntersection (other));
+        *this = std::move (vec);
+      }
+      searchSorted = true;
+      return ! P::empty ();
+    }
+  Vector<T> getUnion (const Vector<T> &other) const
+    // Input: *this, vec: unique
+    { Vector<T> res;  res. reserve (P::size () + other. size ());      
+      if (other. empty ())
+        return *this;
+      if (P::empty ())
+        return other;
+      checkSorted ();
+      other. checkSorted ();      
+      size_t j = 0;
+      for (const T& x : *this)
+      { while (j < other. size () && other [j] < x)
+        { res << other [j];
+          j++;
+        }
+        if (j < other. size () && other [j] == x)
+          j++;
+        res << x;
+      }
+      while (j < other. size ())
+      { res << other [j];
+        j++;
+      }
+      res. searchSorted = true;
+      return res;
+    }
+  void setUnion (const Vector<T> &other)
+    { if (P::empty ())
+        *this = other;
+      else
+      { Vector<T> vec (getUnion (other));
+        *this = std::move (vec);
+      }
     }
 
   bool operator< (const Vector<T> &other) const
     // Lexicographic comparison
-    { FFOR (size_t, i, std::min (P::size (), other. size ()))
+    { const size_t n = std::min (P::size (), other. size ());
+      for (size_t i = 0; i < n; i++)
     	{ if ((*this) [i] < other [i]) return true;
     		if (other [i] < (*this) [i]) return false;
       }
@@ -2207,13 +2340,28 @@ public:
   	explicit VectorPtr (const vector<const U*> &other)
   	  : P ()
   	  { P::reserve (other. size ());
+  	    insertAll (*this, other);  	    
+  	  }	  
+	template <typename U>
+  	explicit VectorPtr (const Vector<const U*> &other)
+  	  : P ()
+  	  { P::reserve (other. size ());
   	    insertAll (*this, other);
+  	    P::searchSorted = other. searchSorted;
   	  }	  
 	template <typename U>
   	explicit VectorPtr (const list<const U*> &other)
   	  : P ()
   	  { P::reserve (other. size ());
   	    insertAll (*this, other);
+  	  }	  
+  template <typename U>
+  	VectorPtr<T>& operator= (const Vector<const U*> &other)
+  	  { P::clear ();
+  	    P::reserve (other. size ());
+  	    insertAll (*this, other);
+  	    P::searchSorted = other. searchSorted;
+  	    return *this;
   	  }	  
 
 
@@ -2229,17 +2377,19 @@ public:
 	void deleteData ()
 	  {	for (const T* t : *this)
 			  delete t;
-			P::clear ();  
+			P::clear ();
 	  }
   void erasePtr (size_t index)
     { delete (*this) [index];
       P::eraseAt (index);
     }
   void sortPtr ()
-    { P::sort (lessPtr<T>); }
+    { P::sort (lessPtr<T>); 
+		  P::unsetSearchSorted ();
+    }
   void sortBubblePtr ()
-    { FOR_START (size_t, i, 1, P::size ())
-		    FOR_REV (size_t, j, i)
+    { for (size_t i = 1; i < P::size (); i++)
+		    for (size_t j = i; j-- > 0;)
 		      if (* (*this) [j + 1] < * (*this) [j])
         	  std::swap ((*this) [j], (*this) [j + 1]);
 		      else
@@ -2247,6 +2397,37 @@ public:
 		  P::unsetSearchSorted ();
     }
 };
+
+
+
+template <typename T>
+  bool equalPtr (const VectorPtr<T> &a,
+                 const VectorPtr<T> &b)
+    { if (a. size () != b. size ())
+        return false;
+      for (size_t i = 0; i < a. size (); i++)
+        if (! (* a [i] == * b [i]))
+          return false;
+      return true;
+    }
+
+template <typename T>
+  ebool compPtr (const VectorPtr<T> &a,
+                 const VectorPtr<T> &b)
+    { if (a. size () < b. size ())
+        return etrue;
+      if (a. size () > b. size ())
+        return efalse;
+      for (size_t i = 0; i < a. size (); i++)
+      {
+        if (* a [i] < * b [i])
+          return etrue;
+        if (* b [i] < * a [i])
+          return efalse;
+      }
+      return enull;
+    }
+
 
 
 
@@ -2270,11 +2451,33 @@ public:
 	  	P::searchSorted = other. searchSorted;
 	  	return *this;
 	  }
-	VectorOwn (VectorOwn<T>&&) = default;
-	VectorOwn<T>& operator= (VectorOwn<T>&&) = default;
+	VectorOwn (VectorOwn<T> &&other)
+	  : P ()
+	  { *this = move (other); }
+	VectorOwn<T>& operator= (VectorOwn<T> &&other)
+	  { P::deleteData ();
+	    P::operator= (move (other)); 
+	  	P::searchSorted = other. searchSorted;
+	    return *this;
+	  }
 	explicit VectorOwn (const VectorPtr<T> &other)
 	  : P ()
-	  { P::operator= (other); }
+	  { *this = other; }
+	VectorOwn<T>& operator= (const VectorPtr<T> &other) 
+	  { P::deleteData ();
+	    P::operator= (other); 
+	    P::searchSorted = other. searchSorted;
+	    return *this;
+	  }
+	explicit VectorOwn (VectorPtr<T> &&other)
+	  : P ()
+	  { *this = move (other); }
+	VectorOwn<T>& operator= (VectorPtr<T> &&other) 
+	  { P::deleteData ();
+	    P::operator= (move (other)); 
+	  	P::searchSorted = other. searchSorted;
+	    return *this;
+	  }
  ~VectorOwn ()
     { P::deleteData (); }
 
@@ -2294,6 +2497,7 @@ public:
   {
     VectorOwn<T> &vec;
     const size_t size;
+    
   public:
     explicit Stack (VectorOwn<T> &vec_arg)
       : vec (vec_arg)
@@ -2304,6 +2508,12 @@ public:
         { const T* t = vec. pop ();
           delete t;
         }
+      }
+      
+    void release (VectorPtr<T> &out)
+      { out. reserve (vec. size () - size);
+        while (vec. size () > size)
+          out << vec. pop ();
       }
   };
 };
@@ -2347,16 +2557,6 @@ public:
     }
   };
 };
-
-
-
-// Search
-// Return: false <=> incrementations are exhausted
-bool inc (vector<bool> &v);
-  // Update: v
-bool inc (vector<size_t> &indexes,
-          const vector<size_t> &indexes_max);
-  // Update: indexes
 
 
 
@@ -2406,9 +2606,6 @@ private:
 public:
 
 
-  struct Error : runtime_error
-    { explicit Error (const string &str) : runtime_error (("Heap: " + str)) {} };
-
 
   explicit Heap (const CompareInt &comp_arg,
 					       const SetHeapIndex &setHeapIndex_arg = nullptr,
@@ -2416,6 +2613,10 @@ public:
     : comp (comp_arg)
     , setHeapIndex (setHeapIndex_arg)
     { arr. reserve (toReserve); }
+private:
+  static void throwError (const string &str) 
+    { throwf ("Heap: " + str); }
+public:
 
 
   bool empty () const final
@@ -2424,7 +2625,7 @@ public:
     { return arr. size (); }
   Heap& operator<< (T* item)
     { if (! item)
-        throw Error ("null item");
+        throwError ("null item");
       arr << item;
       increaseKey (arr. size () - 1);
       return *this;
@@ -2442,13 +2643,13 @@ public:
     { heapify (index, arr. size ()); }
   T* getMaximum () const
     { if (arr. empty ()) 
-    	  throw Error ("getMaximum");
+    	  throwError ("getMaximum");
       return arr [0];
     }
   void deleteMaximum ()
     // Time: O(1) amortized
     { if (arr. empty ()) 
-    	  throw Error ("deleteMaximum");
+    	  throwError ("deleteMaximum");
       T* item = arr. back ();
       arr. pop_back ();
       if (arr. empty ())
@@ -2469,7 +2670,7 @@ public:
     }
 private:
   static size_t parent (size_t index) 
-    { if (! index)  throw Error ("parent");
+    { if (! index)  throwError ("parent");
       return (index + 1) / 2 - 1;
     }
   static size_t left (size_t index) 
@@ -2493,8 +2694,8 @@ private:
   void heapify (size_t index,
                 size_t maxIndex)
     // Requires: Heap property holds for all index1 < maxIndex except parent(index1) == index
-    { if (maxIndex > arr. size ())  throw Error ("heapify: maxIndex");
-      if (index >= maxIndex)        throw Error ("heapify: index");
+    { if (maxIndex > arr. size ())  throwError ("heapify: maxIndex");
+      if (index >= maxIndex)        throwError ("heapify: index");
       for (;;)
       { size_t extr = index;
         const size_t l = left (index);
@@ -2723,7 +2924,8 @@ public:
 			return n;
 		}
   size_t setMinus (const Set<T> &other)
-    { ASSERT (! universal);
+    { if (universal)
+        throwf ("setMinus:universal");
     	size_t n = 0;
     	if (other. universal)
     	{ n = P::size ();
@@ -2788,7 +2990,7 @@ public:
     { if (! qc_on)
         return;
       if (vec. size () != um. size ())
-        throw logic_error ("RandomSet: qc");
+        throwf ("RandomSet: qc");
     }
 
     
@@ -2978,7 +3180,8 @@ struct LineInput : Input
 		  	return true;  
 			if (eof && eofAllowed)
 				return false;
-		  throw runtime_error ("No " + strQuote (prefix));
+		  throwf ("No " + strQuote (prefix));
+		  return false;  // dummy
 		}
 };
 	
@@ -3033,20 +3236,14 @@ public:
     // Postcondition: eol
 	  
 
-  struct Error : runtime_error 
-  {
-    explicit Error (const string &what_arg)
-      : runtime_error (what_arg)
-      {}
-  };
   string errorText (const string &what,
 		                bool expected = true) const
 		{ return "Error at line " + to_string (lineNum + 1) + ", pos. " + to_string (charNum + 1)
                 + (what. empty () ? noString : (": " + what + ifS (expected, " is expected"))); 
     }
-  [[noreturn]] void error (const string &what,
-		                       bool expected = true) const
-		{ throw Error (errorText (what, expected)); }
+  void error (const string &what,
+	            bool expected = true) const
+		{ throwf (errorText (what, expected)); }
 };
 	
 
@@ -3141,7 +3338,8 @@ public:
 	  		case eDelimiter: return "delimiter";
 	  		case eDateTime:  return "datetime";
 	  	}
-	  	throw logic_error ("Token::type2str()");
+	  	throwf ("Token::type2str()");
+	  	return noString;
 	  }
 	static Type str2type (const string &s)
 	  { if (s == "name")      return eName;
@@ -3150,7 +3348,8 @@ public:
 	    if (s == "double")    return eDouble;
 	    if (s == "delimiter") return eDelimiter;
 	    if (s == "datetime")  return eDateTime;
-	    throw runtime_error ("Token::str2type()");
+	    throwf ("Token::str2type()");
+	    return eName;  // dummy
 	  }      
 	bool isName (const string &s) const
 	  { return ! empty () && type == eName && name == s; }
@@ -3218,8 +3417,8 @@ public:
     {}
 
 
-  [[noreturn]] void error (const string &what,
-		                       bool expected = true) const
+  void error (const string &what,
+	            bool expected = true) const
 		{ ci. error (what, expected); }  // CharInput::Error
   Token get ();
     // Return: empty() <=> EOF
@@ -3256,7 +3455,7 @@ public:
     }
   void setLast (Token &&t)
     { if (t. empty ())
-        throw logic_error ("TokenInput::setLast()");
+        throwf ("TokenInput::setLast()");
       last = move (t);
     }
 };
@@ -3293,27 +3492,6 @@ public:
 
 
 
-struct OFStream : ofstream
-{
-	OFStream () = default;
-	OFStream (const string &dirName,
-	          const string &fileName,
-	          const string &extension)
-	  { open (dirName, fileName, extension); }
-	explicit OFStream (const string &pathName)
-	  { open ("", pathName, ""); }
-	static void create (const string &pathName)
-	  { OFStream f (pathName); }
-
-
-	void open (const string &dirName,
-	           const string &fileName,
-	           const string &extension);
-	  // Input: !fileName.empty()
-};
-
-
-
 struct Stderr : Singleton<Stderr>
 {
   const bool quiet;
@@ -3331,24 +3509,29 @@ struct Stderr : Singleton<Stderr>
         cerr << t;
         return *this;
       }
+  void section (const string &title) const
+    { if (quiet)
+        return;
+      Common_sp::section (title, false);
+    }
 };
 
 
 
-#ifndef _MSC_VER
-  struct Warning : Singleton<Warning>
-  {
-  private:
-    Stderr& stderr;
-  public:  
-    
-    explicit Warning (Stderr &stderr_arg)
-      : stderr (stderr_arg)
-      { stderr << Color::code (Color::yellow, true) << "WARNING: "; }
-   ~Warning ()
-      { stderr << Color::code () << "\n"; }
-  };
-#endif
+struct Warning : Singleton<Warning>
+{
+private:
+  Stderr& stderr;
+  const OColor oc;
+public:  
+  
+  explicit Warning (Stderr &stderr_arg)
+    : stderr (stderr_arg)
+    , oc (cerr, Color::yellow, true, ! stderr. quiet)
+    { stderr << "WARNING: "; }
+ ~Warning ()
+    { stderr << "\n"; }
+};
 
 
 
@@ -3697,7 +3880,7 @@ struct Offset
 private:
 	static size_t size;
 public:
-	static constexpr size_t delta = 2;
+	static constexpr size_t delta {2};
 
 
 	Offset ()
@@ -3998,6 +4181,7 @@ protected:
     // [-<name>]
   void addPositional (const string &name,
                       const string &argDescription);
+    // Requires: gnu => name is uppercased
   void setRequiredGroup (const string &keyName,
                          const string &requiredGroup);
 private:
