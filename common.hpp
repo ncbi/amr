@@ -1259,6 +1259,12 @@ inline string getDirName (const string &path)
 inline bool isDirName (const string &path)
   { return isRight (path, "/"); }
 
+
+inline void addDirSlash (string &dirName)
+  { if (! dirName. empty () && ! isDirName (dirName))
+    	dirName += "/";
+  }
+
 inline string shellQuote (string s)
   { replaceStr (s, "\'", "\'\"\'\"\'");
   	return "\'" + s + "\'";
@@ -1335,7 +1341,6 @@ void copyText (const string &inFName,
   void concatTextDir (const string &inDirName,
                       const string &outFName);
 #endif
-
 
 
 struct Dir

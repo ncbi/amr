@@ -63,7 +63,7 @@ struct ThisApplication : ShellApplication
     : ShellApplication ("Index the database for AMRFinder", true, true, true)
     {
     	addPositional ("DATABASE", "Directory with AMRFinder database");
-    	addKey ("blast_bin", "Directory for BLAST ending with '/'", "", '\0', "BLAST_DIR");
+    	addKey ("blast_bin", "Directory for BLAST", "", '\0', "BLAST_DIR");
       addFlag ("quiet", "Suppress messages to STDERR", 'q');
 	    version = SVN_REV;
     }
@@ -72,9 +72,13 @@ struct ThisApplication : ShellApplication
 
   void shellBody () const final
   {
-    const string dbDir     = getArg ("DATABASE");
-    const string blast_bin = getArg ("blast_bin");
+          string dbDir     = getArg ("DATABASE");
+          string blast_bin = getArg ("blast_bin");
     const bool   quiet     = getFlag ("quiet");
+    
+    
+    addDirSlash (dbDir);
+    addDirSlash (blast_bin);
     
         
     Stderr stderr (quiet);
@@ -84,10 +88,7 @@ struct ThisApplication : ShellApplication
     
     if (! directoryExists (dbDir))
       throw runtime_error ("Database directory " + dbDir + " does not exist");
-      
-    const Dir dir (dbDir);
-    const string dbDirS (dir. get () + "/");
-                      
+                            
     if (! blast_bin. empty ())
       prog2dir ["makeblastdb"] = blast_bin;    
     findProg ("makeblastdb");    
@@ -97,7 +98,7 @@ struct ThisApplication : ShellApplication
     // Cf. amrfinder_update.cpp
     StringVector dnaPointMuts;
     {
-      LineInput f (dbDirS + "taxgroup.tab");
+      LineInput f (dbDir + "taxgroup.tab");
       while (f. nextLine ())
       {
    	    if (isLeft (f. line, "#"))
@@ -114,8 +115,8 @@ struct ThisApplication : ShellApplication
     
     
     stderr << "Indexing" << "\n";
-    exec (fullProg ("hmmpress") + " -f " + shellQuote (dbDirS + "AMR.LIB") + " > /dev/null 2> " + tmp + "/hmmpress.err", tmp + "/hmmpress.err");
-    setSymlink (dbDirS, tmp + "/db", true);
+    exec (fullProg ("hmmpress") + " -f " + shellQuote (dbDir + "AMR.LIB") + " > /dev/null 2> " + tmp + "/hmmpress.err", tmp + "/hmmpress.err");
+    setSymlink (dbDir, tmp + "/db", true);
 	  exec (fullProg ("makeblastdb") + " -in " + tmp + "/db/AMRProt" + "  -dbtype prot  -logfile " + tmp + "/makeblastdb.AMRProt", tmp + "/makeblastdb.AMRProt");  
 	  exec (fullProg ("makeblastdb") + " -in " + tmp + "/db/AMR_CDS" + "  -dbtype nucl  -logfile " + tmp + "/makeblastdb.AMR_CDS", tmp + "/makeblastdb.AMR_CDS");  
     for (const string& dnaPointMut : dnaPointMuts)

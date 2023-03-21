@@ -320,10 +320,13 @@ int TextTable::compare (const StringVector& row1,
                         const StringVector& row2,
                         ColNum column) const
 {
+  const string& s1 = row1 [column];
+  const string& s2 = row2 [column];
+
   if (header [column]. numeric)
   {
-    const double a = stod (row1 [column]);
-    const double b = stod (row2 [column]);
+    const double a = s1. empty () ? 0.0 : stod (s1);
+    const double b = s2. empty () ? 0.0 : stod (s2);
     if (a < b)
       return -1;
     if (a > b)
@@ -331,11 +334,9 @@ int TextTable::compare (const StringVector& row1,
     return 0;
   }
   
-  const string& a = row1 [column];
-  const string& b = row2 [column];
-  if (a < b)
+  if (s1 < s2)
     return -1;
-  if (a > b)
+  if (s1 > s2)
     return 1;
 
   return 0;
@@ -433,6 +434,7 @@ void TextTable::group (const StringVector &by,
     if (! header [col2num (s)]. numeric)
       throw runtime_error ("Summation column " + strQuote (s) + " is not numeric");
 
+#if 0
   const auto lt = [&byIndex,this] (const StringVector &a, const StringVector &b) 
                     { for (const ColNum i : byIndex) 
                         switch (this->compare (a, b, i))
@@ -448,6 +450,9 @@ void TextTable::group (const StringVector &by,
                       return false;
                     };
   Common_sp::sort (rows, lt);
+#else
+  sort (by);
+#endif
   
   RowNum i = 0;  
   FFOR_START (RowNum, j, 1, rows. size ())
@@ -484,7 +489,7 @@ void TextTable::merge (RowNum toRowNum,
                        const Vector<ColNum> &aggr) 
 {
   ASSERT (toRowNum < fromRowNum);
-  StringVector& to = rows [toRowNum];
+        StringVector& to   = rows [toRowNum];
   const StringVector& from = rows [fromRowNum];
 
   for (const ColNum i : sum)
@@ -502,11 +507,19 @@ void TextTable::merge (RowNum toRowNum,
   }
 
   for (const ColNum i : minV)
-    if (compare (to, from, i) == 1)
+    if (   to [i]. empty ()
+        || (   ! from [i]. empty ()
+            && compare (to, from, i) == 1
+           )
+       )
       to [i] = from [i];
 
   for (const ColNum i : maxV)
-    if (compare (to, from, i) == -1)
+    if (   to [i]. empty ()
+        || (   ! from [i]. empty ()
+            && compare (to, from, i) == -1
+           )
+       )
       to [i] = from [i];
 
   for (const ColNum i : aggr)

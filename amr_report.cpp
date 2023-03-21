@@ -571,6 +571,11 @@ struct BlastAlignment : Alignment
         	           || cds. size () == 3 * targetLen 
         	          );
     #endif
+	    if (! targetProt)
+	    {
+    	  for (const Locus& cds : cdss)
+    	    QC_ASSERT (cds. contig == targetName);
+    	}
 	    QC_IMPLY (! seqChanges. empty (), isMutationProt ());
     }
   void report (ostream& os,

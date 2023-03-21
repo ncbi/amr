@@ -311,7 +311,7 @@ void throwf (const string &s)
     const Xml::Tag xml (*cxml, "ERROR");
     *cxml << s;
   }
-  throw runtime_error (s + "\nStack:\n" + getStack ()); 
+  throw logic_error (s + "\nStack:\n" + getStack ()); 
 }
 
 
@@ -3630,7 +3630,7 @@ void ShellApplication::initEnvironment ()
 	execDir = getProgramDirName ();
 	if (execDir. empty ())
 		execDir = which (programArgs. front ());
-  if (! isRight (execDir, "/"))
+  if (! isDirName (execDir))
     throw logic_error ("Cannot identify the directory of the executable");
   {
     string s (programArgs. front ());
@@ -3700,7 +3700,7 @@ void ShellApplication::findProg (const string &progName) const
 {
 	ASSERT (! progName. empty ());
 	ASSERT (! contains (progName, '/'));
-	ASSERT (isRight (execDir, "/"));
+	ASSERT (isDirName (execDir));
 	
 	string dir;
 	if (! find (prog2dir, progName, dir))
@@ -3714,7 +3714,7 @@ void ShellApplication::findProg (const string &progName) const
 	  prog2dir [progName] = dir;
 	}
 	  
-	ASSERT (isRight (dir, "/"));
+	ASSERT (isDirName (dir));
 }
 
 
@@ -3724,7 +3724,7 @@ string ShellApplication::fullProg (const string &progName) const
 	string dir;
 	if (! find (prog2dir, progName, dir))
 	  throw runtime_error ("Program " + shellQuote (progName) + " is not found");
-	ASSERT (isRight (dir, "/"));
+	ASSERT (isDirName (dir));
 	return shellQuote (dir + progName) + " ";
 }
 #endif

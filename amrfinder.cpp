@@ -32,6 +32,9 @@
 * Dependencies: NCBI BLAST, HMMer
 *
 * Release changes:
+*           03/21/2023 PD-4533  '_' are incorrectly trimmed from contig names
+*           03/13/2023          -mt_mode is restored for __APPLE__ 
+*   3.11.5  03/10/2023          directories --blast_bin, directory DATABASE in amrfinder_index.cpp do not need to end with '/'
 *           03/01/2023 PD-3597  amrfinder_index
 *           02/27/2023          section()
 *   3.11.4  01/24/2023          GPipe organism string in taxgroup.tab is a comma-separated list of GPipe organisms
@@ -386,10 +389,10 @@ struct ThisApplication : ShellApplication
       return string ();
     
 	  string s ("  -num_threads " + to_string (t));
-	#ifndef __APPLE__
+//#ifndef __APPLE__
 	  if (mt_modeP)  
 	    s += "  -mt_mode 1";
-	#endif
+//#endif
 	    
 	  return s;
   }
@@ -567,8 +570,7 @@ struct ThisApplication : ShellApplication
     		blast_bin = string (s);
     if (! blast_bin. empty ())
     {
-	    if (! isRight (blast_bin, "/"))
-	    	blast_bin += "/";
+	    addDirSlash (blast_bin);
 	    prog2dir ["blastp"]      = blast_bin;
 	    prog2dir ["blastx"]      = blast_bin;
 	    prog2dir ["tblastn"]     = blast_bin;
@@ -825,7 +827,7 @@ struct ThisApplication : ShellApplication
 
   		
   		// PD-2967
-  		const string blastp_par ("-comp_based_stats 0  -evalue 1e-10  -seg no  -max_target_seqs 10000");  
+  		const string blastp_par ("-comp_based_stats 0  -evalue 1e-10  -seg no  -max_target_seqs 10000");  // PAR
   		  // was: -culling_limit 20  // PD-2967
   		if (! emptyArg (prot))
   		{
@@ -972,8 +974,8 @@ struct ThisApplication : ShellApplication
     			findProg (blastx);
           {
        			const Chronometer_OnePass cop (blastx, cerr, false, qc_on && ! quiet);
-        		const string tblastn_par (blastp_par + "  -word_size 3");  //   -max_target_seqs 10000
-        		const string blastx_par (tblastn_par + "  -query_gencode " + to_string (gencode));
+        		const string tblastn_par (blastp_par + "  -word_size 3");  
+        		const string blastx_par  (blastp_par + "  -word_size 3  -query_gencode " + to_string (gencode));
       			ASSERT (threads_max >= 1);
       			if (blastx == "blastx")
         			exec (fullProg ("blastx") + "  -query " + dna + " -db " + tmp + "/db/AMRProt" + "  "
