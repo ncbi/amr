@@ -477,7 +477,7 @@ struct BlastAlignment : Alignment
 		      nident++;
 		    	    
 		    if (! targetProt)
-		      cdss << move (Locus (0, targetName, targetStart, targetEnd, targetStrand, partialDna, 0, string (), string ()));
+		      cdss. emplace_back (0, targetName, targetStart, targetEnd, targetStrand, partialDna, 0, string (), string ());
 	
 		    if (const Vector<AmrMutation>* refMutations = findPtr (accession2mutations, refAccession))
 		    {
@@ -561,7 +561,6 @@ struct BlastAlignment : Alignment
 	    QC_IMPLY (targetProt, targetAlign == targetAlign_aa);
 	    QC_IMPLY (! targetProt, targetAlign == 3 * targetAlign_aa);
 	    QC_ASSERT (nident <= targetAlign_aa);
-	  //QC_IMPLY (! targetProt, cdss. empty ());
 	    QC_IMPLY (! refAccession. empty (), targetAlign_aa <= targetSeq. size ());
 	    QC_IMPLY (! refMutation. empty (), isMutationProt ());
 	  #if 0
@@ -1439,7 +1438,7 @@ struct Batch
     	  	  	QC_ASSERT (pos > 0);
     	  	  	replace (organism_, '_', ' ');
     	  	  	if (organism_ == organism)
-    	  	  		accession2mutations [accession] << move (AmrMutation ((size_t) pos, geneMutation, classS, subclass, name));
+    	  	  		accession2mutations [accession]. emplace_back ((size_t) pos, geneMutation, classS, subclass, name);
     	  	  	else
     	  	  	  alien_prots << accession;
     	  	  }
@@ -1483,7 +1482,7 @@ struct Batch
     	  	  	{
     	  	  	  if (contains (accession2susceptible, accession))
     	  	  	    throw runtime_error ("Duplicate protein accession " + accession + " in " + susceptible_tab);
-    	  	  		accession2susceptible [accession] = move (Susceptible (genesymbol, cutoff, classS, subclass, name));
+    	  	      accession2susceptible [accession] = move (Susceptible (genesymbol, cutoff, classS, subclass, name));
     	  	    }
     	  	  	else
     	  	  	  alien_prots << accession;

@@ -68,7 +68,7 @@ Locus::Locus (size_t lineNum_arg,
 , product (product_arg)
 { 
 //QC_ASSERT (lineNum >= 1);
-//trim (contig, '_');
+  trim (contig);
 	if (contig. empty ())
 		throw runtime_error ("Empty contig name");
 	if (crossOrigin)
