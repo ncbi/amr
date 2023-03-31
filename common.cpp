@@ -871,6 +871,49 @@ void reverse (string &s)
 
 
 
+string unpercent (const string &s)
+{
+  for (const char c : s)
+  	if (! printable (c))
+  		throwf (FUNC "Non-printable character: " + to_string (int (c)));
+
+  string r;
+  constexpr size_t hex_pos_max = 2;
+  size_t hex_pos = no_index;
+  uchar hex = 0;
+  for (const char c : s)
+    if (hex_pos == no_index)
+    {
+      if (c == '%')
+        hex_pos = 0;
+      else
+        r += c;
+    }
+    else
+    {
+      ASSERT (hex_pos < hex_pos_max);
+      if (! isHex (c))
+        throwf (FUNC "Bad hexadecimal character: " + to_string (c));
+      hex = uchar (hex + hex2uchar (c));
+      if (! hex_pos)
+      {
+        ASSERT (hex < 16);
+        hex = uchar (hex * 16);
+      }
+      hex_pos++;
+      if (hex_pos == hex_pos_max)
+      {
+        r += char (hex);
+        hex_pos = no_index;
+        hex = 0;
+      }
+    }
+      
+  return r;
+}
+
+
+
 List<string> str2list (const string &s,
                        char c) 
 {
@@ -3550,7 +3593,7 @@ int Application::run (int argc,
 	  			
 	  	seed_global = str2<ulong> (getArg ("seed"));
 	  	if (! seed_global)
-	  		throw runtime_error ("Seed cannot be 0");
+	  		throw runtime_error ("seed cannot be 0");
 	  
 	  	jsonFName = getArg ("json");
 	  	ASSERT (! jRoot);

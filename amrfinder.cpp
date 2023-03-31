@@ -32,7 +32,8 @@
 * Dependencies: NCBI BLAST, HMMer
 *
 * Release changes:
-*   3.11.6  03/21/2023 PD-4522  tblastn -threshold 100  -window_size 15
+*   3.11.7  03/30/2023 PD-4548  GFF parsing processes '%<hex>' characters
+*   3.11.6  03/21/2023 PD-4522  tblastn: -word_size 3 --> -task tblastn-fast -threshold 100  -window_size 15
 *           03/21/2023 PD-4533  '_' are incorrectly trimmed from contig names
 *           03/13/2023          -mt_mode is restored for __APPLE__ 
 *   3.11.5  03/10/2023          directories --blast_bin, directory DATABASE in amrfinder_index.cpp do not need to end with '/'
@@ -976,7 +977,6 @@ struct ThisApplication : ShellApplication
           {
        			const Chronometer_OnePass cop (blastx, cerr, false, qc_on && ! quiet);
             const string tblastn_par (blastp_par + "  -task tblastn-fast  -threshold 100  -window_size 15");  // SB-3643, PD-4522
-          //const string tblastn_par (blastp_par + "  -word_size 3  -threshold 100  -window_size 15");  // SB-3643, PD-4522
         	//const string tblastn_par (blastp_par + "  -word_size 3");  
         		const string blastx_par  (blastp_par + "  -word_size 3  -query_gencode " + to_string (gencode));
       			ASSERT (threads_max >= 1);
@@ -1161,9 +1161,13 @@ struct ThisApplication : ShellApplication
     }
 
 		
-    // timing the run
-    const time_t end = time (NULL);
-    stderr << "AMRFinder took " << end - start << " seconds to complete\n";
+  //if (! quiet)
+		{
+      // timing the run
+      const time_t end = time (NULL);
+    //const OColor oc (cerr, Color::magenta, false, true);  
+      stderr/*cerr*/ << "AMRFinder took " << end - start << " seconds to complete\n";
+    }
   }
 };
 

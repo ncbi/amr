@@ -124,6 +124,15 @@ Gff::Type Gff::name2type (const string &name)
 namespace
 {
   
+string unescape (const string &s)
+{
+  string r (unpercent (s));
+  trim (r);
+  return r;
+}
+
+  
+  
 void pgap_accession (string &accession,
                      bool lcl)
 // Update: accession
@@ -144,6 +153,8 @@ void pgap_accession (string &accession,
     accession [pos] = '|';
     accession = gnlPrefix + accession;
   }
+
+  QC_ASSERT (! accession. empty ());
 }
     
 }
@@ -180,164 +191,163 @@ Annot::Annot (const string &fName,
        )
       continue;
 
-    constexpr char tmpSpace {'_'};
-    replace (f. line, ' ', tmpSpace);  // to use '\t' as delimiter
-
-   	const string errorS ("File " + fName + ", line " + toString (f. lineNum) + ": ");
-
-    string contig, source, type, startS, stopS, score /*real number*/, strand, phase /*frame*/, attributes;
-    static Istringstream iss;
-    iss. reset (f. line);
-    iss >> contig >> source >> type >> startS >> stopS >> score >> strand >> phase >> attributes;
-    trim (contig, tmpSpace);
-    trim (source, tmpSpace);
-    trim (type, tmpSpace);
-    trim (startS, tmpSpace);
-    trim (stopS, tmpSpace);
-    trim (score, tmpSpace);
-    trim (strand, tmpSpace);
-    trim (phase, tmpSpace);
-    trim (attributes, tmpSpace);
-
-    if (attributes. empty ())
-    	throw runtime_error (errorS + "9 fields are expected in each line");
-
-  #if 0
-    if (trimProject)
-      if (contains (contig, ":"))
-        findSplit (contig, ':');  // = project_id
-  #endif
-    if (contig. empty ())
-    	throw runtime_error (errorS + "empty sequence indentifier");
-	  for (const char c : contig)
-	  	if (! printable (c))
-	  		throw runtime_error (errorS + "Non-printable character in the sequence identifier: " + c);
-
-    if (   type != "CDS"
-        && type != "gene"
-        && type != "pseudogene"
-       )
-      continue;
-      
-    if (gffType == Gff::pgap && type != "CDS")
-      continue;
-      
-    long start = -1;
-    try { start = str2<long> (startS); }
-      catch (...) 
-      {
-	    	throw runtime_error (errorS + "Cannot read start");
-      }
-    if (start <= 0)
-    	throw runtime_error (errorS + "start should be >= 1");
-      
-    long stop = -1;
-    try { stop = str2<long> (stopS); }
-      catch (...) 
-      {
-	    	throw runtime_error (errorS + "Cannot read stop");
-      }
-    if (stop <= 0)
-    	throw runtime_error (errorS + "stop should be >= 1");
-
-    if (start > stop)
-    	throw runtime_error (errorS + "start cannot be greater than stop");
-
-    start--;    	
-    	
-    if (   strand != "+" 
-        && strand != "-"
-       )
-    	throw runtime_error (errorS + "strand should be '+' or '-'");
-           
-    const bool pseudo =    contains (attributes, "pseudo=true")
-                        || contains (attributes, "gene_biotype=pseudogene")
-                        || type == "pseudogene";
-  //if (pseudo && type == "CDS")  
-    //continue;
-    
-    const bool partial = contains (attributes, "partial=true");
-    
-    string protAttr = "Name";
-    switch (gffType)
+    try
     {
-      case Gff::bakta:         protAttr = "ID"; break;
-      case Gff::genbank:       protAttr = (protMatch || pseudo) ? "locus_tag" : "Name"; break;
-      case Gff::microscope:    protAttr = "ID"; break;
-      case Gff::patric:        protAttr = "ID"; break;
-      case Gff::prokka:        protAttr = "ID"; break;
-      case Gff::pseudomonasdb: protAttr = "Alias"; break;  // for type = "gene", "locus" for type = "CDS"
-      case Gff::rast:          protAttr = "ID"; break;
-      default: break;
-    }
-    ASSERT (! protAttr. empty ());
-    protAttr += "=";
+      /*1*/       string contig     (unescape (findSplit (f. line, '\t')));
+      /*2*/ const string source     (unescape (findSplit (f. line, '\t')));
+      /*3*/ const string type       (unescape (findSplit (f. line, '\t')));
+      /*4*/ const string startS     (unescape (findSplit (f. line, '\t')));
+      /*5*/ const string stopS      (unescape (findSplit (f. line, '\t')));
+      /*6*/ const string score      (unescape (findSplit (f. line, '\t')));  // real number
+      /*7*/ const string strand     (unescape (findSplit (f. line, '\t')));
+      /*8*/ const string phase      (unescape (findSplit (f. line, '\t')));  // frame
+      /*9*/ string attributes (f. line);  
+      
+      trim (attributes);
+      if (attributes. empty ())
+      	throw runtime_error ("9 fields are expected in each line");
+
+    #if 0
+      if (trimProject)
+        if (contains (contig, ":"))
+          findSplit (contig, ':');  // = project_id
+    #endif
+      if (contig. empty ())
+      	throw runtime_error ("empty sequence indentifier");
+  	  for (const char c : contig)
+  	  	if (! printable (c))
+  	  		throw runtime_error ("Non-printable character in the sequence identifier: " + c);
+
+      if (   type != "CDS"
+          && type != "gene"
+          && type != "pseudogene"
+         )
+        continue;
         
-    string prot;
-    string gene;
-    string product;
-    {
-      string locusTag;
-      while (! attributes. empty ())
-      {
-  	    string s (findSplit (attributes, ';'));
-    	  trim (s, tmpSpace);
-  	    if (isLeft (s, protAttr))
-  	    {
-  	      prot = s;
-          findSplit (prot, '='); 
-  	    }
-  	    else if (isLeft (s, "gene="))
-  	    {
-  	      gene = s;
-  	      findSplit (gene, '=');
-  	    }
-  	    else if (isLeft (s, "product="))
-  	    {
-  	      product = s;
-  	      findSplit (product, '=');
-  	      replace (product, tmpSpace, ' ');
-  	    }
-  	    else if (gffType == Gff::patric && isLeft (s, "locus_tag="))
-  	    {
-  	      locusTag = s;
-  	      findSplit (locusTag, '=');
-  	    }
-  	  }
-  	  trimPrefix (prot, "\"");
-  	  trimSuffix (prot, "\"");
-      if (prot. empty ())
-      	continue;
-      //throw runtime_error (errorS + "no attribute '" + protAttr + "': " + f. line);
+      if (gffType == Gff::pgap && type != "CDS")
+        continue;
+        
+      long start = -1;
+      if (! str2<long> (startS, start))
+	    	throw runtime_error ("Cannot read start");
+      if (start <= 0)
+      	throw runtime_error ("start should be >= 1");
+        
+      long stop = -1;
+      if (! str2<long> (stopS, stop))
+ 	    	throw runtime_error ("Cannot read stop");
+      if (stop <= 0)
+      	throw runtime_error ("stop should be >= 1");
+
+      if (start > stop)
+      	throw runtime_error ("start cannot be greater than stop");
+
+      start--;    	
+      	
+      if (   strand != "+" 
+          && strand != "-"
+         )
+      	throw runtime_error ("strand should be '+' or '-'");
+             
+      const bool pseudo =    contains (attributes, "pseudo=true")
+                          || contains (attributes, "gene_biotype=pseudogene")
+                          || type == "pseudogene";
+    //if (pseudo && type == "CDS")  
+      //continue;
+      
+      const bool partial = contains (attributes, "partial=true");
+      
+      string protAttr = "Name";
       switch (gffType)
       {
-        case Gff::genbank:       if (contains (prot, ":"))  findSplit (prot, ':');  break;
-        case Gff::patric:        if (! locusTag. empty ())  prot += "|" + locusTag;  
-                                 if (isLeft (contig, "accn|"))  contig. erase (0, 5);
-                                 break;
-        default:  break;
+        case Gff::bakta:         protAttr = "ID"; break;
+        case Gff::genbank:       protAttr = (protMatch || pseudo) ? "locus_tag" : "Name"; break;
+        case Gff::microscope:    protAttr = "ID"; break;
+        case Gff::patric:        protAttr = "ID"; break;
+        case Gff::prokka:        protAttr = "ID"; break;
+        case Gff::pseudomonasdb: protAttr = "Alias"; break;  // for type = "gene", "locus" for type = "CDS"
+        case Gff::rast:          protAttr = "ID"; break;
+        default: break;
       }
-    }
-	  trim (prot, tmpSpace);
-	  if (gffType == Gff::pgap)
-	  {
-	    pgap_accession (prot, false);
-	    pgap_accession (contig, lcl);
-	  }
-	  QC_ASSERT (! prot. empty ());
-	  
-	  Locus locus (f. lineNum, contig, (size_t) start, (size_t) stop, strand == "+", partial, 0, gene, product);
-	#if 0
-	  // DNA may be truncated
-    if (type == "CDS" && ! pseudo && locus. size () % 3 != 0)
-    {
-      cout << "Locus tag: " << prot << endl;
-      locus. print (cout);
-      ERROR;
-    }
-  #endif
+      ASSERT (! protAttr. empty ());
+      protAttr += "=";
+          
+      string prot_;
+      string gene_;
+      string product_;
+      {
+        string locusTag;
+        while (! attributes. empty ())
+        {
+    	    string s (findSplit (attributes, ';'));
+      	  trim (s);
+    	    if (isLeft (s, protAttr))
+    	    {
+    	      prot_ = s;
+            findSplit (prot_, '='); 
+    	    }
+    	    else if (isLeft (s, "gene="))
+    	    {
+    	      gene_ = s;
+    	      findSplit (gene_, '=');
+    	    }
+    	    else if (isLeft (s, "product="))
+    	    {
+    	      product_ = s;
+    	      findSplit (product_, '=');
+    	    //replace (product, tmpSpace, ' ');
+    	    }
+    	    else if (gffType == Gff::patric && isLeft (s, "locus_tag="))
+    	    {
+    	      locusTag = s;
+    	      findSplit (locusTag, '=');
+    	    }
+    	  }
+    	  trimPrefix (prot_, "\"");
+    	  trimSuffix (prot_, "\"");
+        if (prot_. empty ())
+        	continue;
+        //throw runtime_error ("no attribute '" + protAttr + "': " + f. line);
+        
+        switch (gffType)
+        {
+          case Gff::genbank:       if (contains (prot_, ":"))  findSplit (prot_, ':');  break;
+          case Gff::patric:        if (! locusTag. empty ())  prot_ += "|" + locusTag;  
+                                   if (isLeft (contig, "accn|"))  contig. erase (0, 5);
+                                   break;
+          default:  break;
+        }
+      }
+  	  QC_ASSERT (! prot_. empty ());
+  	
+  	        string prot    (unescape (prot_));
+  	  const string gene    (unescape (gene_));
+  	  const string product (unescape (product_));
+  	
+  	  if (gffType == Gff::pgap)
+  	  {
+  	    pgap_accession (prot, false);
+  	    pgap_accession (contig, lcl);
+  	  }
+  	  QC_ASSERT (! prot. empty ());
+  	  
+  	  Locus locus (f. lineNum, contig, (size_t) start, (size_t) stop, strand == "+", partial, 0, gene, product);
+  	#if 0
+  	  // DNA may be truncated
+      if (type == "CDS" && ! pseudo && locus. size () % 3 != 0)
+      {
+        cout << "Locus tag: " << prot << endl;
+        locus. print (cout);
+        ERROR;
+      }
+    #endif
 
-    prot2loci [prot] << move (locus);
+      prot2loci [prot] << move (locus);
+    }
+    catch (const exception &e)
+    {
+      throw runtime_error ("File " + fName + ", line " + toString (f. lineNum) + ": " + e. what ());
+    }
   }
 }
   
