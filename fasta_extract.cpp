@@ -101,15 +101,15 @@ char complementaryNucleotide (char wildNucleotide)
 
 
 
-void process (const string &id, 
+bool process (const string &id, 
               string &seq, 
               const map<string/*id*/,Vector<Segment>> &id2segments)
 {
   if (id. empty ())
-    return;
+    return false;
   const Vector<Segment>* segments = findPtr (id2segments, id);
   if (! segments)
-    return;
+    return false;
     
   replaceStr (seq, "-", "");
   QC_ASSERT (! seq. empty ());
@@ -141,6 +141,8 @@ void process (const string &id,
     for (size_t i = 0; i < seq1. size (); i += line_len)
       cout << seq1. substr (i, line_len) << endl;
   }
+  
+  return true;
 }
 
 
@@ -212,27 +214,31 @@ Line format for nucleotide sequences : <id> <start (>=1)> <stop (>= start)> <str
       return;
     
 
-    LineInput f (fName); 
-    string id;
-    string seq;
-    while (f. nextLine ())
+    size_t processed = 0;
     {
-      trimTrailing (f. line);
-      if (f. line. empty ())
-      	continue;
-    	if (f. line [0] == '>')
-    	{
-    	  process (id, seq, id2segments);
-    		size_t pos = 1;
-    		while (pos < f. line. size () && ! isspace (f. line [pos]))
-    		  pos++;
-    		id = f. line. substr (1, pos - 1);
-    		seq. clear ();
-    	}
-    	else 
-    	  seq += f. line;
-	  }
- 	  process (id, seq, id2segments);
+      LineInput f (fName); 
+      string id;
+      string seq;
+      while (f. nextLine ())
+      {
+        trimTrailing (f. line);
+        if (f. line. empty ())
+        	continue;
+      	if (f. line [0] == '>')
+      	{
+      	  processed += process (id, seq, id2segments);
+      		size_t pos = 1;
+      		while (pos < f. line. size () && ! isspace (f. line [pos]))
+      		  pos++;
+      		id = f. line. substr (1, pos - 1);
+      		seq. clear ();
+      	}
+      	else 
+      	  seq += f. line;
+  	  }
+   	  processed += process (id, seq, id2segments);
+   	}
+   	QC_ASSERT (processed == id2segments. size ());  // It is assumed that there are no duplicate identifiers in FASTA
   }
 };
 

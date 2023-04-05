@@ -100,7 +100,7 @@ bool Locus::operator< (const Locus& other) const
 
 // Gff
 
-const StringVector Gff::names {"bakta", "genbank", "microscope", "patric", "pgap", "prokka", "pseudomonasdb", "rast"};
+const StringVector Gff::names {"bakta", "genbank", "microscope", "patric", "pgap", "prokka", "pseudomonasdb", "rast", "standard"};
 
 
 Gff::Type Gff::name2type (const string &name)
@@ -113,6 +113,7 @@ Gff::Type Gff::name2type (const string &name)
   if (name == "prokka")         return prokka;
   if (name == "pseudomonasdb")  return pseudomonasdb;
   if (name == "rast")           return rast;
+  if (name == "standard")       return standard;
   throw runtime_error ("Unknown GFF type: " + strQuote (name));
 }
 

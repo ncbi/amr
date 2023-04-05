@@ -32,6 +32,9 @@
 * Dependencies: NCBI BLAST, HMMer
 *
 * Release changes:
+*           04/05/2023 PD-4522  blastp -task blastp-fast
+*           04/05/2023 PD-4548  "-a standard" is added
+*   3.11.8  04/01/2023          fasta_extract.cpp checks whether all requested identifiers are found in FASTA
 *   3.11.7  03/30/2023 PD-4548  GFF parsing processes '%<hex>' characters
 *   3.11.6  03/21/2023 PD-4522  tblastn: -word_size 3 --> -task tblastn-fast -threshold 100  -window_size 15
 *           03/21/2023 PD-4533  '_' are incorrectly trimmed from contig names
@@ -287,7 +290,7 @@ struct ThisApplication : ShellApplication
     	addKey ("protein", "Input protein FASTA file", "", 'p', "PROT_FASTA");
     	addKey ("nucleotide", "Input nucleotide FASTA file", "", 'n', "NUC_FASTA");
     	addKey ("gff", "GFF file for protein locations. Protein id should be in the attribute 'Name=<id>' (9th field) of the rows with type 'CDS' or 'gene' (3rd field).", "", 'g', "GFF_FILE");
-      addFlag ("pgap", "Input files PROT_FASTA, NUC_FASTA and GFF_FILE are created by the NCBI PGAP");  // For compatibility ??
+      addFlag ("pgap", "Input files PROT_FASTA, NUC_FASTA and GFF_FILE are created by the NCBI PGAP");  // = --annotation_format pgap 
       addKey ("annotation_format", "Type of GFF file: " + Gff::names. toString (", "), "genbank", 'a', "ANNOTATION_FORMAT");  
     	addKey ("database", "Alternative directory with AMRFinder database. Default: $AMRFINDER_DB", "", 'd', "DATABASE_DIR");
     	addKey ("ident_min", "Minimum proportion of identical amino acids in alignment for hit (0..1). -1 means use a curated threshold if it exists and " + toString (ident_min_def) + " otherwise", "-1", 'i', "MIN_IDENT");
@@ -921,7 +924,8 @@ struct ThisApplication : ShellApplication
       			const Chronometer_OnePass cop ("blastp", cerr, false, qc_on && ! quiet);
       			// " -task blastp-fast -word_size 6  -threshold 21 "  // PD-2303
       			exec (fullProg ("blastp") + " -query " + prot1 + " -db " + tmp + "/db/AMRProt" + "  " 
-      			      + blastp_par + get_num_threads_param ("blastp", min (nProt, protLen_total / 10000)) + " " BLAST_FMT " -out " + tmp + "/blastp > /dev/null 2> " + tmp + "/blastp-err", tmp + "/blastp-err");
+      			      + blastp_par + " -task blastp-fast"  // "-threshold 100 -window_size 15" are faster, but may miss hits, see SB-3643
+      			      + get_num_threads_param ("blastp", min (nProt, protLen_total / 10000)) + " " BLAST_FMT " -out " + tmp + "/blastp > /dev/null 2> " + tmp + "/blastp-err", tmp + "/blastp-err");
       		}
     			  
     			stderr. section ("Running hmmsearch");
@@ -970,7 +974,7 @@ struct ThisApplication : ShellApplication
           size_t dnaLen_max = 0;
           size_t dnaLen_total = 0;
           EXEC_ASSERT (fastaCheck (dna, false, qcS, logFName, nDna, dnaLen_max, dnaLen_total));
-          const string blastx (dnaLen_max > 100000 ? "tblastn" : "blastx");  // PAR
+          const string blastx (/*"tblastn"*/ dnaLen_max > 100000 ? "tblastn" : "blastx");  // PAR  // SB-3643
 
     			stderr. section ("Running " + blastx);
     			findProg (blastx);
