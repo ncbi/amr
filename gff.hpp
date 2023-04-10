@@ -107,7 +107,7 @@ struct Locus
 
 struct Gff
 {
-  enum Type  {bakta, genbank, microscope, patric, pgap, prokka, pseudomonasdb, rast};
+  enum Type  {bakta, genbank, microscope, patric, pgap, prokka, pseudomonasdb, rast, standard/*PD-4548*/};
     // Alphabetic order
   static const StringVector names;
   static Type name2type (const string &name);

@@ -29,8 +29,7 @@
 * File Description:
 *   Updating of AMRFinder data
 *
-* Dependencies: NCBI BLAST, HMMer --> moved to amrfinder_index.cpp
-*               curl.{h,c}
+* Dependencies: curl.{h,c}
 *
 * Release changes: see amrfinder.cpp
 *
@@ -315,7 +314,7 @@ Requirement: the database directory contains subdirectories named by database ve
 ", false, true, true)
     {
     	addKey ("database", "Directory for all versions of AMRFinder databases", "$BASE/data", 'd', "DATABASE_DIR");
-    	addKey ("blast_bin", "Directory for BLAST ending with '/'", "", '\0', "BLAST_DIR");
+    	addKey ("blast_bin", "Directory for BLAST", "", '\0', "BLAST_DIR");
     	addFlag ("force_update", "Force updating the AMRFinder database");  // PD-3469
       addFlag ("quiet", "Suppress messages to STDERR", 'q');
 	    version = SVN_REV;
@@ -345,9 +344,12 @@ Requirement: the database directory contains subdirectories named by database ve
   void shellBody () const final
   {
     const string mainDirOrig  = getArg ("database");
-    const string blast_bin    = getArg ("blast_bin");
+          string blast_bin    = getArg ("blast_bin");
     const bool   force_update = getFlag ("force_update");
     const bool   quiet        = getFlag ("quiet");
+    
+    
+    addDirSlash (blast_bin);
     
         
     Stderr stderr (quiet);
@@ -412,8 +414,9 @@ Requirement: the database directory contains subdirectories named by database ve
       const Dir mainDir (mainDirOrig);
       mainDirS = mainDir. get ();
     }
-    if (! isRight (mainDirS, "/"))
-      mainDirS += "/";    
+
+    addDirSlash (mainDirS);
+
     
     const string versionFName ("version.txt");
     const string urlDir (URL + load_minor + "/" + load_data_version + "/");    

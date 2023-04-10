@@ -546,9 +546,6 @@ inline bool isUpper (char c)
 inline bool isLower (char c)
   { return toLower (c) == c; }
 
-inline bool isHex (char c)
-  { return isDigit (c) || strchr ("ABCDEF", toUpper (c)); }
-
 inline bool printable (char c)
   { return between (c, ' ', (char) 127); }
   
@@ -561,6 +558,16 @@ inline bool isDelimiter (char c)
 inline bool isSpace (char c)
   { return c > '\0' && c <= ' ' && isspace (c); }
 
+
+
+// Hexadecimal
+
+inline bool isHex (char c)
+  { return isDigit (c) || strchr ("ABCDEF", toUpper (c)); }
+
+inline uchar hex2uchar (char c)
+  { return uchar (isDigit (c) ? (c - '0') : (c - 'A' + 10)); }
+
 inline string uchar2hex (uchar c)
   { constexpr char hex [16] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
     string res ("  ");
@@ -569,6 +576,9 @@ inline string uchar2hex (uchar c)
     return res;
   }
  
+string unpercent (const string &s);
+  // '%HH' -> char
+
 
 
 constexpr double NaN = numeric_limits<double>::quiet_NaN ();  
@@ -1259,6 +1269,12 @@ inline string getDirName (const string &path)
 inline bool isDirName (const string &path)
   { return isRight (path, "/"); }
 
+
+inline void addDirSlash (string &dirName)
+  { if (! dirName. empty () && ! isDirName (dirName))
+    	dirName += "/";
+  }
+
 inline string shellQuote (string s)
   { replaceStr (s, "\'", "\'\"\'\"\'");
   	return "\'" + s + "\'";
@@ -1335,7 +1351,6 @@ void copyText (const string &inFName,
   void concatTextDir (const string &inDirName,
                       const string &outFName);
 #endif
-
 
 
 struct Dir
@@ -1894,6 +1909,12 @@ public:
 	  }
   bool contains (const T &value) const
     { return constFind (value) != P::end (); }
+  bool containsAll (const vector<T> &other) const
+    { for (const T& t : other)
+        if (! contains (t))
+          return false;
+      return true; 
+    }
   size_t indexOf (const T &value) const
     { size_t n = 0;
       for (const T& t : *this)
@@ -1950,6 +1971,16 @@ public:
   void setAll (const T &value)
     { for (T &t : *this)
     	  t = value;
+    }
+  void setAt (size_t index,
+              T value)
+    { if (index >= P::size ())
+        P::resize (index + 1);
+      if ((*this) [index] == T ())
+        (*this) [index] = value;
+      else
+        throwf ("vector [" + to_string (index) +"] is not empty");
+
     }
   void eraseAt (size_t index)
     { eraseMany (index, index + 1); }
@@ -2286,6 +2317,7 @@ public:
       res. searchSorted = true;
       return res;
     }
+
   void setUnion (const Vector<T> &other)
     { if (P::empty ())
         *this = other;
@@ -3973,20 +4005,18 @@ public:
 struct NumberItemGenerator : ItemGenerator
 {
 private:
-  const size_t n;
   size_t i {0};
 public:
   
   
   NumberItemGenerator (size_t progress_displayPeriod,
-                       const string& name)
-    : ItemGenerator (str2<size_t> (name), progress_displayPeriod)
-    , n (prog. n_max)
+                       size_t n)
+    : ItemGenerator (n, progress_displayPeriod)
     {}
   
   
   bool next (string &item) final
-    { if (i == n)
+    { if (i == prog. n_max)
         return false;
       i++;
       item = to_string (i);
@@ -4205,14 +4235,14 @@ protected:
     // Input: keys, where Key::flag = false, and positionals
   uint arg2uint (const string &name) const
     { uint n = 0;
-    	try { n = str2<uint> (getArg (name)); }
-    	  catch (...) { throw runtime_error ("Cannot convert " + strQuote (name) + " to non-negative number"); }
+    	if (! str2<uint> (getArg (name), n))
+    	  throw runtime_error ("Cannot convert " + strQuote (name) + " to non-negative number"); 
     	return n;
     }
   double arg2double (const string &name) const
-    { double d = numeric_limits<double>::quiet_NaN ();
-    	try { d = str2<double> (getArg (name)); }
-    	  catch (...) { throw runtime_error ("Cannot convert " + strQuote (name) + " to number"); }
+    { double d = 0.0;
+    	if (! str2<double> (getArg (name), d))
+    	  throw runtime_error ("Cannot convert " + strQuote (name) + " to real number"); 
     	return d;
     }
   bool getFlag (const string &name) const;
