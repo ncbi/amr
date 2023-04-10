@@ -1980,6 +1980,7 @@ public:
         (*this) [index] = value;
       else
         throwf ("vector [" + to_string (index) +"] is not empty");
+
     }
   void eraseAt (size_t index)
     { eraseMany (index, index + 1); }
@@ -2316,6 +2317,7 @@ public:
       res. searchSorted = true;
       return res;
     }
+
   void setUnion (const Vector<T> &other)
     { if (P::empty ())
         *this = other;

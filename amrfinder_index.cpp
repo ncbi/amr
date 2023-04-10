@@ -72,6 +72,7 @@ struct ThisApplication : ShellApplication
 
   void shellBody () const final
   {
+
           string dbDir     = getArg ("DATABASE");
           string blast_bin = getArg ("blast_bin");
     const bool   quiet     = getFlag ("quiet");
@@ -88,7 +89,7 @@ struct ThisApplication : ShellApplication
     
     if (! directoryExists (dbDir))
       throw runtime_error ("Database directory " + dbDir + " does not exist");
-                            
+
     if (! blast_bin. empty ())
       prog2dir ["makeblastdb"] = blast_bin;    
     findProg ("makeblastdb");    
@@ -99,6 +100,7 @@ struct ThisApplication : ShellApplication
     StringVector dnaPointMuts;
     {
       LineInput f (dbDir + "taxgroup.tab");
+
       while (f. nextLine ())
       {
    	    if (isLeft (f. line, "#"))
@@ -115,8 +117,10 @@ struct ThisApplication : ShellApplication
     
     
     stderr << "Indexing" << "\n";
+
     exec (fullProg ("hmmpress") + " -f " + shellQuote (dbDir + "AMR.LIB") + " > /dev/null 2> " + tmp + "/hmmpress.err", tmp + "/hmmpress.err");
     setSymlink (dbDir, tmp + "/db", true);
+
 	  exec (fullProg ("makeblastdb") + " -in " + tmp + "/db/AMRProt" + "  -dbtype prot  -logfile " + tmp + "/makeblastdb.AMRProt", tmp + "/makeblastdb.AMRProt");  
 	  exec (fullProg ("makeblastdb") + " -in " + tmp + "/db/AMR_CDS" + "  -dbtype nucl  -logfile " + tmp + "/makeblastdb.AMR_CDS", tmp + "/makeblastdb.AMR_CDS");  
     for (const string& dnaPointMut : dnaPointMuts)

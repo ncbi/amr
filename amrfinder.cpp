@@ -32,6 +32,7 @@
 * Dependencies: NCBI BLAST, HMMer
 *
 * Release changes:
+
 *           04/05/2023 PD-4522  blastp -task blastp-fast
 *           04/05/2023 PD-4548  "-a standard" is added
 *   3.11.8  04/01/2023          fasta_extract.cpp checks whether all requested identifiers are found in FASTA

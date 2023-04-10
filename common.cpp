@@ -312,6 +312,7 @@ void throwf (const string &s)
     *cxml << s;
   }
   throw logic_error (s + "\nStack:\n" + getStack ()); 
+
 }
 
 
