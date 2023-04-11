@@ -32,7 +32,8 @@
 * Dependencies: NCBI BLAST, HMMer
 *
 * Release changes:
-
+*                      PD-4548  fasta_check.cpp prohibits: ',,' and '\\' in all positions, '?' in initial position, and ',' in the last position of a sequence identifier
+*   3.11.9  04/20/2023 PD-4560  BLAST -mt_mode is used on Mac only for BLAST version >= 2.13.0
 *           04/05/2023 PD-4522  blastp -task blastp-fast
 *           04/05/2023 PD-4548  "-a standard" is added
 *   3.11.8  04/01/2023          fasta_extract.cpp checks whether all requested identifiers are found in FASTA
@@ -379,8 +380,9 @@ struct ThisApplication : ShellApplication
 		bool num_threadsP = false;
 		bool mt_modeP = false;
 		{
-      exec (fullProg (blast) + " -help > " + tmp + "/blast_help");
-      LineInput f (tmp + "/blast_help");
+		  const string blast_help (tmp + "/blast_help");
+      exec (fullProg (blast) + " -help > " + blast_help);
+      LineInput f (blast_help);
       while (f. nextLine ())
       {
         trim (f. line);
@@ -395,10 +397,37 @@ struct ThisApplication : ShellApplication
       return string ();
     
 	  string s ("  -num_threads " + to_string (t));
-//#ifndef __APPLE__
-	  if (mt_modeP)  
+	  
+	  bool mt_mode_works = true;
+  #ifdef __APPLE__
+    {
+      mt_mode_works = false;
+      const string blast_version (tmp + "/blast_version");
+      exec (fullProg (blast) + " -version > " + blast_version);
+      LineInput f (blast_version);
+      while (f. nextLine ())
+      {
+        trim (f. line);
+        const string prefix (blast + ": ");
+        if (isLeft (f. line, prefix))
+        {
+          trimSuffix (f. line, "+");
+          Istringstream iss;
+          iss. reset (f. line. substr (prefix. size ()));
+          const SoftwareVersion v (iss);
+        //PRINT (v);  
+          iss. reset ("2.13.0");  // PD-4560
+          const SoftwareVersion threshold (iss);;
+        //PRINT (threshold);  
+          mt_mode_works = (threshold <= v);
+        }
+        break;
+      }
+    }
+  #endif
+
+	  if (mt_modeP && mt_mode_works)  
 	    s += "  -mt_mode 1";
-//#endif
 	    
 	  return s;
   }

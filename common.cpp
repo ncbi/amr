@@ -312,7 +312,6 @@ void throwf (const string &s)
     *cxml << s;
   }
   throw logic_error (s + "\nStack:\n" + getStack ()); 
-
 }
 
 
@@ -1287,49 +1286,6 @@ void readLine (istream &is,
 
 
 
-string getColumn (istream &is,
-                  const string &skip,
-                  const string &delimeters)
-{
-  // Skipping skip
-  for (;;)
-  {
-    IMPLY (! is. eof (), is. good ());
-    const char c = (char) is. get ();
-    if (is. eof ())
-      return noString;
-    ASSERT (c);
-    if (charInSet (c, skip))
-      continue;
-    if (charInSet (c, delimeters))
-      return string (1, c);
-    is. unget ();
-    break;
-  }  
-  
-  string token;
-  for (;;)
-  {
-    IMPLY (! is. eof (), is. good ());
-    const char c = (char) is. get ();
-    if (   is. eof () 
-        || charInSet (c, skip)
-        || charInSet (c, delimeters)
-       )
-    {
-      is. unget ();
-      break;
-    }
-    ASSERT (c);
-    token += c;
-  }
-  ASSERT (! token. empty ());
-
-  return token;
-}
-
- 
-
 
 hash<string> str_hash;
 hash<size_t> size_hash;
@@ -1520,7 +1476,10 @@ Threads::Threads (size_t threadsToStart_arg,
 	threads. reserve (threadsToStart);
 	
 	if (! quiet && verbose (1) && threadsToStart)
+	{
+    const OColor c (cerr, Color::green, false, true);  // Cf. Progress::report() 
     cerr << "# Threads started: " << threadsToStart + 1/*main thread*/ << endl;
+  }
 }	
 
 
@@ -1763,9 +1722,12 @@ size_t Progress::beingUsed = 0;
 
 void Progress::report () const
 { 
+  if (! n)
+    return;
   cerr << '\r';
 #ifndef _MSC_VER
   cerr << "\033[2K";
+  const OColor c (cerr, Color::green, false, true);  // PAR
 #endif
   cerr << n; 
 	if (n_max)

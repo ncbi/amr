@@ -103,6 +103,16 @@ struct ThisApplication : Application
       	  for (const char c : id)
       	  	if (! printable (c))
       	  		throw runtime_error (errorS + "Non-printable character in the sequence identifier: " + to_string ((int) c));
+      	  // BLAST: PD-4548
+      	  if (id. front () == '?')
+     	  		throw runtime_error (errorS + "Sequence identifier starts with '?'");
+      	  if (id. back () == ',')
+     	  		throw runtime_error (errorS + "Sequence identifier ends with ','");
+      	  if (contains (id, '\\'))
+     	  		throw runtime_error (errorS + "Sequence identifier contains '\\'");
+      	  if (contains (id, ",,"))
+     	  		throw runtime_error (errorS + "Sequence identifier contains ',,'");
+      	  //
       	  if (! first && seqSize == 0)
      	  		throw runtime_error (errorS + "Empty sequence");
      	  	if (lenF. get () && ! ids. empty ())

@@ -414,9 +414,7 @@ Requirement: the database directory contains subdirectories named by database ve
       const Dir mainDir (mainDirOrig);
       mainDirS = mainDir. get ();
     }
-
     addDirSlash (mainDirS);
-
     
     const string versionFName ("version.txt");
     const string urlDir (URL + load_minor + "/" + load_data_version + "/");    
