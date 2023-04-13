@@ -32,8 +32,9 @@
 * Dependencies: NCBI BLAST, HMMer
 *
 * Release changes:
+*   3.11.10 04/12/2023 PD-4548  fasta_check.cpp prohibits ';', '.', '~' in the last position of a sequence identifier
 *                      PD-4548  fasta_check.cpp prohibits: ',,' and '\\' in all positions, '?' in initial position, and ',' in the last position of a sequence identifier
-*   3.11.9  04/20/2023 PD-4560  BLAST -mt_mode is used on Mac only for BLAST version >= 2.13.0
+*   3.11.9  04/11/2023 PD-4560  BLAST -mt_mode is used on Mac only for BLAST version >= 2.13.0
 *           04/05/2023 PD-4522  blastp -task blastp-fast
 *           04/05/2023 PD-4548  "-a standard" is added
 *   3.11.8  04/01/2023          fasta_extract.cpp checks whether all requested identifiers are found in FASTA

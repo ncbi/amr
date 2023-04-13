@@ -106,8 +106,9 @@ struct ThisApplication : Application
       	  // BLAST: PD-4548
       	  if (id. front () == '?')
      	  		throw runtime_error (errorS + "Sequence identifier starts with '?'");
-      	  if (id. back () == ',')
-     	  		throw runtime_error (errorS + "Sequence identifier ends with ','");
+     	  	for (const char c : {',', ';', '.', '~'})
+        	  if (id. back () == c)
+       	  		throw runtime_error (errorS + "Sequence identifier ends with " + strQuote (string (1, c)));
       	  if (contains (id, '\\'))
      	  		throw runtime_error (errorS + "Sequence identifier contains '\\'");
       	  if (contains (id, ",,"))
