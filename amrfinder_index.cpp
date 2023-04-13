@@ -64,6 +64,7 @@ struct ThisApplication : ShellApplication
     {
     	addPositional ("DATABASE", "Directory with AMRFinder database");
     	addKey ("blast_bin", "Directory for BLAST", "", '\0', "BLAST_DIR");
+    	addKey ("hmmer_bin", "Directory for HMMer", "", '\0', "HMMER_DIR");
       addFlag ("quiet", "Suppress messages to STDERR", 'q');
 	    version = SVN_REV;
     }
@@ -74,11 +75,13 @@ struct ThisApplication : ShellApplication
   {
           string dbDir     = getArg ("DATABASE");
           string blast_bin = getArg ("blast_bin");
+          string hmmer_bin = getArg ("hmmer_bin");
     const bool   quiet     = getFlag ("quiet");
     
     
     addDirSlash (dbDir);
     addDirSlash (blast_bin);
+    addDirSlash (hmmer_bin);
     
         
     Stderr stderr (quiet);
@@ -90,8 +93,11 @@ struct ThisApplication : ShellApplication
       throw runtime_error ("Database directory " + dbDir + " does not exist");
                             
     if (! blast_bin. empty ())
-      prog2dir ["makeblastdb"] = blast_bin;    
+      prog2dir ["makeblastdb"] = blast_bin;
     findProg ("makeblastdb");    
+
+    if (! hmmer_bin. empty ())
+      prog2dir ["hmmpress"] = hmmer_bin;
     findProg ("hmmpress");
     
 
