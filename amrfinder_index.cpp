@@ -64,6 +64,7 @@ struct ThisApplication : ShellApplication
     {
     	addPositional ("DATABASE", "Directory with AMRFinder database");
     	addKey ("blast_bin", "Directory for BLAST", "", '\0', "BLAST_DIR");
+    	addKey ("hmmer_bin", "Directory for HMMer", "", '\0', "HMMER_DIR");
       addFlag ("quiet", "Suppress messages to STDERR", 'q');
 	    version = SVN_REV;
     }
@@ -72,14 +73,15 @@ struct ThisApplication : ShellApplication
 
   void shellBody () const final
   {
-
           string dbDir     = getArg ("DATABASE");
           string blast_bin = getArg ("blast_bin");
+          string hmmer_bin = getArg ("hmmer_bin");
     const bool   quiet     = getFlag ("quiet");
     
     
     addDirSlash (dbDir);
     addDirSlash (blast_bin);
+    addDirSlash (hmmer_bin);
     
         
     Stderr stderr (quiet);
@@ -89,10 +91,13 @@ struct ThisApplication : ShellApplication
     
     if (! directoryExists (dbDir))
       throw runtime_error ("Database directory " + dbDir + " does not exist");
-
+                            
     if (! blast_bin. empty ())
-      prog2dir ["makeblastdb"] = blast_bin;    
+      prog2dir ["makeblastdb"] = blast_bin;
     findProg ("makeblastdb");    
+
+    if (! hmmer_bin. empty ())
+      prog2dir ["hmmpress"] = hmmer_bin;
     findProg ("hmmpress");
     
 
@@ -100,7 +105,6 @@ struct ThisApplication : ShellApplication
     StringVector dnaPointMuts;
     {
       LineInput f (dbDir + "taxgroup.tab");
-
       while (f. nextLine ())
       {
    	    if (isLeft (f. line, "#"))
@@ -117,10 +121,8 @@ struct ThisApplication : ShellApplication
     
     
     stderr << "Indexing" << "\n";
-
     exec (fullProg ("hmmpress") + " -f " + shellQuote (dbDir + "AMR.LIB") + " > /dev/null 2> " + tmp + "/hmmpress.err", tmp + "/hmmpress.err");
     setSymlink (dbDir, tmp + "/db", true);
-
 	  exec (fullProg ("makeblastdb") + " -in " + tmp + "/db/AMRProt" + "  -dbtype prot  -logfile " + tmp + "/makeblastdb.AMRProt", tmp + "/makeblastdb.AMRProt");  
 	  exec (fullProg ("makeblastdb") + " -in " + tmp + "/db/AMR_CDS" + "  -dbtype nucl  -logfile " + tmp + "/makeblastdb.AMR_CDS", tmp + "/makeblastdb.AMR_CDS");  
     for (const string& dnaPointMut : dnaPointMuts)

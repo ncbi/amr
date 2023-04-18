@@ -32,7 +32,11 @@
 * Dependencies: NCBI BLAST, HMMer
 *
 * Release changes:
-
+*                      PD-4548  fasta_check.cpp prohibits '\t' (not any '\'), and all restrictions are only for nucleotide sequences
+*   3.11.11 04/13/2023 PD-4566  --hmmer_bin
+*   3.11.10 04/12/2023 PD-4548  fasta_check.cpp prohibits ';', '.', '~' in the last position of a sequence identifier
+*                      PD-4548  fasta_check.cpp prohibits: ',,' and '\\' in all positions, '?' in initial position, and ',' in the last position of a sequence identifier
+*   3.11.9  04/11/2023 PD-4560  BLAST -mt_mode is used on Mac only for BLAST version >= 2.13.0
 *           04/05/2023 PD-4522  blastp -task blastp-fast
 *           04/05/2023 PD-4548  "-a standard" is added
 *   3.11.8  04/01/2023          fasta_extract.cpp checks whether all requested identifiers are found in FASTA
@@ -304,7 +308,7 @@ struct ThisApplication : ShellApplication
       addFlag ("report_common", "Report proteins common to a taxonomy group");  // PD-2756
     	addKey ("mutation_all", "File to report all mutations", "", '\0', "MUT_ALL_FILE");
     	addKey ("blast_bin", "Directory for BLAST. Deafult: $BLAST_BIN", "", '\0', "BLAST_DIR");
-    //addKey ("hmmer_bin" ??
+    	addKey ("hmmer_bin", "Directory for HMMer", "", '\0', "HMMER_DIR");
       addFlag ("report_all_equal", "Report all equally-scoring BLAST and HMM matches");  // PD-3772
       addFlag ("print_node", "print hierarchy node (family)");  // PD-4394
       addKey ("name", "Text to be added as the first column \"name\" to all rows of the report, for example it can be an assembly name", "", '\0', "NAME");
@@ -379,8 +383,9 @@ struct ThisApplication : ShellApplication
 		bool num_threadsP = false;
 		bool mt_modeP = false;
 		{
-      exec (fullProg (blast) + " -help > " + tmp + "/blast_help");
-      LineInput f (tmp + "/blast_help");
+		  const string blast_help (tmp + "/blast_help");
+      exec (fullProg (blast) + " -help > " + blast_help);
+      LineInput f (blast_help);
       while (f. nextLine ())
       {
         trim (f. line);
@@ -395,10 +400,37 @@ struct ThisApplication : ShellApplication
       return string ();
     
 	  string s ("  -num_threads " + to_string (t));
-//#ifndef __APPLE__
-	  if (mt_modeP)  
+	  
+	  bool mt_mode_works = true;
+  #ifdef __APPLE__
+    {
+      mt_mode_works = false;
+      const string blast_version (tmp + "/blast_version");
+      exec (fullProg (blast) + " -version > " + blast_version);
+      LineInput f (blast_version);
+      while (f. nextLine ())
+      {
+        trim (f. line);
+        const string prefix (blast + ": ");
+        if (isLeft (f. line, prefix))
+        {
+          trimSuffix (f. line, "+");
+          Istringstream iss;
+          iss. reset (f. line. substr (prefix. size ()));
+          const SoftwareVersion v (iss);
+        //PRINT (v);  
+          iss. reset ("2.13.0");  // PD-4560
+          const SoftwareVersion threshold (iss);;
+        //PRINT (threshold);  
+          mt_mode_works = (threshold <= v);
+        }
+        break;
+      }
+    }
+  #endif
+
+	  if (mt_modeP && mt_mode_works)  
 	    s += "  -mt_mode 1";
-//#endif
 	    
 	  return s;
   }
@@ -466,6 +498,7 @@ struct ThisApplication : ShellApplication
     const bool    report_common    =             getFlag ("report_common");
     const string  mutation_all     =             getArg ("mutation_all");  
           string  blast_bin        =             getArg ("blast_bin");
+          string  hmmer_bin        =             getArg ("hmmer_bin");
     const bool    equidistant      =             getFlag ("report_all_equal");
     const bool    print_node       =             getFlag ("print_node");
     const string  input_name       = shellQuote (getArg ("name"));
@@ -583,6 +616,12 @@ struct ThisApplication : ShellApplication
 	    prog2dir ["blastn"]      = blast_bin;
       prog2dir ["makeblastdb"] = blast_bin;
 	  }
+
+    if (! hmmer_bin. empty ())
+    {
+	    addDirSlash (hmmer_bin);
+	    prog2dir ["hmmsearch"] = hmmer_bin;
+	  }
 	  
 
 		if (update)
@@ -605,7 +644,10 @@ struct ThisApplication : ShellApplication
         string blast_bin_par;
         if (! blast_bin. empty ())
           blast_bin_par = "  --blast_bin " + shellQuote (blast_bin);
-  		  exec (fullProg ("amrfinder_update") + " -d " + shellQuote (dbDir. getParent ()) + ifS (force_update, " --force_update") + blast_bin_par
+        string hmmer_bin_par;
+        if (! hmmer_bin. empty ())
+          hmmer_bin_par = "  --hmmer_bin " + shellQuote (hmmer_bin);
+  		  exec (fullProg ("amrfinder_update") + " -d " + shellQuote (dbDir. getParent ()) + ifS (force_update, " --force_update") + blast_bin_par + hmmer_bin_par
   		          + ifS (quiet, " -q") + ifS (qc_on, " --debug") + " > " + logFName, logFName);
       }
       else

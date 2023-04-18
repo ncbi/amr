@@ -217,7 +217,7 @@ Annot::Annot (const string &fName,
       	throw runtime_error ("empty sequence indentifier");
   	  for (const char c : contig)
   	  	if (! printable (c))
-  	  		throw runtime_error ("Non-printable character in the sequence identifier: " + c);
+  	  		throw runtime_error ("Non-printable character in the sequence identifier: " + to_string (c));
 
       if (   type != "CDS"
           && type != "gene"
@@ -385,7 +385,7 @@ Annot::Annot (const string &fName)
 
 	  for (const char c : contig)
 	  	if (! printable (c))
-	  		throw runtime_error (errorS + "Non-printable character in the sequence identifier: " + c);
+	  		throw runtime_error (errorS + "Non-printable character in the sequence identifier: " + to_string (c));
 
     if (start >= stop)
     	throw runtime_error (errorS + "start should be less than stop");

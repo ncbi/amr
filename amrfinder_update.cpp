@@ -315,6 +315,7 @@ Requirement: the database directory contains subdirectories named by database ve
     {
     	addKey ("database", "Directory for all versions of AMRFinder databases", "$BASE/data", 'd', "DATABASE_DIR");
     	addKey ("blast_bin", "Directory for BLAST", "", '\0', "BLAST_DIR");
+    	addKey ("hmmer_bin", "Directory for HMMer", "", '\0', "HMMER_DIR");
     	addFlag ("force_update", "Force updating the AMRFinder database");  // PD-3469
       addFlag ("quiet", "Suppress messages to STDERR", 'q');
 	    version = SVN_REV;
@@ -345,11 +346,13 @@ Requirement: the database directory contains subdirectories named by database ve
   {
     const string mainDirOrig  = getArg ("database");
           string blast_bin    = getArg ("blast_bin");
+          string hmmer_bin    = getArg ("hmmer_bin");
     const bool   force_update = getFlag ("force_update");
     const bool   quiet        = getFlag ("quiet");
     
     
     addDirSlash (blast_bin);
+    addDirSlash (hmmer_bin);
     
         
     Stderr stderr (quiet);
@@ -400,23 +403,13 @@ Requirement: the database directory contains subdirectories named by database ve
     ASSERT (! load_data_version. empty ());
    
 
-  #if 0                      
-    if (! blast_bin. empty ())
-      prog2dir ["makeblastdb"] = blast_bin;    
-    findProg ("makeblastdb");    
-    findProg ("hmmpress");
-  #endif
-    
-
     // Users's files  
     string mainDirS;
     {
       const Dir mainDir (mainDirOrig);
       mainDirS = mainDir. get ();
     }
-
     addDirSlash (mainDirS);
-
     
     const string versionFName ("version.txt");
     const string urlDir (URL + load_minor + "/" + load_data_version + "/");    
@@ -493,7 +486,10 @@ Requirement: the database directory contains subdirectories named by database ve
     string blast_bin_par;
     if (! blast_bin. empty ())
       blast_bin_par = "  --blast_bin " + shellQuote (blast_bin);
-	  exec (fullProg ("amrfinder_index") + shellQuote (latestDir) + blast_bin_par + ifS (quiet, " -q") + ifS (qc_on, " --debug") + " > " + tmp + "/amrfinder_index.err", tmp + "/amrfinder_index.err"); 
+    string hmmer_bin_par;
+    if (! hmmer_bin. empty ())
+      hmmer_bin_par = "  --hmmer_bin " + shellQuote (hmmer_bin);
+	  exec (fullProg ("amrfinder_index") + shellQuote (latestDir) + blast_bin_par + hmmer_bin_par + ifS (quiet, " -q") + ifS (qc_on, " --debug") + " > " + tmp + "/amrfinder_index.err", tmp + "/amrfinder_index.err"); 
   #else    
     stderr << "Indexing" << "\n";
     exec (fullProg ("hmmpress") + " -f " + shellQuote (latestDir + "AMR.LIB") + " > /dev/null 2> " + tmp + "/hmmpress.err", tmp + "/hmmpress.err");

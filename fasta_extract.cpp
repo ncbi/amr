@@ -238,7 +238,9 @@ Line format for nucleotide sequences : <id> <start (>=1)> <stop (>= start)> <str
   	  }
    	  processed += process (id, seq, id2segments);
    	}
-   	QC_ASSERT (processed == id2segments. size ());  // It is assumed that there are no duplicate identifiers in FASTA
+   	if (processed != id2segments. size ())  
+   	  throw runtime_error ("Requested identifiers: " + to_string (id2segments. size ()) + ", but processed: " + to_string (processed));
+   	  // Assumed: no duplicate identifiers in FASTA
   }
 };
 
