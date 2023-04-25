@@ -481,24 +481,11 @@ Requirement: the database directory contains subdirectories named by database ve
     createLatestLink (mainDirS, load_data_version);
   
 
-  #if 1
     prog2dir ["amrfinder_index"] = execDir;
-    string blast_bin_par;
-    if (! blast_bin. empty ())
-      blast_bin_par = "  --blast_bin " + shellQuote (blast_bin);
-    string hmmer_bin_par;
-    if (! hmmer_bin. empty ())
-      hmmer_bin_par = "  --hmmer_bin " + shellQuote (hmmer_bin);
-	  exec (fullProg ("amrfinder_index") + shellQuote (latestDir) + blast_bin_par + hmmer_bin_par + ifS (quiet, " -q") + ifS (qc_on, " --debug") + " > " + tmp + "/amrfinder_index.err", tmp + "/amrfinder_index.err"); 
-  #else    
-    stderr << "Indexing" << "\n";
-    exec (fullProg ("hmmpress") + " -f " + shellQuote (latestDir + "AMR.LIB") + " > /dev/null 2> " + tmp + "/hmmpress.err", tmp + "/hmmpress.err");
-    setSymlink (latestDir, tmp + "/db", true);
-	  exec (fullProg ("makeblastdb") + " -in " + tmp + "/db/AMRProt" + "  -dbtype prot  -logfile " + tmp + "/makeblastdb.AMRProt", tmp + "/makeblastdb.AMRProt");  
-	  exec (fullProg ("makeblastdb") + " -in " + tmp + "/db/AMR_CDS" + "  -dbtype nucl  -logfile " + tmp + "/makeblastdb.AMR_CDS", tmp + "/makeblastdb.AMR_CDS");  
-    for (const string& dnaPointMut : dnaPointMuts)
-  	  exec (fullProg ("makeblastdb") + " -in " + tmp + "/db/AMR_DNA-" + dnaPointMut + "  -dbtype nucl  -logfile " + tmp + "/makeblastdb.AMR_DNA-" + dnaPointMut, tmp + "/makeblastdb.AMR_DNA-" + dnaPointMut);
-  #endif
+	  exec (fullProg ("amrfinder_index") + shellQuote (latestDir) 
+	          + makeKey ("blast_bin", blast_bin)   
+	          + makeKey ("hmmer_bin", hmmer_bin)  
+	          + ifS (quiet, " -q") + ifS (qc_on, " --debug") + " > " + tmp + "/amrfinder_index.err", tmp + "/amrfinder_index.err"); 
   }
 };
 

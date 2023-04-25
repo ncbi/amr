@@ -30,8 +30,12 @@
 *   AMRFinder
 *
 * Dependencies: NCBI BLAST, HMMer
+*               gunzip
 *
 * Release changes:
+*           04/24/2023          Process files ending with ".gz", see https://github.com/ncbi/amr/issues/61, dependence on gunzip
+*           04/19/2023          On failure no output file (-o) is created
+*   3.11.12 04/13/2023          Application::makeKey()
 *                      PD-4548  fasta_check.cpp prohibits '\t' (not any '\'), and all restrictions are only for nucleotide sequences
 *   3.11.11 04/13/2023 PD-4566  --hmmer_bin
 *   3.11.10 04/12/2023 PD-4548  fasta_check.cpp prohibits ';', '.', '~' in the last position of a sequence identifier
@@ -470,6 +474,22 @@ struct ThisApplication : ShellApplication
     t. qc ();
     t. saveFile (tmp + "/" + tmpSuf);
   }
+  
+  
+  
+  string uncompress (const string &quotedFName,
+                     const string &suffix) const
+  {
+    const string res (shellQuote (tmp + "/" + suffix));
+    ASSERT (quotedFName != res);
+    const string s (unQuote (quotedFName));
+    if (isRight (s, ".gz"))  
+    {
+      exec ("gunzip -c " + quotedFName + " > " + res);
+      return res;
+    }
+    return quotedFName;  
+  }
 
 
 
@@ -553,8 +573,11 @@ struct ThisApplication : ShellApplication
 		}
 
 		if (! output. empty ())
+		{
 		  try { OFStream f (output); }
 		    catch (...) { throw runtime_error ("Cannot create output file " + shellQuote (output)); }
+      removeFile (output);
+		}
 
     
     // For timing... 
@@ -641,13 +664,9 @@ struct ThisApplication : ShellApplication
       if (! dbDir. items. empty () && dbDir. items. back () == "latest")
       {
         prog2dir ["amrfinder_update"] = execDir;
-        string blast_bin_par;
-        if (! blast_bin. empty ())
-          blast_bin_par = "  --blast_bin " + shellQuote (blast_bin);
-        string hmmer_bin_par;
-        if (! hmmer_bin. empty ())
-          hmmer_bin_par = "  --hmmer_bin " + shellQuote (hmmer_bin);
-  		  exec (fullProg ("amrfinder_update") + " -d " + shellQuote (dbDir. getParent ()) + ifS (force_update, " --force_update") + blast_bin_par + hmmer_bin_par
+  		  exec (fullProg ("amrfinder_update") + " -d " + shellQuote (dbDir. getParent ()) + ifS (force_update, " --force_update") 
+  		          + makeKey ("blast_bin", blast_bin)  
+  		          + makeKey ("hmmer_bin", hmmer_bin)  
   		          + ifS (quiet, " -q") + ifS (qc_on, " --debug") + " > " + logFName, logFName);
       }
       else
@@ -759,18 +778,27 @@ struct ThisApplication : ShellApplication
 
       for (const string& include : includes)
         stderr << "  - include " << include << '\n';
+    }
+    
+    
+    // Quoted names
+    const string prot_flat = uncompress (prot, "prot_flat");
+    const string dna_flat  = uncompress (dna,  "dna_flat");
+    const string gff_flat  = uncompress (gff,  "gff_flat");
+      
 
+    {
       StringVector emptyFiles;
-      if (! emptyArg (prot) && ! getFileSize (unQuote (prot)))  emptyFiles << prot;
-      if (! emptyArg (dna)  && ! getFileSize (unQuote (dna)))   emptyFiles << dna;
-      if (! emptyArg (gff)  && ! getFileSize (unQuote (gff)))   emptyFiles << gff;      
+      if (! emptyArg (prot) && ! getFileSize (unQuote (prot_flat)))  emptyFiles << prot;
+      if (! emptyArg (dna)  && ! getFileSize (unQuote (dna_flat)))   emptyFiles << dna;
+      if (! emptyArg (gff)  && ! getFileSize (unQuote (gff_flat)))   emptyFiles << gff;      
       for (const string& emptyFile : emptyFiles)
       {
         const Warning warning (stderr);
         stderr << "Empty file: " << emptyFile;
       }
     }
-      
+
 
 	  // organism --> organism1
 	  string organism1;
@@ -853,7 +881,7 @@ struct ThisApplication : ShellApplication
     bool lcl = false;
     if (gffType == Gff::pgap && ! emptyArg (dna))  // PD-3347
     {
-      LineInput f (unQuote (dna));
+      LineInput f (unQuote (dna_flat));
       while (f. nextLine ())
         if (isLeft (f. line, ">"))
         {
@@ -881,20 +909,20 @@ struct ThisApplication : ShellApplication
   		{
   			string gff_prot_match;
  			  string gff_dna_match;
-  			if (getFileSize (unQuote (prot)))
+  			if (getFileSize (unQuote (prot_flat)))
   			{
     			findProg ("blastp");  			
     			findProg ("hmmsearch");
     			
-    			string prot1 (prot);  // Protein FASTA with no dashes in the sequences
+    			string prot1 (prot_flat);  // Protein FASTA with no dashes in the sequences
           size_t nProt = 0;
           size_t protLen_max = 0;
           size_t protLen_total = 0;
-          if (! fastaCheck (prot, true, qcS, logFName, nProt, protLen_max, protLen_total))
+          if (! fastaCheck (prot_flat, true, qcS, logFName, nProt, protLen_max, protLen_total))
           {
             prot1 = shellQuote (tmp + "/prot");
             OFStream outF (unQuote (prot1));
-            LineInput f (unQuote (prot)); 
+            LineInput f (unQuote (prot_flat)); 
             while (f. nextLine ())
             {
               trimTrailing (f. line);
@@ -941,13 +969,13 @@ struct ThisApplication : ShellApplication
     			  string dnaPar;
     			  if (! emptyArg (dna))
     			  {
-    			    dnaPar = " -dna " + dna;
+    			    dnaPar = " -dna " + dna_flat;
     			    if (gffType == Gff::pseudomonasdb)
     			      gff_dna_match = " -gff_dna_match " + tmp + "/dna_match";
     			  }
     			  try 
     			  {
-    			    exec (fullProg ("gff_check") + gff + annotS + " -prot " + prot1 + dnaPar + gff_prot_match + gff_dna_match + qcS + " -log " + logFName, logFName);
+    			    exec (fullProg ("gff_check") + gff_flat + annotS + " -prot " + prot1 + dnaPar + gff_prot_match + gff_dna_match + qcS + " -log " + logFName, logFName);
     			  }
     			  catch (...)
     			  {
@@ -1004,19 +1032,19 @@ struct ThisApplication : ShellApplication
 
   		  amr_report_blastp = "-blastp " + tmp + "/blastp  -hmmsearch " + tmp + "/hmmsearch  -hmmdom " + tmp + "/dom";
   			if (! emptyArg (gff))
-  			  amr_report_blastp += "  -gff " + gff + gff_prot_match + gff_dna_match + annotS;
+  			  amr_report_blastp += "  -gff " + gff_flat + gff_prot_match + gff_dna_match + annotS;
   		}  		
 
   		
   		if (! emptyArg (dna))
   		{
   		  const bool blastn = ! organism1. empty () && fileExists (db + "/AMR_DNA-" + organism1);
-  		  if (getFileSize (unQuote (dna)))
+  		  if (getFileSize (unQuote (dna_flat)))
     		{
           size_t nDna = 0;
           size_t dnaLen_max = 0;
           size_t dnaLen_total = 0;
-          EXEC_ASSERT (fastaCheck (dna, false, qcS, logFName, nDna, dnaLen_max, dnaLen_total));
+          EXEC_ASSERT (fastaCheck (dna_flat, false, qcS, logFName, nDna, dnaLen_max, dnaLen_total));
           const string blastx (/*"tblastn"*/ dnaLen_max > 100000 ? "tblastn" : "blastx");  // PAR  // SB-3643
 
     			stderr. section ("Running " + blastx);
@@ -1028,14 +1056,14 @@ struct ThisApplication : ShellApplication
         		const string blastx_par  (blastp_par + "  -word_size 3  -query_gencode " + to_string (gencode));
       			ASSERT (threads_max >= 1);
       			if (blastx == "blastx")
-        			exec (fullProg ("blastx") + "  -query " + dna + " -db " + tmp + "/db/AMRProt" + "  "
+        			exec (fullProg ("blastx") + "  -query " + dna_flat + " -db " + tmp + "/db/AMRProt" + "  "
             			  + blastx_par + " " BLAST_FMT " " + get_num_threads_param ("blastx", min (nDna, dnaLen_total / 10002))
             			  + " -out " + tmp + "/blastx > /dev/null 2> " + tmp + "/blastx-err", tmp + "/blastx-err");
             else
             {
               ASSERT (blastx == "tblastn");
         			findProg ("makeblastdb");
-           	  exec (fullProg ("makeblastdb") + " -in " + dna + " -out " + tmp + "/nucl" + "  -dbtype nucl  -logfile " + tmp + "/makeblastdb.log", tmp + "/makeblastdb.log");  
+           	  exec (fullProg ("makeblastdb") + " -in " + dna_flat + " -out " + tmp + "/nucl" + "  -dbtype nucl  -logfile " + tmp + "/makeblastdb.log", tmp + "/makeblastdb.log");  
         			if (threads_max > 1)
         			{
           		  createDirectory (tmp + "/AMRProt_chunk");
@@ -1061,7 +1089,7 @@ struct ThisApplication : ShellApplication
       			findProg ("blastn");
       			stderr. section ("Running blastn");
        			const Chronometer_OnePass cop ("blastn", cerr, false, qc_on && ! quiet);
-      			exec (fullProg ("blastn") + " -query " + dna + " -db " + tmp + "/db/AMR_DNA-" + organism1 + " -evalue 1e-20  -dust no  -max_target_seqs 10000  " 
+      			exec (fullProg ("blastn") + " -query " + dna_flat + " -db " + tmp + "/db/AMR_DNA-" + organism1 + " -evalue 1e-20  -dust no  -max_target_seqs 10000  " 
       			      + get_num_threads_param ("blastn", min (nDna, dnaLen_total / 2500000)) + " " BLAST_FMT " -out " + tmp + "/blastn > " + logFName + " 2> " + tmp + "/blastn-err", tmp + "/blastn-err");
       		}
     		}
@@ -1188,7 +1216,7 @@ struct ThisApplication : ShellApplication
     if (! emptyArg (dna_out))
     {
       prepare_fasta_extract (StringVector {"Contig id", "Start", "Stop", "Strand", "Gene symbol", "Sequence name"}, "dna_out", false);
-      exec (fullProg ("fasta_extract") + dna + " " + tmp + "/dna_out" + qcS + " -log " + logFName + " > " + dna_out, logFName);  
+      exec (fullProg ("fasta_extract") + dna_flat + " " + tmp + "/dna_out" + qcS + " -log " + logFName + " > " + dna_out, logFName);  
     }
     if (! emptyArg (dnaFlank5_out))
     {
@@ -1204,7 +1232,7 @@ struct ThisApplication : ShellApplication
       t. saveHeader = false;
       t. qc ();
       t. saveFile (tmp + "/dnaFlank5_out");
-      exec (fullProg ("fasta_extract") + dna + " " + tmp + "/dnaFlank5_out" + qcS + " -log " + logFName + " > " + dnaFlank5_out, logFName);  
+      exec (fullProg ("fasta_extract") + dna_flat + " " + tmp + "/dnaFlank5_out" + qcS + " -log " + logFName + " > " + dnaFlank5_out, logFName);  
     }
 
 		

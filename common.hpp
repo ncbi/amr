@@ -4247,6 +4247,12 @@ protected:
     {}
   string getInstruction () const;
   virtual string getHelp () const;
+  string makeKey (const string &param,
+                  const string &value) const
+    { if (value. empty ())
+        return noString;
+      return "  -" + ifS (gnu, "-") + param + " " + shellQuote (value); 
+    }
 public:
   int run (int argc, 
            const char* argv []);

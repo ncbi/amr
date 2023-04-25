@@ -434,25 +434,7 @@ void TextTable::group (const StringVector &by,
     if (! header [col2num (s)]. numeric)
       throw runtime_error ("Summation column " + strQuote (s) + " is not numeric");
 
-#if 0
-  const auto lt = [&byIndex,this] (const StringVector &a, const StringVector &b) 
-                    { for (const ColNum i : byIndex) 
-                        switch (this->compare (a, b, i))
-                        { case -1: return true;
-                          case  1: return false;
-                        }
-                      // Tie resolution
-                      FFOR (size_t, i, a. size ())
-                        switch (this->compare (a, b, i))
-                        { case -1: return true;
-                          case  1: return false;
-                        }
-                      return false;
-                    };
-  Common_sp::sort (rows, lt);
-#else
   sort (by);
-#endif
   
   RowNum i = 0;  
   FFOR_START (RowNum, j, 1, rows. size ())
@@ -524,18 +506,17 @@ void TextTable::merge (RowNum toRowNum,
 
   for (const ColNum i : aggr)
   {
-    constexpr char sep = ',';
     if (from [i]. empty ())
       continue;
     if (to [i]. empty ())
       to [i] = from [i];
     else
     {
-      StringVector vec (to [i], sep, true);
+      StringVector vec (to [i], aggr_sep, true);
       vec << from [i];
       vec. sort ();
       vec. uniq ();
-      to [i] = vec. toString (string (1, sep));
+      to [i] = vec. toString (string (1, aggr_sep));
     }
   }
 }
