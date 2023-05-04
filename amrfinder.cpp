@@ -30,11 +30,12 @@
 *   AMRFinder
 *
 * Dependencies: NCBI BLAST, HMMer
-*               gunzip
+*               gunzip (optional)
 *
 * Release changes:
-*           04/24/2023          Process files ending with ".gz", see https://github.com/ncbi/amr/issues/61, dependence on gunzip
-*           04/19/2023          On failure no output file (-o) is created
+*   3.11.13 05/04/2023 PD-4596  Prohibit ASCII characters only between 0x00 and 0x1F in GFF files
+*           04/24/2023 PD-4583  Process files ending with ".gz", see https://github.com/ncbi/amr/issues/61, dependence on gunzip (optional)
+*           04/19/2023          On failure no empty output file (-o) is created
 *   3.11.12 04/13/2023          Application::makeKey()
 *                      PD-4548  fasta_check.cpp prohibits '\t' (not any '\'), and all restrictions are only for nucleotide sequences
 *   3.11.11 04/13/2023 PD-4566  --hmmer_bin
@@ -891,6 +892,9 @@ struct ThisApplication : ShellApplication
     }
     
 
+	  const bool blastn = ! emptyArg (dna) && ! organism1. empty () && fileExists (db + "/AMR_DNA-" + organism1);
+
+
     // Create files for amr_report    
     string amr_report_blastp;	
  		string amr_report_blastx;
@@ -1038,7 +1042,6 @@ struct ThisApplication : ShellApplication
   		
   		if (! emptyArg (dna))
   		{
-  		  const bool blastn = ! organism1. empty () && fileExists (db + "/AMR_DNA-" + organism1);
   		  if (getFileSize (unQuote (dna_flat)))
     		{
           size_t nDna = 0;
@@ -1155,10 +1158,7 @@ struct ThisApplication : ShellApplication
       		  + ifS (suppress_common, " -suppress_prot " + tmp + "/suppress_prot")  
       		  + nameS + qcS + " " + parm + " -log " + logFName + " > " + tmp + "/amr", logFName);
   	}
-		if (   ! emptyArg (dna) 
-		    && ! organism1. empty ()
-		    && fileExists (db + "/AMR_DNA-" + organism1)
-		   )
+		if (blastn)
 		{
  			const Chronometer_OnePass cop ("dna_mutation", cerr, false, qc_on && ! quiet);
       const string mutation_allS (mutation_all. empty () ? "" : ("-mutation_all " + tmp + "/mutation_all.dna")); 

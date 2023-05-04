@@ -910,22 +910,6 @@ public:
     }    
 	string getMethod (const Locus &cds) const
 	  { //IMPLY (refExactlyMatched () && ! mutation_all. get (), ! isMutationProt ())
-    #if 0
-	    string method (fromHmm
-	                     ? "HMM"
-	                     : refExactlyMatched () 
-          	             ? alleleReported () 
-          	               ? "ALLELE"
-          	               : "EXACT"  // PD-776
-      	                 : isMutationProt ()
-      	                   ? "POINT"
-          	               : partial ()
-          	                 ? truncated (cds)
-          	                   ? "PARTIAL_CONTIG_END"  // PD-2267
-          	                   : "PARTIAL"
-        	                   : "BLAST"
-        	           );
-    #endif
 	    string method (fromHmm
 	                     ? "HMM"
 	                     : isMutationProt ()

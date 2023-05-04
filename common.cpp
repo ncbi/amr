@@ -874,8 +874,8 @@ void reverse (string &s)
 string unpercent (const string &s)
 {
   for (const char c : s)
-  	if (! printable (c))
-  		throwf (FUNC "Non-printable character: " + to_string (int (c)));
+  	if (between (c, '\0', ' ') /*! printable (c)*/)
+  		throwf (FUNC "Non-printable character: " + to_string (uchar (c)));
 
   string r;
   constexpr size_t hex_pos_max = 2;
