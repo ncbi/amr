@@ -1017,6 +1017,14 @@ public:
 
 
 
+// char*
+
+inline const char* nvl (const char* s,
+                        const char* nullS = "-")
+  { return s ? s : nullS; }
+  	
+  	  	
+
 // string
 
 extern const string noString;
@@ -4022,11 +4030,19 @@ public:
 
 struct SoftwareVersion : Root
 {
-  uint major {0};
-  uint minor {0};
+  uint major {0};  // there is ::major()
+  uint minor {0};  // there is ::minor()
   uint patch {0};
   
 
+  SoftwareVersion () = default;
+  SoftwareVersion (uint major_arg,
+                   uint minor_arg,
+                   uint patch_arg)
+    { major = major_arg;
+      minor = minor_arg;
+      patch = patch_arg;
+    } 
   explicit SoftwareVersion (const string &fName);
   explicit SoftwareVersion (istream &is,
                             bool minorOnly = false);
@@ -4034,7 +4050,7 @@ private:
   void init (string &&s,
              bool minorOnly);
 public:
-  void saveText (ostream &os) const override
+  void saveText (ostream &os) const final
     { os << major << '.' << minor << '.' << patch; }   
     
     
@@ -4055,18 +4071,28 @@ public:
 
 struct DataVersion : Root
 {
-  uint year {0};
+  uint year  {0};
   uint month {0};
-  uint day {0};
-  uint num {0};
+  uint day   {0};
+  uint num   {0};
   
 
+  DataVersion () = default;
+  DataVersion (uint year_arg,
+               uint month_arg,
+               uint day_arg,
+               uint num_arg)
+    : year  (year_arg)
+    , month (month_arg)
+    , day   (day_arg)
+    , num   (num_arg)
+    {} 
   explicit DataVersion (const string &fName);
   explicit DataVersion (istream &is);
 private:
   void init (string &&s);
 public:
-  void saveText (ostream &os) const override
+  void saveText (ostream &os) const final
     { os << year 
          << '-' << std::setfill ('0') << std::setw (2) << month 
          << '-' << std::setfill ('0') << std::setw (2) << day 

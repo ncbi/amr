@@ -92,6 +92,7 @@ release: clean
 	make all
 
 common.o:	common.hpp common.inc
+curl_easy.o: curl_easy.hpp common.hpp common.inc
 gff.o: gff.hpp common.hpp common.inc
 alignment.o:	alignment.hpp alignment.hpp common.inc
 
@@ -106,7 +107,7 @@ amrfinder:	$(amrfinderOBJS)
 	$(CXX) -o $@ $(amrfinderOBJS) -pthread $(DBDIR)
 
 amrfinder_update.o:  common.hpp common.inc 
-amrfinder_updateOBJS=amrfinder_update.o common.o
+amrfinder_updateOBJS=amrfinder_update.o common.o curl_easy.o
 amrfinder_update:      $(amrfinder_updateOBJS) 
 	@if [ "$(TEST_UPDATE)" != "" ]  ; \
 	then  \
