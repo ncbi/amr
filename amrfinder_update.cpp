@@ -29,34 +29,24 @@
 * File Description:
 *   Updating of AMRFinder data
 *
-* Dependencies: curl.{h,c}
-*
 * Release changes: see amrfinder.cpp
 *
 */
 
 
 
-#define HTTPS  // Otherwise: FTP
+#define HTTPS 1   // 0: FTP
 
 
 
-#ifdef _MSC_VER
-  #error "UNIX is required"
-#endif
-   
 #undef NDEBUG 
 #include "common.inc"
 
-#include <unistd.h>
-#include <curl/curl.h>
 
 #include "common.hpp"
 using namespace Common_sp;
-
-
-
-string curMinor;
+#include "curl_easy.hpp"
+using namespace CURL_sp;
 
 
 
@@ -66,111 +56,10 @@ namespace
 
 
 
-struct Curl
-{
-  CURL* eh {nullptr};
-
-
-  Curl ()
-    { eh = curl_easy_init ();
-      QC_ASSERT (eh);
-    #ifndef HTTPS
-      curl_easy_setopt (eh, CURLOPT_FTP_USE_EPSV, 0);
-    #endif
-    }
- ~Curl ()
-   { curl_easy_cleanup (eh); }
-
-
-  void download (const string &url,
-                 const string &fName);
-  string read (const string &url);
-};
-
-	
-
-size_t write_stream_cb (char* ptr,
-                        size_t size, 
-                        size_t nMemb, 
-                        void* userData)
-{
-  ASSERT (ptr);
-  ASSERT (size == 1);
-  ASSERT (userData);
-  
-  OFStream& f = * static_cast <OFStream*> (userData);
-  FOR (size_t, i, nMemb)
-    f << ptr [i];;
-  
-  return nMemb;
-}
-
-
- 	
-void Curl::download (const string &url,
-                     const string &fName) 
-{
-  ASSERT (! url. empty ());  
-  ASSERT (! fName. empty ());  
-  
-  {
-    OFStream f (fName);
-    curl_easy_setopt (eh, CURLOPT_URL, url. c_str ());
-    curl_easy_setopt (eh, CURLOPT_WRITEFUNCTION, write_stream_cb);
-    curl_easy_setopt (eh, CURLOPT_WRITEDATA, & f);
-    if (curl_easy_perform (eh))
-      throw runtime_error ("CURL: Cannot download from " + url);
-  }
-  
-  ifstream f (fName);
-  string s;
-  f >> s;
-  if (s == "<?xml")
-    throw runtime_error ("Cannot download " + strQuote (fName));
-}
-
-
-
-size_t write_string_cb (char* ptr,
-                        size_t size, 
-                        size_t nMemb, 
-                        void* userData)
-{
-  ASSERT (ptr);
-  ASSERT (size == 1);
-  ASSERT (userData);
-  
-  string& s = * static_cast <string*> (userData);
-  FOR (size_t, i, nMemb)
-    s += ptr [i];;
-  
-  return nMemb;
-}
-
-
- 	
-string Curl::read (const string &url)
-{
-  ASSERT (! url. empty ());  
-  
-  string s;  s. reserve (1024);  // PAR  
-  curl_easy_setopt (eh, CURLOPT_URL, url. c_str ());
-  curl_easy_setopt (eh, CURLOPT_WRITEFUNCTION, write_string_cb);
-  curl_easy_setopt (eh, CURLOPT_WRITEDATA, & s);
-  if (curl_easy_perform (eh))
-    throw runtime_error ("CURL: Cannot read from " + url);
-  
-  return s;
-}
-
-//
-
-
-
 #ifdef TEST_UPDATE
   #define URL "https://ftp.ncbi.nlm.nih.gov/pathogen/Technical/AMRFinder_technical/test_database/"
 #else
-  #ifdef HTTPS
+  #if HTTPS
     #define URL "https://ftp.ncbi.nlm.nih.gov/pathogen/Antimicrobial_resistance/AMRFinderPlus/database/"  
   #else
     #define URL "ftp://ftp.ncbi.nlm.nih.gov/pathogen/Antimicrobial_resistance/AMRFinderPlus/database/"  
@@ -191,7 +80,7 @@ string getLatestMinor (Curl &curl)
     
   Vector<SoftwareVersion> vers;  
   for (string& line : dir)
-  #ifdef HTTPS
+  #if HTTPS
     if (isLeft (line, "<a href="))
   	  try 
   	  {
@@ -247,7 +136,7 @@ string getLatestDataVersion (Curl &curl,
     
   Vector<DataVersion> dataVersions;  
   for (string& line : dir)
-  #ifdef HTTPS
+  #if HTTPS
     if (isLeft (line, "<a href="))
       try
       {
@@ -308,6 +197,9 @@ void fetchAMRFile (Curl &curl,
 
 struct ThisApplication : ShellApplication
 {
+  string curMinor;
+
+
   ThisApplication ()
     : ShellApplication ("Update the database for AMRFinder from " URL "\n\
 Requirement: the database directory contains subdirectories named by database versions.\
@@ -361,7 +253,7 @@ Requirement: the database directory contains subdirectories named by database ve
     const Verbose vrb (qc_on);
     
 
-    Curl curl;    
+    Curl curl;
         
     
     // FTP site files
@@ -481,24 +373,11 @@ Requirement: the database directory contains subdirectories named by database ve
     createLatestLink (mainDirS, load_data_version);
   
 
-  #if 1
     prog2dir ["amrfinder_index"] = execDir;
-    string blast_bin_par;
-    if (! blast_bin. empty ())
-      blast_bin_par = "  --blast_bin " + shellQuote (blast_bin);
-    string hmmer_bin_par;
-    if (! hmmer_bin. empty ())
-      hmmer_bin_par = "  --hmmer_bin " + shellQuote (hmmer_bin);
-	  exec (fullProg ("amrfinder_index") + shellQuote (latestDir) + blast_bin_par + hmmer_bin_par + ifS (quiet, " -q") + ifS (qc_on, " --debug") + " > " + tmp + "/amrfinder_index.err", tmp + "/amrfinder_index.err"); 
-  #else    
-    stderr << "Indexing" << "\n";
-    exec (fullProg ("hmmpress") + " -f " + shellQuote (latestDir + "AMR.LIB") + " > /dev/null 2> " + tmp + "/hmmpress.err", tmp + "/hmmpress.err");
-    setSymlink (latestDir, tmp + "/db", true);
-	  exec (fullProg ("makeblastdb") + " -in " + tmp + "/db/AMRProt" + "  -dbtype prot  -logfile " + tmp + "/makeblastdb.AMRProt", tmp + "/makeblastdb.AMRProt");  
-	  exec (fullProg ("makeblastdb") + " -in " + tmp + "/db/AMR_CDS" + "  -dbtype nucl  -logfile " + tmp + "/makeblastdb.AMR_CDS", tmp + "/makeblastdb.AMR_CDS");  
-    for (const string& dnaPointMut : dnaPointMuts)
-  	  exec (fullProg ("makeblastdb") + " -in " + tmp + "/db/AMR_DNA-" + dnaPointMut + "  -dbtype nucl  -logfile " + tmp + "/makeblastdb.AMR_DNA-" + dnaPointMut, tmp + "/makeblastdb.AMR_DNA-" + dnaPointMut);
-  #endif
+	  exec (fullProg ("amrfinder_index") + shellQuote (latestDir) 
+	          + makeKey ("blast_bin", blast_bin)   
+	          + makeKey ("hmmer_bin", hmmer_bin)  
+	          + ifS (quiet, " -q") + ifS (qc_on, " --debug") + " > " + tmp + "/amrfinder_index.err", tmp + "/amrfinder_index.err"); 
   }
 };
 

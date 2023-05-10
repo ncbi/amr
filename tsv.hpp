@@ -84,6 +84,7 @@ struct TextTable : Named
     // no_index <=> no column
   typedef  size_t  RowNum;
     // no_index <=> no row
+  static constexpr char aggr_sep {','};  // PAR
     
     
   struct Error : runtime_error
@@ -164,6 +165,12 @@ private:
               const Vector<ColNum> &maxV,
               const Vector<ColNum> &aggr);
 public:
+  static StringVector aggr2values (const string &aggr)
+    { StringVector v (aggr, aggr_sep, true);
+      v. sort ();
+      v. uniq ();
+      return v;
+    }
   void colNumsRow2values (const Vector<ColNum> &colNums,
                           RowNum row_num,
                           StringVector &values) const;

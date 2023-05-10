@@ -244,10 +244,10 @@ namespace
     *os << endl
         << msg << endl << endl
       #ifndef _MSC_VER
-  	    << "HOSTNAME: " << (hostname ? hostname : "?") << endl
-  	    << "SHELL: " << (shell ? shell : "?") << endl
-  	    << "PWD: " << (pwd ? pwd : "?") << endl
-  	    << "PATH: " << (path ? path : "?") << endl
+  	    << "HOSTNAME: " << nvl (hostname, "?") << endl
+  	    << "SHELL: "    << nvl (shell,    "?") << endl
+  	    << "PWD: "      << nvl (pwd,      "?") << endl
+  	    << "PATH: "     << nvl (path,     "?") << endl
       #endif
   	    << "Progam name:  " << programName << endl
   	    << "Command line: " << getCommandLine () << endl;
@@ -482,8 +482,8 @@ string pad (const string &s,
     
   switch (right)
   {
-    case efalse: return sp + s; 
-    case etrue:  return s + sp; 
+    case efalse: return s + sp; 
+    case etrue:  return sp + s; 
     case enull:  
       {
         const size_t half = sp. size () / 2;
@@ -874,8 +874,8 @@ void reverse (string &s)
 string unpercent (const string &s)
 {
   for (const char c : s)
-  	if (! printable (c))
-  		throwf (FUNC "Non-printable character: " + to_string (int (c)));
+  	if (between (c, '\0', ' ') /*! printable (c)*/)
+  		throwf (FUNC "Non-printable character: " + to_string (uchar (c)));
 
   string r;
   constexpr size_t hex_pos_max = 2;
