@@ -33,8 +33,8 @@
 *               gunzip (optional)
 *
 * Release changes:
-*           05/06/2023 PD-4598  error messages in curl_easy.cpp
-*   3.11.14 05/05/2023          extern "C" { #include <curl.h> }
+*   3.11.15 05/23/2023 PD-4629  "amrfinder_update -d DIR" will create DIR if DIR is missing
+*   3.11.14 05/06/2023 PD-4598  error messages in curl_easy.cpp
 *   3.11.13 05/04/2023 PD-4596  Prohibit ASCII characters only between 0x00 and 0x1F in GFF files
 *           04/24/2023 PD-4583  Process files ending with ".gz", see https://github.com/ncbi/amr/issues/61, dependence on gunzip (optional)
 *           04/19/2023          On failure no empty output file (-o) is created

@@ -77,7 +77,7 @@
 
 namespace Common_sp
 {
-  void throwf (const std::string &s);
+  [[noreturn]] void throwf (const std::string &s);
 }
 
 #define ERROR_MSG(msg)                     \

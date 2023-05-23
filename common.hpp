@@ -140,7 +140,7 @@ constexpr const char* error_caption ("*** ERROR ***");
 // For debugger
 [[noreturn]] void errorExitStr (const string &msg);
 
-void throwf (const string &s);
+[[noreturn]] void throwf (const string &s);  // ??
 
 
 
@@ -522,6 +522,9 @@ static_assert ((size_t) 0 - 1 == no_index);
 
 
 // char
+
+inline bool isChar (long long n)
+  { return between<long long> (n, -127, 128); }
 
 inline bool isAlpha (char c)
   { return strchr ("abcdefghijklmnopqrstuvwxyz", tolower (c)); }
@@ -1223,7 +1226,7 @@ string str2streamWord (const string &s,
 string str2sql (const string &s);
   // Return: ' s ' (replacing ' by '')
 
-string sql2escaped (const string &s);
+//string sql2escaped (const string &s);
 
 
 string findSplit (string &s,
@@ -3244,6 +3247,7 @@ struct CharInput : Input
     // eof => eol
 private:
   bool ungot {false};
+  bool eol_prev {false};
 public:
 
 	
@@ -3266,14 +3270,25 @@ public:
     // Postcondition: eol
 	  
 
-  string errorText (const string &what,
-		                bool expected = true) const
-		{ return "Error at line " + to_string (lineNum + 1) + ", pos. " + to_string (charNum + 1)
-                + (what. empty () ? noString : (": " + what + ifS (expected, " is expected"))); 
-    }
-  void error (const string &what,
-	            bool expected = true) const
-		{ throwf (errorText (what, expected)); }
+  struct Error : runtime_error
+  { const uint lineNum;
+    const uint charNum;    
+    Error (const uint lineNum_arg,
+           const uint charNum_arg,
+           const string &what)
+      : runtime_error (("Error in line " + to_string (lineNum_arg + 1) + ", pos. " + to_string (charNum_arg + 1) + ": " + what). c_str ())
+      , lineNum (lineNum_arg)
+      , charNum (charNum_arg)
+    {}
+    Error (const CharInput &ci,
+           const string &what,
+		       bool expected = true) 
+      : Error (ci. lineNum, ci. charNum, what + ifS (expected, " is expected"))
+      {}
+  };
+  [[noreturn]] void error (const string &what,
+	                         bool expected = true) const
+		{ throw Error (*this, what, expected); }
 };
 	
 
@@ -3350,6 +3365,7 @@ private:
 	                bool dashInName_arg,
 	                bool consecutiveQuotesInText);  
 	  // Input: consecutiveQuotesInText means that '' = '
+    // Update: in: in.charNum = last character of *this
 public:
 	void qc () const override;
 	void saveText (ostream &os) const override;
@@ -3447,9 +3463,20 @@ public:
     {}
 
 
-  void error (const string &what,
-	            bool expected = true) const
-		{ ci. error (what, expected); }  // CharInput::Error
+  struct Error : CharInput::Error
+  { Error (const TokenInput &ti,
+           const Token &wrongToken,
+           const string &expected)
+      : CharInput::Error (ti. ci. lineNum, wrongToken. charNum, expected + " is expected")
+      {}
+  };
+  [[noreturn]] void error (const Token &wrongToken,
+                           const string &expected)
+    { throw Error (*this, wrongToken, expected); }
+  [[noreturn]] void error (const string &what,
+	                         bool expected = true) const
+		{ ci. error (what, expected); }  
+
   Token get ();
     // Return: empty() <=> EOF
   Token getXmlText ();
@@ -3466,22 +3493,22 @@ public:
 	void get (const string &expected)
     { const Token t (get ());
     	if (! t. isNameText (expected))
-   			ci. error (Token::type2str (Token::eName) + " " + strQuote (expected)); 
+   			error (t, Token::type2str (Token::eName) + " " + strQuote (expected)); 
     }
 	void get (int expected)
     { const Token t (get ());
     	if (! t. isInteger (expected))
-  			ci. error (Token::type2str (Token::eInteger) + " " + to_string (expected)); 
+  			error (t, Token::type2str (Token::eInteger) + " " + to_string (expected)); 
     }
 	void get (double expected)
     { const Token t (get ());
     	if (! t. isDouble (expected))
-   			ci. error (Token::type2str (Token::eDouble) + " " + toString (expected)); 
+   			error (t, Token::type2str (Token::eDouble) + " " + toString (expected)); 
     }
 	void get (char expected)
     { const Token t (get ());
     	if (! t. isDelimiter (expected))
-   			ci. error (Token::type2str (Token::eDelimiter) + " " + strQuote (toString (expected), '\'')); 
+   			error (t, Token::type2str (Token::eDelimiter) + " " + strQuote (toString (expected), '\'')); 
     }
   void setLast (Token &&t)
     { if (t. empty ())

@@ -304,7 +304,7 @@ string getStack ()
 
 
 
-void throwf (const string &s)  
+[[noreturn]] void throwf (const string &s)  
 { 
   if (cxml)
   {
@@ -814,6 +814,7 @@ string str2sql (const string &s)
 
 
 
+#if 0
 string sql2escaped (const string &s)
 {
   string s1;
@@ -826,6 +827,7 @@ string sql2escaped (const string &s)
   
   return s1;
 }
+#endif
 
 
 
@@ -1159,7 +1161,7 @@ Dir::Dir (const string &dirName)
 size_t Dir::create ()
 {
   if (items. empty ())
-    throw runtime_error ("Cannot create the root directory");
+    return 0;
 
   const string path (get ());
 
@@ -1167,6 +1169,11 @@ size_t Dir::create ()
     return 0;
 
   const string item (items. popBack ());
+  if (item. empty ())
+  {
+    ASSERT (items. empty ());
+    throw runtime_error ("Cannot create the root directory");
+  }
   const size_t n = create ();
   items << item;
   if (mkdir (path. c_str (), 0777) != 0)  // PAR
@@ -1862,28 +1869,27 @@ bool ObjectInput::next (Root &row)
 char CharInput::get ()
 { 
   ASSERT (is);
+  QC_ASSERT (! eof);
+  
+  ungot = false;
   
   const char c = (char) is->get ();
-	eof = is->eof ();
-	
-	ASSERT (eof == (c == (char) EOF));
+  
+	eof = is->eof ();	
+  QC_ASSERT (eof == (c == (char) EOF));
 
-  if (ungot)
-  {
-    ungot = false;
-	  charNum++;
+  if (eol)  // previous char
+  { 
+    lineNum++;
+    charNum = 0;
   }
   else
-  	if (eol)
-  	{ 
-  	  lineNum++;
-  		charNum = 0;
-  		prog ();
-    }
-    else
-  	  charNum++;
+    charNum++;
 
-	eol = (eof || c == '\n');
+  eol_prev = eol;
+	eol = (eof || c == '\n');  // UNIX
+  if (eol)
+    prog ();
 	
 #if 0
 	PRINT (c);
@@ -1891,7 +1897,7 @@ char CharInput::get ()
 	PRINT (charNum);
 #endif
 	
-	return /*eof ? (char) EOF :*/ c;
+	return c;
 }
 
 
@@ -1900,10 +1906,16 @@ void CharInput::unget ()
 { 
   ASSERT (is);
 	QC_ASSERT (! ungot);
+  QC_ASSERT (! eof);
 	
+	ungot = true;
+  
   is->unget (); 
 	charNum--;  // May be (uint) (-1)
-	ungot = true;
+	eof = false;
+  eol = eol_prev;
+  if (eol)
+    lineNum--;
 }
 
 
@@ -2056,8 +2068,9 @@ void Token::qc () const
   		                   throw runtime_error ("Not an identifier: " + strQuote (name));
   		                 break;
   	  case eText:      break;
-  		case eInteger:   
-  		case eDouble:    QC_ASSERT (name [0] == '-' || isDigit (name [0])); 
+  		case eInteger:   QC_ASSERT (name [0] == '-' || name [0] == '+' || isDigit (name [0])); 
+                       break;
+  		case eDouble:    QC_ASSERT (name [0] == '-' || name [0] == '+' || isDigit (name [0]) || name [0] == '.'); 
   		                 break;
   		case eDelimiter: QC_ASSERT (name. size () == 1); 
   		                 QC_ASSERT (Common_sp::isDelimiter (name [0]));
@@ -2208,12 +2221,14 @@ Token TokenInput::getXmlText ()
 { 
   QC_ASSERT (last. empty ());
 
+
   Token t;
   t. charNum = ci. charNum;
   size_t htmlTags = 0;
   bool prevSlash = false;
 	for (;;)
 	{ 
+    // break
 	  char c = ci. get (); 
 		if (ci. eof)
 	    ci. error ("XML text is not finished: end of file\n" + t. name, false);
@@ -2233,23 +2248,90 @@ Token TokenInput::getXmlText ()
 	      htmlTags++;
 	  }
 	  else if (c == '>')
-	    if (prevSlash)
-	    {
-	      QC_ASSERT (htmlTags);
+	    if (prevSlash && htmlTags)
 	      htmlTags--;
-	    }
-	  if (isSpace (c))
-	    c = ' ';
-		t. name += c;
+
+    // Escaped character
+    int n = c;
+  	if (c == '&')
+  	{
+      if (ci. get () == '#')  // Number
+      {
+        if (ci. get () == 'x')
+        {
+          static const string err (" of an escaped hexadecimal of XML text"); 
+          c = ci. get ();
+          if (ci. eof)
+            ci. error ("First digit" + err + ": end of file", false);
+          if (! isHex (c))
+            ci. error ("Digit" + err);
+          const uchar uc = uchar (hex2uchar (c) * 16);
+          c = ci. get ();
+          if (ci. eof)
+            ci. error ("Second digit" + err + ": end of file", false);
+          if (! isHex (c))
+            ci. error ("Second digit" + err);
+          n = uc + hex2uchar (c);
+        }
+        else
+        {
+          ci. unget ();
+          const Token ampToken (get ());
+          if (ampToken. type != Token::eInteger)
+            ci. error ("Number after XML &");
+          if (ampToken. n < 0)
+            ci. error ("Character number after XML &");
+          n = (int) ampToken. n;
+        }
+      }
+      else
+      {
+        ci. unget ();
+        const Token ampToken (get ());
+        if (ampToken. isName ("amp"))
+          n = '&';
+        else if (ampToken. isName ("lt"))
+          n = '<';
+        else if (ampToken. isName ("gt"))
+          n = '>';
+        else
+          ci. error ("Unknown XML &-symbol: " + strQuote (ampToken. name));
+      }
+      get (';');
+  	}
+
+    // t.name
+	  if (n >= 0 && n < ' ')
+    {
+    	string s;
+	  	switch (n)
+	  	{
+	  		case  9: s = "TAB"; break;
+	  		case 10: s = "LF"; break;
+	  		case 13: s = "CR"; break;
+	  		default: s = "x" + uchar2hex ((uchar) n);
+	  	}	  	
+			t. name += "<" + s + ">";
+    }
+    else
+    {
+      if (isChar (n))
+		    t. name += char (n);
+      else
+        t. name += "&#" + to_string (n) + ";";
+    }
+
 		prevSlash = (c == '/');		  
 	}
 	
+
 	trim (t. name);
 	if (! t. name. empty ())
     t. type = Token::eText;  
   else
     { ASSERT (t. empty ()); }
 	
+
   return t;
 }
 

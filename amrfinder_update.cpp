@@ -307,7 +307,7 @@ Requirement: the database directory contains subdirectories named by database ve
     const string urlDir (URL + load_minor + "/" + load_data_version + "/");    
     const string latestDir (mainDirS + load_data_version + "/");
     
-    
+    stderr << "Looking for the target directory " << latestDir << "\n";
     if (directoryExists (latestDir))
     {
       if (force_update)
