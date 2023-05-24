@@ -1165,8 +1165,13 @@ size_t Dir::create ()
 
   const string path (get ());
 
-  if (getFiletype (path, true) == Filetype::dir)
-    return 0;
+  const Filetype ft = getFiletype (path, true);
+  switch (ft)
+  {
+    case Filetype::dir: return 0;
+    case Filetype::none: break;
+    default: throw runtime_error ("Cannot create directory " + strQuote (path) + " because it is a " + filetype2name (ft));
+  }
 
   const string item (items. popBack ());
   if (item. empty ())
