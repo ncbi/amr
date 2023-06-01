@@ -3,7 +3,8 @@
 This software and the accompanying database are designed to find acquired antimicrobial resistance genes and point mutations in protein and/or assembled nucleotide sequences. We have also added "plus" stress, heat, and biocide resistance and virulence factors for [some organisms](https://github.com/evolarjun/amr/wiki/Curated-organisms).
 
 ## See [the wiki for documentation](https://github.com/ncbi/amr/wiki)
-[Please subscribe to our announce list](https://www.ncbi.nlm.nih.gov/mailman/listinfo/amrfinder-announce) for announcements of database and software updates.
+## [Citing AMRFinderPlus](https://github.com/ncbi/amr/wiki#how-to-cite)
+## Please [subscribe to our announce list](https://www.ncbi.nlm.nih.gov/mailman/listinfo/amrfinder-announce) for announcements of database and software updates.
 
 ----
 # Licenses
