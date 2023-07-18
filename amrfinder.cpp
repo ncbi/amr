@@ -33,6 +33,7 @@
 *               gunzip (optional)
 *
 * Release changes:
+*   3.11.16 07/18/2023 PD-4687  distinct overlapping hits are not reported separately for protein targets (because the start/stop is not reported)
 *   3.11.15 05/23/2023 PD-4629  "amrfinder_update -d DIR" will create DIR if DIR is missing
 *   3.11.14 05/06/2023 PD-4598  error messages in curl_easy.cpp
 *   3.11.13 05/04/2023 PD-4596  Prohibit ASCII characters only between 0x00 and 0x1F in GFF files

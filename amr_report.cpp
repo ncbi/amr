@@ -1072,10 +1072,11 @@ private:
 	    	if (targetName != other. targetName)
 	        return false;
         // PD-807, PD-4277
-        if (   ! other. insideEq (*this)
-        	  && !        insideEq (other)
-        	 )
-          return false;
+        if (! targetProt)  // PD-4687
+          if (   ! other. insideEq (*this)
+          	  && !        insideEq (other)
+          	 )
+            return false;
         if (   ! isMutationProt ()
             && ! refAccession. empty () 
             && refAccession == other. refAccession  // PD-4013

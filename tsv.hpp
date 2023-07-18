@@ -75,6 +75,20 @@ struct TextTable : Named
            << '\t' << (numeric ? ((scientific ? "float" : "int") + string ("(") + to_string (decimals) + ")") : "char") 
            << '\t' << (null ? "null" : "not null"); 
       }
+    void saveSql (ostream& os) const 
+      { os << name << ' ';
+        if (numeric)
+        { if (scientific)
+            os << "float";
+          else
+            os << "numeric(" << len_max << ',' << decimals << ")";
+        }
+        else
+          os << "varchar(" << len_max << ")";
+        if (! null)
+          os << " not null"; 
+        os << endl;
+      }
   };
   Vector<Header> header;
     // size() = number of columns

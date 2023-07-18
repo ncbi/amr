@@ -58,6 +58,7 @@
   #pragma warning (default : 4005)  
 #endif
 
+#include <cassert>
 #include <cstring>
 #include <cmath>
 #include <string>
@@ -140,7 +141,10 @@ constexpr const char* error_caption ("*** ERROR ***");
 // For debugger
 [[noreturn]] void errorExitStr (const string &msg);
 
-[[noreturn]] void throwf (const string &s);  // ??
+[[noreturn]] void throwf (const string &s); 
+
+inline void never_call ()
+  { throwf ("NEVER_CALL"); }
 
 
 
@@ -424,6 +428,9 @@ inline int getSign (bool b)
 
 inline bool boolPow (bool x, bool power)
   { return power ? x : ! x; }
+  	
+inline string yesNo (bool x)
+  { return x ? "Y" : "N"; }
 
 
 
@@ -450,6 +457,27 @@ inline void toggle (ebool &b)
   }
 
 
+
+typedef  unsigned char  Byte;
+
+inline bool contains (uint who,
+                      uint what)
+  { return (who & what) == what; }
+
+inline Byte reverse (Byte b)
+  { return Byte (numeric_limits<Byte>::max () - b); }
+
+size_t byte2first (Byte b);
+  // Return: First 1-bit, 0-based
+
+size_t utf8_len (char first);
+  // Return: 0 - first is ASCII
+  //         1 - first is UTF-8 not first byte
+  //         else - first is UTF-8 first byte and value is the number of UTF-8 bytes
+
+
+
+//
 
 inline void advance (size_t &index, 
                      size_t size)
@@ -524,7 +552,7 @@ static_assert ((size_t) 0 - 1 == no_index);
 // char
 
 inline bool isChar (long long n)
-  { return between<long long> (n, -127, 128); }
+  { return between<long long> (n, -128, 128); }
 
 inline bool isAlpha (char c)
   { return strchr ("abcdefghijklmnopqrstuvwxyz", tolower (c)); }
@@ -1048,6 +1076,14 @@ inline string prependS (const string &s,
                         const string &prefix)
   { return s. empty () ? noString : (prefix + s); }
   	
+inline void add (string &to,
+                 char delimiter,
+		             const string &what)
+  { if (! to. empty ())
+  	  to += delimiter;
+  	to += what;
+  }
+
 inline bool isQuoted (const string &s,
                       char quote = '\"')
   { return ! s. empty () && s [0] == quote && s [s. size () - 1] == quote; }
@@ -1057,13 +1093,6 @@ string strQuote (const string &s,
 
 inline string unQuote (const string &s)
   { return s. substr (1, s. size () - 2); }
-
-inline string prepend (const string &prefix,
-                    	 const string &s)
-  { if (s. empty ())
-  	  return noString;
-  	return prefix + s;
-  }
 
 bool strBlank (const string &s);
 
@@ -1225,9 +1254,6 @@ string str2streamWord (const string &s,
 
 string str2sql (const string &s);
   // Return: ' s ' (replacing ' by '')
-
-//string sql2escaped (const string &s);
-
 
 string findSplit (string &s,
                   char c = ' ');
@@ -1655,12 +1681,14 @@ struct Xml
   struct Tag
   {
   private:
-    const string name;
     File &f;
   public:
+    const string name;
+    const bool active;
 
     Tag (File &f_arg,
-         const string &name_arg);
+         const string &name_arg,
+         bool active_arg = true);
    ~Tag ();
   };
   
@@ -1702,6 +1730,10 @@ struct Xml
         { os << t;
           return *this;
         }
+		void text (const string &s) 
+		  { const Xml::Tag xml (*this, "text");
+		    *this << s;
+		 	}
   };
 };
 
@@ -1799,7 +1831,14 @@ template <typename T /*Root*/>
 
 
 
-struct Named : Root
+struct VirtNamed : Root
+{
+	virtual string getName () const = 0;
+};
+
+
+
+struct Named : VirtNamed
 {
   string name;
     // !empty(), no spaces at the ends, printable ASCII characeters
@@ -1814,6 +1853,10 @@ struct Named : Root
     {}
   Named* copy () const override
     { return new Named (*this); } 
+	string getName () const override
+	  { return name; }
+
+
   void qc () const override;
   void saveText (ostream& os) const override
     { os << name; }
@@ -2352,6 +2395,19 @@ template <typename T>
   }  
 
 
+template <typename Key /*VirtNamed*/, typename Value>
+  Vector<pair<string,const Value*>> map2sortedVec (const map <const Key*, Value> &m)
+    { Vector<pair<string,const Value*>> vec;  vec. reserve (m. size ());
+	    for (const auto& it : m)
+	    { assert (it. first);
+	    	assert (& it. second);
+	    	vec << pair<string,const Value*> (it. first->getName (), & it. second);
+	    }
+	    vec. sort ();    	
+	    return vec;
+    }
+    
+
 
 template <typename T /* : Root */>
 struct VectorPtr : Vector <const T*>
@@ -2461,6 +2517,17 @@ template <typename T>
       return enull;
     }
 
+
+template <typename Key /*VirtNamed*/>
+  Vector<pair<string,const Key*>> vec2sorted (const VectorPtr<Key> &in)
+    { Vector<pair<string,const Key*>> vec;  vec. reserve (in. size ());
+	    for (const Key* key : in)
+	    { assert (key);
+	    	vec << pair<string,const Key*> (key->getName (), key);
+	    }
+	    vec. sort ();    	
+	    return vec;
+    }
 
 
 
@@ -2576,8 +2643,14 @@ public:
 
 
   string toString (const string& sep) const;
+  string toString () const
+    { return toString (noString); }
   bool same (const StringVector &vec,
              const Vector<size_t> &indexes) const;
+  void to_xml (Xml::File &f,
+               const string &tag);
+    // XML: <tag> <item>at(0)</item> <item>at(1)</item> ... </tag>
+    // Invokes: sort(), clear()
 
 
   struct Hasher 
@@ -2590,6 +2663,18 @@ public:
     }
   };
 };
+
+
+
+template <typename Key /*VirtNamed*/>
+  StringVector set2vec (const set<const Key*> &s)
+    { StringVector vec;  vec. reserve (s. size ());
+	    for (const Key* key : s)
+	    { assert (key);
+	    	vec << key->getName ();
+	    }
+	    return vec;
+    }
 
 
 
@@ -3092,6 +3177,10 @@ public:
 
 
 
+typedef  Enumerate<string>  Names;
+
+
+
 struct Progress : Nocopy
 {
 private:
@@ -3108,35 +3197,11 @@ public:
 	
 
 	explicit Progress (size_t n_max_arg = 0,
-	                   size_t displayPeriod_arg = 1)
-	  : n_max (n_max_arg)
-	  , active (enabled () && displayPeriod_arg && (! n_max_arg || displayPeriod_arg <= n_max_arg))
-	  , displayPeriod (displayPeriod_arg)
-	  { if (active) 
-	  	  beingUsed++; 
-	  	if (active)
-	  	  report ();
-	  }
- ~Progress () 
-    { if (active)
-    	{ report ();
-    	  cerr << endl;
-    	  beingUsed--;
-    	}
-    }
+	                   size_t displayPeriod_arg = 1);
+ ~Progress ();
     
 
-  bool operator() (const string& step_arg = noString)
-    { n++;
-    	step = step_arg;
-    	if (   active 
-    		  && n % displayPeriod == 0
-    		 )
-    	{ report ();
-    	  return true;
-    	}
-    	return false;
-    }
+  bool operator() (const string& step_arg = noString);
 private:
 	void report () const;
 	  // Output: cerr
@@ -3515,6 +3580,14 @@ public:
         throwf ("TokenInput::setLast()");
       last = move (t);
     }
+  bool getNext (char expected)
+    { Token token (get ());
+      if (! token. isDelimiter (expected))
+      { setLast (move (token));
+      	return false;
+      }
+      return true;
+    }
 };
 
 
@@ -3806,7 +3879,7 @@ struct JsonDouble : Json
     // decimals_arg = -1: default
   void saveText (ostream& os) const final
     { const ONumber on (os, (streamsize) decimals, scientific);
-    	if (n == n)
+    	if (isfinite (n))
         os << n; 
       else
         os << "null";  // NaN

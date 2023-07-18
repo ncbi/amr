@@ -141,12 +141,13 @@ bool isMainThread ()
 size_t get_threads_max_max () 
 {
 #if __APPLE__
-  // stderr << "Compiled for MacOS" << "\n";
-  int count;
-  size_t count_len = sizeof(count);
+//stderr << "Compiled for MacOS" << "\n";
+  int count = 0;
+  const size_t count_len = sizeof(count);
   sysctlbyname ("hw.logicalcpu", &count, &count_len, NULL, 0);
-  // fprintf(stderr,"you have %i cpu cores", count);
-  return count;
+//fprintf(stderr,"you have %i cpu cores", count);
+  ASSERT (count >= 0);
+  return (size_t) count;
 #else
   LineInput f ("/proc/cpuinfo");
   size_t n = 0;
@@ -317,7 +318,6 @@ string getStack ()
 
 
 
-
 // Chronometer
 
 bool Chronometer::enabled = false;
@@ -357,6 +357,41 @@ Chronometer_OnePass::~Chronometer_OnePass ()
 
   if (addNewLine)
     os << endl;
+}
+
+
+
+
+// Byte
+
+size_t byte2first (Byte b)
+{ 
+  if (! b)
+    return sizeof (Byte);
+	const uint u = b;
+	size_t i = 0;
+	uint mask = 1;
+	while (! contains (u, mask))
+	{
+		i++;
+		mask <<= 1;
+	}
+	return i;
+}
+
+
+
+size_t utf8_len (char first)
+{
+	const uint u = numeric_limits<uint>::max () - (Byte) first;
+	size_t len = 0;
+	uint mask = 0x80;
+	while (! contains (u, mask))
+	{
+		len++;
+	  mask >>= 1;
+	}
+	return len;
 }
 
 
@@ -1521,10 +1556,14 @@ Threads::~Threads ()
 // Xml::Tag
 
 Xml::Tag::Tag (Xml::File &f_arg,
-               const string &name_arg)
-: name (name_arg)
-, f (f_arg)
+               const string &name_arg,
+               bool active_arg)
+: f (f_arg)
+, name (name_arg)
+, active (active_arg)
 { 
+	if (name. empty ())
+		throw runtime_error (FUNC "Empty XML tag name");
   if (contains (name, ' '))
     throwf ("tag name contains a space: " + strQuote (name_arg));
   if (f. printOffset)
@@ -1534,7 +1573,8 @@ Xml::Tag::Tag (Xml::File &f_arg,
     FOR (size_t, i, f. offset * File::offset_spaces)
       f. print (" ");
   }
-  if (! name. empty ())
+//if (! name. empty ())
+  if (active)
     f. print ("<" + name + ">");
 }
 
@@ -1557,7 +1597,8 @@ Xml::Tag::~Tag ()
       f. offset--;
     }    
   }
-  if (! name. empty ())
+//if (! name. empty ())
+  if (active)
     f. print ("</" + name + ">");
   if (! f. printOffset)
     f. print ("\n");
@@ -1662,7 +1703,7 @@ StringVector::StringVector (const string &s,
 
 string StringVector::toString (const string& sep) const
 { 
-  ASSERT (! sep. empty ());
+//ASSERT (! sep. empty ());
   
   string res;
   for (const string& s : *this)
@@ -1685,6 +1726,26 @@ bool StringVector::same (const StringVector &vec,
     if ((*this) [i] != vec [i])
       return false;
   return true;
+}
+
+
+
+void StringVector::to_xml (Xml::File &f,
+                           const string &tag)
+{
+  if (empty ())
+  	return;
+
+  sort ();
+
+  const Xml::Tag xml (f, tag);
+  for (const string& s : *this)
+  {
+	  const Xml::Tag xml_item (f, "item");
+    f << s;
+  }
+    
+  clear ();
 }
 
 
@@ -1729,6 +1790,49 @@ DisjointCluster* DisjointCluster::getDisjointCluster ()
 // Progress
 
 size_t Progress::beingUsed = 0;
+
+
+
+Progress::Progress (size_t n_max_arg,
+	                  size_t displayPeriod_arg)
+: n_max (n_max_arg)
+, active (enabled () && displayPeriod_arg && (! n_max_arg || displayPeriod_arg <= n_max_arg))
+, displayPeriod (displayPeriod_arg)
+{ 
+	if (active) 
+	  beingUsed++; 
+	if (active)
+	  report ();
+}
+
+
+
+Progress::~Progress () 
+{ 
+	if (! active)
+		return;
+
+	report ();
+  if (n)
+    cerr << endl;
+  beingUsed--;
+}
+    
+
+
+bool Progress::operator() (const string& step_arg)
+{ 
+	n++;
+	step = step_arg;
+	if (   active 
+		  && n % displayPeriod == 0
+		 )
+	{ 
+		report ();
+	  return true;
+	}
+	return false;
+}
 
 
 
