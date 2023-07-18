@@ -6,6 +6,7 @@ fasta_check
 fasta_extract
 dna_mutation
 gff_check
+amrfinder_index
 amrfinder_update
 amrfinder_customize
 fasta2parts
