@@ -160,7 +160,7 @@ install:
 
 # amrfinder binaries for github binary release
 GITHUB_FILE=amrfinder_binaries_v$(VERSION_STRING)
-GITHUB_FILES = test_* $(BINARIES)
+GITHUB_FILES = test_amrfinder.sh test_*.expected test_*.fa test_*.gff $(BINARIES)
 github_binaries:
 	@if [ ! -e version.txt ]; \
 	then \
