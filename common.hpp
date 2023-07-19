@@ -1673,6 +1673,45 @@ struct OFStream : ofstream
 
 
 
+template <typename T>
+struct Enumerate
+{
+  vector<T> num2elem;
+private:
+  unordered_map<T,size_t> elem2num;
+public:
+  
+
+  explicit Enumerate (size_t n)
+    { num2elem. reserve (n);
+      elem2num. rehash (n);
+    }
+
+    
+  size_t size () const
+    { return num2elem. size (); }
+  size_t find (const T &t) const
+    { if (const size_t* num = Common_sp::findPtr (elem2num, t))
+        return *num;
+      return no_index;
+    }
+  size_t add (const T &t)
+    { size_t num = find (t);
+      if (num == no_index)
+      { num2elem. push_back (t);
+        num = num2elem. size () - 1;
+        elem2num [t] = num;
+      }
+      return num;
+    }
+};
+
+
+
+typedef  Enumerate<string>  Names;
+
+
+
 struct Xml
 {
   struct File;
@@ -1693,47 +1732,93 @@ struct Xml
   };
   
   
-  struct File
+  struct File 
+  {
+    friend Tag;
+  protected:
+  	bool isText {false};
+  public:
+    unique_ptr<const Tag> rootTag;
+
+  protected:
+  	File () = default;
+  public:
+    virtual ~File () 
+      {}
+
+  private:
+    virtual void printRaw (const string &s) = 0;
+    virtual void tagStart (const string &tag) = 0;
+    virtual void tagEnd   (const string &tag) = 0;
+  public:
+  	void print (const string &s)
+  	  { printRaw (s);
+  	  	isText = true;
+  	  }
+		void text (const string &s) 
+		  { const Tag xml (*this, "text");
+		    print (s);
+		 	}
+    template <typename T>
+      File& operator<< (const T &t)
+        { ostringstream oss;
+        	oss << t;
+        	print (oss. str ());
+          return *this;
+        }
+  };
+  
+  
+  struct TextFile : File
   {
   private:
     struct XmlStream : OFStream
     { 
       explicit XmlStream (const string &pathName)
         : OFStream (pathName)
-        { *this << "<?xml version=\"1.0\" encoding=\"ISO-8859-1\" ?>" << endl; }  // PAR
+        { *this << "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>" << endl; }  
     };
     XmlStream os;
-    size_t offset {0};
-    friend Tag;
   public:
-    static constexpr size_t offset_spaces {2};  // PAR
-    const bool printOffset;
-    const bool printBrief;
-    const Tag tag;
 
-
-    File (const string &pathName,
-          bool printOffset_arg,
-          bool printBrief_arg,
-          const string &tagName)
+    TextFile (const string &pathName,
+		          const string &rootTagName)
       : os (pathName)
-      , printOffset (printOffset_arg)
-      , printBrief (printBrief_arg)
-      , tag (*this, tagName)
-      {}
+      { rootTag. reset (new Tag (*this, rootTagName)); }
+   ~TextFile ()
+      { rootTag. reset (); }
 
-
-    void print (const string &s)
+  private:
+    void printRaw (const string &s) final
       { os << s; }
-    template <typename T>
-      File& operator<< (const T &t)
-        { os << t;
-          return *this;
-        }
-		void text (const string &s) 
-		  { const Xml::Tag xml (*this, "text");
-		    *this << s;
-		 	}
+    void tagStart (const string &tag) final;
+    void tagEnd (const string &tag) final;
+  };
+  
+  
+  struct BinFile : File
+  // Binary XML
+  //   <Data> ::= <nameIndex> <Data>* 0 0 <text> 0
+  //     <nameIndex> ::= <byte> <byte>
+  //   Number of different Tag::name's <= 2^16
+  //   Tag::name has no: '\0', '\n'
+  {
+  private:
+  	ofstream os;
+    Names names;
+  public:
+
+    BinFile (const string &pathName,
+             const string &rootTagName)
+      : os (pathName, ios_base::binary | ios_base::out)
+      , names (10000)  // PAR
+      { rootTag. reset (new Tag (*this, rootTagName)); }
+   ~BinFile ();
+
+  private:
+    void printRaw (const string &s) final;
+    void tagStart (const string &tag) final;
+    void tagEnd (const string &tag) final;
   };
 };
 
@@ -3140,45 +3225,6 @@ public:
     { return vec; }
 };
   
-
-
-template <typename T>
-struct Enumerate
-{
-  Vector<T> num2elem;
-private:
-  unordered_map<T,size_t> elem2num;
-public:
-  
-
-  explicit Enumerate (size_t n)
-    { num2elem. reserve (n);
-      elem2num. rehash (n);
-    }
-
-    
-  size_t size () const
-    { return num2elem. size (); }
-  size_t find (const T &t) const
-    { if (const size_t* num = Common_sp::findPtr (elem2num, t))
-        return *num;
-      return no_index;
-    }
-  size_t add (const T &t)
-    { size_t num = find (t);
-      if (num == no_index)
-      { num2elem << t;
-        num = num2elem. size () - 1;
-        elem2num [t] = num;
-      }
-      return num;
-    }
-};
-
-
-
-typedef  Enumerate<string>  Names;
-
 
 
 struct Progress : Nocopy

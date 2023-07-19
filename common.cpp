@@ -143,8 +143,8 @@ size_t get_threads_max_max ()
 #ifdef __APPLE__
 //stderr << "Compiled for MacOS" << "\n";
   int count = 0;
-  size_t count_len = sizeof(count);
-  sysctlbyname ("hw.logicalcpu", &count, &count_len, NULL, 0);
+  /*const*/ size_t count_len = sizeof(count);
+  sysctlbyname ("hw.logicalcpu", &count, &count_len, nullptr, 0);
 //fprintf(stderr,"you have %i cpu cores", count);
   ASSERT (count >= 0);
   return (size_t) count;
@@ -308,10 +308,7 @@ string getStack ()
 [[noreturn]] void throwf (const string &s)  
 { 
   if (cxml)
-  {
-    const Xml::Tag xml (*cxml, "ERROR");
-    *cxml << s;
-  }
+    cxml->print (string (error_caption) + ": " + s);
   throw logic_error (s + "\nStack:\n" + getStack ()); 
 }
 
@@ -1552,6 +1549,81 @@ Threads::~Threads ()
 
 
 
+// Xml
+
+// Xml::TextFile
+
+void Xml::TextFile::tagStart (const string &tag) 
+{ 
+	ASSERT (! isText);
+
+	string tag_ (tag);
+	replace (tag_, ':', '_');
+	if (! isIdentifier (tag_, true))
+    throw runtime_error (FUNC "Bad tag name: " + strQuote (tag));
+
+	printRaw ("<" + tag + ">"); 
+}
+
+
+
+void Xml::TextFile::tagEnd (const string &tag) 
+{ 
+	printRaw ("</" + tag + ">\n"); 
+}
+
+
+
+
+// Xml::BinFile
+
+Xml::BinFile::~BinFile ()
+{
+	rootTag. reset ();
+	for (const string& name : names. num2elem)
+		os << name << '\n';
+}
+
+
+
+void Xml::BinFile::printRaw (const string &s)
+{
+	QC_ASSERT (! contains (s, '\0'));
+	if (! isText)
+		os << '\0' << '\0';  // Tags closing
+	os << s;
+}
+
+
+
+void Xml::BinFile::tagStart (const string &tag) 
+{ 
+	ASSERT (! isText);
+	
+	if (tag. empty ())
+		throw runtime_error (FUNC "Empty tag");
+  QC_ASSERT (! contains (tag, '\0'));
+  QC_ASSERT (! contains (tag, '\n'));
+	size_t i = names. add (tag);
+//ASSERT (i);
+	const Byte b = i % 256;
+	i /= 256;
+	if (i > 256)
+		throw runtime_error (FUNC "Too many different tag names");
+	os << (Byte) i << b;
+}
+
+
+
+void Xml::BinFile::tagEnd (const string &/*tag*/) 
+{
+	if (! isText)
+		os << '\0' << '\0';  // Tags closing
+	os << '\0';  // Text closing
+}
+
+
+
 
 // Xml::Tag
 
@@ -1564,44 +1636,19 @@ Xml::Tag::Tag (Xml::File &f_arg,
 { 
 	if (name. empty ())
 		throw runtime_error (FUNC "Empty XML tag name");
-  if (contains (name, ' '))
-    throwf ("tag name contains a space: " + strQuote (name_arg));
-  if (f. printOffset)
-  {
-    f. print ("\n");
-    f. offset++;
-    FOR (size_t, i, f. offset * File::offset_spaces)
-      f. print (" ");
-  }
-//if (! name. empty ())
+  if (f. isText)
+  	throw runtime_error (FUNC "Cannot put tag " + strQuote (name) + " after a text");
   if (active)
-    f. print ("<" + name + ">");
+  	f. tagStart (name);
 }
 
 
 
 Xml::Tag::~Tag ()
 { 
-  if (f. printOffset)
-  {
-    if (f. printBrief)
-    {
-      f. offset--;
-      return;
-    }
-    else
-    {
-      f. print ("\n");
-      FOR (size_t, i, f. offset * File::offset_spaces)
-        f . print (" ");
-      f. offset--;
-    }    
-  }
-//if (! name. empty ())
   if (active)
-    f. print ("</" + name + ">");
-  if (! f. printOffset)
-    f. print ("\n");
+  	f. tagEnd (name);
+  f. isText = false;
 }
 
 
@@ -1609,6 +1656,7 @@ Xml::Tag::~Tag ()
 
 unique_ptr<Xml::File> cxml;
   
+
 
 
 // Root
@@ -1742,7 +1790,7 @@ void StringVector::to_xml (Xml::File &f,
   for (const string& s : *this)
   {
 	  const Xml::Tag xml_item (f, "item");
-    f << s;
+    f. print (s);
   }
     
   clear ();

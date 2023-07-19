@@ -631,9 +631,7 @@ struct BlastAlignment : Alignment
                          ? mut->wildtype ()
   			                 : mut->geneMutation
   			               : gene + "_" + seqChange. getMutationStr ()
-  	               /*: print_node 
-  			               ? famId */
-  			               : fusion2geneSymbols ()
+ 			               : fusion2geneSymbols ()
   	              )
   	           << (isMutationProt ()
   	                 ? mut 
@@ -1072,10 +1070,12 @@ private:
 	    	if (targetName != other. targetName)
 	        return false;
         // PD-807, PD-4277
-        if (! targetProt)  // PD-4687
-          if (   ! other. insideEq (*this)
-          	  && !        insideEq (other)
-          	 )
+        if (   ! other. insideEq (*this)
+        	  && !        insideEq (other)
+        	 )
+          if (   ! targetProt 
+              || fusion2geneSymbols () != other. fusion2geneSymbols ()
+             )  // PD-4687
             return false;
         if (   ! isMutationProt ()
             && ! refAccession. empty () 
