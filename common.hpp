@@ -300,6 +300,14 @@ public:
 
 
 
+template <typename T>
+  inline void report (ostream &os,
+			                const string &name,
+			                T value)
+    {	os << name << '\t' << value << endl; }
+  
+
+
 inline void section (const string &title,
                      bool useAlsoCout)
   { const Color::Type color = Color::cyan;
@@ -344,29 +352,9 @@ public:
 
   bool on () const
     { return enabled && threads_max == 1; }
-  void start ()
-    { if (! on ())
-        return;
-      if (startTime != noclock)
-        throwf ("Chronometer \""  + name + "\" is not stopped");
-      startTime = clock (); 
-    }  
-  void stop () 
-    { if (! on ())
-        return;
-      if (startTime == noclock)
-        throwf ("Chronometer \"" + name + "\" is not started");
-      time += clock () - startTime; 
-      startTime = noclock;
-    }
-
-  void print (ostream &os) const
-    { if (! on ())
-        return;       
-      os << "CHRON: " << name << ": ";
-      const ONumber onm (os, 2, false);
-      os << (double) time / CLOCKS_PER_SEC << " sec." << endl;
-    }
+  void start ();
+  void stop ();
+  void print (ostream &os) const;
 };
 
 
@@ -580,6 +568,11 @@ inline bool isLower (char c)
 inline bool printable (char c)
   { return between (c, ' ', (char) 127); }
   
+inline bool nonPrintable (long c)
+  { return between<long> (c, '\x001', ' '); }
+  
+string nonPrintable2str (char c);
+
 inline bool isDelimiter (char c)
   { return    c != ' '
            && printable (c)
@@ -4337,8 +4330,8 @@ protected:
     const Key* asKey () const final
       { return this; }
   };
-  List<Positional> positionals;
-  List<Key> keys;
+  List<Positional> positionalArgs;
+  List<Key> keyArgs;
   map<string/*Arg::name*/,const Arg*> name2arg;
   map<char/*Arg::name[0]*/,const Key*> char2arg;
     // Valid if gnu
@@ -4394,7 +4387,7 @@ public:
 
 protected:
   string getArg (const string &name) const;
-    // Input: keys, where Key::flag = false, and positionals
+    // Input: keyArgs, where Key::flag = false, and positionalArgs
   uint arg2uint (const string &name) const
     { uint n = 0;
     	if (! str2<uint> (getArg (name), n))
@@ -4408,7 +4401,7 @@ protected:
     	return d;
     }
   bool getFlag (const string &name) const;
-    // Input: keys, where Key::flag = true
+    // Input: keyArgs, where Key::flag = true
   string key2shortHelp (const string &name) const;
   string getProgramDirName () const
     { return getDirName (programArgs. front ()); }

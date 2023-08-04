@@ -33,6 +33,8 @@
 *               gunzip (optional)
 *
 * Release changes:
+*           08/04/2023 PD-4698  protein match overrides a nucleotide match for point mutations
+*   3.11.18 07/25/2023          parameter order in instruction; "can be gzipped" is added to instruction
 *   3.11.17 07/19/2023 PD-4687  distinct overlapping hits are not reported separately for protein targets for the same alleles or gene symbols
 *   3.11.16 07/18/2023 PD-4687  distinct overlapping hits are not reported separately for protein targets (because the start/stop are not reported)
 *   3.11.15 05/23/2023 PD-4629  "amrfinder_update -d DIR" will create DIR if DIR is missing
@@ -298,38 +300,49 @@ struct ThisApplication : ShellApplication
     {
     	addFlag ("update", "Update the AMRFinder database", 'u');  // PD-2379
     	addFlag ("force_update", "Force updating the AMRFinder database", 'U');  // PD-3469
+
     #ifdef DIR
       addKey ("dir", "Common directory of the --protein, --nucleotide and --gff files", "", '\0', "DIRECTORY");
     #endif
-    	addKey ("protein", "Input protein FASTA file", "", 'p', "PROT_FASTA");
-    	addKey ("nucleotide", "Input nucleotide FASTA file", "", 'n', "NUC_FASTA");
-    	addKey ("gff", "GFF file for protein locations. Protein id should be in the attribute 'Name=<id>' (9th field) of the rows with type 'CDS' or 'gene' (3rd field).", "", 'g', "GFF_FILE");
-      addFlag ("pgap", "Input files PROT_FASTA, NUC_FASTA and GFF_FILE are created by the NCBI PGAP");  // = --annotation_format pgap 
+    	addKey ("protein", "Input protein FASTA file (can be gzipped)", "", 'p', "PROT_FASTA");
+    	addKey ("nucleotide", "Input nucleotide FASTA file (can be gzipped)", "", 'n', "NUC_FASTA");
+    	addKey ("gff", "GFF file for protein locations (can be gzipped). Protein id should be in the attribute 'Name=<id>' (9th field) of the rows with type 'CDS' or 'gene' (3rd field).", "", 'g', "GFF_FILE");
       addKey ("annotation_format", "Type of GFF file: " + Gff::names. toString (", "), "genbank", 'a', "ANNOTATION_FORMAT");  
+
     	addKey ("database", "Alternative directory with AMRFinder database. Default: $AMRFINDER_DB", "", 'd', "DATABASE_DIR");
+    	addFlag ("database_version", "Print database version", 'V');
+
     	addKey ("ident_min", "Minimum proportion of identical amino acids in alignment for hit (0..1). -1 means use a curated threshold if it exists and " + toString (ident_min_def) + " otherwise", "-1", 'i', "MIN_IDENT");
     	  // "PD-3482
     	addKey ("coverage_min", "Minimum coverage of the reference protein (0..1)", toString (partial_coverage_min_def), 'c', "MIN_COV");
+
       addKey ("organism", "Taxonomy group. To see all possible taxonomy groups use the --list_organisms flag", "", 'O', "ORGANISM");
       addFlag ("list_organisms", "Print the list of all possible taxonomy groups for mutations identification and exit", 'l');
     	addKey ("translation_table", "NCBI genetic code for translated BLAST", "11", 't', "TRANSLATION_TABLE");
+
     	addFlag ("plus", "Add the plus genes to the report");  // PD-2789
       addFlag ("report_common", "Report proteins common to a taxonomy group");  // PD-2756
-    	addKey ("mutation_all", "File to report all mutations", "", '\0', "MUT_ALL_FILE");
-    	addKey ("blast_bin", "Directory for BLAST. Deafult: $BLAST_BIN", "", '\0', "BLAST_DIR");
-    	addKey ("hmmer_bin", "Directory for HMMer", "", '\0', "HMMER_DIR");
       addFlag ("report_all_equal", "Report all equally-scoring BLAST and HMM matches");  // PD-3772
-      addFlag ("print_node", "print hierarchy node (family)");  // PD-4394
       addKey ("name", "Text to be added as the first column \"name\" to all rows of the report, for example it can be an assembly name", "", '\0', "NAME");
+      addFlag ("print_node", "print hierarchy node (family)");  // PD-4394
+    	addKey ("mutation_all", "File to report all mutations", "", '\0', "MUT_ALL_FILE");
+
       addKey ("output", "Write output to OUTPUT_FILE instead of STDOUT", "", 'o', "OUTPUT_FILE");
       addKey ("protein_output", "Output protein FASTA file of reported proteins", "", '\0', "PROT_FASTA_OUT");
       addKey ("nucleotide_output", "Output nucleotide FASTA file of reported nucleotide sequences", "", '\0', "NUC_FASTA_OUT");
       addKey ("nucleotide_flank5_output", "Output nucleotide FASTA file of reported nucleotide sequences with 5' flanking sequences", "", '\0', "NUC_FLANK5_FASTA_OUT");
       addKey ("nucleotide_flank5_size", "5' flanking sequence size for NUC_FLANK5_FASTA_OUT", "0", '\0', "NUC_FLANK5_SIZE");
+
+    	addKey ("blast_bin", "Directory for BLAST. Deafult: $BLAST_BIN", "", '\0', "BLAST_DIR");
+    	addKey ("hmmer_bin", "Directory for HMMer", "", '\0', "HMMER_DIR");
+
       addFlag ("quiet", "Suppress messages to STDERR", 'q');
+
+      addFlag ("pgap", "Input files PROT_FASTA, NUC_FASTA and GFF_FILE are created by the NCBI PGAP");  // = --annotation_format pgap 
       addFlag ("gpipe_org", "NCBI internal GPipe organism names");
+
     	addKey ("parm", "amr_report parameters for testing: -nosame -noblast -skip_hmm_check -bed", "", '\0', "PARM");
-    	addFlag ("database_version", "Print database version", 'V');
+
 	    version = SVN_REV;  
     }
 

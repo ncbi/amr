@@ -1041,7 +1041,7 @@ private:
     			const size_t unionStart        = min (protStart, dnaStart);
     			const size_t unionStop         = max (protStop,  dnaStop);
     			if (   (   intersectionStart < intersectionStop
-    				      && double (intersectionStop - intersectionStart) / double (protStop - protStart) > 0.75  // PAR
+    				      && double (intersectionStop - intersectionStart) / double (protStop - protStart) > 0.75  // PAR, PD-2320
     				     )
     				  || (intersectionStart - unionStart) + (unionStop - intersectionStop) <= 60 * 3  // PAR, PD-4169
     				  || (   protStart <= dnaStart + mismatchTail_aa * 3 
@@ -1061,14 +1061,14 @@ private:
     // Reflexive
     { if (this == & other)
         return true;
-      if (   !        refMutation. empty ()
-          || ! other. refMutation. empty ()
-         )
-        return false;
       if (targetProt == other. targetProt)  
       {
 	    	if (targetName != other. targetName)
 	        return false;
+        if (   !        refMutation. empty ()
+            || ! other. refMutation. empty ()
+           )
+          return false;
         // PD-807, PD-4277
         if (   ! other. insideEq (*this)
         	  && !        insideEq (other)
@@ -1097,7 +1097,10 @@ private:
   	    }
 	    }
 	    else
-	    { // PD-1902, PD-2139, PD-2313, PD-2320
+	    { 
+        if (refMutation. empty () != other. refMutation. empty ())  // PD-4698
+          return false;
+        // PD-1902, PD-2139, PD-2313, PD-2320
 	    	if (targetProt && ! matchesCds (other))
 	    	  return false;
 	    	if (! targetProt && ! other. matchesCds (*this))

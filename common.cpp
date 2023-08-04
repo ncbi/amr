@@ -319,7 +319,41 @@ string getStack ()
 
 bool Chronometer::enabled = false;
   
+
+
+void Chronometer::start ()
+{ 
+  if (! on ())
+    return;
+  if (startTime != noclock)
+    throw runtime_error (FUNC "Chronometer \""  + name + "\" is not stopped");
+  startTime = clock (); 
+}  
+
+
+
+void Chronometer::stop () 
+{ 
+  if (! on ())
+    return;
+  if (startTime == noclock)
+    throw runtime_error (FUNC "Chronometer \"" + name + "\" is not started");
+  time += clock () - startTime; 
+  startTime = noclock;
+}
+
+
+void Chronometer::print (ostream &os) const
+{ 
+  if (! on ())
+    return;       
+  os << "CHRON: " << name << ": ";
+  const ONumber onm (os, 2, false);
+  os << (double) time / CLOCKS_PER_SEC << " sec." << endl;
+}
+
  
+
 
 // Chronometer_OnePass
 
@@ -436,6 +470,26 @@ size_t powInt (size_t a,
 // string
 
 const string noString;
+
+
+
+string nonPrintable2str (char c)
+{
+	string s;
+	switch (c)
+	{
+		case  7: s = "BEL"; break;
+		case  8: s = "BS"; break;
+		case  9: s = "TAB"; break;
+		case 10: s = "LF"; break;
+		case 12: s = "FF"; break;
+		case 13: s = "CR"; break;
+		case 27: s = "ESC"; break;
+		case 32: s = "SPACE"; break;
+		default: s = "x" + uchar2hex ((uchar) c);
+	}	  	
+	return "<" + s + ">";
+}
 
 
 
@@ -2458,18 +2512,9 @@ Token TokenInput::getXmlText ()
   	}
 
     // t.name
-	  if (n >= 0 && n < ' ')
-    {
-    	string s;
-	  	switch (n)
-	  	{
-	  		case  9: s = "TAB"; break;
-	  		case 10: s = "LF"; break;
-	  		case 13: s = "CR"; break;
-	  		default: s = "x" + uchar2hex ((uchar) n);
-	  	}	  	
-			t. name += "<" + s + ">";
-    }
+    QC_ASSERT (n > 0);
+	  if (nonPrintable (n))
+			t. name += nonPrintable2str ((char) n);
     else
     {
       if (isChar (n))
@@ -3363,10 +3408,10 @@ void Application::addKey (const string &name,
   ASSERT (! contains (name2arg, name));
   if (acronym && contains (char2arg, acronym))
   	throw logic_error ("Duplicate option " + strQuote (string (1, acronym)));
-  keys << Key (*this, name, argDescription, defaultValue, acronym, var);
-  name2arg [name] = & keys. back ();
+  keyArgs << Key (*this, name, argDescription, defaultValue, acronym, var);
+  name2arg [name] = & keyArgs. back ();
   if (acronym)
-  	char2arg [acronym] = & keys. back ();
+  	char2arg [acronym] = & keyArgs. back ();
 }
 
 
@@ -3379,10 +3424,10 @@ void Application::addFlag (const string &name,
   ASSERT (! contains (name2arg, name));
   if (acronym && contains (char2arg, acronym))
   	throw logic_error ("Duplicate option " + strQuote (string (1, acronym)));
-  keys << Key (*this, name, argDescription, acronym);
-  name2arg [name] = & keys. back ();
+  keyArgs << Key (*this, name, argDescription, acronym);
+  name2arg [name] = & keyArgs. back ();
   if (acronym)
-  	char2arg [acronym] = & keys. back ();
+  	char2arg [acronym] = & keyArgs. back ();
 }
 
 
@@ -3392,8 +3437,8 @@ void Application::addPositional (const string &name,
 {
   ASSERT (! contains (name2arg, name));
   IMPLY (gnu, isUpper (name));
-  positionals << Positional (name, argDescription);
-  name2arg [name] = & positionals. back ();
+  positionalArgs << Positional (name, argDescription);
+  name2arg [name] = & positionalArgs. back ();
 }
 
 
@@ -3417,7 +3462,7 @@ Application::Key* Application::getKey (const string &keyName) const
 void Application::setPositional (List<Positional>::iterator &posIt,
 	                               const string &value)
 {
-  if (posIt == positionals. end ())
+  if (posIt == positionalArgs. end ())
   {
   	if (isLeft (value, "-"))
       errorExitStr (strQuote (value) + " is not a valid option\n\n" + getInstruction ());
@@ -3472,14 +3517,14 @@ void Application::qc () const
   
   QC_ASSERT (! description. empty ());
   QC_ASSERT (! version. empty ());
-  QC_IMPLY (! needsArg, positionals. empty ());
+  QC_IMPLY (! needsArg, positionalArgs. empty ());
   
-  for (const Positional& p : positionals)
+  for (const Positional& p : positionalArgs)
   	p. qc ();
   	
   map<string,size_t> requiredGroups;
   string requiredGroup_prev;
-  for (const Key& key : keys)
+  for (const Key& key : keyArgs)
   {
   	key. qc ();
   	if (! key. requiredGroup. empty () && key. requiredGroup != requiredGroup_prev)
@@ -3534,11 +3579,11 @@ string Application::getInstruction () const
 
   instr += "\n\nUSAGE:   " + programName;
 
-  for (const Positional& p : positionals)
+  for (const Positional& p : positionalArgs)
     instr += " " + p. str ();
 
   string requiredGroup_prev;
-  for (const Key& key : keys)
+  for (const Key& key : keyArgs)
   {
  		if (key. requiredGroup == requiredGroup_prev)
 	  	if (key. requiredGroup. empty ())
@@ -3580,17 +3625,17 @@ string Application::getHelp () const
 
   const string par ("\n    ");
 
-  if (! positionals. empty ())
+  if (! positionalArgs. empty ())
   {
 	  instr += "\n\nPOSITIONAL PARAMETERS:";
-	  for (const Positional& p : positionals)
+	  for (const Positional& p : positionalArgs)
 	    instr += "\n" + p. str () + par + p. description;
 	}
 
-  if (! keys. empty ())
+  if (! keyArgs. empty ())
   {
 	  instr += "\n\nNAMED PARAMETERS:";
-	  for (const Key& key : keys)
+	  for (const Key& key : keyArgs)
 	  {
 	    instr += "\n" + key. getShortHelp () + par + key. description;
 	    if (gnu && ! key. defaultValue. empty ())
@@ -3644,11 +3689,11 @@ int Application::run (int argc,
 		initEnvironment ();
 
 
-    // positionals, keys
+    // positionalArgs, keyArgs
     Set<Key*> keysRead;
     {
 	    bool first = true;
-		  List<Positional>::iterator posIt = positionals. begin ();
+		  List<Positional>::iterator posIt = positionalArgs. begin ();
 	    Key* key = nullptr;
 	    for (string s : programArgs)
 	    {
@@ -3733,19 +3778,19 @@ int Application::run (int argc,
         errorExitStr ("Key with no value: " + key->name + "\n\n" + getInstruction ());
 
 
-	    if (programArgs. size () == 1 && (! positionals. empty () || needsArg))
+	    if (programArgs. size () == 1 && (! positionalArgs. empty () || needsArg))
 	    {
 	      cout << getInstruction () << endl;
 	      return 1;
 	    }
 	    
 
-	    if (posIt != positionals. end ())
+	    if (posIt != positionalArgs. end ())
 	      errorExitStr ("Too few positional parameters\n\n" + getInstruction ());
 	  }
     
     
-    for (Key& key : keys)
+    for (Key& key : keyArgs)
       if (! keysRead. contains (& key))
         key. value = key. defaultValue;
 
@@ -3753,7 +3798,7 @@ int Application::run (int argc,
     {
 	    map<string,StringVector> requiredGroup2names;
 	    map<string,StringVector> requiredGroup2given;
-	    for (const Key& key : keys)
+	    for (const Key& key : keyArgs)
 	    	if (! key. requiredGroup. empty ())
 	    	{
 	    		if (! key. value. empty ())
@@ -3885,7 +3930,7 @@ void ShellApplication::initEnvironment ()
 
   string execDir_ (execDir);
   trimSuffix (execDir_, "/");				
-  for (Key& key : keys)
+  for (Key& key : keyArgs)
     if (! key. flag)
       replaceStr (key. defaultValue, "$BASE", execDir_);
 }

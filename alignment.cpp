@@ -48,7 +48,6 @@ namespace Alignment_sp
 
 // AmrMutation
 
-
 AmrMutation::AmrMutation (size_t pos_arg,
                   				const string &geneMutation_arg,
                   				const string &class_arg,
