@@ -33,8 +33,9 @@
 *               gunzip (optional)
 *
 * Release changes:
-*           08/04/2023 PD-4698  protein match overrides a nucleotide match for point mutations
-*   3.11.18 07/25/2023          parameter order in instruction; "can be gzipped" is added to instruction
+*   3.11.19 08/09/2023 PD-4698  if a pseudogene is overlapped by a different gene on the length >= 20 aa then the pseudogene is not reported
+*           08/04/2023 PD-4706  protein match overrides a nucleotide match for point mutations
+*   3.11.18 07/25/2023          parameter order in instruction; "can be gzipped" is added to help
 *   3.11.17 07/19/2023 PD-4687  distinct overlapping hits are not reported separately for protein targets for the same alleles or gene symbols
 *   3.11.16 07/18/2023 PD-4687  distinct overlapping hits are not reported separately for protein targets (because the start/stop are not reported)
 *   3.11.15 05/23/2023 PD-4629  "amrfinder_update -d DIR" will create DIR if DIR is missing

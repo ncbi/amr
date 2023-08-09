@@ -954,21 +954,23 @@ public:
   	         && refCoverage ()    >= br. ref_coverage - frac_delta
   	         ;
 	  }	
+	bool pseudo () const
+	  { if (stopCodon)
+        return true; 
+      if (   partial () 
+          && ! cdss. empty ()
+          && ! truncatedCds ()
+         )
+        return true;
+      return false;
+	  }
   bool good () const
     { if (refAccession. empty ())
         return true;
       if (! refMutation. empty ())
         return true;
-      if (! reportPseudo)
-      {
-        if (stopCodon)
-          return false; 
-        if (   partial () 
-            && ! cdss. empty ()
-            && ! truncatedCds ()
-           )
-          return false;
-      }
+      if (! reportPseudo && pseudo ())
+        return false;
       if (isSusceptibleProt () && ! susceptible)
         return false;
 		  if (susceptible && pIdentity () > susceptible->cutoff + frac_delta)
@@ -990,9 +992,24 @@ private:
   bool insideEq (const BlastAlignment &other) const
     { ASSERT (targetProt == other. targetProt);
       ASSERT (targetName == other. targetName);
+    #if 1
+    	if (targetStrand != other. targetStrand)
+    	  return false;
+    	if (   targetStart + mismatchTailTarget () >= other. targetStart 
+          && targetEnd                           <= other. targetEnd + mismatchTailTarget ()
+         )
+        return true;
+      if (! pseudo ())
+        return false;
+      // PD-4698
+      const size_t pseudoOverlap = mismatchTailTarget () * 2;  // PAR
+      return    (targetStart < other. targetStart && targetEnd                   >= other. targetStart + pseudoOverlap)
+             || (targetEnd   > other. targetEnd   && targetStart + pseudoOverlap <= other. targetEnd);
+    #else
     	return    targetStrand                        == other. targetStrand
              && targetStart + mismatchTailTarget () >= other. targetStart 
              && targetEnd                           <= other. targetEnd + mismatchTailTarget ();
+    #endif
     }
   bool matchesCds (const BlastAlignment &other) const
     { ASSERT (targetProt);
@@ -1098,7 +1115,7 @@ private:
 	    }
 	    else
 	    { 
-        if (refMutation. empty () != other. refMutation. empty ())  // PD-4698
+        if (refMutation. empty () != other. refMutation. empty ())  // PD-4706
           return false;
         // PD-1902, PD-2139, PD-2313, PD-2320
 	    	if (targetProt && ! matchesCds (other))

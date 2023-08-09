@@ -443,7 +443,17 @@ inline void toggle (ebool &b)
     else if (b == efalse)
       b = etrue;
   }
-
+  
+inline string ebool2txt (ebool choice,
+                         const string &yes,
+                         const string &no,
+                         const string &ambig)
+  { switch (choice)
+  	{ case etrue:  return yes;
+  		case efalse: return no;
+  		default:     return ambig;
+    }
+  }
 
 
 typedef  unsigned char  Byte;
@@ -1219,6 +1229,15 @@ inline bool contains (const string &hay,
 size_t containsWord (const string& hay,
                      const string& needle);
   // Return: position of needle in hay; string::npos if needle does not exist
+  
+struct StringMatch
+{
+  enum Type {part, word, whole};
+};
+
+bool matches (const string &hay,
+              const string &needle,
+				      StringMatch::Type type);
 
 void replace (string &s,
               char from,
@@ -1489,15 +1508,21 @@ template <typename T>
   {
     T* ptr;
     const T t;
+    
   public:
     explicit Keep (T &t_arg)
       : ptr (& t_arg)
       , t (t_arg)
       {}
    ~Keep () 
-      { *ptr = t; }
+      { if (ptr)
+      	  *ptr = t; 
+      }
+      
     const T& get () const
       { return t; }
+    void reject ()
+      { ptr = nullptr; }
   };
 
 

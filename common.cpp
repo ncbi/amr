@@ -780,6 +780,21 @@ size_t containsWord (const string& hay,
 
 
 
+bool matches (const string &hay,
+              const string &needle,
+              StringMatch::Type type)
+{ 
+	switch (type)
+	{ 
+		case StringMatch::part:  return contains (hay, needle);   
+		case StringMatch::word:  return containsWord (hay, needle) != string::npos;
+		case StringMatch::whole: return hay == needle;
+	}
+	NEVER_CALL;
+}
+
+
+
 void replace (string &s,
               char from,
               char to)
