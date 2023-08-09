@@ -999,7 +999,16 @@ private:
           && targetEnd                           <= other. targetEnd + mismatchTailTarget ()
          )
         return true;
-      if (! pseudo ())
+      if (   ! pseudo ()
+          || isMutationProt ()
+          || other. isMutationProt ()
+          || fusion2geneSymbols () != other. fusion2geneSymbols ()
+        #if 0
+          || refAccession. empty ()
+          || other. refAccession. empty ()
+          || refAccession != other. refAccession
+        #endif
+         )
         return false;
       // PD-4698
       const size_t pseudoOverlap = mismatchTailTarget () * 2;  // PAR
