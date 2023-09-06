@@ -808,7 +808,7 @@ private:
     }
 public:
   string fusion2geneSymbols () const
-    { ASSERT (! isMutationProt ());
+    { ASSERT (! isMutationProt ());   
       if (fusions. empty ())
         return getGeneSymbol ();
       string s;
@@ -1011,6 +1011,7 @@ private:
          )
         return false;
       // PD-4698
+      // Most probably a repeat protein
       const size_t pseudoOverlap = mismatchTailTarget () * 2;  // PAR
       return    (targetStart < other. targetStart && targetEnd                   >= other. targetStart + pseudoOverlap)
              || (targetEnd   > other. targetEnd   && targetStart + pseudoOverlap <= other. targetEnd);
@@ -1100,7 +1101,9 @@ private:
         	  && !        insideEq (other)
         	 )
           if (   ! targetProt 
-              || fusion2geneSymbols () != other. fusion2geneSymbols ()
+              || (   ! isMutationProt ()   // PD-4722
+                  && fusion2geneSymbols () != other. fusion2geneSymbols ()
+                 )
              )  // PD-4687
             return false;
         if (   ! isMutationProt ()

@@ -43,14 +43,17 @@
 #include <csignal>  
 
 #ifndef _MSC_VER
-  #include <execinfo.h>
-  #include <sys/types.h>
-  #include <sys/stat.h>
-  #include <unistd.h>
-  #include <dirent.h>
-  #ifdef __APPLE__
-    #include <sys/sysctl.h>
-  #endif
+  extern "C"
+  {
+	  #include <execinfo.h>
+	  #include <sys/types.h>
+	  #include <sys/stat.h>
+	  #include <unistd.h>
+	  #include <dirent.h>
+	  #ifdef __APPLE__
+	    #include <sys/sysctl.h>
+	  #endif
+  }
 #endif
 
 
@@ -104,6 +107,7 @@ ostream* logPtr = nullptr;
 bool qc_on = false;
 ulong seed_global = 1;
 bool sigpipe = false;
+
 
 
 
@@ -223,6 +227,8 @@ namespace
                              bool segmFault)
 // alloc() may not work
 { 
+	beep ();
+	
 	ostream* os = logPtr ? logPtr : & cerr; 
 	
 	// time ??
@@ -315,6 +321,37 @@ string getStack ()
 
 
 
+//
+
+bool isRedirected (const ostream &os)
+{ 
+#ifdef _MSC_VER
+  return false;
+#else
+	if (& os == & cout)
+	  return ! isatty (fileno (stdout));
+	if (& os == & cerr)
+	  return ! isatty (fileno (stderr));
+	if (& os == & clog)
+	  return ! isatty (fileno (stderr));
+	return false;
+#endif
+}
+
+
+
+void beep ()
+{ 
+	constexpr char c = '\x07';
+	if (! isRedirected (cerr))
+	  cerr << c;
+	else if (! isRedirected (cout))
+	  cout << c;
+}
+
+
+
+
 // Chronometer
 
 bool Chronometer::enabled = false;
@@ -383,8 +420,9 @@ Chronometer_OnePass::~Chronometer_OnePass ()
     const OColor oc (os, Color::magenta, false, true /*& os == & cerr*/);  
     os << "CHRON: " << name << ": ";
     const ONumber on (os, 0, false);
-    os << difftime (stop, start) << " sec." << endl;  
+    os << difftime (stop, start) << " sec.";
   }
+  os << endl;  
 
   if (addNewLine)
     os << endl;
@@ -393,12 +431,12 @@ Chronometer_OnePass::~Chronometer_OnePass ()
 
 
 
-// Byte
+// uchar
 
-size_t byte2first (Byte b)
+size_t byte2first (uchar b)
 { 
   if (! b)
-    return sizeof (Byte);
+    return sizeof (uchar);
 	const uint u = b;
 	size_t i = 0;
 	uint mask = 1;
@@ -414,7 +452,7 @@ size_t byte2first (Byte b)
 
 size_t utf8_len (char first)
 {
-	const uint u = numeric_limits<uint>::max () - (Byte) first;
+	const uint u = numeric_limits<uint>::max () - (uchar) first;
 	size_t len = 0;
 	uint mask = 0x80;
 	while (! contains (u, mask))
@@ -881,6 +919,21 @@ void collapseSpace (string &s)
   while (s1 != s);
 }
                
+
+
+void visualizeTrailingSpaces (string &s)
+{
+	size_t spaces = 0;
+	while (   ! s. empty ()
+	       && s. back () == ' '
+	      )
+	{
+		s. erase (s. size () - 1);
+		spaces++;
+	}
+	FFOR (size_t, i, spaces)
+	  s += nonPrintable2str (' ');
+}
 
 
   
@@ -1622,6 +1675,22 @@ Threads::~Threads ()
 
 // Xml::TextFile
 
+void Xml::TextFile::printRawText (const string &s) 
+{ 
+	string res;  res. reserve (s. size ());
+	for (const char c : s)
+		switch (c)
+		{
+			case '<': res += "&lt;"; break;
+			case '>': res += "&gt;"; break;
+			case '&': res += "&amp;"; break;
+			default:  res += c;
+		}
+	printRaw (res);
+}
+
+
+
 void Xml::TextFile::tagStart (const string &tag) 
 { 
 	ASSERT (! isText);
@@ -1675,11 +1744,11 @@ void Xml::BinFile::tagStart (const string &tag)
   QC_ASSERT (! contains (tag, '\n'));
 	size_t i = names. add (tag);
 //ASSERT (i);
-	const Byte b = i % 256;
+	const uchar b = i % 256;
 	i /= 256;
 	if (i > 256)
 		throw runtime_error (FUNC "Too many different tag names");
-	os << (Byte) i << b;
+	os << (uchar) i << b;
 }
 
 
