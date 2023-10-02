@@ -66,24 +66,43 @@ TextTable::TextTable (const string &tableFName,
 {  
   {
     LineInput f (tableFName);
-    if (! f. nextLine ())
-      throw Error (*this, "Cannot read the table header");
-    if (! f. line. empty () && f. line. front () == '#')
+    bool dataExists = true;
+    while (f. nextLine ())
     {
-      pound = true;
-      f. line. erase (0, 1);
-    }
-    {
+      if (f. line. empty ())
+        break;
+      if (f. line. front () == '#')
+      {
+        pound = true;
+        f. line. erase (0, 1);
+      }
+      else
+        if (! header. empty ())
+          break;
+      header. clear ();
       StringVector h (f. line, '\t', true);
       for (string& s : h)
         header << move (Header (move (s)));
+      ASSERT (! header. empty ());
+      if (! pound)
+      {
+        dataExists = f. nextLine ();
+        break;
+      }
     }
-    while (f. nextLine ())
-    {
-      StringVector line (f. line, '\t', true);
-      rows << move (line);
-      ASSERT (line. empty ());
-    }
+    if (header. empty ())
+      throw Error (*this, "Cannot read the table header");
+    if (dataExists)
+      for (;;)
+      {
+        StringVector line (f. line, '\t', true);
+        FFOR_START (size_t, i, line. size (), header. size ())
+          line << noString;        
+        rows << move (line);
+        ASSERT (line. empty ());
+        if (! f. nextLine ())
+          break;
+      }
   }
   
   if (! columnSynonymsFName. empty ())

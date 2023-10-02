@@ -332,7 +332,7 @@ Annot::Annot (const string &fName,
   	  }
   	  QC_ASSERT (! prot. empty ());
   	  
-  	  Locus locus (f. lineNum, contig, (size_t) start, (size_t) stop, strand == "+", partial, 0, gene, product);
+  	  Locus locus ((size_t) f. lineNum, contig, (size_t) start, (size_t) stop, strand == "+", partial, 0, gene, product);
   	#if 0
   	  // DNA may be truncated
       if (type == "CDS" && ! pseudo && locus. size () % 3 != 0)
@@ -347,7 +347,7 @@ Annot::Annot (const string &fName,
     }
     catch (const exception &e)
     {
-      throw runtime_error ("File " + fName + ", line " + toString (f. lineNum) + ": " + e. what ());
+      throw runtime_error ("File " + fName + ", " + f. lineStr () + ": " + e. what ());
     }
   }
 }
@@ -370,7 +370,7 @@ Annot::Annot (const string &fName)
 
     replace (f. line, ' ', '_');  // to use '\t' as delimiter
 
-   	const string errorS ("File " + fName + ", line " + toString (f. lineNum) + ": ");
+   	const string errorS ("File " + fName + ", " + f. lineStr () + ": ");
 
     string contig, prot;
     size_t start, stop;
@@ -397,7 +397,7 @@ Annot::Annot (const string &fName)
            
 	  trim (prot, '_');
 	  ASSERT (! prot. empty ());
-    prot2loci [prot] << Locus (f. lineNum, contig, start, stop, strand == '+', false/*partial*/, 0, string (), string ());
+    prot2loci [prot] << Locus ((size_t) f. lineNum, contig, start, stop, strand == '+', false/*partial*/, 0, string (), string ());
   }
 }
   

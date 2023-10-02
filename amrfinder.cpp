@@ -33,8 +33,9 @@
 *               gunzip (optional)
 *
 * Release changes:
+*   3.11.21 10/02/2023 PD-4755  bug: calling fusion2geneSymbols() for a mutation protein
 *   3.11.20 09/06/2023 PD-4722  bug: calling fusion2geneSymbols() for a mutation protein
-*                               TERM codes are printed only when output is to screen
+*                               color codes are printed only when output is to screen
 *   3.11.19 08/09/2023 PD-4698  if a pseudogene is overlapped by a different gene on the length >= 20 aa with the same gene symbol then the pseudogene is not reported
 *           08/04/2023 PD-4706  protein match overrides a nucleotide match for point mutations
 *   3.11.18 07/25/2023          parameter order in instruction; "can be gzipped" is added to help

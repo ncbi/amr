@@ -808,7 +808,7 @@ private:
     }
 public:
   string fusion2geneSymbols () const
-    { ASSERT (! isMutationProt ());   
+    { ASSERT (! isMutationProt ());
       if (fusions. empty ())
         return getGeneSymbol ();
       string s;
@@ -1102,6 +1102,7 @@ private:
         	 )
           if (   ! targetProt 
               || (   ! isMutationProt ()   // PD-4722
+                  && ! other. isMutationProt ()   // PD-4755
                   && fusion2geneSymbols () != other. fusion2geneSymbols ()
                  )
              )  // PD-4687
@@ -1397,7 +1398,7 @@ struct Batch
   	  	  }
   	  	  catch (const exception &e)
   	  	  {
-  	  	    throw runtime_error ("Cannot read " + famFName +", line " + toString (f. lineNum) + "\n" + e. what ());
+  	  	    throw runtime_error ("Cannot read " + famFName +", " + f. lineStr () + "\n" + e. what ());
   	  	  }
 	  	}
 	    {

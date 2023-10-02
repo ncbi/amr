@@ -86,7 +86,7 @@ struct ThisApplication : Application
         trimTrailing (f. line);
         if (f. line. empty ())
         	continue;
-      	errorS = "File " + fName + ", line " + toString (f. lineNum) + ": ";
+      	errorS = "File " + fName + ", " + f. lineStr () + ": ";
       	lines++;
       	if (f. line [0] == '>')
       	{
