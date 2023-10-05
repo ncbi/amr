@@ -53,7 +53,10 @@ struct ThisApplication : Application
       addPositional ("in", "FASTA file");
       addFlag ("aa", "Amino acid sequenes, otherwise nucleotide");
       addFlag ("hyphen", "Hyphens are allowed");
+      addFlag ("ambig", "Ambiguous characters are allowed");
+      addKey ("ambig_max", "Max. number of ambiguous characters in sequences", "0");
       addKey ("len", "Output file with lines: <sequence id> <length>");
+      addKey ("out", "Output FASTA file with some of the issues fixed");
 	    version = SVN_REV;
     }
 
@@ -64,30 +67,73 @@ struct ThisApplication : Application
     const string fName    = getArg ("in");
     const bool aa         = getFlag ("aa");
     const bool hyphen     = getFlag ("hyphen");
+    const bool ambig      = getFlag ("ambig");
+    const size_t ambig_max = str2<size_t> (getArg ("ambig_max"));
     const string lenFName = getArg ("len");
+    const string outFName = getArg ("out");
     
 
     unique_ptr<OFStream> lenF;
     if (! lenFName. empty ())
       lenF. reset (new OFStream (lenFName));
+    unique_ptr<OFStream> outF;
+    if (! outFName. empty ())
+      outF. reset (new OFStream (outFName));
     size_t lines = 0;
-    bool first = true;
     StringVector ids;  ids. reserve (100000);  // PAR
     size_t seqSize_max = 0;
-    size_t seqSize = 0;
-    size_t allSize = 0;
+    size_t seqSize_sum = 0;
+    string errorS;
+    // One sequence
+    size_t xs = 0;
+    string header;
+    string seq;
+    
+    auto processSeq = [&] () 
+  	  {
+  	    if (! lines)
+  	      return;
+  	    if (seq. empty ())
+ 	  		  throw runtime_error (errorS + "Empty sequence");
+ 	  		ASSERT (! header. empty ());
+ 	  		ASSERT (! ids. empty ());
+ 	  		bool skip = false;
+  	    if (! ambig && xs > ambig_max)
+  	    {
+ 	  		  if (outF)
+ 	  		    skip = true;
+ 	  		  else
+  		      throw runtime_error (errorS + "Too many ambiguities");
+  		  }
+  		  if (skip)
+  		  {
+  		    if (logPtr)
+  		      *logPtr << "Skipping " << ids. back () << endl;
+  		  }
+  		  else
+  		  {
+     	  	if (lenF. get ())
+     	  	  *lenF << ids. back () << '\t' << seq. size () << endl;
+  	      if (outF)
+  	        *outF << header << endl << seq << endl;
+   	  	  maximize (seqSize_max, seq. size ());
+   	  	  seqSize_sum += seq. size ();
+   	  	}
+    	  xs = 0;
+    	  header. clear ();
+    	  seq. clear ();
+ 	    };
+    
     size_t nuc = 0;   
     {
       LineInput f (fName); 
       string id;
-      string errorS;
       while (f. nextLine ())
       {
         trimTrailing (f. line);
         if (f. line. empty ())
         	continue;
       	errorS = "File " + fName + ", " + f. lineStr () + ": ";
-      	lines++;
       	if (f. line [0] == '>')
       	{
       		size_t pos = 1;
@@ -116,26 +162,27 @@ struct ThisApplication : Application
         	  if (contains (id, ",,"))
        	  		throw runtime_error (errorS + "Sequence identifier contains ',,'");
        	  }
-      	  if (! first && seqSize == 0)
-     	  		throw runtime_error (errorS + "Empty sequence");
-     	  	if (lenF. get () && ! ids. empty ())
-     	  	  *lenF << ids. back () << '\t' << seqSize << endl;
+     	    processSeq ();
+      	  header = f. line;
       	  ids << id;
-   	  	  maximize (seqSize_max, seqSize);
-      	  seqSize = 0;
       	}
       	else 
       	{
-      		if (first)
+      		if (! lines)
       			throw runtime_error (errorS + "FASTA should start with '>'");
-      		seqSize += f. line. size ();
-      		allSize += f. line. size ();
       	  for (const char c : f. line)
+      	  {
+      	    bool skip = false;
       	  	if (c == '-')
       	  		if (hyphen)
       	  			;
       	  		else
-  	    	  		throw runtime_error (errorS + "hyphen in the sequence");
+      	  		{
+      	  		  if (outF)
+      	  		    skip = true;
+      	  		  else
+  	    	  		  throw runtime_error (errorS + "Hyphen in the sequence");  	    	  		  
+  	    	    }
   	    	  else
   	    	  {
   	    	  	const char c1 = toLower (c);
@@ -145,25 +192,29 @@ struct ThisApplication : Application
   		    	  		throw runtime_error (errorS + "Wrong amino acid character: (code = " + to_string ((int) c) + ") '" + c + "'");
   		    	    if (charInSet (c1, "acgt"))
   		    	    	nuc++;
+  		    	    if (charInSet (c1, "xbzjuo"))
+  		    	      xs++;
   		    	  }
   	    	  	else
+  	    	  	{
   		    	  	if (! charInSet (c1, "acgtbdhkmnrsvwyacgtbdhkmnrsvwy"))
   		    	  		throw runtime_error (errorS + "Wrong nucleotide character: (code = " + to_string ((int) c) + ") '" + c + "'");
+  		    	    if (charInSet (c1, "bdhkmnrsvwy"))
+  		    	      xs++;
+  		    	  }
   		    	}
+  		    	if (! skip)
+  		    	  seq += c;
+  		    }
       	}
-      	first = false;
+      	lines++;
   	  }
   	}
-  	if (lenF. get () && ! ids. empty ())
-  	  *lenF << ids. back () << '\t' << seqSize << endl;
- 	  maximize (seqSize_max, seqSize);
-
+    processSeq ();	// Last sequence
 	  if (! lines)
 	  	throw runtime_error ("Empty file"); 
-	  if (! first && seqSize == 0)
-  		throw runtime_error ("Empty sequence");
-  	if (aa && (double) nuc / (double) allSize > 0.9)  // PAR
-  		throw runtime_error ("Protein sequence looks like a nucleotide sequence");
+  	if (aa && (double) nuc / (double) seqSize_sum > 0.9)  // PAR
+  		throw runtime_error ("Protein sequences looks like a nucleotide sequences");
   		
 	  ids. sort ();
 	  const size_t index = ids. findDuplicate ();
@@ -172,7 +223,7 @@ struct ThisApplication : Application
 	  	
 	  cout << ids. size () << endl
 	       << seqSize_max << endl
-	       << allSize << endl;
+	       << seqSize_sum << endl;
   }
 };
 

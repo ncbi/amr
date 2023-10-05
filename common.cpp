@@ -3874,11 +3874,12 @@ int Application::run (int argc,
 	  }
   
   
-    string logFName;
-    logFName = getArg ("log");
-  	ASSERT (! logPtr);
-    if (! logFName. empty ())
-  		logPtr = new ofstream (logFName, ios_base::app);
+    {
+      string logFName (getArg ("log"));
+    	ASSERT (! logPtr);
+      if (! logFName. empty ())
+    		logPtr = new ofstream (logFName, ios_base::app);
+    }
 
     string jsonFName;
     if (gnu)

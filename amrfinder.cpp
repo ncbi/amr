@@ -33,6 +33,8 @@
 *               gunzip (optional)
 *
 * Release changes:
+*           10/05/2023 PD-4761  Removing protein sequences with >= 20 Xs
+*   3.11.22 10/05/2023 PD-4754  Prodigal GFF
 *   3.11.21 10/02/2023 PD-4755  bug: calling fusion2geneSymbols() for a mutation protein
 *   3.11.20 09/06/2023 PD-4722  bug: calling fusion2geneSymbols() for a mutation protein
 *                               color codes are printed only when output is to screen
@@ -282,6 +284,7 @@ constexpr size_t threads_def = 4;
 // Cf. amr_report.cpp
 constexpr double ident_min_def = 0.9;
 constexpr double partial_coverage_min_def = 0.5;
+const string ambigS ("20");  
 
     
 #define HELP  \
@@ -360,19 +363,26 @@ struct ThisApplication : ShellApplication
   
   
   
-  bool fastaCheck (const string &fName, 
+  void /*bool*/ fastaCheck (const string &fName, 
                    bool prot, 
                    const string &qcS, 
                    const string &logFName, 
                    size_t &nSeq, 
                    size_t &len_max,
-                   size_t &len_total) const
+                   size_t &len_total,
+                   const string &outFName) const
   // Input: fName: quoted
-  // Return: false <=> hyphen in protein FASTA
+  // Return: false <=> hyphen in protein FASTA  ??
   {
+    ASSERT (fName != outFName);
+    ASSERT (fName != logFName);
+    ASSERT (outFName != logFName);
+  #if 0
     try
     {
-	    exec (fullProg ("fasta_check") + fName + "  " + (prot ? "-aa" : "-len "+ tmp + "/len") + (prot ? "" : "  -hyphen") + qcS + "  -log " + logFName + " > " + tmp + "/nseq", logFName); 
+  #endif
+	    exec (fullProg ("fasta_check") + fName + "  " + (prot ? "-aa  -ambig_max " + ambigS + prependS (outFName, "  -out ") : "-len " + tmp + "/len  -hyphen  -ambig") + qcS + "  -log " + logFName + " > " + tmp + "/nseq", logFName); 
+	#if 0
 	  }
 	  catch (...)
 	  {
@@ -380,11 +390,23 @@ struct ThisApplication : ShellApplication
   	  {
   	    LineInput f (logFName);
   	    while (f. nextLine ())
-    	    if (contains (f. line, "hyphen in the sequence"))  // Cf. fasta_check.cpp
+  	      // Cf. fasta_check.cpp
+    	    if (contains (f. line, "Hyphen in the sequence"))  
+          {
+      	    const Warning warning (stderr);
+      		  stderr << "Ignoring dash '-' characters in the sequences of the protein file" /* << prot*/;
     	      return false;
+      		}
+    	    else if (contains (f. line, "Too many ambiguities"))  
+          {
+      	    const Warning warning (stderr);
+      		  stderr << "Removing sequences with >= " << ambigS << " Xs from the protein file" /* << prot*/;
+    	      return false;
+      		}
     	}
     	throw;
 	  }
+	#endif
   	const StringVector vec (tmp + "/nseq", (size_t) 10, true); 
   	if (vec. size () != 3)
       throw runtime_error (string (prot ? "Protein" : "DNA") + " fasta_check failed: " + vec. toString ("\n"));
@@ -394,7 +416,7 @@ struct ThisApplication : ShellApplication
     QC_ASSERT (nSeq);
     QC_ASSERT (len_max);
     QC_ASSERT (len_total);
-    return true;
+  //return true;
   }
 
   
@@ -943,9 +965,44 @@ struct ThisApplication : ShellApplication
           size_t nProt = 0;
           size_t protLen_max = 0;
           size_t protLen_total = 0;
-          if (! fastaCheck (prot_flat, true, qcS, logFName, nProt, protLen_max, protLen_total))
+
+        #if 1          
+          try
+          {
+      	    fastaCheck (prot_flat, true, qcS, logFName, nProt, protLen_max, protLen_total, noString);
+      	  }
+      	  catch (...)
+      	  {
+       	    bool fixable = false;
+        	  {
+        	    LineInput f (logFName);
+        	    while (f. nextLine ())
+        	      // Cf. fasta_check.cpp
+          	    if (contains (f. line, "Hyphen in the sequence"))  
+                {
+            	    const Warning warning (stderr);
+            		  stderr << "Ignoring dash '-' characters in the sequences of the protein file " << prot;
+            		  fixable = true;
+            		  break;
+            		}
+          	    else if (contains (f. line, "Too many ambiguities"))  
+                {
+            	    const Warning warning (stderr);
+            		  stderr << "Removing sequences with >= " << ambigS << " Xs from the protein file " << prot;
+            		  fixable = true;
+            		  break;
+            		}
+          	}
+          	if (! fixable)
+          	  throw;
+            prot1 = shellQuote (tmp + "/prot");
+          	fastaCheck (prot_flat, true, qcS, logFName, nProt, protLen_max, protLen_total, prot1);
+      	  }
+      	#else
+          if (! fastaCheck (prot_flat, true, qcS, logFName, nProt, protLen_max, protLen_total, noString))
           {
             prot1 = shellQuote (tmp + "/prot");
+          #if 0
             OFStream outF (unQuote (prot1));
             LineInput f (unQuote (prot_flat)); 
             while (f. nextLine ())
@@ -957,12 +1014,10 @@ struct ThisApplication : ShellApplication
             	  replaceStr (f. line, "-", "");
             	outF << f. line << endl;
             }
-            {
-        	    const Warning warning (stderr);
-        		  stderr << "Ignoring dash '-' characters in the sequences of the protein file " << prot;
-        		}
-        		EXEC_ASSERT (fastaCheck (prot1, true, qcS, logFName, nProt, protLen_max, protLen_total));
+          #endif
+        		EXEC_ASSERT (fastaCheck (prot_flat, true, qcS, logFName, nProt, protLen_max, protLen_total, prot1));
           }
+        #endif
     			
    			  // gff_check
     			if (! emptyArg (gff) && ! contains (parm, "-bed"))
@@ -985,6 +1040,7 @@ struct ThisApplication : ShellApplication
             			}
             			break;
             	  case Gff::microscope: gffProtMatchP = true; break;
+            	  case Gff::prodigal:   gffProtMatchP = true; break;
             	  default: break;
             	}
       			  if (gffProtMatchP)
@@ -1068,7 +1124,7 @@ struct ThisApplication : ShellApplication
           size_t nDna = 0;
           size_t dnaLen_max = 0;
           size_t dnaLen_total = 0;
-          EXEC_ASSERT (fastaCheck (dna_flat, false, qcS, logFName, nDna, dnaLen_max, dnaLen_total));
+          /*EXEC_ASSERT (*/ fastaCheck (dna_flat, false, qcS, logFName, nDna, dnaLen_max, dnaLen_total, noString); // );
           const string blastx (/*"tblastn"*/ dnaLen_max > 100000 ? "tblastn" : "blastx");  // PAR  // SB-3643
 
     			stderr. section ("Running " + blastx);

@@ -100,7 +100,7 @@ bool Locus::operator< (const Locus& other) const
 
 // Gff
 
-const StringVector Gff::names {"bakta", "genbank", "microscope", "patric", "pgap", "prokka", "pseudomonasdb", "rast", "standard"};
+const StringVector Gff::names {"bakta", "genbank", "microscope", "patric", "pgap", "prodigal", "prokka", "pseudomonasdb", "rast", "standard"};
 
 
 Gff::Type Gff::name2type (const string &name)
@@ -110,6 +110,7 @@ Gff::Type Gff::name2type (const string &name)
   if (name == "microscope")     return microscope;
   if (name == "patric")         return patric;
   if (name == "pgap")           return pgap;
+  if (name == "prodigal")       return prodigal;
   if (name == "prokka")         return prokka;
   if (name == "pseudomonasdb")  return pseudomonasdb;
   if (name == "rast")           return rast;
@@ -167,7 +168,10 @@ Annot::Annot (const string &fName,
 	            bool protMatch,
 	            bool lcl)
 {
-  IMPLY (protMatch, gffType == Gff::genbank || gffType == Gff::microscope);
+  IMPLY (protMatch,    gffType == Gff::genbank 
+                    || gffType == Gff::microscope 
+                    || gffType == Gff::prodigal
+        );
   IMPLY (gffType == Gff::microscope, protMatch);
 //IMPLY (trimProject, gffType == Gff::genbank);
   IMPLY (lcl, gffType == Gff::pgap);
@@ -256,7 +260,11 @@ Annot::Annot (const string &fName,
     //if (pseudo && type == "CDS")  
       //continue;
       
-      const bool partial = contains (attributes, "partial=true");
+      const bool partial =    contains (attributes, "partial=true")
+                              // Gff::prodigal
+                           || contains (attributes, "partial=01")
+                           || contains (attributes, "partial=10")
+                           || contains (attributes, "partial=11");
       
       string protAttr = "Name";
       switch (gffType)
@@ -265,6 +273,7 @@ Annot::Annot (const string &fName,
         case Gff::genbank:       protAttr = (protMatch || pseudo) ? "locus_tag" : "Name"; break;
         case Gff::microscope:    protAttr = "ID"; break;
         case Gff::patric:        protAttr = "ID"; break;
+        case Gff::prodigal:      protAttr = "ID"; break;
         case Gff::prokka:        protAttr = "ID"; break;
         case Gff::pseudomonasdb: protAttr = "Alias"; break;  // for type = "gene", "locus" for type = "CDS"
         case Gff::rast:          protAttr = "ID"; break;
