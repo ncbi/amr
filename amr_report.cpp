@@ -954,15 +954,14 @@ public:
   	         && refCoverage ()    >= br. ref_coverage - frac_delta
   	         ;
 	  }	
+	bool partialPseudo () const
+	  { return    partial () 
+             && ! cdss. empty ()
+             && ! truncatedCds ();
+	  }
 	bool pseudo () const
-	  { if (stopCodon)
-        return true; 
-      if (   partial () 
-          && ! cdss. empty ()
-          && ! truncatedCds ()
-         )
-        return true;
-      return false;
+	  { return    stopCodon
+	           || partialPseudo ();
 	  }
   bool good () const
     { if (refAccession. empty ())
@@ -999,7 +998,7 @@ private:
           && targetEnd                           <= other. targetEnd + mismatchTailTarget ()
          )
         return true;
-      if (   ! pseudo ()
+      if (   ! partialPseudo ()
           || isMutationProt ()
           || other. isMutationProt ()
           || fusion2geneSymbols () != other. fusion2geneSymbols ()

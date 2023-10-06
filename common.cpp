@@ -342,6 +342,8 @@ bool isRedirected (const ostream &os)
 
 void beep ()
 { 
+  if (string (getenv ("SHLVL")) != "1")
+    return;
 	constexpr char c = '\x07';
 	if (! isRedirected (cerr))
 	  cerr << c;

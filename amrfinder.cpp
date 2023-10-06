@@ -33,7 +33,8 @@
 *               gunzip (optional)
 *
 * Release changes:
-*           10/05/2023 PD-4761  Removing protein sequences with >= 20 Xs
+*   3.11.23 10/06/2023 PD-4764  Remove '*' from Prodigal output to ensure ALLELEP and EXCATP matches
+*           10/05/2023 PD-4761  Remove protein sequences with >= 20 Xs
 *   3.11.22 10/05/2023 PD-4754  Prodigal GFF
 *   3.11.21 10/02/2023 PD-4755  bug: calling fusion2geneSymbols() for a mutation protein
 *   3.11.20 09/06/2023 PD-4722  bug: calling fusion2geneSymbols() for a mutation protein
@@ -363,7 +364,7 @@ struct ThisApplication : ShellApplication
   
   
   
-  void /*bool*/ fastaCheck (const string &fName, 
+  void fastaCheck (const string &fName, 
                    bool prot, 
                    const string &qcS, 
                    const string &logFName, 
@@ -371,42 +372,16 @@ struct ThisApplication : ShellApplication
                    size_t &len_max,
                    size_t &len_total,
                    const string &outFName) const
-  // Input: fName: quoted
-  // Return: false <=> hyphen in protein FASTA  ??
+  // Input: fName, outFName: quoted
   {
-    ASSERT (fName != outFName);
     ASSERT (fName != logFName);
-    ASSERT (outFName != logFName);
-  #if 0
-    try
+    if (! outFName. empty ())
     {
-  #endif
-	    exec (fullProg ("fasta_check") + fName + "  " + (prot ? "-aa  -ambig_max " + ambigS + prependS (outFName, "  -out ") : "-len " + tmp + "/len  -hyphen  -ambig") + qcS + "  -log " + logFName + " > " + tmp + "/nseq", logFName); 
-	#if 0
-	  }
-	  catch (...)
-	  {
-  	  if (prot)
-  	  {
-  	    LineInput f (logFName);
-  	    while (f. nextLine ())
-  	      // Cf. fasta_check.cpp
-    	    if (contains (f. line, "Hyphen in the sequence"))  
-          {
-      	    const Warning warning (stderr);
-      		  stderr << "Ignoring dash '-' characters in the sequences of the protein file" /* << prot*/;
-    	      return false;
-      		}
-    	    else if (contains (f. line, "Too many ambiguities"))  
-          {
-      	    const Warning warning (stderr);
-      		  stderr << "Removing sequences with >= " << ambigS << " Xs from the protein file" /* << prot*/;
-    	      return false;
-      		}
-    	}
-    	throw;
-	  }
-	#endif
+      ASSERT (outFName != fName);
+      ASSERT (outFName != logFName);
+    }
+    exec (fullProg ("fasta_check") + fName + "  " + (prot ? "-aa  -ambig_max " + ambigS + prependS (outFName, "  -out ") : "-len " + tmp + "/len  -hyphen  -ambig") + qcS + "  -log " + logFName + " > " + tmp + "/nseq", logFName); 
+
   	const StringVector vec (tmp + "/nseq", (size_t) 10, true); 
   	if (vec. size () != 3)
       throw runtime_error (string (prot ? "Protein" : "DNA") + " fasta_check failed: " + vec. toString ("\n"));
@@ -416,7 +391,6 @@ struct ThisApplication : ShellApplication
     QC_ASSERT (nSeq);
     QC_ASSERT (len_max);
     QC_ASSERT (len_total);
-  //return true;
   }
 
   
@@ -966,7 +940,6 @@ struct ThisApplication : ShellApplication
           size_t protLen_max = 0;
           size_t protLen_total = 0;
 
-        #if 1          
           try
           {
       	    fastaCheck (prot_flat, true, qcS, logFName, nProt, protLen_max, protLen_total, noString);
@@ -992,32 +965,19 @@ struct ThisApplication : ShellApplication
             		  fixable = true;
             		  break;
             		}
+          	    else if (contains (f. line, "'*' at the sequence end"))  
+                {
+            	    const Warning warning (stderr);
+            		  stderr << "Removing '*' from the ends of protein sequence in " << prot;
+            		  fixable = true;
+            		  break;
+            		}
           	}
           	if (! fixable)
           	  throw;
             prot1 = shellQuote (tmp + "/prot");
           	fastaCheck (prot_flat, true, qcS, logFName, nProt, protLen_max, protLen_total, prot1);
       	  }
-      	#else
-          if (! fastaCheck (prot_flat, true, qcS, logFName, nProt, protLen_max, protLen_total, noString))
-          {
-            prot1 = shellQuote (tmp + "/prot");
-          #if 0
-            OFStream outF (unQuote (prot1));
-            LineInput f (unQuote (prot_flat)); 
-            while (f. nextLine ())
-            {
-              trimTrailing (f. line);
-              if (f. line. empty ())
-              	continue;
-            	if (f. line [0] != '>')
-            	  replaceStr (f. line, "-", "");
-            	outF << f. line << endl;
-            }
-          #endif
-        		EXEC_ASSERT (fastaCheck (prot_flat, true, qcS, logFName, nProt, protLen_max, protLen_total, prot1));
-          }
-        #endif
     			
    			  // gff_check
     			if (! emptyArg (gff) && ! contains (parm, "-bed"))

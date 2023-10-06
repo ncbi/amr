@@ -93,6 +93,11 @@ struct ThisApplication : Application
   	  {
   	    if (! lines)
   	      return;
+  	    while (! seq. empty () && seq. back () == '*')
+ 	  		  if (outF)
+ 	  		    seq. erase (seq. size () - 1);
+ 	  		  else
+  		      throw runtime_error (errorS + "'*' at the sequence end");
   	    if (seq. empty ())
  	  		  throw runtime_error (errorS + "Empty sequence");
  	  		ASSERT (! header. empty ());
