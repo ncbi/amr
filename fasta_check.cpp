@@ -55,6 +55,7 @@ struct ThisApplication : Application
       addFlag ("hyphen", "Hyphens are allowed");
       addFlag ("ambig", "Ambiguous characters are allowed");
       addKey ("ambig_max", "Max. number of ambiguous characters in sequences", "0");
+      addFlag ("stop_codon", "Stop codons ('*') in the protein sequence are allowed");
       addKey ("len", "Output file with lines: <sequence id> <length>");
       addKey ("out", "Output FASTA file with some of the issues fixed");
 	    version = SVN_REV;
@@ -64,13 +65,16 @@ struct ThisApplication : Application
 
   void body () const final
   {
-    const string fName    = getArg ("in");
-    const bool aa         = getFlag ("aa");
-    const bool hyphen     = getFlag ("hyphen");
-    const bool ambig      = getFlag ("ambig");
+    const string fName     = getArg ("in");
+    const bool aa          = getFlag ("aa");
+    const bool hyphen      = getFlag ("hyphen");
+    const bool ambig       = getFlag ("ambig");
     const size_t ambig_max = str2<size_t> (getArg ("ambig_max"));
-    const string lenFName = getArg ("len");
-    const string outFName = getArg ("out");
+    const bool stop_codon  = getFlag ("stop_codon");
+    const string lenFName  = getArg ("len");
+    const string outFName  = getArg ("out");
+    
+    QC_IMPLY (stop_codon, aa);
     
 
     unique_ptr<OFStream> lenF;
@@ -93,11 +97,14 @@ struct ThisApplication : Application
   	  {
   	    if (! lines)
   	      return;
-  	    while (! seq. empty () && seq. back () == '*')
- 	  		  if (outF)
- 	  		    seq. erase (seq. size () - 1);
- 	  		  else
-  		      throw runtime_error (errorS + "'*' at the sequence end");
+  	    if (aa && ! stop_codon)
+  	    {  	    
+    	    while (! seq. empty () && seq. back () == '*')
+   	  		  if (outF)
+   	  		    seq. erase (seq. size () - 1);
+   	  		  else
+    		      throw runtime_error (errorS + "'*' at the sequence end");
+    		}
   	    if (seq. empty ())
  	  		  throw runtime_error (errorS + "Empty sequence");
  	  		ASSERT (! header. empty ());

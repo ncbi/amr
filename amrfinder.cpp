@@ -33,6 +33,7 @@
 *               gunzip (optional)
 *
 * Release changes:
+*   3.11.25 10/13/2023 PD-4771  Revert removing '*' from Prodigal output to ensure ALLELEP and EXCATP matches ??
 *   3.11.24 10/12/2023 PD-4769  --print_node prints FAM.id replaced by FAM.parent for non-exact allele matches
 *   3.11.23 10/06/2023 PD-4764  Remove '*' from Prodigal output to ensure ALLELEP and EXCATP matches
 *           10/05/2023 PD-4761  Remove protein sequences with >= 20 Xs
@@ -381,7 +382,8 @@ struct ThisApplication : ShellApplication
       ASSERT (outFName != fName);
       ASSERT (outFName != logFName);
     }
-    exec (fullProg ("fasta_check") + fName + "  " + (prot ? "-aa  -ambig_max " + ambigS + prependS (outFName, "  -out ") : "-len " + tmp + "/len  -hyphen  -ambig") + qcS + "  -log " + logFName + " > " + tmp + "/nseq", logFName); 
+    exec (fullProg ("fasta_check") + fName + "  " + (prot ? "-aa  -stop_codon  -ambig_max " + ambigS + prependS (outFName, "  -out ") : "-len " + tmp + "/len  -hyphen  -ambig") + qcS + "  -log " + logFName + " > " + tmp + "/nseq", logFName); 
+      // "-stop_codon" PD-4771 ??
 
   	const StringVector vec (tmp + "/nseq", (size_t) 10, true); 
   	if (vec. size () != 3)
