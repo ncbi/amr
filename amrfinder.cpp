@@ -33,6 +33,7 @@
 *               gunzip (optional)
 *
 * Release changes:
+*   3.11.24 10/12/2023 PD-4769  --print_node prints FAM.id replaced by FAM.parent for non-exact allele matches
 *   3.11.23 10/06/2023 PD-4764  Remove '*' from Prodigal output to ensure ALLELEP and EXCATP matches
 *           10/05/2023 PD-4761  Remove protein sequences with >= 20 Xs
 *   3.11.22 10/05/2023 PD-4754  Prodigal GFF
@@ -968,7 +969,7 @@ struct ThisApplication : ShellApplication
           	    else if (contains (f. line, "'*' at the sequence end"))  
                 {
             	    const Warning warning (stderr);
-            		  stderr << "Removing '*' from the ends of protein sequence in " << prot;
+            		  stderr << "Removing '*' from the ends of protein sequences in " << prot;
             		  fixable = true;
             		  break;
             		}
