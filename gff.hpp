@@ -107,7 +107,7 @@ struct Locus
 
 struct Gff
 {
-  enum Type  {bakta, genbank, microscope, patric, pgap, prokka, pseudomonasdb, rast, standard/*PD-4548*/};
+  enum Type  {bakta, genbank, microscope, patric, pgap, prodigal, prokka, pseudomonasdb, rast, standard/*PD-4548*/};
     // Alphabetic order
   static const StringVector names;
   static Type name2type (const string &name);
@@ -133,6 +133,7 @@ struct Annot : Root
 		// Input: protMatch: property of protein FASTA:  
 		//                     genbank: "[locus_tag=...]" in comment
 		//                     microscope: "><acc>|ID:<num>|<gene>|
+		//                     prodigal: "ID=" in comment
 		//        lcl: property of DNA FASTA: >lcl|...
     /*
       gffType        protein GFF id
@@ -142,7 +143,8 @@ struct Annot : Root
                      Name=[project:]acc       // else                    
       microscope     ID=
       patric         ID=...;locus_tag=...
-      pgap           Name=                
+      pgap           Name=    
+      prodigal       ID=            
       prokka         ID=      
       pseudomonasdb  Alias= (or locus=)
       rast           ID=       

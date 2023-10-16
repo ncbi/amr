@@ -33,8 +33,15 @@
 *               gunzip (optional)
 *
 * Release changes:
+*   3.11.26 10/16/2023 PD-4772  Remove prodigal GFF format from AMRFinderPlus
+*   3.11.25 10/13/2023 PD-4771  Revert removing '*' from Prodigal output to ensure ALLELEP and EXACTP matches ??
+*   3.11.24 10/12/2023 PD-4769  --print_node prints FAM.id replaced by FAM.parent for non-exact allele matches
+*   3.11.23 10/06/2023 PD-4764  Remove '*' from Prodigal output to ensure ALLELEP and EXACTP matches
+*           10/05/2023 PD-4761  Remove protein sequences with >= 20 Xs
+*   3.11.22 10/05/2023 PD-4754  Prodigal GFF
+*   3.11.21 10/02/2023 PD-4755  bug: calling fusion2geneSymbols() for a mutation protein
 *   3.11.20 09/06/2023 PD-4722  bug: calling fusion2geneSymbols() for a mutation protein
-*                               TERM codes are printed only when output is to screen
+*                               color codes are printed only when output is to screen
 *   3.11.19 08/09/2023 PD-4698  if a pseudogene is overlapped by a different gene on the length >= 20 aa with the same gene symbol then the pseudogene is not reported
 *           08/04/2023 PD-4706  protein match overrides a nucleotide match for point mutations
 *   3.11.18 07/25/2023          parameter order in instruction; "can be gzipped" is added to help
@@ -281,6 +288,7 @@ constexpr size_t threads_def = 4;
 // Cf. amr_report.cpp
 constexpr double ident_min_def = 0.9;
 constexpr double partial_coverage_min_def = 0.5;
+const string ambigS ("20");  
 
     
 #define HELP  \
@@ -310,7 +318,10 @@ struct ThisApplication : ShellApplication
     	addKey ("protein", "Input protein FASTA file (can be gzipped)", "", 'p', "PROT_FASTA");
     	addKey ("nucleotide", "Input nucleotide FASTA file (can be gzipped)", "", 'n', "NUC_FASTA");
     	addKey ("gff", "GFF file for protein locations (can be gzipped). Protein id should be in the attribute 'Name=<id>' (9th field) of the rows with type 'CDS' or 'gene' (3rd field).", "", 'g', "GFF_FILE");
-      addKey ("annotation_format", "Type of GFF file: " + Gff::names. toString (", "), "genbank", 'a', "ANNOTATION_FORMAT");  
+    	
+    	string annots (Gff::names. toString (", "));
+    	replaceStr (annots, ", prodigal", "");  // PD-4772 ??
+      addKey ("annotation_format", "Type of GFF file: " + annots, "genbank", 'a', "ANNOTATION_FORMAT");  
 
     	addKey ("database", "Alternative directory with AMRFinder database. Default: $AMRFINDER_DB", "", 'd', "DATABASE_DIR");
     	addFlag ("database_version", "Print database version", 'V');
@@ -359,31 +370,25 @@ struct ThisApplication : ShellApplication
   
   
   
-  bool fastaCheck (const string &fName, 
+  void fastaCheck (const string &fName, 
                    bool prot, 
                    const string &qcS, 
                    const string &logFName, 
                    size_t &nSeq, 
                    size_t &len_max,
-                   size_t &len_total) const
-  // Input: fName: quoted
-  // Return: false <=> hyphen in protein FASTA
+                   size_t &len_total,
+                   const string &outFName) const
+  // Input: fName, outFName: quoted
   {
-    try
+    ASSERT (fName != logFName);
+    if (! outFName. empty ())
     {
-	    exec (fullProg ("fasta_check") + fName + "  " + (prot ? "-aa" : "-len "+ tmp + "/len") + (prot ? "" : "  -hyphen") + qcS + "  -log " + logFName + " > " + tmp + "/nseq", logFName); 
-	  }
-	  catch (...)
-	  {
-  	  if (prot)
-  	  {
-  	    LineInput f (logFName);
-  	    while (f. nextLine ())
-    	    if (contains (f. line, "hyphen in the sequence"))  // Cf. fasta_check.cpp
-    	      return false;
-    	}
-    	throw;
-	  }
+      ASSERT (outFName != fName);
+      ASSERT (outFName != logFName);
+    }
+    exec (fullProg ("fasta_check") + fName + "  " + (prot ? "-aa  -stop_codon  -ambig_max " + ambigS + prependS (outFName, "  -out ") : "-len " + tmp + "/len  -hyphen  -ambig") + qcS + "  -log " + logFName + " > " + tmp + "/nseq", logFName); 
+      // "-stop_codon" PD-4771 ??
+
   	const StringVector vec (tmp + "/nseq", (size_t) 10, true); 
   	if (vec. size () != 3)
       throw runtime_error (string (prot ? "Protein" : "DNA") + " fasta_check failed: " + vec. toString ("\n"));
@@ -393,7 +398,6 @@ struct ThisApplication : ShellApplication
     QC_ASSERT (nSeq);
     QC_ASSERT (len_max);
     QC_ASSERT (len_total);
-    return true;
   }
 
   
@@ -942,26 +946,45 @@ struct ThisApplication : ShellApplication
           size_t nProt = 0;
           size_t protLen_max = 0;
           size_t protLen_total = 0;
-          if (! fastaCheck (prot_flat, true, qcS, logFName, nProt, protLen_max, protLen_total))
+
+          try
           {
+      	    fastaCheck (prot_flat, true, qcS, logFName, nProt, protLen_max, protLen_total, noString);
+      	  }
+      	  catch (...)
+      	  {
+       	    bool fixable = false;
+        	  {
+        	    LineInput f (logFName);
+        	    while (f. nextLine ())
+        	      // Cf. fasta_check.cpp
+          	    if (contains (f. line, "Hyphen in the sequence"))  
+                {
+            	    const Warning warning (stderr);
+            		  stderr << "Ignoring dash '-' characters in the sequences of the protein file " << prot;
+            		  fixable = true;
+            		  break;
+            		}
+          	    else if (contains (f. line, "Too many ambiguities"))  
+                {
+            	    const Warning warning (stderr);
+            		  stderr << "Removing sequences with >= " << ambigS << " Xs from the protein file " << prot;
+            		  fixable = true;
+            		  break;
+            		}
+          	    else if (contains (f. line, "'*' at the sequence end"))  
+                {
+            	    const Warning warning (stderr);
+            		  stderr << "Removing '*' from the ends of protein sequences in " << prot;
+            		  fixable = true;
+            		  break;
+            		}
+          	}
+          	if (! fixable)
+          	  throw;
             prot1 = shellQuote (tmp + "/prot");
-            OFStream outF (unQuote (prot1));
-            LineInput f (unQuote (prot_flat)); 
-            while (f. nextLine ())
-            {
-              trimTrailing (f. line);
-              if (f. line. empty ())
-              	continue;
-            	if (f. line [0] != '>')
-            	  replaceStr (f. line, "-", "");
-            	outF << f. line << endl;
-            }
-            {
-        	    const Warning warning (stderr);
-        		  stderr << "Ignoring dash '-' characters in the sequences of the protein file " << prot;
-        		}
-        		EXEC_ASSERT (fastaCheck (prot1, true, qcS, logFName, nProt, protLen_max, protLen_total));
-          }
+          	fastaCheck (prot_flat, true, qcS, logFName, nProt, protLen_max, protLen_total, prot1);
+      	  }
     			
    			  // gff_check
     			if (! emptyArg (gff) && ! contains (parm, "-bed"))
@@ -984,6 +1007,7 @@ struct ThisApplication : ShellApplication
             			}
             			break;
             	  case Gff::microscope: gffProtMatchP = true; break;
+            	  case Gff::prodigal:   gffProtMatchP = true; break;
             	  default: break;
             	}
       			  if (gffProtMatchP)
@@ -1067,7 +1091,7 @@ struct ThisApplication : ShellApplication
           size_t nDna = 0;
           size_t dnaLen_max = 0;
           size_t dnaLen_total = 0;
-          EXEC_ASSERT (fastaCheck (dna_flat, false, qcS, logFName, nDna, dnaLen_max, dnaLen_total));
+          /*EXEC_ASSERT (*/ fastaCheck (dna_flat, false, qcS, logFName, nDna, dnaLen_max, dnaLen_total, noString); // );
           const string blastx (/*"tblastn"*/ dnaLen_max > 100000 ? "tblastn" : "blastx");  // PAR  // SB-3643
 
     			stderr. section ("Running " + blastx);

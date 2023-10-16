@@ -334,6 +334,7 @@ map <string/*accession*/, Susceptible>  accession2susceptible;
 
 bool cdsExist = false;
 bool print_node = false;
+bool print_node_raw = false;
 
 bool reportPseudo = false; 
 //const string stopCodonS ("[stop]");
@@ -698,7 +699,12 @@ struct BlastAlignment : Alignment
   		        }
   	        }
   	        if (print_node)
-  	          td << famId;
+  	        {
+  	          if (! print_node_raw && allele () && ! refExactlyMatched ())
+  	            td << gene;
+  	          else
+  	            td << famId;
+  	        }
   	        IMPLY ((isMutationProt () && ! seqChange. empty () && mut && ! seqChange. replacement), hasMutation ());
   	        if (   ! isMutationProt ()
   	            || (! seqChange. empty () && mut && ! seqChange. replacement)  // resistant mutation
@@ -808,7 +814,7 @@ private:
     }
 public:
   string fusion2geneSymbols () const
-    { ASSERT (! isMutationProt ());   
+    { ASSERT (! isMutationProt ());
       if (fusions. empty ())
         return getGeneSymbol ();
       string s;
@@ -954,15 +960,14 @@ public:
   	         && refCoverage ()    >= br. ref_coverage - frac_delta
   	         ;
 	  }	
+	bool partialPseudo () const
+	  { return    partial () 
+             && ! cdss. empty ()
+             && ! truncatedCds ();
+	  }
 	bool pseudo () const
-	  { if (stopCodon)
-        return true; 
-      if (   partial () 
-          && ! cdss. empty ()
-          && ! truncatedCds ()
-         )
-        return true;
-      return false;
+	  { return    stopCodon
+	           || partialPseudo ();
 	  }
   bool good () const
     { if (refAccession. empty ())
@@ -999,7 +1004,7 @@ private:
           && targetEnd                           <= other. targetEnd + mismatchTailTarget ()
          )
         return true;
-      if (   ! pseudo ()
+      if (   ! partialPseudo ()
           || isMutationProt ()
           || other. isMutationProt ()
           || fusion2geneSymbols () != other. fusion2geneSymbols ()
@@ -1102,6 +1107,7 @@ private:
         	 )
           if (   ! targetProt 
               || (   ! isMutationProt ()   // PD-4722
+                  && ! other. isMutationProt ()   // PD-4755
                   && fusion2geneSymbols () != other. fusion2geneSymbols ()
                  )
              )  // PD-4687
@@ -1397,7 +1403,7 @@ struct Batch
   	  	  }
   	  	  catch (const exception &e)
   	  	  {
-  	  	    throw runtime_error ("Cannot read " + famFName +", line " + toString (f. lineNum) + "\n" + e. what ());
+  	  	    throw runtime_error ("Cannot read " + famFName +", " + f. lineStr () + "\n" + e. what ());
   	  	  }
 	  	}
 	    {
@@ -2150,7 +2156,8 @@ struct ThisApplication : Application
       
       // Output
       addKey ("out", "Identifiers of the reported input proteins");
-      addFlag ("print_node", "Print FAM.id"); 
+      addFlag ("print_node", "Print FAM.id replaced by FAM.parent for non-exact allele matches"); 
+      addFlag ("print_node_raw", "Print FAM.id"); 
       addFlag ("pseudo", "Indicate pseudo-genes as method INTERNAL_STOP");  //  or FRAME_SHIFT
       addFlag ("force_cds_report", "Report contig/start/stop/strand even if this information does not exist");
       addFlag ("non_reportable", "Report non-reportable families");
@@ -2195,6 +2202,7 @@ struct ThisApplication : Application
                   equidistant          = getFlag ("report_equidistant");
     const string  outFName             = getArg ("out");
                   print_node           = getFlag ("print_node");
+                  print_node_raw       = getFlag ("print_node_raw");
                   reportPseudo         = getFlag ("pseudo");
     const bool    force_cds_report     = getFlag ("force_cds_report");
     const bool    non_reportable       = getFlag ("non_reportable");
@@ -2221,6 +2229,8 @@ struct ThisApplication : Application
       QC_ASSERT (! lcl);
       QC_ASSERT (! bedP);
     }
+    
+    QC_IMPLY (print_node_raw, print_node);
            			  
     
     if (ident_min == -1.0)

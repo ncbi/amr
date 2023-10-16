@@ -47,6 +47,7 @@ namespace
 
 
 const string locus_tagS ("[locus_tag=");
+const string prodigal_ID (" ID=");
 const string noFile ("emptystring");
 
 
@@ -63,7 +64,11 @@ struct ThisApplication : Application
       addKey ("dna", "DNA FASTA file");
       addFlag ("lcl", "Nucleotide FASTA created by PGAP has \"lcl|\" prefix in accessions");  
       // Output
-      addKey ("gff_prot_match", "Output file with pairs: \"<protein FASTA id> <protein GFF id>\", where for genbank: <protein GFF id> is from " + strQuote (locus_tagS + "<id>") + " in the protein FASTA comment, and for microscope: <protein GFF id> is ID:<num> from '><acc>|ID:<num>|<gene>|'");
+      addKey ("gff_prot_match", "Output file with pairs: \"<protein FASTA id> <protein GFF id>\", \n\
+where for genbank: <protein GFF id> is from " + strQuote (locus_tagS + "<id>") + " in the protein FASTA comment, \n\
+for microscope: <protein GFF id> is ID:<num> from '><acc>|ID:<num>|<gene>|', \n\
+and for prodigal: <protein GFF id> is ID=<num> in the protein FASTA comment\n\
+");
       addKey ("gff_dna_match",  "Output file with pairs: \"<DNA FASTA id> <DNA GFF id>\", where for pseudomonasdb: <DNA GFF id> is the suffix after '|' in the DNA FASTA identifier");
 	    version = SVN_REV;
     }
@@ -72,13 +77,13 @@ struct ThisApplication : Application
 
   void body () const final
   {
-    const string  gffName        = getArg ("gff");
-    const Gff::Type type         = Gff::name2type (getArg ("gfftype"));
-    const string  protFName      = getArg ("prot");
-    const string  dnaFName       = getArg ("dna");
-    const string  protMatchFName = getArg ("gff_prot_match");
-    const string  dnaMatchFName  = getArg ("gff_dna_match");
-    const bool    lcl            = getFlag ("lcl"); 
+    const string    gffName        = getArg ("gff");
+    const Gff::Type type           = Gff::name2type (getArg ("gfftype"));
+    const string    protFName      = getArg ("prot");
+    const string    dnaFName       = getArg ("dna");
+    const string    protMatchFName = getArg ("gff_prot_match");
+    const string    dnaMatchFName  = getArg ("gff_dna_match");
+    const bool      lcl            = getFlag ("lcl"); 
     
     if (lcl && type != Gff::pgap)
       throw runtime_error ("-lcl requires type pgap");
@@ -145,6 +150,18 @@ struct ThisApplication : Application
       	    	    gffId. erase (0, idS. size ());
       	    	  }      	    	  
       	    	  break;
+	    		    case Gff::prodigal:
+      	    		{
+      	    			const size_t pos = f. line. find (prodigal_ID);
+      	    			if (pos == string::npos)
+      	    				throw runtime_error (__FILE__ ": " + strQuote (prodigal_ID) + " is not found in: " + line_orig);
+      	    			gffId = f. line. substr (pos + prodigal_ID. size ());
+      	    			const size_t end = gffId. find (';');
+      	    			if (end == string::npos)
+      	    				throw runtime_error (__FILE__ ": ';' is not found after " + strQuote (prodigal_ID) + " in: " + line_orig);
+      	    		  gffId. erase (end);
+      	    		}
+      	    		break;
       	      default: break;
       	    }
 	    	  //
