@@ -33,9 +33,10 @@
 *               gunzip (optional)
 *
 * Release changes:
-*   3.11.25 10/13/2023 PD-4771  Revert removing '*' from Prodigal output to ensure ALLELEP and EXCATP matches ??
+*   3.11.26 10/16/2023 PD-4772  Remove prodigal GFF format from AMRFinderPlus
+*   3.11.25 10/13/2023 PD-4771  Revert removing '*' from Prodigal output to ensure ALLELEP and EXACTP matches ??
 *   3.11.24 10/12/2023 PD-4769  --print_node prints FAM.id replaced by FAM.parent for non-exact allele matches
-*   3.11.23 10/06/2023 PD-4764  Remove '*' from Prodigal output to ensure ALLELEP and EXCATP matches
+*   3.11.23 10/06/2023 PD-4764  Remove '*' from Prodigal output to ensure ALLELEP and EXACTP matches
 *           10/05/2023 PD-4761  Remove protein sequences with >= 20 Xs
 *   3.11.22 10/05/2023 PD-4754  Prodigal GFF
 *   3.11.21 10/02/2023 PD-4755  bug: calling fusion2geneSymbols() for a mutation protein
@@ -317,7 +318,10 @@ struct ThisApplication : ShellApplication
     	addKey ("protein", "Input protein FASTA file (can be gzipped)", "", 'p', "PROT_FASTA");
     	addKey ("nucleotide", "Input nucleotide FASTA file (can be gzipped)", "", 'n', "NUC_FASTA");
     	addKey ("gff", "GFF file for protein locations (can be gzipped). Protein id should be in the attribute 'Name=<id>' (9th field) of the rows with type 'CDS' or 'gene' (3rd field).", "", 'g', "GFF_FILE");
-      addKey ("annotation_format", "Type of GFF file: " + Gff::names. toString (", "), "genbank", 'a', "ANNOTATION_FORMAT");  
+    	
+    	string annots (Gff::names. toString (", "));
+    	replaceStr (annots, ", prodigal", "");  // PD-4772 ??
+      addKey ("annotation_format", "Type of GFF file: " + annots, "genbank", 'a', "ANNOTATION_FORMAT");  
 
     	addKey ("database", "Alternative directory with AMRFinder database. Default: $AMRFINDER_DB", "", 'd', "DATABASE_DIR");
     	addFlag ("database_version", "Print database version", 'V');
