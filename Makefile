@@ -152,11 +152,11 @@ clean:
 	rm -f $(BINARIES)
 
 install:
-	@if [ ! -e $(bindir) ]; \
+	@if [ ! -e $(DESTDIR)$(bindir) ]; \
 	then \
-		mkdir -p $(bindir); \
+		mkdir -p $(DESTDIR)$(bindir); \
 	fi
-	$(INSTALL) $(BINARIES) $(bindir)
+	$(INSTALL) $(BINARIES) $(DESTDIR)$(bindir)
 
 # amrfinder binaries for github binary release
 GITHUB_FILE=amrfinder_binaries_v$(VERSION_STRING)
