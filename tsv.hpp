@@ -233,6 +233,58 @@ public:
 
 
 		
+struct TsvOut
+{
+private:
+  ostream& os;
+  const ONumber on;
+  size_t lines {0};
+  size_t fields_max {0};
+  size_t fields {0};
+public:
+  bool usePound {true};
+  
+  explicit TsvOut (ostream &os_arg,
+                   streamsize precision = 6,
+	                 bool scientific = false)
+	  : os (os_arg)
+	  , on (os, precision, scientific)
+	  {}
+ ~TsvOut ()
+    { if (fields)
+        errorExitStr ("TsvOut: fields = " + to_string (fields_max));
+    }
+    
+  bool empty () const
+    { return    ! lines 
+             && ! fields_max
+             && ! fields;
+    }
+  template <typename T>
+    TsvOut& operator<< (const T &field)
+      { if (lines && fields >= fields_max)
+          throw runtime_error ("TsvOut: fields_max = " + to_string (fields_max));
+        if (fields)  
+          os << '\t'; 
+        else if (! lines && usePound)
+          os << '#';
+        os << field; 
+        fields++;
+        return *this; 
+      }    
+  void newLn ()
+    { os << endl;
+      if (! lines)
+        fields_max = fields;
+      lines++;
+      if (fields != fields_max)
+        throw runtime_error ("TsvOut: fields_max = " + to_string (fields_max) + ", but fields = " + to_string (fields));
+      fields = 0;
+    }
+};
+
+
+
 }
 
 

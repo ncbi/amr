@@ -151,7 +151,7 @@ constexpr const char* error_caption ("*** ERROR ***");
   // For debugger
 
 [[noreturn]] void throwf (const string &s); 
-  // For debugger
+  // For debugger: should not be in-line
 
 void beep ();
   // Requires: !isRedirected()
@@ -416,7 +416,7 @@ template <typename To, typename From>
   inline void insertIter (To &to,
                           From &&from)
     { for (auto&& x : from)
-        to. insert (move (x));
+        to. insert (std::move (x));
     }
 
 template <typename To, typename From>
@@ -446,6 +446,20 @@ template <typename T /*container*/>
         first = false;
       }
     }
+
+
+
+// KeyValue
+
+typedef  map<string/*key*/,string/*value*/>  KeyValue;
+
+inline string find (const KeyValue& kv,
+                    const string& key)
+  { const auto& it = kv. find (key);
+    if (it == kv. end ())
+      throw runtime_error ("Key \"" + key + "\" is not found");
+    return it->second;
+  }
 
 
 
@@ -572,6 +586,14 @@ inline const char* nvl (const char* s,
 
 extern const string noString;
 
+#ifndef _MSC_VER
+  inline string getEnv (const string& name)
+    { if (const char* p = getenv (name. c_str ()))
+        return p;
+      return noString;
+    }
+#endif
+  
 inline string ifS (bool cond,
                    const string &s)
   { return cond ? s : noString; }
@@ -657,6 +679,9 @@ bool trimTailAt (string &s,
                  const string &tailStart);
   // Return: trimmed
   // Update: s
+
+void commaize (string &s);
+  // ' ' --> ','
 
 inline bool isLeftBlank (const string &s,
                          size_t spaces)
@@ -753,7 +778,7 @@ void replace (string &s,
               char to);
   
 void replace (string &s,
-              const string &fromChars,
+              const string &fromAnyChars,
               char to);
   
 void replaceStr (string &s,
@@ -1012,11 +1037,11 @@ template <typename T>
       {}
     Pair (T &&a,
           T &&b)
-      : P (move (a), move (b))
+      : P (std::move (a), std::move (b))
       {}
     Pair () = default;
     Pair (Pair<T> &&other)
-      : P (move (other. first), move (other. second))
+      : P (std::move (other. first), std::move (other. second))
       {}
     Pair (const Pair<T> &other) = default;
     Pair& operator= (const Pair<T> &other) = default;
@@ -1112,7 +1137,7 @@ template <typename T>
       	return *this;
       }    
     List<T>& operator<< (T &&t) 
-      { P::push_back (move (t)); 
+      { P::push_back (std::move (t)); 
       	return *this;
       }    
     template <typename U/*:<T>*/>
@@ -1187,7 +1212,7 @@ template <typename T>
     typename T::value_type* operator-> () const
       { return & const_cast <typename T::value_type&> (*it); }  // *set::iterator = const set::value_type
     typename T::value_type erase ()
-      { typename T::value_type val = move (*it);
+      { typename T::value_type val = std::move (*it);
         itNext = t. erase (it); 
         return val;
       }
@@ -1568,6 +1593,7 @@ template <typename T>
   
 
 
+#if 0
 struct TabDel
 // Usage: {<<field;}* str();
 {
@@ -1591,7 +1617,7 @@ public:
   string str () const
     { return tabDel. str (); }
 };
-
+#endif
 
 
 
@@ -1603,7 +1629,7 @@ struct OFStream : ofstream
 	          const string &extension)
 	  { open (dirName, fileName, extension); }
 	explicit OFStream (const string &pathName)
-	  { open ("", pathName, ""); }
+	  { open (noString, pathName, noString); }
 	static void create (const string &pathName)
 	  { OFStream f (pathName); }
 
@@ -1673,7 +1699,7 @@ public:
 	Threads& operator<< (thread &&t)
 	  { if (! getAvailable ())
 	  	  throwf ("Too many threads created");
-	  	try { threads. push_back (move (t)); }
+	  	try { threads. push_back (std::move (t)); }
 	  	  catch (const exception &e) 
 	  	    { throwf (string ("Cannot start thread\n") + e. what ()); }
 	  	return *this;
@@ -1708,7 +1734,7 @@ template <typename Func, typename Res, typename... Args>
   	if (threads_max == 1 || i_max <= 1 || ! Threads::empty ())
   	{
   		results. push_back (Res ());
-    	func (0, i_max, results. front (), forward<Args>(args)...);
+    	func (0, i_max, results. front (), std::forward<Args>(args)...);
   		return;
   	}
 		size_t chunk = max<size_t> (1, i_max / threads_max);
@@ -1727,10 +1753,10 @@ template <typename Func, typename Res, typename... Args>
 	    Res& res = results. back ();
 	    if (to >= i_max)
 	    {
-	    	func (from, i_max, res, forward<Args>(args)...);
+	    	func (from, i_max, res, std::forward<Args>(args)...);
 	    	break;
 	    }
-		  th << thread (func, from, to, ref (res), forward<Args>(args)...);
+		  th << thread (func, from, to, ref (res), std::forward<Args>(args)...);
 		}
   }
 
@@ -1920,7 +1946,7 @@ public:
     {}
     // A desrtructor should be virtual to be automatically invoked by a descendant class destructor
   virtual Root* copy () const
-    { throwf ("Root::copy() is not implemented"); return nullptr; }
+    { throwf ("Root::copy() is not implemented"); /*return nullptr;*/ }
     // Return: the same type    
   virtual void qc () const
     {}
@@ -1941,7 +1967,7 @@ public:
     { throwf ("Root::saveXml() is not implemented"); }
   virtual Json* toJson (JsonContainer* /*parent_arg*/,
                         const string& /*name_arg*/) const
-    { throwf ("Root::toJson() is not implemented"); return nullptr; }
+    { throwf ("Root::toJson() is not implemented"); /*return nullptr;*/ }
 	virtual bool empty () const
 	  { return true; }
   virtual void clear ()
@@ -2012,7 +2038,7 @@ struct Named : VirtNamed
     : name (name_arg) 
     {}
   explicit Named (string &&name_arg)
-    : name (move (name_arg))
+    : name (std::move (name_arg))
     {}
   Named* copy () const override
     { return new Named (*this); } 
@@ -2147,7 +2173,7 @@ template <typename T>
       	return *this;
       }
     Vector<T>& operator<< (T &&value)
-      { P::push_back (move (value));
+      { P::push_back (std::move (value));
         unsetSearchSorted ();
       	return *this;
       }
@@ -2162,7 +2188,7 @@ template <typename T>
       Vector<T>& operator<< (vector<U> &&other)
         { reserveInc (other. size ());
           for (U& t : other)
-            P::push_back (move (t));
+            P::push_back (std::move (t));
           unsetSearchSorted ();
           other. clear ();
         	return *this;
@@ -2256,7 +2282,7 @@ template <typename T>
           for (size_t i = 0, end_ = P::size (); i < end_; i++)
           { const size_t j = i - toDelete;
             if (j != i)
-              (*this) [j] = move ((*this) [i]);
+              (*this) [j] = std::move ((*this) [i]);
             if (cond (j))
               toDelete++;
           }
@@ -2271,7 +2297,7 @@ template <typename T>
           for (size_t i = 0, end_ = P::size (); i < end_; i++)
           { const size_t j = i - toDelete;
             if (j != i)
-              (*this) [j] = move ((*this) [i]);
+              (*this) [j] = std::move ((*this) [i]);
             if (cond ((*this) [j]))
               toDelete++;
           }
@@ -2713,10 +2739,10 @@ template <typename T /* : Root */>
   	  }
   	VectorOwn (VectorOwn<T> &&other)
   	  : P ()
-  	  { *this = move (other); }
+  	  { *this = std::move (other); }
   	VectorOwn<T>& operator= (VectorOwn<T> &&other)
   	  { P::deleteData ();
-  	    P::operator= (move (other)); 
+  	    P::operator= (std::move (other)); 
   	  	P::searchSorted = other. searchSorted;
   	    return *this;
   	  }
@@ -2731,10 +2757,10 @@ template <typename T /* : Root */>
   	  }
   	explicit VectorOwn (VectorPtr<T> &&other)
   	  : P ()
-  	  { *this = move (other); }
+  	  { *this = std::move (other); }
   	VectorOwn<T>& operator= (VectorPtr<T> &&other) 
   	  { P::deleteData ();
-  	    P::operator= (move (other)); 
+  	    P::operator= (std::move (other)); 
   	  	P::searchSorted = other. searchSorted;
   	    return *this;
   	  }
@@ -3077,12 +3103,12 @@ template <typename T>
 	              T el)
     { if (from == to)
     	  return;
-    	IMPLY (from, ! from->universal);
-    	IMPLY (to,   ! to  ->universal);
+    	assert (! from || ! from->universal);
+    	assert (! to   || ! to  ->universal);
     	if (from)
-    	  { EXEC_ASSERT (from->erase (el) == 1); }
+    	  from->erase (el); 
     	if (to)
-    	  { EXEC_ASSERT (to->insert (el). second); }
+    	  to->insert (el);
     }
 
 
@@ -3872,12 +3898,12 @@ public:
   void setLast (Token &&t)
     { if (t. empty ())
         throwf ("TokenInput::setLast()");
-      last = move (t);
+      last = std::move (t);
     }
   bool getNext (char expected)
     { Token token (get ());
       if (! token. isDelimiter (expected))
-      { setLast (move (token));
+      { setLast (std::move (token));
       	return false;
       }
       return true;
@@ -3897,6 +3923,10 @@ struct JsonBoolean;
 struct JsonArray;
 struct JsonMap;
   
+
+
+extern unique_ptr<JsonMap> jRoot;
+
 
 
 struct Json : Root, Nocopy  // Heaponly
@@ -3925,8 +3955,7 @@ public:
     { return nullptr; }  
 
 protected:
-  static string toStr (const string& s)
-    { return isNatural (s) ? s : ("'" + to_c (s) + "'"); } 
+  static string toStr (const string& s);
   static void parse (CharInput &in,
                      const Token& firstToken,
                      JsonContainer* parent,
@@ -4139,9 +4168,6 @@ public:
       return keys;
     }
 };
-
-
-extern JsonMap* jRoot;
 
 
 
@@ -4525,7 +4551,7 @@ public:
   string execDir;
     // Ends with '/'
     // Physically real directory of the software
-  mutable map<string,string> prog2dir;
+  mutable KeyValue prog2dir;
   
 
   ShellApplication (const string &description_arg,

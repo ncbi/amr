@@ -33,10 +33,11 @@
 
 
 #undef NDEBUG
-#include "common.inc"
 
 #include "curl_easy.hpp"
 using namespace Common_sp;
+
+#include "common.inc"
 
 
 

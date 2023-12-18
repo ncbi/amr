@@ -222,7 +222,7 @@ struct Alignment : Root
   // Positions are 0-based
   // start < end <= len
   
-  // BLAST query
+  // Target
   bool targetProt {false};
     // false <=> DNA
   string targetName; 
@@ -232,11 +232,16 @@ struct Alignment : Root
   size_t targetEnd {0};
   size_t targetLen {0};
   bool targetStrand {true}; 
-    // false <=> negative  
+    // false <=> negative 
+  ebool targetStopCodon {enull}; 
+    // !enull => refProt
+    // etrue: detected and trimmed
+    // efalse: missing
   
-  // BLAST subject
+  // Reference
   bool refProt {false};
     // false <=> DNA
+    // true => whole sequence ends with '*'
   string refName; 
   string refSeq;
     // Uppercase
@@ -314,11 +319,13 @@ public:
     { return targetProt ? (double) (targetEnd - targetStart) / (double) targetLen : NaN; }
   size_t targetTail (bool upstream) const
     { return targetStrand == upstream ? targetStart : (targetLen - targetEnd); }
-  bool refExactlyMatched () const
+  bool refProtExactlyMatched () const
     { return    refProt
              && refLen   
              && nident == refLen 
-             && nident == targetSeq. size ();
+             && nident == targetSeq. size ()
+             && targetStopCodon != efalse
+             && (! targetProt || refLen + (targetStopCodon == etrue ? 1 : 0) == targetLen); 
 	  }
   long getGlobalTargetStart () const;
     // Requires: !targetProt, refProt

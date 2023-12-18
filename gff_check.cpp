@@ -33,12 +33,13 @@
    
    
 #undef NDEBUG 
-#include "common.inc"
 
 #include "common.hpp"
 using namespace Common_sp;
 #include "gff.hpp"
 using namespace GFF_sp;
+
+#include "common.inc"
 
 
 
@@ -141,7 +142,7 @@ and for prodigal: <protein GFF id> is ID=<num> in the protein FASTA comment\n\
       	    		break;
       	    	case Gff::microscope:
       	    	  {
-      	    	    string s (move (gffId));
+      	    	    string s (std::move (gffId));
       	    	    findSplit (s, '|');
       	    	    gffId = findSplit (s, '|');
       	    	    const string idS ("ID:");

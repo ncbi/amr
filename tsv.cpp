@@ -33,9 +33,10 @@
 
 
 #undef NDEBUG
-#include "common.inc"
 
 #include "tsv.hpp"
+
+#include "common.inc"
 
 
 
@@ -82,7 +83,7 @@ TextTable::TextTable (const string &tableFName,
       header. clear ();
       StringVector h (f. line, '\t', true);
       for (string& s : h)
-        header << move (Header (move (s)));
+        header << std::move (Header (std::move (s)));
       ASSERT (! header. empty ());
       if (! pound)
       {
@@ -98,7 +99,7 @@ TextTable::TextTable (const string &tableFName,
         StringVector line (f. line, '\t', true);
         FFOR_START (size_t, i, line. size (), header. size ())
           line << noString;        
-        rows << move (line);
+        rows << std::move (line);
         ASSERT (line. empty ());
         if (! f. nextLine ())
           break;
@@ -371,7 +372,7 @@ void TextTable::filterColumns (const StringVector &newColumnNames)
     Vector<Header> newHeader;  newHeader. reserve (colNums. size ());
     for (const ColNum i : colNums)
       newHeader << header [i];
-    header = move (newHeader);
+    header = std::move (newHeader);
   }
 
   for (StringVector& row : rows)
@@ -379,7 +380,7 @@ void TextTable::filterColumns (const StringVector &newColumnNames)
     StringVector newRow;  newRow. reserve (colNums. size ());
     for (const ColNum i : colNums)
       newRow << row [i];
-    row = move (newRow);
+    row = std::move (newRow);
   }
 }
 
@@ -465,7 +466,7 @@ void TextTable::group (const StringVector &by,
     {
       i++;
       if (i < j)
-        rows [i] = move (rows [j]);
+        rows [i] = std::move (rows [j]);
     }
   }
   if (! rows. empty ())

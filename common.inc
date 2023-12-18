@@ -28,13 +28,9 @@
 *
 * File Description:
 *   Common macros
-*   To be included into .cpp-files
+*   To be included into .cpp-files AFTER all headers
 *
 */
-
-
-#ifndef COMMON_INC
-#define COMMON_INC
 
 
 #define FOR_START(type,i,start,end)  for (type i = (start); i < (end); i++)  
@@ -75,23 +71,17 @@
 #endif
 
 
-namespace Common_sp
-{
-  [[noreturn]] void throwf (const std::string &s);
-}
-
 #define ERROR_MSG(msg)                     \
   { if (! std::uncaught_exceptions ())     \
-      Common_sp::throwf (std::string ("\"" __FILE__ "\", line ") + to_string (__LINE__) + ": " + (msg));  \
-    else {}                                \
+      throw runtime_error (std::string ("\"" __FILE__ "\", line ") + to_string (__LINE__) + ", in " + (FUNC) + (msg));  \
     exit (1);                              \
   }
-#define ERROR            ERROR_MSG (FUNC "ERROR")
-#define NOT_IMPLEMENTED  ERROR_MSG (FUNC "NOT IMPLEMENTED")
-#define NEVER_CALL       ERROR_MSG (FUNC "NEVER CALL")
+#define ERROR            ERROR_MSG ("ERROR")
+#define NOT_IMPLEMENTED  ERROR_MSG ("NOT IMPLEMENTED")
+#define NEVER_CALL       ERROR_MSG ("NEVER CALL")
 
 
-#define QC_ASSERT(cond)  if (! (cond)) ERROR_MSG (#cond) else {}   
+#define QC_ASSERT(cond)  { if (! (cond)) ERROR_MSG (#cond) }
 
 
 // Logic errors
@@ -136,5 +126,3 @@ namespace Common_sp
 #define STR(s)  #s
 
 
-
-#endif

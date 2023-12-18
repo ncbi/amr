@@ -33,7 +33,6 @@
 
 
 #undef NDEBUG
-#include "common.inc"
 
 #include "common.hpp"
 
@@ -41,7 +40,6 @@
 #include <cstring>
 #include <regex>
 #include <csignal>  
-
 #ifndef _MSC_VER
   extern "C"
   {
@@ -56,6 +54,7 @@
   }
 #endif
 
+#include "common.inc"
 
 
 
@@ -233,11 +232,10 @@ namespace
 	
 	// time ??
 #ifndef _MSC_VER
-	const char* hostname = getenv ("HOSTNAME");
-//const char* shell    = getenv ("SHELL");
-	const char* shell    = getenv ("SHELL");	
-	const char* pwd      = getenv ("PWD");
-	const char* path     = getenv ("PATH");
+	const string hostname (getEnv ("HOSTNAME"));
+	const string shell    (getEnv ("SHELL"));	
+	const string pwd      (getEnv ("PWD"));
+	const string path     (getEnv ("PATH"));
 #endif
   if (contains (msg, error_caption))  // msg already is the result of errorExit()
     *os << endl << msg << endl;
@@ -262,6 +260,9 @@ namespace
   //system (("env >> " + logFName). c_str ());
 
   os->flush ();           
+
+  if (cxml)
+    cxml->print (string (error_caption) + ": " + msg);
 
   if (segmFault)
     abort ();
@@ -313,8 +314,6 @@ string getStack ()
 
 [[noreturn]] void throwf (const string &s)  
 { 
-  if (cxml)
-    cxml->print (string (error_caption) + ": " + s);
   throw logic_error (s + "\nStack:\n" + getStack ()); 
 }
 
@@ -342,7 +341,7 @@ bool isRedirected (const ostream &os)
 
 void beep ()
 { 
-  if (string (getenv ("SHLVL")) != "1")
+  if (getEnv ("SHLVL") != "1")
     return;
 	constexpr char c = '\x07';
 	if (! isRedirected (cerr))
@@ -591,6 +590,17 @@ bool trimTailAt (string &s,
   if (trimmed)
     s. erase (pos);
   return trimmed;
+}
+
+
+
+void commaize (string &s)
+{
+  trim (s);
+  replace (s, '\t', ' ');
+  replace (s, ',', ' ');
+  replaceStr (s, "  ", " ");
+  replace (s, ' ', ',');
 }
 
 
@@ -847,11 +857,11 @@ void replace (string &s,
 
 
 void replace (string &s,
-              const string &fromChars,
+              const string &fromAnyChars,
               char to)
 {
   for (char& c : s)
-	  if (charInSet (c, fromChars))
+	  if (charInSet (c, fromAnyChars))
 	  	c = to;
 }
 
@@ -1033,7 +1043,7 @@ string unpercent (const string &s)
 {
   for (const char c : s)
   	if (between (c, '\0', ' ') /*! printable (c)*/)
-  		throwf (FUNC "Non-printable character: " + to_string (uchar (c)));
+  		throw runtime_error (FUNC "Non-printable character: " + to_string (uchar (c)));
 
   string r;
   constexpr size_t hex_pos_max = 2;
@@ -1051,7 +1061,7 @@ string unpercent (const string &s)
     {
       ASSERT (hex_pos < hex_pos_max);
       if (! isHex (c))
-        throwf (FUNC "Bad hexadecimal character: " + to_string (c));
+        throw runtime_error (FUNC "Bad hexadecimal character: " + to_string (c));
       hex = uchar (hex + hex2uchar (c));
       if (! hex_pos)
       {
@@ -1078,7 +1088,7 @@ List<string> str2list (const string &s,
 	List<string> res;
 	string s1 (s);
 	while (! s1. empty ())
-	  res << move (findSplit (s1, c));
+	  res << std::move (findSplit (s1, c));
 	return res;
 }
 
@@ -1611,7 +1621,7 @@ string which (const string &progName)
 {
   ASSERT (! progName. empty ());
 
-  const List<string> paths (str2list (getenv ("PATH"), ':'));
+  const List<string> paths (str2list (getEnv ("PATH"), ':'));
   for (const string& path : paths)
     if (   ! path. empty () 
         && fileExists (path + "/" + progName)
@@ -1860,7 +1870,7 @@ StringVector::StringVector (const string &fName,
       *this << f. line;
   	  if (f. line < prev)
   	  	searchSorted = false;
-      prev = move (f. line);
+      prev = std::move (f. line);
     }
   }
   catch (const exception &e)
@@ -1877,7 +1887,7 @@ StringVector::StringVector (const string &s,
 {
 	string s1 (s);
 	while (! s1. empty ())
-	  *this << move (findSplit (s1, sep));
+	  *this << std::move (findSplit (s1, sep));
 	if (! s. empty () && s. back () == sep)
 	  *this << noString;
 	  
@@ -2813,7 +2823,7 @@ StringVector csvLine2vec (const string &line)
   {
     s = csv. getWord ();
     trim (s);
-    words << move (s);
+    words << std::move (s);
   }
   return words;
 }
@@ -2836,11 +2846,34 @@ Json::Json (JsonContainer* parent,
   else if (const JsonMap* jMap = parent->asJsonMap ())
   {
     ASSERT (! name. empty ());  
-    ASSERT (! contains (jMap->data, name));
+    if (contains (jMap->data, name))
+      throw runtime_error (FUNC "Duplicate name in JSON map: " + strQuote (name));
     var_cast (jMap) -> data [name] = this;
   }
   // throw() in a child constructor will invoke terminate() if an ancestor is JsonArray or JsonMap
 }
+
+
+
+string Json::toStr (const string& s)
+{ 
+  if (isNatural (s))
+    return s;
+    
+  // https://www.json.org/json-en.html
+  string res ("\"");
+  for (const char c : s)
+    switch (c)
+    {
+      case '\"': res += "\\\""; break;
+      case '\\': res += "\\\\"; break;
+      case '\n': res += "\\n"; break;
+      case '\r': res += "\\t"; break;
+      case '\t': res += "\\t"; break;
+      default:   res += c;
+    }
+  return res + "\""; 
+} 
 
 
 
@@ -3030,7 +3063,7 @@ void JsonArray::saveText (ostream& os) const
 JsonMap::JsonMap ()
 {
   ASSERT (! jRoot);
-  jRoot = this;
+  jRoot. reset (this);
 }
 
 
@@ -3106,7 +3139,7 @@ void JsonMap::saveText (ostream& os) const
 
 
 
-JsonMap* jRoot = nullptr;
+unique_ptr<JsonMap> jRoot;
 
 
 
@@ -3233,7 +3266,7 @@ bool DirItemGenerator::next_ (string &item,
   for (;;)
   {
     if (const dirent* f = readdir (imp->dir))    
-      item = move (string (f->d_name));
+      item = std::move (string (f->d_name));
     else
       return false;
     if (item == ".")
@@ -3257,7 +3290,7 @@ StringVector DirItemGenerator::toVector ()
   StringVector vec;
   string s;
   while (next (s))
-    vec << move (s);
+    vec << std::move (s);
     
   return vec;
 }
@@ -3273,7 +3306,7 @@ SoftwareVersion::SoftwareVersion (const string &fName)
   StringVector vec (fName, (size_t) 1, true);
   if (vec. size () != 1)
     throw runtime_error ("Cannot read software version. One line is expected in the file: " + shellQuote (fName));
-  init (move (vec [0]), false);
+  init (std::move (vec [0]), false);
 }
 
 
@@ -3283,7 +3316,7 @@ SoftwareVersion::SoftwareVersion (istream &is,
 { 
   string s;
   is >> s;
-  init (move (s), minorOnly);
+  init (std::move (s), minorOnly);
 }
 
 
@@ -3328,7 +3361,7 @@ DataVersion::DataVersion (const string &fName)
   StringVector vec (fName, (size_t) 1, true);
   if (vec. size () != 1)
     throw runtime_error ("Cannot read data version. One line is expected in the file: " + shellQuote (fName));
-  init (move (vec [0]));
+  init (std::move (vec [0]));
 }
 
 
@@ -3337,7 +3370,7 @@ DataVersion::DataVersion (istream &is)
 { 
   string s;
   is >> s;
-  init (move (s));
+  init (std::move (s));
 }
 
 
@@ -3937,8 +3970,7 @@ int Application::run (int argc,
   	  ASSERT (jRoot);
   		OFStream f (jsonFName);
       jRoot->saveText (f);
-      delete jRoot;
-      jRoot = nullptr;
+      jRoot. reset ();
     }
 	}
 	catch (const std::exception &e) 
@@ -3971,10 +4003,11 @@ void ShellApplication::initEnvironment ()
   // tmp
   if (useTmp)
   {
-    if (const char* s = getenv ("TMPDIR"))
-      tmp = move (string (s));
-    else
+    string s (getEnv ("TMPDIR"));
+    if (s. empty ())
       tmp = "/tmp";
+    else
+      tmp = std::move (s);
   }
 
   // execDir, programName

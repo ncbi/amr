@@ -27,14 +27,17 @@
 * Author: Vyacheslav Brover
 *
 * File Description:
-*   AMRFinder
+*   AMRFinderPlus
 *
-* Dependencies: NCBI BLAST, HMMer
-*               gunzip (optional)
+* Dependencies: NCBI BLAST, HMMer, gunzip (optional)
 *
 * Release changes:
+*   3.12.1  12/15/2023 PD-4838  stop codons are added to the reference proteins in AMRFinderPlus
+*                               input proteins may miss '*' at the ends
+*                               target hits have a new three-valued flag targetStopCodon: detected, missing, unknown
+*                               procsssing of prodigal GFF format is restored
 *   3.11.26 10/16/2023 PD-4772  Remove prodigal GFF format from AMRFinderPlus
-*   3.11.25 10/13/2023 PD-4771  Revert removing '*' from Prodigal output to ensure ALLELEP and EXACTP matches ??
+*   3.11.25 10/13/2023 PD-4771  Revert removing '*' from Prodigal output to ensure ALLELEP and EXACTP matches
 *   3.11.24 10/12/2023 PD-4769  --print_node prints FAM.id replaced by FAM.parent for non-exact allele matches
 *   3.11.23 10/06/2023 PD-4764  Remove '*' from Prodigal output to ensure ALLELEP and EXACTP matches
 *           10/05/2023 PD-4761  Remove protein sequences with >= 20 Xs
@@ -47,7 +50,7 @@
 *   3.11.18 07/25/2023          parameter order in instruction; "can be gzipped" is added to help
 *   3.11.17 07/19/2023 PD-4687  distinct overlapping hits are not reported separately for protein targets for the same alleles or gene symbols
 *   3.11.16 07/18/2023 PD-4687  distinct overlapping hits are not reported separately for protein targets (because the start/stop are not reported)
-*   3.11.15 05/23/2023 PD-4629  "amrfinder_update -d DIR" will create DIR if DIR is missing
+*!  3.11.15 05/23/2023 PD-4629  "amrfinder_update -d DIR" will create DIR if DIR is missing
 *   3.11.14 05/06/2023 PD-4598  error messages in curl_easy.cpp
 *   3.11.13 05/04/2023 PD-4596  Prohibit ASCII characters only between 0x00 and 0x1F in GFF files
 *           04/24/2023 PD-4583  Process files ending with ".gz", see https://github.com/ncbi/amr/issues/61, dependence on gunzip (optional)
@@ -258,7 +261,6 @@
 #endif
    
 #undef NDEBUG 
-#include "common.inc"
 
 #include <unistd.h>
 
@@ -268,13 +270,17 @@ using namespace Common_sp;
 #include "gff.hpp"
 using namespace GFF_sp;
 
+#include "common.inc"
+
+
 
 #undef DIR  // PD-3613
 
 
 // PAR!
 // PD-3051
-#define DATA_VER_MIN "2021-02-18.1"  
+#define DATA_VER_MIN "2023-12-15.2"  
+// 3.11: "2021-02-18.1"  
 
 
 
@@ -318,10 +324,12 @@ struct ThisApplication : ShellApplication
     	addKey ("protein", "Input protein FASTA file (can be gzipped)", "", 'p', "PROT_FASTA");
     	addKey ("nucleotide", "Input nucleotide FASTA file (can be gzipped)", "", 'n', "NUC_FASTA");
     	addKey ("gff", "GFF file for protein locations (can be gzipped). Protein id should be in the attribute 'Name=<id>' (9th field) of the rows with type 'CDS' or 'gene' (3rd field).", "", 'g', "GFF_FILE");
-    	
-    	string annots (Gff::names. toString (", "));
-    	replaceStr (annots, ", prodigal", "");  // PD-4772 ??
-      addKey ("annotation_format", "Type of GFF file: " + annots, "genbank", 'a', "ANNOTATION_FORMAT");  
+
+      {    	
+      	string annots (Gff::names. toString (", "));
+      //replaceStr (annots, ", prodigal", "");  // PD-4772 
+        addKey ("annotation_format", "Type of GFF file: " + annots, "genbank", 'a', "ANNOTATION_FORMAT");  
+      }
 
     	addKey ("database", "Alternative directory with AMRFinder database. Default: $AMRFINDER_DB", "", 'd', "DATABASE_DIR");
     	addFlag ("database_version", "Print database version", 'V');
@@ -387,7 +395,7 @@ struct ThisApplication : ShellApplication
       ASSERT (outFName != logFName);
     }
     exec (fullProg ("fasta_check") + fName + "  " + (prot ? "-aa  -stop_codon  -ambig_max " + ambigS + prependS (outFName, "  -out ") : "-len " + tmp + "/len  -hyphen  -ambig") + qcS + "  -log " + logFName + " > " + tmp + "/nseq", logFName); 
-      // "-stop_codon" PD-4771 ??
+      // "-stop_codon" PD-4771 
 
   	const StringVector vec (tmp + "/nseq", (size_t) 10, true); 
   	if (vec. size () != 3)
@@ -491,7 +499,7 @@ struct ThisApplication : ShellApplication
   {
     TextTable t (tmp + "/amr");
     t. qc ();
-    t. filterColumns (move (columns));
+    t. filterColumns (std::move (columns));
     t. rows. filterValue ([] (const StringVector& row) { return row [0] == "NA"; });
     t. rows. sort ();
     t. rows. uniq ();
@@ -725,7 +733,7 @@ struct ThisApplication : ShellApplication
 		{
   	  istringstream versionIss (version);
   		const SoftwareVersion softwareVersion (versionIss);
-  		const SoftwareVersion softwareVersion_min (db + "/database_format_version.txt");
+  		const SoftwareVersion softwareVersion_min (db + "/database_format_version.txt"); 
   	//stderr << "Software version: " << softwareVersion. str () << '\n'; 
   		const DataVersion dataVersion (db + "/version.txt");
   		istringstream dataVersionIss (DATA_VER_MIN); 
@@ -926,6 +934,7 @@ struct ThisApplication : ShellApplication
  		bool tblastnChunks = false;
 	  const string annotS (" -gfftype " + Gff::names [(size_t) gffType] + ifS (lcl, " -lcl"));
     {
+      //                               target ref    
   		#define BLAST_FMT    "-outfmt '6 qseqid sseqid qstart qend qlen sstart send slen qseq sseq'"
   		#define TBLASTN_FMT  "-outfmt '6 sseqid qseqid sstart send slen qstart qend qlen sseq qseq'"
 
@@ -972,6 +981,7 @@ struct ThisApplication : ShellApplication
             		  fixable = true;
             		  break;
             		}
+              #if 0
           	    else if (contains (f. line, "'*' at the sequence end"))  
                 {
             	    const Warning warning (stderr);
@@ -979,6 +989,7 @@ struct ThisApplication : ShellApplication
             		  fixable = true;
             		  break;
             		}
+            	#endif
           	}
           	if (! fixable)
           	  throw;
@@ -1091,15 +1102,14 @@ struct ThisApplication : ShellApplication
           size_t nDna = 0;
           size_t dnaLen_max = 0;
           size_t dnaLen_total = 0;
-          /*EXEC_ASSERT (*/ fastaCheck (dna_flat, false, qcS, logFName, nDna, dnaLen_max, dnaLen_total, noString); // );
-          const string blastx (/*"tblastn"*/ dnaLen_max > 100000 ? "tblastn" : "blastx");  // PAR  // SB-3643
+          fastaCheck (dna_flat, false, qcS, logFName, nDna, dnaLen_max, dnaLen_total, noString); 
+          const string blastx (dnaLen_max > 100000 ? "tblastn" : "blastx");  // PAR  // SB-3643
 
     			stderr. section ("Running " + blastx);
     			findProg (blastx);
           {
        			const Chronometer_OnePass cop (blastx, cerr, false, qc_on && ! quiet);
             const string tblastn_par (blastp_par + "  -task tblastn-fast  -threshold 100  -window_size 15");  // SB-3643, PD-4522
-        	//const string tblastn_par (blastp_par + "  -word_size 3");  
         		const string blastx_par  (blastp_par + "  -word_size 3  -query_gencode " + to_string (gencode));
       			ASSERT (threads_max >= 1);
       			if (blastx == "blastx")
