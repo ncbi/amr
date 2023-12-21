@@ -617,15 +617,26 @@ struct BlastAlignment : Alignment
           {
             IMPLY (! verbose (), isMutationProt () == ! (seqChange. empty () && ! mut));
             {
+            #if 0
               bool skip = true;
     	        if (mutationAll && isMutationProt ())
     	          skip = false;
      	        if (   ! isMutationProt ()
-    	            || (! seqChange. empty () && mut && ! seqChange. replacement)  // resistant mutation
+    	            || (! seqChange. empty () && mut && ! seqChange. replacement)  
     	           )
     	          skip = false;
     	        if (skip)
     	          continue;
+    	      #else
+    	        const bool isMutation = ! seqChange. empty () && mut && ! seqChange. replacement;
+    	        if (mutationAll)
+    	        {
+    	          if (! isMutationProt ())
+    	            continue;
+    	        }
+    	        else if (isMutationProt () && ! isMutation)
+    	          continue;
+    	      #endif
     	      }
       	    if (! input_name. empty ())
       	      td << input_name;;

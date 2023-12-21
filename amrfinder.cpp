@@ -32,6 +32,7 @@
 * Dependencies: NCBI BLAST, HMMer, gunzip (optional)
 *
 * Release changes:
+*   3.12.2  12/21/2023 PD-4843  --mutation_all should report only point mutations
 *   3.12.1  12/15/2023 PD-4838  stop codons are added to the reference proteins in AMRFinderPlus
 *                               input proteins may miss '*' at the ends
 *                               target hits have a new three-valued flag targetStopCodon: detected, missing, unknown
@@ -326,7 +327,7 @@ struct ThisApplication : ShellApplication
     	addKey ("gff", "GFF file for protein locations (can be gzipped). Protein id should be in the attribute 'Name=<id>' (9th field) of the rows with type 'CDS' or 'gene' (3rd field).", "", 'g', "GFF_FILE");
 
       {    	
-      	string annots (Gff::names. toString (", "));
+      	const string annots (Gff::names. toString (", "));
       //replaceStr (annots, ", prodigal", "");  // PD-4772 
         addKey ("annotation_format", "Type of GFF file: " + annots, "genbank", 'a', "ANNOTATION_FORMAT");  
       }
