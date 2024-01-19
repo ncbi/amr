@@ -111,7 +111,7 @@ struct TextTable : Named
     
 
   explicit TextTable (const string &tableFName,
-                      const string &columnSynonymsFName = string());
+                      const string &columnSynonymsFName = noString);
     // columnSynonymsFName: syn_format
     // Top lines starting with '#': comment + header
     // Rows where number of columns < header size are added empty values

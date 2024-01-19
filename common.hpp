@@ -799,7 +799,7 @@ void visualizeTrailingSpaces (string &s);
   
 string str2streamWord (const string &s,
                        size_t wordNum);
-  // Return: May be string()
+  // Return: May be empty()
   // Input: wordNum: 0-based  
 
 string str2sql (const string &s);
@@ -1588,40 +1588,22 @@ inline void section (const string &title,
 template <typename T>
   inline void report (ostream &os,
 			                const string &name,
-			                T value)
+			                const T &value)
     {	os << name << '\t' << value << endl; }
   
 
 
-#if 0
-struct TabDel
-// Usage: {<<field;}* str();
+struct IFStream : ifstream
+// Text file
 {
-private:
-  ostringstream tabDel;
-  const ONumber on;
-public:
-  
-  explicit TabDel (streamsize precision = 6,
-	                 bool scientific = false)
-	  : on (tabDel, precision, scientific)
-	  {}
-    
-  template <typename T>
-    TabDel& operator<< (const T &field)
-      { if (tabDel. tellp ())  
-          tabDel << '\t'; 
-        tabDel << field; 
-        return *this; 
-      }    
-  string str () const
-    { return tabDel. str (); }
+  IFStream () = default;
+	explicit IFStream (const string &pathName);
 };
-#endif
 
 
 
 struct OFStream : ofstream
+// Text file
 {
 	OFStream () = default;
 	OFStream (const string &dirName,
@@ -1651,7 +1633,8 @@ inline streamsize double2decimals (double r)
 //////////////////////////////////////////////////////////////////////////////////////
 
 void exec (const string &cmd,
-           const string &logFName = string());
+           const string &logFName = noString);
+  // Input: logFName: log file populated by cmd, to include into exception::what() if cmd fails
 
 #ifndef _MSC_VER
   string which (const string &progName);
@@ -3560,7 +3543,7 @@ public:
 struct Input : Root, Nocopy
 {
 protected:
-  ifstream ifs;
+  IFStream ifs;
   istream* is {nullptr};
     // ifs.is_open() => is = &ifs
 public:
@@ -3573,7 +3556,11 @@ public:
 
 protected:	
   Input (const string &fName,
-         uint displayPeriod);
+         uint displayPeriod)
+    : ifs (fName)
+    , is (& ifs)
+    , prog (0, displayPeriod)  
+    {}
   Input (istream &is_arg,
 	       uint displayPeriod);
 public:
@@ -3616,8 +3603,8 @@ struct LineInput : Input
 		  throwf ("No " + strQuote (prefix));
 		  return false;  // dummy
 		}
-	string lineStr () const
-	  { return "line " + to_string (lineNum + 1); }
+	string lineStr (bool add1 = true) const
+	  { return "line " + to_string (lineNum + add1); }
 };
 	
 
@@ -3896,10 +3883,7 @@ public:
    			error (t, Token::type2str (Token::eDelimiter) + " " + strQuote (toString (expected), '\'')); 
     }
   void setLast (Token &&t)
-    { if (t. empty ())
-        throwf ("TokenInput::setLast()");
-      last = std::move (t);
-    }
+    { last = std::move (t); }
   bool getNext (char expected)
     { Token token (get ());
       if (! token. isDelimiter (expected))
@@ -4201,7 +4185,7 @@ struct FileItemGenerator : ItemGenerator, Nocopy
 {
 private:
   string fName;
-  ifstream f;
+  IFStream f;
 public:
   const bool tsv;
   
@@ -4217,30 +4201,57 @@ public:
   
 
 #ifndef _MSC_VER
-struct DirItemGenerator : ItemGenerator, Nocopy
+struct RawDirItemGenerator : ItemGenerator, Nocopy
 {
 private:
   string dirName;
   struct Imp;  
   Imp* imp {nullptr};
-  unique_ptr<DirItemGenerator> dig;
+  unique_ptr<RawDirItemGenerator> dig;
 public:
   const bool large;
   
   
-  DirItemGenerator (size_t progress_displayPeriod,
-                    const string& dirName_arg,
-                    bool large_arg);
- ~DirItemGenerator ();
+  RawDirItemGenerator (size_t progress_displayPeriod,
+                       const string& dirName_arg,
+                       bool large_arg);
+ ~RawDirItemGenerator ();
 
   
   bool next (string &item) final;
-    // Raw order
 private:
   bool next_ (string &item,
               bool report);
 public:
   StringVector toVector ();
+};
+
+
+
+struct DirItemGenerator : ItemGenerator
+{
+private:
+  StringVector vec;
+  size_t index {0};
+public:
+  
+  
+  DirItemGenerator (size_t progress_displayPeriod,
+                    const string& dirName,
+                    bool large)
+    : ItemGenerator (0, progress_displayPeriod)
+    , vec (RawDirItemGenerator (0, dirName, large). toVector ())
+    {}
+
+  
+  bool next (string &item) final
+    { if (index == vec. size ())
+        return false;
+      item = vec [index];
+      prog (item);
+      index++;      
+      return true;
+    }
 };
 #endif
 
@@ -4249,7 +4260,7 @@ public:
 struct NumberItemGenerator : ItemGenerator
 {
 private:
-  size_t i {0};
+  size_t index {0};
 public:
   
   
@@ -4260,10 +4271,10 @@ public:
   
   
   bool next (string &item) final
-    { if (i == prog. n_max)
+    { if (index == prog. n_max)
         return false;
-      i++;
-      item = to_string (i);
+      index++;
+      item = to_string (index);
       prog ();
       return true;
     }
@@ -4581,7 +4592,7 @@ protected:
     // Requires: After findProg(progName)
   string exec2str (const string &cmd,
                    const string &tmpName,
-                   const string &logFName = string()) const;
+                   const string &logFName = noString) const;
     // Return: `cmd > <tmp>/tmpName && cat <tmp>/tmpName`
     // Requires: cmd produces one line
 };

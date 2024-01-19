@@ -53,44 +53,41 @@ namespace
 
 constexpr bool useCrossOrigin = false;  // GPipe: true
 
-constexpr double frac_delta = 1e-5;  // PAR 
+// PAR
+constexpr double frac_delta = 1e-5;  
 constexpr size_t domain_min = 20;  // aa
   
-// PAR
-constexpr double ident_min_def = 0.9;
-constexpr double complete_coverage_min_def = 0.9;
-constexpr double partial_coverage_min_def = 0.5;
 bool ident_min_user = false;
 bool equidistant = false;
 
 
 
-struct BlastRule
+struct BlastRule : Root
 // PD-2310
 {
   // 0 <=> undefined
   // 0 .. 1
   double ident {0.0};
-  double target_coverage {0.0};
+  double target_coverage {0.0};  // Not used
   double ref_coverage {0.0};
 
+
   BlastRule (double ident_arg,
-           //double target_coverage_arg,
              double ref_coverage_arg)
-    : ident           (ident_arg)
-  //, target_coverage (target_coverage_arg)
-    , ref_coverage    (ref_coverage_arg)
+    : ident        (ident_arg)
+    , ref_coverage (ref_coverage_arg)
     {
-      QC_ASSERT (ident >= 0.0);
+      QC_ASSERT (ident > 0.0);
       QC_ASSERT (ident <= 1.0);
       QC_ASSERT (target_coverage >= 0.0);
       QC_ASSERT (target_coverage <= 1.0);
-      QC_ASSERT (ref_coverage >= 0.0);
+      QC_ASSERT (ref_coverage > 0.0);
       QC_ASSERT (ref_coverage <= 1.0);
     }  
   BlastRule () = default;
-    
-  bool empty () const
+  void saveText (ostream &os) const final
+    { os << ident << ' ' << ref_coverage; }
+  bool empty () const final
     { return ! ident; }
 };
 
@@ -167,6 +164,8 @@ struct Fam
         familyName. clear ();
       QC_ASSERT (tc2 >= 0);        
       QC_ASSERT (tc2 <= tc1);
+      QC_ASSERT (! completeBR. empty ())
+      QC_ASSERT (! partialBR. empty ());
     }
   Fam () = default;
   void saveText (ostream &os) const 
@@ -186,7 +185,7 @@ struct Fam
     // Return: most specific HMM
     { const Fam* f = this;
       while (f && f->hmm. empty ())
-        f = static_cast <const Fam*> (f->parent);
+        f = f->parent;
       return f;
     }
 };
@@ -221,7 +220,7 @@ struct HmmAlignment
                 const Batch &batch);
     // Update: batch.domains
   void saveText (ostream &os) const 
-    { os << sseqid << ' ' << score1 << ' ' << score2 << ' ' << (fam ? fam->hmm : string ()); }
+    { os << sseqid << ' ' << score1 << ' ' << score2 << ' ' << (fam ? fam->hmm : noString); }
       
       
   bool good () const
@@ -377,8 +376,9 @@ struct BlastAlignment : Alignment
   string classS;
   string subclass;
 
-  BlastRule completeBR;
-  BlastRule partialBR;
+  BlastRule completeBR;  
+  BlastRule partialBR;   
+  const Fam* brFam {nullptr};
   
   string product;  
   Vector<Locus> cdss;
@@ -438,20 +438,49 @@ struct BlastAlignment : Alignment
         if (inFam ())
         {
   		    // PD-2310
-  		    completeBR. ident = getFam () -> completeBR. ident;
-  		    partialBR.  ident = getFam () -> partialBR.  ident;
+  		    completeBR = getFam () -> completeBR;
+  		    partialBR  = getFam () -> partialBR;
+  		    // PD-4856
+  		    ASSERT (! brFam);
+          EXEC_ASSERT (brFam = getFam ());          
+          while (brFam)
+          {
+            if (partial ())
+            {
+            #if 0
+              PRINT (brFam->id);
+              PRINT (brFam->genesymbol);
+              PRINT (brFam->partialBR);
+              PRINT (pIdentity ());
+              PRINT (refCoverage ());
+            #endif
+              if (passBlastRule (brFam->partialBR))
+              {
+              //cout << "match!" << endl;
+            	  break;
+            	}
+            }
+            else
+              if (passBlastRule (brFam->completeBR))
+              {
+              #if 0
+                PRINT (brFam->id);
+                PRINT (brFam->genesymbol);
+                PRINT (brFam->completeBR);
+                PRINT (pIdentity ());
+                PRINT (refCoverage ());
+              #endif
+            	  break;
+            	}
+            brFam = brFam->parent;
+          }
   		  }
-		    completeBR. ref_coverage = complete_coverage_min_def;
-		    partialBR.  ref_coverage = defaultPartialBR. ref_coverage;
-		    if (completeBR. empty ())
+  		  else
+  		  {
 		      completeBR = defaultCompleteBR;
-		    if (partialBR. empty ())
-		      partialBR = defaultPartialBR;
-		    if (ident_min_user)
-		    {
-		      completeBR. ident = defaultCompleteBR. ident;
-		      partialBR.  ident = defaultPartialBR.  ident;
+		      partialBR  = defaultPartialBR;
 		    }
+		    ASSERT (! completeBR. empty ());
 		    	
 		    partialDna = false;
 		    constexpr size_t mismatchTailDna = 10;  // PAR
@@ -476,7 +505,7 @@ struct BlastAlignment : Alignment
 		      nident++;
 		    	    
 		    if (! targetProt)
-		      cdss. emplace_back (0, targetName, targetStart, targetEnd, targetStrand, partialDna, 0, string (), string ());
+		      cdss. emplace_back (0, targetName, targetStart, targetEnd, targetStrand, partialDna, 0, noString, noString);
 	
 		    if (const Vector<AmrMutation>* refMutations = findPtr (accession2mutations, refAccession))
 		    {
@@ -501,6 +530,8 @@ struct BlastAlignment : Alignment
     : fromHmm    (true)
     , famId      (hmmAl_arg. fam->id)   
     , gene       (hmmAl_arg. fam->id)   
+    , completeBR (defaultCompleteBR)
+    , partialBR  (defaultPartialBR)
     , product    (hmmAl_arg. fam->familyName) 
     , hmmAl      (& hmmAl_arg)  
     { ASSERT (hmmAl_arg. good ());
@@ -554,7 +585,7 @@ struct BlastAlignment : Alignment
 	    QC_ASSERT (refAccession. empty () == targetSeq. empty ());
 	    QC_ASSERT (! refAccession. empty () == (bool) refLen);
 	    QC_ASSERT (! refAccession. empty () == (bool) nident);
-	    QC_IMPLY (refAccession. empty () && inFam (), ! getFam () -> hmm. empty () /*getHmmFam ()*/);
+	    QC_IMPLY (refAccession. empty () && inFam (), ! getFam () -> hmm. empty ());
 	    QC_IMPLY (targetProt, ! partialDna);
 	    QC_ASSERT (targetAlign);
 	    QC_IMPLY (targetProt, targetAlign == targetAlign_aa);
@@ -575,6 +606,8 @@ struct BlastAlignment : Alignment
     	    QC_ASSERT (cds. contig == targetName);
     	}
 	    QC_IMPLY (! seqChanges. empty (), isMutationProt ());
+	    QC_ASSERT (! completeBR. empty ());
+	    QC_ASSERT (! partialBR. empty ());
     }
   void report (TsvOut &td,
                const string &parentTargetName,
@@ -586,7 +619,7 @@ struct BlastAlignment : Alignment
                                     ? susceptible->name
                                     : refProtExactlyMatched () || parts >= 2 || refAccession. empty ()   // PD-3187, PD-3192
                                       ? product 
-                                      : nvl (getFam () -> familyName, na)
+                                      : nvl (getMatchFam () -> familyName, na)
                                );
       ASSERT (! contains (proteinName, '\t'));
       Vector<Locus> cdss_ (cdss);
@@ -616,28 +649,14 @@ struct BlastAlignment : Alignment
           for (const AmrMutation* mut : mutations)
           {
             IMPLY (! verbose (), isMutationProt () == ! (seqChange. empty () && ! mut));
-            {
-            #if 0
-              bool skip = true;
-    	        if (mutationAll && isMutationProt ())
-    	          skip = false;
-     	        if (   ! isMutationProt ()
-    	            || (! seqChange. empty () && mut && ! seqChange. replacement)  
-    	           )
-    	          skip = false;
-    	        if (skip)
-    	          continue;
-    	      #else
-    	        const bool isMutation = ! seqChange. empty () && mut && ! seqChange. replacement;
-    	        if (mutationAll)
-    	        {
-    	          if (! isMutationProt ())
-    	            continue;
-    	        }
-    	        else if (isMutationProt () && ! isMutation)
-    	          continue;
-    	      #endif
-    	      }
+  	        const bool isMutation = ! seqChange. empty () && mut && ! seqChange. replacement;
+  	        if (mutationAll)
+  	        {
+  	          if (! isMutationProt ())
+  	            continue;
+  	        }
+  	        else if (isMutationProt () && ! isMutation)
+  	          continue;
       	    if (! input_name. empty ())
       	      td << input_name;;
             td << (targetProt ? nvl(targetName, na) : na);  // PD-2534
@@ -725,7 +744,7 @@ struct BlastAlignment : Alignment
   	          else
   	            td << famId;
   	        }
-  	        IMPLY ((isMutationProt () && ! seqChange. empty () && mut && ! seqChange. replacement), hasMutation ());
+  	        IMPLY (isMutationProt () && isMutation /*! seqChange. empty () && mut && ! seqChange. replacement*/, hasMutation ());
   	        td. newLn ();
   	      }
 	      }
@@ -755,7 +774,7 @@ struct BlastAlignment : Alignment
     { return partialDna ? refEnd - refStart : refLen; }
   bool partial () const
     // Requires: good()
-    { return refCoverage () < complete_coverage_min_def - frac_delta; }  
+    { return refCoverage () < defaultCompleteBR. ref_coverage - frac_delta; }  
   bool getTargetStrand (const Locus &cds) const
     { return targetProt
                ? cds. empty ()
@@ -789,15 +808,20 @@ struct BlastAlignment : Alignment
     { return refProtExactlyMatched () && allele (); }
   bool alleleReportable () const  // PD-3583
     { return alleleMatch () && reportable >= 2; }
+  uchar getReportable () const
+    { if (const Fam* f = getMatchFam ())
+        return f->reportable;
+      return 0;
+    }
   uchar fusion2reportable () const
     { ASSERT (! isMutationProt ());
       if (susceptible)
         return 2;
       if (fusions. empty ())
-        return getFam () -> reportable;
+        return getReportable ();
       uchar reportable_max = 0;
       for (const BlastAlignment* fusion : fusions)
-        maximize (reportable_max, fusion->getFam () -> reportable);
+        maximize (reportable_max, fusion->getReportable ());
       return reportable_max;
     }
 private:
@@ -806,7 +830,7 @@ private:
                ? susceptible->genesymbol
                : alleleMatch () 
                  ? famId 
-                 : nvl (getFam () -> genesymbol, na);   // to match product name ??
+                 : nvl (getMatchFam () -> genesymbol, na); 
     }
 public:
   string fusion2geneSymbols () const
@@ -836,7 +860,7 @@ public:
     }
 private:
   string getType () const
-    { return susceptible ? "AMR" : getFam () -> type; }
+    { return susceptible ? "AMR" : getMatchFam () -> type; }
 public:
   string fusion2type () const
     { ASSERT (! isMutationProt ());
@@ -851,7 +875,7 @@ public:
     }    
 private:
   string getSubtype () const
-    { return susceptible ? "AMR" : getFam () -> subtype; }
+    { return susceptible ? "AMR" : getMatchFam () -> subtype; }
 public:
   string fusion2subtype () const
     { ASSERT (! isMutationProt ());
@@ -868,7 +892,7 @@ private:
 	string getClass () const
 	  { if (alleleMatch () && ! subclass. empty ())  // class may be empty()
 	      return classS;
-	    return susceptible ? susceptible->classS : getFam () -> classS;
+	    return susceptible ? susceptible->classS : getMatchFam () -> classS;
 	  }
 public:
   string fusion2class () const
@@ -886,7 +910,7 @@ private:
 	string getSubclass () const
 	  { if (alleleMatch () && ! subclass. empty ())
 	      return subclass;
-	    return susceptible ? susceptible->subclass : getFam () -> subclass;
+	    return susceptible ? susceptible->subclass : getMatchFam () -> subclass;
 	  }
 public:
   string fusion2subclass () const
@@ -952,9 +976,9 @@ public:
 	  }
 	  // PD-736
 	bool passBlastRule (const BlastRule &br) const
-	  { return    pIdentity ()      >= br. ident        - frac_delta
-  	         && refCoverage ()    >= br. ref_coverage - frac_delta
-  	         ;
+	  { ASSERT (! br. empty ());
+	    return    pIdentity ()      >= br. ident        - frac_delta
+  	         && refCoverage ()    >= br. ref_coverage - frac_delta;
 	  }	
 	bool partialPseudo () const
 	  { return    partial () 
@@ -966,7 +990,8 @@ public:
 	           || partialPseudo ();
 	  }
   bool good () const
-    { if (refAccession. empty ())
+    { ASSERT (! fromHmm);
+      if (refAccession. empty ())
         return true;
       if (! refMutation. empty ())
         return true;
@@ -977,15 +1002,17 @@ public:
 		  if (susceptible && pIdentity () > susceptible->cutoff + frac_delta)
 		    return false;
   	  // PD-1032
+	    if (   partial ()
+	        && (   parts > 1 
+    	        || (! truncatedCds () && refEnd - refStart <= 35)  // PAR  // PD-3287
+    	       )
+    	   )
+  	    return false;
+  	  if (brFam)
+  	    return true;
 	    if (partial ())
-  	    if (   parts > 1 
-  	        || (! truncatedCds () && refEnd - refStart <= 35)  // PAR  // PD-3287
-  	       )
-  	    	return false;
-	      else
-	        return passBlastRule (partialBR);
-	    else
-	      return passBlastRule (completeBR);
+        return passBlastRule (partialBR);
+      return passBlastRule (completeBR);
     }
 private:
   size_t mismatchTailTarget () const
@@ -1168,6 +1195,12 @@ public:
       if (! fam)
       	throw runtime_error ("Cannot find hierarchy for: " + famId + " / " + gene);
       return fam;
+    }
+  const Fam* getMatchFam () const
+    { ASSERT (inFam ());
+      if (fromHmm)
+        return getFam ();
+      return brFam;
     }
   bool better (const BlastAlignment &other) const
     // Requires: all SCCs of betterEq() are complete subgraphs ??
@@ -1373,18 +1406,36 @@ struct Batch
   	  	    const double tc2 = str2<double>  (findSplit (f. line, '\t'));
   	  	    BlastRule completeBR;
   	  	    BlastRule partialBR;
-            completeBR. ident           = str2<double> (findSplit (f. line, '\t')); 
-            completeBR. target_coverage = str2<double> (findSplit (f. line, '\t')); 
-            completeBR. ref_coverage    = str2<double> (findSplit (f. line, '\t')); 
-            partialBR.  ident           = str2<double> (findSplit (f. line, '\t')); 
-            partialBR.  target_coverage = str2<double> (findSplit (f. line, '\t')); 
-            partialBR.  ref_coverage    = str2<double> (findSplit (f. line, '\t')); 
-    		    toProb (completeBR. ident);
-    		    toProb (completeBR. target_coverage);
-    		    toProb (completeBR. ref_coverage);
-    		    toProb (partialBR.  ident);
-    		    toProb (partialBR.  target_coverage);
-    		    toProb (partialBR.  ref_coverage);
+  	  	    {
+              completeBR. ident           = str2<double> (findSplit (f. line, '\t')); 
+              completeBR. target_coverage = str2<double> (findSplit (f. line, '\t')); 
+              completeBR. ref_coverage    = str2<double> (findSplit (f. line, '\t')); 
+              partialBR.  ident           = str2<double> (findSplit (f. line, '\t')); 
+              partialBR.  target_coverage = str2<double> (findSplit (f. line, '\t')); 
+              partialBR.  ref_coverage    = str2<double> (findSplit (f. line, '\t')); 
+      		    toProb (completeBR. ident);
+      		    toProb (completeBR. target_coverage);
+      		    toProb (completeBR. ref_coverage);
+      		    toProb (partialBR.  ident);
+      		    toProb (partialBR.  target_coverage);
+      		    toProb (partialBR.  ref_coverage);
+      		    QC_ASSERT (completeBR. empty () == partialBR. empty ());
+      		    if (completeBR. empty ())
+      		    {
+        		    completeBR = defaultCompleteBR;
+        		    partialBR  = defaultPartialBR;
+      		    }
+      		    else
+      		    {
+        		    completeBR. ref_coverage = defaultCompleteBR. ref_coverage;
+        		    partialBR.  ref_coverage = defaultPartialBR.  ref_coverage;
+        		    if (ident_min_user)
+        		    {
+        		      completeBR. ident = defaultCompleteBR. ident;
+        		      partialBR.  ident = defaultPartialBR.  ident;
+        		    }
+        		  }
+      		  }
   	  	    const uchar reportable = (uchar) str2<int> (findSplit (f. line, '\t'));
   	  	    const string type     (findSplit (f. line, '\t'));
   	  	    const string subtype  (findSplit (f. line, '\t'));
@@ -1519,7 +1570,7 @@ struct Batch
 	  	  
   	  if (! suppress_prot_FName. empty ())
   	  {
-  	    ifstream f (suppress_prot_FName);  	  	    
+  	    IFStream f (suppress_prot_FName);  	  	    
 	  	  while (! f. eof ())
 	  	  {
 	  	    string accver;
@@ -2005,6 +2056,7 @@ public:
     	for (const BlastAlignment* blastAl : it. second)
     	{
     	  ASSERT (blastAl);
+    	//PRINT (blastAl->getMatchFam () -> id);
      	  if (blastAl->isMutationProt ())
     	  	if (blastAl->seqChanges. empty ())
     	  	  ;
@@ -2113,6 +2165,12 @@ HmmAlignment::Domain::Domain (const string &line,
 
 
 // ThisApplication
+
+constexpr double ident_min_def = 0.9;
+constexpr double complete_coverage_min_def = 0.9;
+constexpr double partial_coverage_min_def = 0.5;
+
+
 
 struct ThisApplication : Application
 {
@@ -2224,22 +2282,23 @@ struct ThisApplication : Application
     QC_IMPLY (print_node_raw, print_node);
            			  
     
-    if (ident_min == -1.0)
-      ident_min = ident_min_def;
-    else
-      ident_min_user = true;
-      
-    if (! (ident_min >= 0.0 && ident_min <= 1.0))
-    	throw runtime_error ("-ident_min must be -1 or between 0 and 1");
-    if (! (partial_coverage_min >= 0.0 && partial_coverage_min <= 1.0))
-    	throw runtime_error ("-coverage_min must be -1 or between 0 and 1");
-    	
-    if (partial_coverage_min > complete_coverage_min_def)
-      throw runtime_error ("-coverage_min must be less than " + toString (complete_coverage_min_def) + " - threshod for complete matches");
-      
-
-    defaultCompleteBR = BlastRule (ident_min, complete_coverage_min_def);  
-    defaultPartialBR  = BlastRule (ident_min, partial_coverage_min);
+    // defaultCompleteBR, defaultPartialBR, ident_min_user
+    {
+      if (ident_min == -1.0)
+        ident_min = ident_min_def;
+      else
+        ident_min_user = true;
+        
+      if (! (ident_min >= 0.0 && ident_min <= 1.0))
+      	throw runtime_error ("-ident_min must be -1 or between 0 and 1");
+      if (! (partial_coverage_min >= 0.0 && partial_coverage_min <= 1.0))
+      	throw runtime_error ("-coverage_min must be -1 or between 0 and 1");    	
+      if (partial_coverage_min > complete_coverage_min_def)
+        throw runtime_error ("-coverage_min must be less than " + toString (complete_coverage_min_def) + " - threshod for complete matches");
+        
+      defaultCompleteBR = BlastRule (ident_min, complete_coverage_min_def);  
+      defaultPartialBR  = BlastRule (ident_min, partial_coverage_min);
+    }
     
     
     cdsExist =    force_cds_report
@@ -2256,7 +2315,6 @@ struct ThisApplication : Application
     // Input 
 
     // batch.{blastAls,target2blastAls}
-  	// BlastAlignment::good()
   	ASSERT (batch. blastAls. empty ());
   	ASSERT (batch. target2blastAls. empty ());
     if (   ! noblast

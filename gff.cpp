@@ -406,7 +406,7 @@ Annot::Annot (const string &fName)
            
 	  trim (prot, '_');
 	  ASSERT (! prot. empty ());
-    prot2loci [prot] << Locus ((size_t) f. lineNum, contig, start, stop, strand == '+', false/*partial*/, 0, string (), string ());
+    prot2loci [prot] << Locus ((size_t) f. lineNum, contig, start, stop, strand == '+', false/*partial*/, 0, noString, noString);
   }
 }
   

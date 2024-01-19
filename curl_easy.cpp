@@ -114,7 +114,7 @@ void Curl::download (const string &url,
     process (url, "download");
   }
   
-  ifstream f (fName);
+  IFStream f (fName);
   string s;
   f >> s;
   if (s == "<?xml")

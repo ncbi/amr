@@ -81,7 +81,7 @@
 #define NEVER_CALL       ERROR_MSG ("NEVER CALL")
 
 
-#define QC_ASSERT(cond)  { if (! (cond)) ERROR_MSG (#cond) }
+#define QC_ASSERT(cond)  { errno = 0; if (! (cond)) ERROR_MSG (#cond) }
 
 
 // Logic errors

@@ -113,7 +113,7 @@ string getLatestMinor (Curl &curl)
     }
   #endif
   if (vers. empty ())
-    return string ();
+    return noString;
     
   vers. sort ();
   return vers. back (). getMinor ();
@@ -169,7 +169,7 @@ string getLatestDataVersion (Curl &curl,
     }
   #endif
   if (dataVersions. empty ())
-    return string ();
+    return noString;
     
   dataVersions. sort ();
   return dataVersions. back (). str ();

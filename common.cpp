@@ -1114,7 +1114,7 @@ string list2str (const List<string> &strList,
 bool fileExists (const string &fName)
 { 
 #ifdef _MSC_VER
-  const ifstream f (fName. c_str ());
+  const IFStream f (fName. c_str ());
   bool ok = f. good ();
 #if 0
   if (ok)
@@ -1229,7 +1229,7 @@ void createDirectory (const string &dirName)
 
 void removeDirectory (const string &dirName)
 {
-  DirItemGenerator dig (0, dirName, false);
+  RawDirItemGenerator dig (0, dirName, false);
   string item;
   while (dig. next (item))
   {
@@ -1260,7 +1260,7 @@ void removeDirectory (const string &dirName)
 void concatTextDir (const string &inDirName,
                    const string &outFName)
 {
-  DirItemGenerator dig (0, inDirName, false);
+  RawDirItemGenerator dig (0, inDirName, false);
   OFStream outF (outFName);
   string item;
   while (dig. next (item))
@@ -2083,18 +2083,6 @@ void TextPos::dec ()
 
 // Input
 
-Input::Input (const string &fName,
-	            uint displayPeriod)
-: ifs (fName)
-, is (& ifs)
-, prog (0, displayPeriod)  
-{ 
-  if (! ifs. good ())
-    throw runtime_error ("Cannot open file " + shellQuote (fName));
-}
- 
-
-
 Input::Input (istream &is_arg,
 	            uint displayPeriod)
 : is (& is_arg)
@@ -2534,6 +2522,8 @@ Token TokenInput::getXmlText ()
 
     // Escaped character
     int n = c;
+    if (n < 0)
+      n += 256;
   	if (c == '&')
   	{
       if (ci. get () == '#')  // Number
@@ -2736,6 +2726,26 @@ char TokenInput::getNextChar ()
 
 
 
+// IFStream
+
+IFStream::IFStream (const string &pathName)
+{ 
+  switch (getFiletype (pathName, true))
+  {
+    case Filetype::none: throw runtime_error ("Cannot open " + shellQuote (pathName));
+    case Filetype::disk: throw runtime_error ("Cannot open a disk as a file: " + shellQuote (pathName));
+    case Filetype::dir:  throw runtime_error ("Cannot open a directory as a file: " + shellQuote (pathName));
+    case Filetype::link: ERROR; break;
+    default: break;
+  }
+	open (pathName);
+  if (! good ())
+    throw runtime_error ("Cannot open file " + shellQuote (pathName));
+}
+
+
+
+
 // OFStream
 
 void OFStream::open (const string &dirName,
@@ -2752,6 +2762,7 @@ void OFStream::open (const string &dirName,
 	if (! extension. empty ())
 		pathName += "." + extension;
 		
+  exceptions (std::ios::failbit | std::ios::badbit);  // In ifstream these flags collide with eofbit
 	ofstream::open (pathName);
 
 	if (! good ())
@@ -3034,7 +3045,7 @@ JsonArray::JsonArray (CharInput& in,
         in. error ("\',\'");
       token = Token (in, false, false);
     }
-    parse (in, token, this, string());
+    parse (in, token, this, noString);
     first = false;
   }
 }
@@ -3195,9 +3206,9 @@ bool FileItemGenerator::next (string &item)
 
 
 #ifndef _MSC_VER
-// DirItemGenerator
+// RawDirItemGenerator
 
-struct DirItemGenerator::Imp
+struct RawDirItemGenerator::Imp
 {
   DIR* dir {nullptr};
   
@@ -3216,7 +3227,7 @@ struct DirItemGenerator::Imp
 
 
 
-DirItemGenerator::DirItemGenerator (size_t progress_displayPeriod,
+RawDirItemGenerator::RawDirItemGenerator (size_t progress_displayPeriod,
                                     const string& dirName_arg,
                                     bool large_arg)
 : ItemGenerator (0, progress_displayPeriod)
@@ -3229,14 +3240,14 @@ DirItemGenerator::DirItemGenerator (size_t progress_displayPeriod,
 
 
 
-DirItemGenerator::~DirItemGenerator ()
+RawDirItemGenerator::~RawDirItemGenerator ()
 { 
   delete imp; 
 }
 
 
 
-bool DirItemGenerator::next (string &item)
+bool RawDirItemGenerator::next (string &item)
 { 
   if (! large)
     return next_ (item, true);
@@ -3248,7 +3259,7 @@ bool DirItemGenerator::next (string &item)
       string subDir;
       if (! next_ (subDir, false))
         return false;
-      dig. reset (new DirItemGenerator (0, dirName + "/" + subDir, false));
+      dig. reset (new RawDirItemGenerator (0, dirName + "/" + subDir, false));
       QC_ASSERT (dig. get ());
     }
     if (dig->next (item))
@@ -3259,8 +3270,8 @@ bool DirItemGenerator::next (string &item)
 
 
 
-bool DirItemGenerator::next_ (string &item,
-                              bool report)
+bool RawDirItemGenerator::next_ (string &item,
+                                 bool report)
 { 
   ASSERT (imp);
   for (;;)
@@ -3284,13 +3295,15 @@ bool DirItemGenerator::next_ (string &item,
 
 
 
-
-StringVector DirItemGenerator::toVector ()
+StringVector RawDirItemGenerator::toVector ()
 {
   StringVector vec;
   string s;
   while (next (s))
     vec << std::move (s);
+      
+  vec. sort ();
+  QC_ASSERT (vec. isUniq ());
     
   return vec;
 }
@@ -3975,7 +3988,7 @@ int Application::run (int argc,
 	}
 	catch (const std::exception &e) 
 	{ 
-	  errorExit (e. what ());
+	  errorExit ((e. what () + ifS (errno, string (": ") + strerror (errno))). c_str ());
   }
 
 

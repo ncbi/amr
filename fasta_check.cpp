@@ -88,7 +88,7 @@ struct ThisApplication : Application
     StringVector ids;  ids. reserve (100000);  // PAR
     size_t seqSize_max = 0;
     size_t seqSize_sum = 0;
-    string errorS;
+  //string errorS;
     // One sequence
     size_t xs = 0;
     string header;
@@ -98,35 +98,36 @@ struct ThisApplication : Application
   	  {
   	    if (! lines)
   	      return;
+ 	  		ASSERT (! header. empty ());
+ 	  		ASSERT (! ids. empty ());
+ 	  		const string id (ids. back ());
   	    if (aa && ! stop_codon)
   	    {  	    
     	    while (! seq. empty () && seq. back () == '*')
    	  		  if (outF)
    	  		    seq. erase (seq. size () - 1);
    	  		  else
-    		      throw runtime_error (errorS + "'*' at the sequence end");
+    		      throw runtime_error (id + ": '*' at the sequence end");
     		}
   	    if (seq. empty ())
- 	  		  throw runtime_error (errorS + "Empty sequence");
- 	  		ASSERT (! header. empty ());
- 	  		ASSERT (! ids. empty ());
+ 	  		  throw runtime_error (id + ": Empty sequence");
  	  		bool skip = false;
   	    if (! ambig && xs > ambig_max)
   	    {
  	  		  if (outF)
  	  		    skip = true;
  	  		  else
-  		      throw runtime_error (errorS + "Too many ambiguities");
+  		      throw runtime_error (id + ": Too many ambiguities");
   		  }
   		  if (skip)
   		  {
   		    if (logPtr)
-  		      *logPtr << "Skipping " << ids. back () << endl;
+  		      *logPtr << "Skipping " << id << endl;
   		  }
   		  else
   		  {
      	  	if (lenF. get ())
-     	  	  *lenF << ids. back () << '\t' << seq. size () << endl;
+     	  	  *lenF << id << '\t' << seq. size () << endl;
   	      if (outF)
   	        *outF << header << endl << seq << endl;
    	  	  maximize (seqSize_max, seq. size ());
@@ -146,7 +147,7 @@ struct ThisApplication : Application
         trimTrailing (f. line);
         if (f. line. empty ())
         	continue;
-      	errorS = "File " + fName + ", " + f. lineStr () + ": ";
+      	const string errorS ("File " + fName + ", " + f. lineStr (false) + ": ");
       	if (f. line [0] == '>')
       	{
       		size_t pos = 1;
