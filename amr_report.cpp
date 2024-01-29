@@ -51,14 +51,27 @@ namespace
 {
 
 
-constexpr bool useCrossOrigin = false;  // GPipe: true
+// Global
 
 // PAR
+constexpr bool useCrossOrigin = false;  // GPipe: true
 constexpr double frac_delta = 1e-5;  
 constexpr size_t domain_min = 20;  // aa
+const string na ("NA");
   
 bool ident_min_user = false;
 bool equidistant = false;
+bool cdsExist = false;
+bool print_node = false;
+bool print_node_raw = false;
+bool reportPseudo = false; 
+bool parentTargetProt = true;
+string input_name;
+
+//const string stopCodonS ("[stop]");
+//const string frameShiftS ("[frameshift]");
+
+map <string/*accession*/, Vector<AmrMutation>>  accession2mutations;
 
 
 
@@ -93,10 +106,6 @@ struct BlastRule : Root
 
 BlastRule defaultCompleteBR;
 BlastRule defaultPartialBR;
-
-
-
-struct Batch;  // forward
 
 
 
@@ -191,12 +200,14 @@ struct Fam
 };
 
 
+
 map<string/*famId*/,const Fam*> famId2fam;
   // Value: !nullptr
   //        Not delete'd
 
 
 
+struct Batch; 
 struct BlastAlignment;
 
 
@@ -326,24 +337,7 @@ struct Susceptible : Root
 };
 
 
-
-map <string/*accession*/, Vector<AmrMutation>>  accession2mutations;
 map <string/*accession*/, Susceptible>  accession2susceptible;
-
-
-bool cdsExist = false;
-bool print_node = false;
-bool print_node_raw = false;
-
-bool reportPseudo = false; 
-//const string stopCodonS ("[stop]");
-//const string frameShiftS ("[frameshift]");
-
-string input_name;
-
-const string na ("NA");
-
-bool parentTargetProt = true;
 
 
 
@@ -376,9 +370,10 @@ struct BlastAlignment : Alignment
   string classS;
   string subclass;
 
+  const Fam* brFam {nullptr};
+  // Valid if !fromHmm and !inFam()
   BlastRule completeBR;  
   BlastRule partialBR;   
-  const Fam* brFam {nullptr};
   
   string product;  
   Vector<Locus> cdss;
@@ -435,11 +430,9 @@ struct BlastAlignment : Alignment
 		    replace (subclass, '_', ' ');
 		    
         // BlastRule
+		    // PD-2310
         if (inFam ())
         {
-  		    // PD-2310
-  		    completeBR = getFam () -> completeBR;
-  		    partialBR  = getFam () -> partialBR;
   		    // PD-4856
   		    ASSERT (! brFam);
           EXEC_ASSERT (brFam = getFam ());          
@@ -480,7 +473,6 @@ struct BlastAlignment : Alignment
 		      completeBR = defaultCompleteBR;
 		      partialBR  = defaultPartialBR;
 		    }
-		    ASSERT (! completeBR. empty ());
 		    	
 		    partialDna = false;
 		    constexpr size_t mismatchTailDna = 10;  // PAR
@@ -530,8 +522,6 @@ struct BlastAlignment : Alignment
     : fromHmm    (true)
     , famId      (hmmAl_arg. fam->id)   
     , gene       (hmmAl_arg. fam->id)   
-    , completeBR (defaultCompleteBR)
-    , partialBR  (defaultPartialBR)
     , product    (hmmAl_arg. fam->familyName) 
     , hmmAl      (& hmmAl_arg)  
     { ASSERT (hmmAl_arg. good ());
@@ -606,8 +596,8 @@ struct BlastAlignment : Alignment
     	    QC_ASSERT (cds. contig == targetName);
     	}
 	    QC_IMPLY (! seqChanges. empty (), isMutationProt ());
-	    QC_ASSERT (! completeBR. empty ());
-	    QC_ASSERT (! partialBR. empty ());
+	    QC_ASSERT ((fromHmm || inFam ()) == completeBR. empty ());
+	    QC_ASSERT ((fromHmm || inFam ()) == partialBR.  empty ());
     }
   void report (TsvOut &td,
                const string &parentTargetName,
@@ -1010,6 +1000,8 @@ public:
   	    return false;
   	  if (brFam)
   	    return true;
+  	  if (inFam ())
+  	    return false;
 	    if (partial ())
         return passBlastRule (partialBR);
       return passBlastRule (completeBR);
@@ -1186,7 +1178,6 @@ private:
 	    LESS_PART (other, *this, targetProt);
       return true;
     }
-public:
   const Fam* getFam () const
     { ASSERT (inFam ());
       const Fam* fam = famId2fam [famId];
@@ -1196,6 +1187,7 @@ public:
       	throw runtime_error ("Cannot find hierarchy for: " + famId + " / " + gene);
       return fam;
     }
+public:
   const Fam* getMatchFam () const
     { ASSERT (inFam ());
       if (fromHmm)
@@ -1231,7 +1223,7 @@ public:
     	}
     #endif
       return    refProtExactlyMatched () 
-             || (inFam () && getFam () -> descendantOf (other. fam))
+             || (inFam () && getMatchFam () -> descendantOf (other. fam))  
              ;
     }
   size_t getCdsStart () const
@@ -1321,8 +1313,8 @@ bool HmmAlignment::better (const BlastAlignment& other) const
 	  return false;
 	if (sseqid != other. targetName)
     return false;
-  return    fam != other. getFam ()
-         && fam->descendantOf (other. getFam ());
+  return    fam != other. getMatchFam ()  
+         && fam->descendantOf (other. getMatchFam ());  
 }
 
 
@@ -1864,13 +1856,12 @@ public:
   	if (hmmExist && ! skip_hmm_check)
   	  for (auto& it : target2goodBlastAls)
         for (Iter<VectorPtr<BlastAlignment>> iter (it. second); iter. next ();)
-          if (   /*! iter->refExactlyMatched () */
-                 (*iter) -> inFam ()
+          if (   (*iter) -> inFam ()
           	  && (*iter) -> targetProt
-          	  && (*iter) -> pIdentity () < 0.98 - frac_delta  // PAR  // PD-1673
               && ! (*iter) -> partial ()
+          	  && (*iter) -> pIdentity () < 0.98 - frac_delta  // PAR  // PD-1673  // Replace by BlastRule ??!
              )
-  	        if (const Fam* fam = (*iter) -> getFam () -> getHmmFam ())  
+  	        if (const Fam* fam = (*iter) -> getMatchFam () -> getHmmFam ())    
   	        {
   	          bool found = false;
   	      	  for (const HmmAlignment* hmmAl : target2goodHmmAls [it. first])
@@ -2056,7 +2047,6 @@ public:
     	for (const BlastAlignment* blastAl : it. second)
     	{
     	  ASSERT (blastAl);
-    	//PRINT (blastAl->getMatchFam () -> id);
      	  if (blastAl->isMutationProt ())
     	  	if (blastAl->seqChanges. empty ())
     	  	  ;
@@ -2330,13 +2320,13 @@ struct ThisApplication : Application
   	      if (verbose ())
   	        cout << f. line << endl;  
   	    }
-  	    auto al = new BlastAlignment (f. line, true);
+  	    unique_ptr<BlastAlignment> al (new BlastAlignment (f. line, true));
   	    al->qc ();  
   	    if (nosame && al->refAccession == al->targetName)
   	      continue;
-        batch. blastAls << al;
+        batch. blastAls << al. get ();
         ASSERT (! al->targetName. empty ());
-        batch. target2blastAls [al->targetName] << al;
+        batch. target2blastAls [al->targetName] << al. release ();
   	  }
   	}
   	if (verbose ())
@@ -2412,8 +2402,8 @@ struct ThisApplication : Application
     	  	//ASSERT (! al->partial ());
       	  }
   	  	  al->qc ();
-  	  	  batch. target2hmmAls [hmmAl->sseqid] << hmmAl. get ();
-  	      batch. hmmAls << hmmAl. release ();
+  	  	  batch. target2hmmAls [hmmAl->sseqid] << hmmAl. get ();  
+  	      batch. hmmAls                        << hmmAl. release ();
     	  }
     	}
     }
@@ -2434,11 +2424,11 @@ struct ThisApplication : Application
   	      if (verbose ())
   	        cout << f. line << endl;  
   	    }
-  	    auto al = new BlastAlignment (f. line, false);
+  	    unique_ptr<BlastAlignment> al (new BlastAlignment (f. line, false));
   	    al->qc ();  
   	    if (nosame && al->refAccession == al->targetName)
   	      continue;
- 	      batch. blastAls << al;
+ 	      batch. blastAls << al. release ();
   	  }
   	}
   	if (verbose ())

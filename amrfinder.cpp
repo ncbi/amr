@@ -33,6 +33,9 @@
 * Dependencies: NCBI BLAST, HMMer, gunzip (optional)
 *
 * Release changes:
+*                               replacing getFam() by getMatchFam() in amr_report.cpp
+*   3.12.6  01/26/2024          memory leaks in amr_report.cpp
+*   3.12.5  01/19/2024          BlastAlignment::BlastRule's are valid if !fromHmm and !inFam()
 *   3.12.4  01/18/2024 PD-4856  allow multiple Blast Rules for the same protein
 *   3.12.3  01/12/2024          improved error message reporting for GFF files (https://github.com/ncbi/amr/issues/135)
 *   3.12.2  12/21/2023 PD-4843  --mutation_all should report only point mutations

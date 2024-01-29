@@ -91,6 +91,7 @@ struct TextTable : Named
       }
   };
   Vector<Header> header;
+    // Header::name's are unique
     // size() = number of columns
   Vector<StringVector> rows;
     // StringVector::size() = header.size()
