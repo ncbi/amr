@@ -607,7 +607,7 @@ struct BlastAlignment : Alignment
                                   ? product 
                                   : susceptible
                                     ? susceptible->name
-                                    : refProtExactlyMatched () || parts >= 2 || refAccession. empty ()   // PD-3187, PD-3192
+                                    : refProtExactlyMatched (false) || parts >= 2 || refAccession. empty ()   // PD-3187, PD-3192
                                       ? product 
                                       : nvl (getMatchFam () -> familyName, na)
                                );
@@ -729,7 +729,7 @@ struct BlastAlignment : Alignment
   	        }
   	        if (print_node)
   	        {
-  	          if (! print_node_raw && allele () && ! refProtExactlyMatched ())
+  	          if (! print_node_raw && allele () && ! refProtExactlyMatched (false))
   	            td << gene;
   	          else
   	            td << famId;
@@ -795,7 +795,7 @@ struct BlastAlignment : Alignment
       return false;
     }
   bool alleleMatch () const
-    { return refProtExactlyMatched () && allele (); }
+    { return refProtExactlyMatched (true) && allele (); }
   bool alleleReportable () const  // PD-3583
     { return alleleMatch () && reportable >= 2; }
   uchar getReportable () const
@@ -928,7 +928,7 @@ public:
 	                     ? "HMM"
 	                     : isMutationProt ()
     	                   ? "POINT"
-    	                   : refProtExactlyMatched () 
+    	                   : refProtExactlyMatched (false) 
             	             ? alleleMatch () 
             	               ? "ALLELE"
             	               : "EXACT"  // PD-776
@@ -1141,7 +1141,7 @@ private:
         else
         {
   	      LESS_PART (other, *this, hasMutation ());
-  	      LESS_PART (other, *this, refProtExactlyMatched ());  // PD-1261, PD-1678
+  	      LESS_PART (other, *this, refProtExactlyMatched (false));  // PD-1261, PD-1678
   	      LESS_PART (other, *this, nident);
   	      LESS_PART (*this, other, refEffectiveLen ());  
   	    }
@@ -1155,7 +1155,7 @@ private:
 	    	  return false;
 	    	if (! targetProt && ! other. matchesCds (*this))
 	    	  return false;
-	      LESS_PART (other, *this, refProtExactlyMatched ());  
+	      LESS_PART (other, *this, refProtExactlyMatched (false));  
 	    //LESS_PART (other, *this, allele ());  // PD-2352
 	      LESS_PART (other, *this, alleleMatch ());  
 	    //LESS_PART (*this, other, partial ());  // targetProt => supposed to be a correct annotation
@@ -1222,7 +1222,7 @@ public:
     	  other. saveText (cout);
     	}
     #endif
-      return    refProtExactlyMatched () 
+      return    refProtExactlyMatched (false) 
              || (inFam () && getMatchFam () -> descendantOf (other. fam))  
              ;
     }
@@ -1859,7 +1859,7 @@ public:
           if (   (*iter) -> inFam ()
           	  && (*iter) -> targetProt
               && ! (*iter) -> partial ()
-          	  && (*iter) -> pIdentity () < 0.98 - frac_delta  // PAR  // PD-1673  // Replace by BlastRule ??!
+          	  && (*iter) -> pIdentity () < 0.98 - frac_delta  // PAR  // PD-1673  
              )
   	        if (const Fam* fam = (*iter) -> getMatchFam () -> getHmmFam ())    
   	        {

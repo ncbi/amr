@@ -319,13 +319,13 @@ public:
     { return targetProt ? (double) (targetEnd - targetStart) / (double) targetLen : NaN; }
   size_t targetTail (bool upstream) const
     { return targetStrand == upstream ? targetStart : (targetLen - targetEnd); }
-  bool refProtExactlyMatched () const
+  bool refProtExactlyMatched (bool targetComplete) const
     { return    refProt
              && refLen   
              && nident == refLen 
              && nident == targetSeq. size ()
              && targetStopCodon != efalse
-             && (! targetProt || refLen + (targetStopCodon == etrue ? 1 : 0) == targetLen); 
+             && (! targetProt || ! targetComplete || refLen + (targetStopCodon == etrue ? 1 : 0) == targetLen); 
 	  }
   long getGlobalTargetStart () const;
     // Requires: !targetProt, refProt

@@ -611,7 +611,7 @@ inline string prependS (const string &s,
   { return s. empty () ? noString : (prefix + s); }
   	
 inline void add (string &to,
-                 char delimiter,
+                 const string &delimiter,
 		             const string &what)
   { if (! to. empty ())
   	  to += delimiter;

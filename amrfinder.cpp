@@ -33,17 +33,18 @@
 * Dependencies: NCBI BLAST, HMMer, gunzip (optional)
 *
 * Release changes:
-*                               replacing getFam() by getMatchFam() in amr_report.cpp
+*   3.12.7  02/01/2024 PD-4872  hanging tails of target protein are allowed for EXACTP matches, but ALLELEP requires EXACTP with no hanging tails
+*           01/27/2024          replacing getFam() by getMatchFam() in amr_report.cpp
 *   3.12.6  01/26/2024          memory leaks in amr_report.cpp
-*   3.12.5  01/19/2024          BlastAlignment::BlastRule's are valid if !fromHmm and !inFam()
+*   3.12.5  01/19/2024          BlastAlignment::BlastRule's are valid iff !fromHmm and !inFam()
 *   3.12.4  01/18/2024 PD-4856  allow multiple Blast Rules for the same protein
 *   3.12.3  01/12/2024          improved error message reporting for GFF files (https://github.com/ncbi/amr/issues/135)
 *   3.12.2  12/21/2023 PD-4843  --mutation_all should report only point mutations
 *   3.12.1  12/15/2023 PD-4838  stop codons are added to the reference proteins in AMRFinderPlus
 *                               input proteins may miss '*' at the ends
 *                               target hits have a new three-valued flag targetStopCodon: detected, missing, unknown
-*                               procsssing of prodigal GFF format is restored
-*   3.11.26 10/16/2023 PD-4772  remove prodigal GFF format from AMRFinderPlus
+*                               procsssing of Prodigal GFF format is restored
+*   3.11.26 10/16/2023 PD-4772  remove Prodigal GFF format from AMRFinderPlus
 *   3.11.25 10/13/2023 PD-4771  revert removing '*' from Prodigal output to ensure ALLELEP and EXACTP matches
 *   3.11.24 10/12/2023 PD-4769  --print_node prints FAM.id replaced by FAM.parent for non-exact allele matches
 *   3.11.23 10/06/2023 PD-4764  remove '*' from Prodigal output to ensure ALLELEP and EXACTP matches
