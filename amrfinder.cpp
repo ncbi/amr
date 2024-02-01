@@ -33,6 +33,7 @@
 * Dependencies: NCBI BLAST, HMMer, gunzip (optional)
 *
 * Release changes:
+*   3.12.8  02/01/2024 PD-4872  ALLELEP = EXACTP for alleles; exact matches with naging tailes are preferred
 *   3.12.7  02/01/2024 PD-4872  hanging tails of target protein are allowed for EXACTP matches, but ALLELEP requires EXACTP with no hanging tails
 *           01/27/2024          replacing getFam() by getMatchFam() in amr_report.cpp
 *   3.12.6  01/26/2024          memory leaks in amr_report.cpp

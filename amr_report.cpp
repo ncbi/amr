@@ -607,7 +607,7 @@ struct BlastAlignment : Alignment
                                   ? product 
                                   : susceptible
                                     ? susceptible->name
-                                    : refProtExactlyMatched (false) || parts >= 2 || refAccession. empty ()   // PD-3187, PD-3192
+                                    : refProtExactlyMatched (true) || parts >= 2 || refAccession. empty ()   // PD-3187, PD-3192
                                       ? product 
                                       : nvl (getMatchFam () -> familyName, na)
                                );
@@ -729,7 +729,7 @@ struct BlastAlignment : Alignment
   	        }
   	        if (print_node)
   	        {
-  	          if (! print_node_raw && allele () && ! refProtExactlyMatched (false))
+  	          if (! print_node_raw && allele () && ! refProtExactlyMatched (true))
   	            td << gene;
   	          else
   	            td << famId;
@@ -928,7 +928,7 @@ public:
 	                     ? "HMM"
 	                     : isMutationProt ()
     	                   ? "POINT"
-    	                   : refProtExactlyMatched (false) 
+    	                   : refProtExactlyMatched (true) 
             	             ? alleleMatch () 
             	               ? "ALLELE"
             	               : "EXACT"  // PD-776
@@ -1222,7 +1222,7 @@ public:
     	  other. saveText (cout);
     	}
     #endif
-      return    refProtExactlyMatched (false) 
+      return    refProtExactlyMatched (true) 
              || (inFam () && getMatchFam () -> descendantOf (other. fam))  
              ;
     }
