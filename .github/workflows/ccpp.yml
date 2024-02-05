@@ -3,6 +3,7 @@ name: C++ CI
 on: 
     workflow_dispatch:
     push:
+    pull_request:
     repository_dispatch:
         types: [linux-compile-test, install-test]
 jobs:

@@ -151,7 +151,7 @@ constexpr const char* error_caption ("*** ERROR ***");
   // For debugger
 
 [[noreturn]] void throwf (const string &s); 
-  // For debugger
+  // For debugger: should not be in-line
 
 void beep ();
   // Requires: !isRedirected()
@@ -416,7 +416,7 @@ template <typename To, typename From>
   inline void insertIter (To &to,
                           From &&from)
     { for (auto&& x : from)
-        to. insert (move (x));
+        to. insert (std::move (x));
     }
 
 template <typename To, typename From>
@@ -446,6 +446,20 @@ template <typename T /*container*/>
         first = false;
       }
     }
+
+
+
+// KeyValue
+
+typedef  map<string/*key*/,string/*value*/>  KeyValue;
+
+inline string find (const KeyValue& kv,
+                    const string& key)
+  { const auto& it = kv. find (key);
+    if (it == kv. end ())
+      throw runtime_error ("Key \"" + key + "\" is not found");
+    return it->second;
+  }
 
 
 
@@ -572,6 +586,14 @@ inline const char* nvl (const char* s,
 
 extern const string noString;
 
+#ifndef _MSC_VER
+  inline string getEnv (const string& name)
+    { if (const char* p = getenv (name. c_str ()))
+        return p;
+      return noString;
+    }
+#endif
+  
 inline string ifS (bool cond,
                    const string &s)
   { return cond ? s : noString; }
@@ -589,7 +611,7 @@ inline string prependS (const string &s,
   { return s. empty () ? noString : (prefix + s); }
   	
 inline void add (string &to,
-                 char delimiter,
+                 const string &delimiter,
 		             const string &what)
   { if (! to. empty ())
   	  to += delimiter;
@@ -657,6 +679,9 @@ bool trimTailAt (string &s,
                  const string &tailStart);
   // Return: trimmed
   // Update: s
+
+void commaize (string &s);
+  // ' ' --> ','
 
 inline bool isLeftBlank (const string &s,
                          size_t spaces)
@@ -753,7 +778,7 @@ void replace (string &s,
               char to);
   
 void replace (string &s,
-              const string &fromChars,
+              const string &fromAnyChars,
               char to);
   
 void replaceStr (string &s,
@@ -774,7 +799,7 @@ void visualizeTrailingSpaces (string &s);
   
 string str2streamWord (const string &s,
                        size_t wordNum);
-  // Return: May be string()
+  // Return: May be empty()
   // Input: wordNum: 0-based  
 
 string str2sql (const string &s);
@@ -1012,11 +1037,11 @@ template <typename T>
       {}
     Pair (T &&a,
           T &&b)
-      : P (move (a), move (b))
+      : P (std::move (a), std::move (b))
       {}
     Pair () = default;
     Pair (Pair<T> &&other)
-      : P (move (other. first), move (other. second))
+      : P (std::move (other. first), std::move (other. second))
       {}
     Pair (const Pair<T> &other) = default;
     Pair& operator= (const Pair<T> &other) = default;
@@ -1112,7 +1137,7 @@ template <typename T>
       	return *this;
       }    
     List<T>& operator<< (T &&t) 
-      { P::push_back (move (t)); 
+      { P::push_back (std::move (t)); 
       	return *this;
       }    
     template <typename U/*:<T>*/>
@@ -1187,7 +1212,7 @@ template <typename T>
     typename T::value_type* operator-> () const
       { return & const_cast <typename T::value_type&> (*it); }  // *set::iterator = const set::value_type
     typename T::value_type erase ()
-      { typename T::value_type val = move (*it);
+      { typename T::value_type val = std::move (*it);
         itNext = t. erase (it); 
         return val;
       }
@@ -1563,39 +1588,22 @@ inline void section (const string &title,
 template <typename T>
   inline void report (ostream &os,
 			                const string &name,
-			                T value)
+			                const T &value)
     {	os << name << '\t' << value << endl; }
   
 
 
-struct TabDel
-// Usage: {<<field;}* str();
+struct IFStream : ifstream
+// Text file
 {
-private:
-  ostringstream tabDel;
-  const ONumber on;
-public:
-  
-  explicit TabDel (streamsize precision = 6,
-	                 bool scientific = false)
-	  : on (tabDel, precision, scientific)
-	  {}
-    
-  template <typename T>
-    TabDel& operator<< (const T &field)
-      { if (tabDel. tellp ())  
-          tabDel << '\t'; 
-        tabDel << field; 
-        return *this; 
-      }    
-  string str () const
-    { return tabDel. str (); }
+  IFStream () = default;
+	explicit IFStream (const string &pathName);
 };
 
 
 
-
 struct OFStream : ofstream
+// Text file
 {
 	OFStream () = default;
 	OFStream (const string &dirName,
@@ -1603,7 +1611,7 @@ struct OFStream : ofstream
 	          const string &extension)
 	  { open (dirName, fileName, extension); }
 	explicit OFStream (const string &pathName)
-	  { open ("", pathName, ""); }
+	  { open (noString, pathName, noString); }
 	static void create (const string &pathName)
 	  { OFStream f (pathName); }
 
@@ -1625,7 +1633,8 @@ inline streamsize double2decimals (double r)
 //////////////////////////////////////////////////////////////////////////////////////
 
 void exec (const string &cmd,
-           const string &logFName = string());
+           const string &logFName = noString);
+  // Input: logFName: log file populated by cmd, to include into exception::what() if cmd fails
 
 #ifndef _MSC_VER
   string which (const string &progName);
@@ -1673,7 +1682,7 @@ public:
 	Threads& operator<< (thread &&t)
 	  { if (! getAvailable ())
 	  	  throwf ("Too many threads created");
-	  	try { threads. push_back (move (t)); }
+	  	try { threads. push_back (std::move (t)); }
 	  	  catch (const exception &e) 
 	  	    { throwf (string ("Cannot start thread\n") + e. what ()); }
 	  	return *this;
@@ -1708,7 +1717,7 @@ template <typename Func, typename Res, typename... Args>
   	if (threads_max == 1 || i_max <= 1 || ! Threads::empty ())
   	{
   		results. push_back (Res ());
-    	func (0, i_max, results. front (), forward<Args>(args)...);
+    	func (0, i_max, results. front (), std::forward<Args>(args)...);
   		return;
   	}
 		size_t chunk = max<size_t> (1, i_max / threads_max);
@@ -1727,10 +1736,10 @@ template <typename Func, typename Res, typename... Args>
 	    Res& res = results. back ();
 	    if (to >= i_max)
 	    {
-	    	func (from, i_max, res, forward<Args>(args)...);
+	    	func (from, i_max, res, std::forward<Args>(args)...);
 	    	break;
 	    }
-		  th << thread (func, from, to, ref (res), forward<Args>(args)...);
+		  th << thread (func, from, to, ref (res), std::forward<Args>(args)...);
 		}
   }
 
@@ -1920,7 +1929,7 @@ public:
     {}
     // A desrtructor should be virtual to be automatically invoked by a descendant class destructor
   virtual Root* copy () const
-    { throwf ("Root::copy() is not implemented"); return nullptr; }
+    { throwf ("Root::copy() is not implemented"); /*return nullptr;*/ }
     // Return: the same type    
   virtual void qc () const
     {}
@@ -1941,7 +1950,7 @@ public:
     { throwf ("Root::saveXml() is not implemented"); }
   virtual Json* toJson (JsonContainer* /*parent_arg*/,
                         const string& /*name_arg*/) const
-    { throwf ("Root::toJson() is not implemented"); return nullptr; }
+    { throwf ("Root::toJson() is not implemented"); /*return nullptr;*/ }
 	virtual bool empty () const
 	  { return true; }
   virtual void clear ()
@@ -2012,7 +2021,7 @@ struct Named : VirtNamed
     : name (name_arg) 
     {}
   explicit Named (string &&name_arg)
-    : name (move (name_arg))
+    : name (std::move (name_arg))
     {}
   Named* copy () const override
     { return new Named (*this); } 
@@ -2147,7 +2156,7 @@ template <typename T>
       	return *this;
       }
     Vector<T>& operator<< (T &&value)
-      { P::push_back (move (value));
+      { P::push_back (std::move (value));
         unsetSearchSorted ();
       	return *this;
       }
@@ -2162,7 +2171,7 @@ template <typename T>
       Vector<T>& operator<< (vector<U> &&other)
         { reserveInc (other. size ());
           for (U& t : other)
-            P::push_back (move (t));
+            P::push_back (std::move (t));
           unsetSearchSorted ();
           other. clear ();
         	return *this;
@@ -2256,7 +2265,7 @@ template <typename T>
           for (size_t i = 0, end_ = P::size (); i < end_; i++)
           { const size_t j = i - toDelete;
             if (j != i)
-              (*this) [j] = move ((*this) [i]);
+              (*this) [j] = std::move ((*this) [i]);
             if (cond (j))
               toDelete++;
           }
@@ -2271,7 +2280,7 @@ template <typename T>
           for (size_t i = 0, end_ = P::size (); i < end_; i++)
           { const size_t j = i - toDelete;
             if (j != i)
-              (*this) [j] = move ((*this) [i]);
+              (*this) [j] = std::move ((*this) [i]);
             if (cond ((*this) [j]))
               toDelete++;
           }
@@ -2713,10 +2722,10 @@ template <typename T /* : Root */>
   	  }
   	VectorOwn (VectorOwn<T> &&other)
   	  : P ()
-  	  { *this = move (other); }
+  	  { *this = std::move (other); }
   	VectorOwn<T>& operator= (VectorOwn<T> &&other)
   	  { P::deleteData ();
-  	    P::operator= (move (other)); 
+  	    P::operator= (std::move (other)); 
   	  	P::searchSorted = other. searchSorted;
   	    return *this;
   	  }
@@ -2731,10 +2740,10 @@ template <typename T /* : Root */>
   	  }
   	explicit VectorOwn (VectorPtr<T> &&other)
   	  : P ()
-  	  { *this = move (other); }
+  	  { *this = std::move (other); }
   	VectorOwn<T>& operator= (VectorPtr<T> &&other) 
   	  { P::deleteData ();
-  	    P::operator= (move (other)); 
+  	    P::operator= (std::move (other)); 
   	  	P::searchSorted = other. searchSorted;
   	    return *this;
   	  }
@@ -3077,12 +3086,12 @@ template <typename T>
 	              T el)
     { if (from == to)
     	  return;
-    	IMPLY (from, ! from->universal);
-    	IMPLY (to,   ! to  ->universal);
+    	assert (! from || ! from->universal);
+    	assert (! to   || ! to  ->universal);
     	if (from)
-    	  { EXEC_ASSERT (from->erase (el) == 1); }
+    	  from->erase (el); 
     	if (to)
-    	  { EXEC_ASSERT (to->insert (el). second); }
+    	  to->insert (el);
     }
 
 
@@ -3534,7 +3543,7 @@ public:
 struct Input : Root, Nocopy
 {
 protected:
-  ifstream ifs;
+  IFStream ifs;
   istream* is {nullptr};
     // ifs.is_open() => is = &ifs
 public:
@@ -3547,7 +3556,11 @@ public:
 
 protected:	
   Input (const string &fName,
-         uint displayPeriod);
+         uint displayPeriod)
+    : ifs (fName)
+    , is (& ifs)
+    , prog (0, displayPeriod)  
+    {}
   Input (istream &is_arg,
 	       uint displayPeriod);
 public:
@@ -3590,8 +3603,8 @@ struct LineInput : Input
 		  throwf ("No " + strQuote (prefix));
 		  return false;  // dummy
 		}
-	string lineStr () const
-	  { return "line " + to_string (lineNum + 1); }
+	string lineStr (bool add1 = true) const
+	  { return "line " + to_string (lineNum + add1); }
 };
 	
 
@@ -3870,14 +3883,11 @@ public:
    			error (t, Token::type2str (Token::eDelimiter) + " " + strQuote (toString (expected), '\'')); 
     }
   void setLast (Token &&t)
-    { if (t. empty ())
-        throwf ("TokenInput::setLast()");
-      last = move (t);
-    }
+    { last = std::move (t); }
   bool getNext (char expected)
     { Token token (get ());
       if (! token. isDelimiter (expected))
-      { setLast (move (token));
+      { setLast (std::move (token));
       	return false;
       }
       return true;
@@ -3897,6 +3907,10 @@ struct JsonBoolean;
 struct JsonArray;
 struct JsonMap;
   
+
+
+extern unique_ptr<JsonMap> jRoot;
+
 
 
 struct Json : Root, Nocopy  // Heaponly
@@ -3925,8 +3939,7 @@ public:
     { return nullptr; }  
 
 protected:
-  static string toStr (const string& s)
-    { return isNatural (s) ? s : ("'" + to_c (s) + "'"); } 
+  static string toStr (const string& s);
   static void parse (CharInput &in,
                      const Token& firstToken,
                      JsonContainer* parent,
@@ -4141,9 +4154,6 @@ public:
 };
 
 
-extern JsonMap* jRoot;
-
-
 
 
 ///////////////////////////////////////////////////////////////////////////
@@ -4175,7 +4185,7 @@ struct FileItemGenerator : ItemGenerator, Nocopy
 {
 private:
   string fName;
-  ifstream f;
+  IFStream f;
 public:
   const bool tsv;
   
@@ -4191,30 +4201,57 @@ public:
   
 
 #ifndef _MSC_VER
-struct DirItemGenerator : ItemGenerator, Nocopy
+struct RawDirItemGenerator : ItemGenerator, Nocopy
 {
 private:
   string dirName;
   struct Imp;  
   Imp* imp {nullptr};
-  unique_ptr<DirItemGenerator> dig;
+  unique_ptr<RawDirItemGenerator> dig;
 public:
   const bool large;
   
   
-  DirItemGenerator (size_t progress_displayPeriod,
-                    const string& dirName_arg,
-                    bool large_arg);
- ~DirItemGenerator ();
+  RawDirItemGenerator (size_t progress_displayPeriod,
+                       const string& dirName_arg,
+                       bool large_arg);
+ ~RawDirItemGenerator ();
 
   
   bool next (string &item) final;
-    // Raw order
 private:
   bool next_ (string &item,
               bool report);
 public:
   StringVector toVector ();
+};
+
+
+
+struct DirItemGenerator : ItemGenerator
+{
+private:
+  StringVector vec;
+  size_t index {0};
+public:
+  
+  
+  DirItemGenerator (size_t progress_displayPeriod,
+                    const string& dirName,
+                    bool large)
+    : ItemGenerator (0, progress_displayPeriod)
+    , vec (RawDirItemGenerator (0, dirName, large). toVector ())
+    {}
+
+  
+  bool next (string &item) final
+    { if (index == vec. size ())
+        return false;
+      item = vec [index];
+      prog (item);
+      index++;      
+      return true;
+    }
 };
 #endif
 
@@ -4223,7 +4260,7 @@ public:
 struct NumberItemGenerator : ItemGenerator
 {
 private:
-  size_t i {0};
+  size_t index {0};
 public:
   
   
@@ -4234,10 +4271,10 @@ public:
   
   
   bool next (string &item) final
-    { if (i == prog. n_max)
+    { if (index == prog. n_max)
         return false;
-      i++;
-      item = to_string (i);
+      index++;
+      item = to_string (index);
       prog ();
       return true;
     }
@@ -4525,7 +4562,7 @@ public:
   string execDir;
     // Ends with '/'
     // Physically real directory of the software
-  mutable map<string,string> prog2dir;
+  mutable KeyValue prog2dir;
   
 
   ShellApplication (const string &description_arg,
@@ -4555,7 +4592,7 @@ protected:
     // Requires: After findProg(progName)
   string exec2str (const string &cmd,
                    const string &tmpName,
-                   const string &logFName = string()) const;
+                   const string &logFName = noString) const;
     // Return: `cmd > <tmp>/tmpName && cat <tmp>/tmpName`
     // Requires: cmd produces one line
 };

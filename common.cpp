@@ -33,7 +33,6 @@
 
 
 #undef NDEBUG
-#include "common.inc"
 
 #include "common.hpp"
 
@@ -41,7 +40,6 @@
 #include <cstring>
 #include <regex>
 #include <csignal>  
-
 #ifndef _MSC_VER
   extern "C"
   {
@@ -56,6 +54,7 @@
   }
 #endif
 
+#include "common.inc"
 
 
 
@@ -233,11 +232,10 @@ namespace
 	
 	// time ??
 #ifndef _MSC_VER
-	const char* hostname = getenv ("HOSTNAME");
-//const char* shell    = getenv ("SHELL");
-	const char* shell    = getenv ("SHELL");	
-	const char* pwd      = getenv ("PWD");
-	const char* path     = getenv ("PATH");
+	const string hostname (getEnv ("HOSTNAME"));
+	const string shell    (getEnv ("SHELL"));	
+	const string pwd      (getEnv ("PWD"));
+	const string path     (getEnv ("PATH"));
 #endif
   if (contains (msg, error_caption))  // msg already is the result of errorExit()
     *os << endl << msg << endl;
@@ -262,6 +260,9 @@ namespace
   //system (("env >> " + logFName). c_str ());
 
   os->flush ();           
+
+  if (cxml)
+    cxml->print (string (error_caption) + ": " + msg);
 
   if (segmFault)
     abort ();
@@ -313,8 +314,6 @@ string getStack ()
 
 [[noreturn]] void throwf (const string &s)  
 { 
-  if (cxml)
-    cxml->print (string (error_caption) + ": " + s);
   throw logic_error (s + "\nStack:\n" + getStack ()); 
 }
 
@@ -342,7 +341,7 @@ bool isRedirected (const ostream &os)
 
 void beep ()
 { 
-  if (string (getenv ("SHLVL")) != "1")
+  if (getEnv ("SHLVL") != "1")
     return;
 	constexpr char c = '\x07';
 	if (! isRedirected (cerr))
@@ -591,6 +590,17 @@ bool trimTailAt (string &s,
   if (trimmed)
     s. erase (pos);
   return trimmed;
+}
+
+
+
+void commaize (string &s)
+{
+  trim (s);
+  replace (s, '\t', ' ');
+  replace (s, ',', ' ');
+  replaceStr (s, "  ", " ");
+  replace (s, ' ', ',');
 }
 
 
@@ -847,11 +857,11 @@ void replace (string &s,
 
 
 void replace (string &s,
-              const string &fromChars,
+              const string &fromAnyChars,
               char to)
 {
   for (char& c : s)
-	  if (charInSet (c, fromChars))
+	  if (charInSet (c, fromAnyChars))
 	  	c = to;
 }
 
@@ -1033,7 +1043,7 @@ string unpercent (const string &s)
 {
   for (const char c : s)
   	if (between (c, '\0', ' ') /*! printable (c)*/)
-  		throwf (FUNC "Non-printable character: " + to_string (uchar (c)));
+  		throw runtime_error (FUNC "Non-printable character: " + to_string (uchar (c)));
 
   string r;
   constexpr size_t hex_pos_max = 2;
@@ -1051,7 +1061,7 @@ string unpercent (const string &s)
     {
       ASSERT (hex_pos < hex_pos_max);
       if (! isHex (c))
-        throwf (FUNC "Bad hexadecimal character: " + to_string (c));
+        throw runtime_error (FUNC "Bad hexadecimal character: " + to_string (c));
       hex = uchar (hex + hex2uchar (c));
       if (! hex_pos)
       {
@@ -1078,7 +1088,7 @@ List<string> str2list (const string &s,
 	List<string> res;
 	string s1 (s);
 	while (! s1. empty ())
-	  res << move (findSplit (s1, c));
+	  res << std::move (findSplit (s1, c));
 	return res;
 }
 
@@ -1104,7 +1114,7 @@ string list2str (const List<string> &strList,
 bool fileExists (const string &fName)
 { 
 #ifdef _MSC_VER
-  const ifstream f (fName. c_str ());
+  const IFStream f (fName. c_str ());
   bool ok = f. good ();
 #if 0
   if (ok)
@@ -1219,7 +1229,7 @@ void createDirectory (const string &dirName)
 
 void removeDirectory (const string &dirName)
 {
-  DirItemGenerator dig (0, dirName, false);
+  RawDirItemGenerator dig (0, dirName, false);
   string item;
   while (dig. next (item))
   {
@@ -1250,7 +1260,7 @@ void removeDirectory (const string &dirName)
 void concatTextDir (const string &inDirName,
                    const string &outFName)
 {
-  DirItemGenerator dig (0, inDirName, false);
+  RawDirItemGenerator dig (0, inDirName, false);
   OFStream outF (outFName);
   string item;
   while (dig. next (item))
@@ -1611,7 +1621,7 @@ string which (const string &progName)
 {
   ASSERT (! progName. empty ());
 
-  const List<string> paths (str2list (getenv ("PATH"), ':'));
+  const List<string> paths (str2list (getEnv ("PATH"), ':'));
   for (const string& path : paths)
     if (   ! path. empty () 
         && fileExists (path + "/" + progName)
@@ -1860,7 +1870,7 @@ StringVector::StringVector (const string &fName,
       *this << f. line;
   	  if (f. line < prev)
   	  	searchSorted = false;
-      prev = move (f. line);
+      prev = std::move (f. line);
     }
   }
   catch (const exception &e)
@@ -1877,7 +1887,7 @@ StringVector::StringVector (const string &s,
 {
 	string s1 (s);
 	while (! s1. empty ())
-	  *this << move (findSplit (s1, sep));
+	  *this << std::move (findSplit (s1, sep));
 	if (! s. empty () && s. back () == sep)
 	  *this << noString;
 	  
@@ -2072,18 +2082,6 @@ void TextPos::dec ()
 
 
 // Input
-
-Input::Input (const string &fName,
-	            uint displayPeriod)
-: ifs (fName)
-, is (& ifs)
-, prog (0, displayPeriod)  
-{ 
-  if (! ifs. good ())
-    throw runtime_error ("Cannot open file " + shellQuote (fName));
-}
- 
-
 
 Input::Input (istream &is_arg,
 	            uint displayPeriod)
@@ -2524,6 +2522,8 @@ Token TokenInput::getXmlText ()
 
     // Escaped character
     int n = c;
+    if (n < 0)
+      n += 256;
   	if (c == '&')
   	{
       if (ci. get () == '#')  // Number
@@ -2726,6 +2726,26 @@ char TokenInput::getNextChar ()
 
 
 
+// IFStream
+
+IFStream::IFStream (const string &pathName)
+{ 
+  switch (getFiletype (pathName, true))
+  {
+    case Filetype::none: throw runtime_error ("Cannot open " + shellQuote (pathName));
+    case Filetype::disk: throw runtime_error ("Cannot open a disk as a file: " + shellQuote (pathName));
+    case Filetype::dir:  throw runtime_error ("Cannot open a directory as a file: " + shellQuote (pathName));
+    case Filetype::link: ERROR; break;
+    default: break;
+  }
+	open (pathName);
+  if (! good ())
+    throw runtime_error ("Cannot open file " + shellQuote (pathName));
+}
+
+
+
+
 // OFStream
 
 void OFStream::open (const string &dirName,
@@ -2742,6 +2762,7 @@ void OFStream::open (const string &dirName,
 	if (! extension. empty ())
 		pathName += "." + extension;
 		
+  exceptions (std::ios::failbit | std::ios::badbit);  // In ifstream these flags collide with eofbit
 	ofstream::open (pathName);
 
 	if (! good ())
@@ -2813,7 +2834,7 @@ StringVector csvLine2vec (const string &line)
   {
     s = csv. getWord ();
     trim (s);
-    words << move (s);
+    words << std::move (s);
   }
   return words;
 }
@@ -2836,11 +2857,34 @@ Json::Json (JsonContainer* parent,
   else if (const JsonMap* jMap = parent->asJsonMap ())
   {
     ASSERT (! name. empty ());  
-    ASSERT (! contains (jMap->data, name));
+    if (contains (jMap->data, name))
+      throw runtime_error (FUNC "Duplicate name in JSON map: " + strQuote (name));
     var_cast (jMap) -> data [name] = this;
   }
   // throw() in a child constructor will invoke terminate() if an ancestor is JsonArray or JsonMap
 }
+
+
+
+string Json::toStr (const string& s)
+{ 
+  if (isNatural (s))
+    return s;
+    
+  // https://www.json.org/json-en.html
+  string res ("\"");
+  for (const char c : s)
+    switch (c)
+    {
+      case '\"': res += "\\\""; break;
+      case '\\': res += "\\\\"; break;
+      case '\n': res += "\\n"; break;
+      case '\r': res += "\\t"; break;
+      case '\t': res += "\\t"; break;
+      default:   res += c;
+    }
+  return res + "\""; 
+} 
 
 
 
@@ -3001,7 +3045,7 @@ JsonArray::JsonArray (CharInput& in,
         in. error ("\',\'");
       token = Token (in, false, false);
     }
-    parse (in, token, this, string());
+    parse (in, token, this, noString);
     first = false;
   }
 }
@@ -3030,7 +3074,7 @@ void JsonArray::saveText (ostream& os) const
 JsonMap::JsonMap ()
 {
   ASSERT (! jRoot);
-  jRoot = this;
+  jRoot. reset (this);
 }
 
 
@@ -3106,7 +3150,7 @@ void JsonMap::saveText (ostream& os) const
 
 
 
-JsonMap* jRoot = nullptr;
+unique_ptr<JsonMap> jRoot;
 
 
 
@@ -3162,9 +3206,9 @@ bool FileItemGenerator::next (string &item)
 
 
 #ifndef _MSC_VER
-// DirItemGenerator
+// RawDirItemGenerator
 
-struct DirItemGenerator::Imp
+struct RawDirItemGenerator::Imp
 {
   DIR* dir {nullptr};
   
@@ -3183,7 +3227,7 @@ struct DirItemGenerator::Imp
 
 
 
-DirItemGenerator::DirItemGenerator (size_t progress_displayPeriod,
+RawDirItemGenerator::RawDirItemGenerator (size_t progress_displayPeriod,
                                     const string& dirName_arg,
                                     bool large_arg)
 : ItemGenerator (0, progress_displayPeriod)
@@ -3196,14 +3240,14 @@ DirItemGenerator::DirItemGenerator (size_t progress_displayPeriod,
 
 
 
-DirItemGenerator::~DirItemGenerator ()
+RawDirItemGenerator::~RawDirItemGenerator ()
 { 
   delete imp; 
 }
 
 
 
-bool DirItemGenerator::next (string &item)
+bool RawDirItemGenerator::next (string &item)
 { 
   if (! large)
     return next_ (item, true);
@@ -3215,7 +3259,7 @@ bool DirItemGenerator::next (string &item)
       string subDir;
       if (! next_ (subDir, false))
         return false;
-      dig. reset (new DirItemGenerator (0, dirName + "/" + subDir, false));
+      dig. reset (new RawDirItemGenerator (0, dirName + "/" + subDir, false));
       QC_ASSERT (dig. get ());
     }
     if (dig->next (item))
@@ -3226,14 +3270,14 @@ bool DirItemGenerator::next (string &item)
 
 
 
-bool DirItemGenerator::next_ (string &item,
-                              bool report)
+bool RawDirItemGenerator::next_ (string &item,
+                                 bool report)
 { 
   ASSERT (imp);
   for (;;)
   {
     if (const dirent* f = readdir (imp->dir))    
-      item = move (string (f->d_name));
+      item = std::move (string (f->d_name));
     else
       return false;
     if (item == ".")
@@ -3251,13 +3295,15 @@ bool DirItemGenerator::next_ (string &item,
 
 
 
-
-StringVector DirItemGenerator::toVector ()
+StringVector RawDirItemGenerator::toVector ()
 {
   StringVector vec;
   string s;
   while (next (s))
-    vec << move (s);
+    vec << std::move (s);
+      
+  vec. sort ();
+  QC_ASSERT (vec. isUniq ());
     
   return vec;
 }
@@ -3273,7 +3319,7 @@ SoftwareVersion::SoftwareVersion (const string &fName)
   StringVector vec (fName, (size_t) 1, true);
   if (vec. size () != 1)
     throw runtime_error ("Cannot read software version. One line is expected in the file: " + shellQuote (fName));
-  init (move (vec [0]), false);
+  init (std::move (vec [0]), false);
 }
 
 
@@ -3283,7 +3329,7 @@ SoftwareVersion::SoftwareVersion (istream &is,
 { 
   string s;
   is >> s;
-  init (move (s), minorOnly);
+  init (std::move (s), minorOnly);
 }
 
 
@@ -3328,7 +3374,7 @@ DataVersion::DataVersion (const string &fName)
   StringVector vec (fName, (size_t) 1, true);
   if (vec. size () != 1)
     throw runtime_error ("Cannot read data version. One line is expected in the file: " + shellQuote (fName));
-  init (move (vec [0]));
+  init (std::move (vec [0]));
 }
 
 
@@ -3337,7 +3383,7 @@ DataVersion::DataVersion (istream &is)
 { 
   string s;
   is >> s;
-  init (move (s));
+  init (std::move (s));
 }
 
 
@@ -3937,13 +3983,12 @@ int Application::run (int argc,
   	  ASSERT (jRoot);
   		OFStream f (jsonFName);
       jRoot->saveText (f);
-      delete jRoot;
-      jRoot = nullptr;
+      jRoot. reset ();
     }
 	}
 	catch (const std::exception &e) 
 	{ 
-	  errorExit (e. what ());
+	  errorExit ((e. what () + ifS (errno, string (": ") + strerror (errno))). c_str ());
   }
 
 
@@ -3971,10 +4016,11 @@ void ShellApplication::initEnvironment ()
   // tmp
   if (useTmp)
   {
-    if (const char* s = getenv ("TMPDIR"))
-      tmp = move (string (s));
-    else
+    string s (getEnv ("TMPDIR"));
+    if (s. empty ())
       tmp = "/tmp";
+    else
+      tmp = std::move (s);
   }
 
   // execDir, programName

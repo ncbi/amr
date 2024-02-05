@@ -3,6 +3,7 @@ name: MacOS C++ CI
 on: 
     workflow_dispatch:
     push:
+    pull_request:
     repository_dispatch:
         types: [mac-compile-test, install-test]
 jobs:

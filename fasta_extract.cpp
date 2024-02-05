@@ -33,10 +33,11 @@
    
    
 #undef NDEBUG 
-#include "common.inc"
 
 #include "common.hpp"
 using namespace Common_sp;
+
+#include "common.inc"
 
 
 
@@ -61,9 +62,12 @@ struct Segment
   size_t size () const
     { return stop - start; }
   void saveText (ostream &os) const
-    { TabDel td;
-      td << start << stop << strand << genesymbol << name;
-      os << td. str ();
+    { os         << start 
+         << '\t' << stop 
+         << '\t' << strand 
+         << '\t' << genesymbol 
+         << '\t' << name
+         << endl;
     }
 };
 
@@ -196,7 +200,7 @@ Line format for nucleotide sequences : <id> <start (>=1)> <stop (>= start)> <str
         seg. name = f. line. substr ((size_t) iss. tellg ());
         trim (seg. name);
         QC_ASSERT (aa == ! seg. isDna ());
-        id2segments [id] << move (seg);
+        id2segments [id] << std::move (seg);
       }
     }
     if (verbose ())
@@ -207,7 +211,6 @@ Line format for nucleotide sequences : <id> <start (>=1)> <stop (>= start)> <str
         {
           cout << "  ";
           seg. saveText (cout);
-          cout << endl;
         }
       }
     if (id2segments. empty ())

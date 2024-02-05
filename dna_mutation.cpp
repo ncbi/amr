@@ -35,13 +35,14 @@
    
    
 #undef NDEBUG 
-#include "common.inc"
 
 #include "common.hpp"
+#include "tsv.hpp"
 using namespace Common_sp;
 #include "alignment.hpp"
 using namespace Alignment_sp;
 
+#include "common.inc"
 
 
 
@@ -49,7 +50,6 @@ namespace
 {  
 
 map <string/*accession*/, Vector<AmrMutation>>  accession2mutations;
-unique_ptr<OFStream> mutation_all;  
 string input_name;
 bool print_node = false;
 
@@ -105,7 +105,8 @@ struct BlastnAlignment : Alignment
       QC_ASSERT (! gene. empty ());
       QC_ASSERT (! organism. empty ());
     }
-  void saveText (ostream& os) const override
+  void report (TsvOut& td,
+               bool mutationAll) const 
     { const string na ("NA");
       for (const SeqChange& seqChange : seqChanges)
       {
@@ -114,8 +115,16 @@ struct BlastnAlignment : Alignment
           mutations << nullptr;
         for (const AmrMutation* mutation : mutations)
         {
+          {
+            bool skip = true;
+            if (mutationAll)
+              skip = false;
+            if (! seqChange. empty () && mutation && ! seqChange. replacement)  // resistant mutation
+              skip = false;
+            if (skip)
+              continue;
+          }
           ASSERT (! (seqChange. empty () && ! mutation));
-          TabDel td (2, false);
     	    if (! input_name. empty ())
     	      td << input_name;;
           td << na  // PD-2534
@@ -164,10 +173,13 @@ struct BlastnAlignment : Alignment
              << na;
 	        if (print_node)
 	          td << na;
+	        td. newLn ();
+	      #if 0
           if (! seqChange. empty () && mutation && ! seqChange. replacement)  // resistant mutation
             os << td. str () << endl;
           if (mutation_all. get ())
   	        *mutation_all << td. str () << endl;
+  	    #endif
   	    }
       }
     }
@@ -208,7 +220,7 @@ struct Batch
      	  	iss. reset (f. line);
     	  	iss >> accession >> pos >> geneMutation >> classS >> subclass >> name;
     	  	QC_ASSERT (pos > 0);
-   	  		accession2mutations [accession] << move (AmrMutation ((size_t) pos, geneMutation, classS, subclass, name));
+   	  		accession2mutations [accession] << std::move (AmrMutation ((size_t) pos, geneMutation, classS, subclass, name));
     	  }	    
     	}
   	  for (auto& it : accession2mutations)
@@ -220,53 +232,51 @@ struct Batch
 	  }
 	  	  
 
-	void report (ostream &os) const
+	void report (TsvOut &td,
+	             bool mutationAll) const
 	{
-    {
-    	// Cf. BlastnAlignment::saveText()
-	    TabDel td;
-	    if (! input_name. empty ())
-	      td << "Name";
-	    td << "Protein identifier"   // targetName  // PD-2534
-         // Contig
-         << "Contig id"
-         << "Start"  // targetStart
-         << "Stop"  // targetEnd
-         << "Strand"   // targetStrand
-	       << "Gene symbol"
-	       << "AmrMutation name"
-	       << "Scope"  // PD-2825
-	       // PD-1856
-	       << "Element type"
-	       << "Element subtype"
-	       << "class"
-	       << "Subclass"
-	       //
-	       << "Method"
-	       << "Target length" 
-	       //
-	       << "Reference gene length"         // refLen
-	       << "% Coverage of reference gene"  // queryCoverage
-	       << "% Identity to reference gene"  
-	       << "Alignment length"                 // length
-	       << "Accession of reference gene"    
-	       << "Name of reference gene"
-	       //
-	       << "HMM id"
-	       << "HMM description"
-	       ;
-      if (print_node)
-	      td << "Hierarchy node"; 	      
-	    os << td. str () << endl;
-      if (mutation_all. get ())
-        *mutation_all << td. str () << endl;
-	  }
+	  ASSERT (td. empty ());
+	  
+  	// Cf. BlastnAlignment::report()
+    if (! input_name. empty ())
+      td << "Name";
+    td << "Protein identifier"   // targetName  // PD-2534
+       // Contig
+       << "Contig id"
+       << "Start"  // targetStart
+       << "Stop"  // targetEnd
+       << "Strand"   // targetStrand
+       << "Gene symbol"
+       << "AmrMutation name"
+       << "Scope"  // PD-2825
+       // PD-1856
+       << "Element type"
+       << "Element subtype"
+       << "class"
+       << "Subclass"
+       //
+       << "Method"
+       << "Target length" 
+       //
+       << "Reference gene length"         // refLen
+       << "% Coverage of reference gene"  // queryCoverage
+       << "% Identity to reference gene"  
+       << "Alignment length"                 // length
+       << "Accession of reference gene"    
+       << "Name of reference gene"
+       //
+       << "HMM id"
+       << "HMM description"
+       ;
+    if (print_node)
+      td << "Hierarchy node"; 	      
+    td. newLn ();
 
   	for (const BlastnAlignment* blastAl : blastAls)
   	{
   	  ASSERT (blastAl);
+   	  blastAl->report (td, mutationAll);
    	  blastAl->qc ();
-   	  blastAl->saveText (os);
     }
 	}
 };
@@ -301,10 +311,6 @@ struct ThisApplication : Application
                  input_name         = getArg ("name");
                  print_node         = getFlag ("print_node");
     
-    
-    if (! mutation_all_FName. empty ())
-      mutation_all. reset (new OFStream (mutation_all_FName));
-
 
     Batch batch (mutation_tab);  
   
@@ -391,7 +397,18 @@ struct ThisApplication : Application
   #endif
 
 
-    batch. report (cout);
+    {
+      TsvOut td (cout, 2, false);
+      td. usePound = false;
+      batch. report (td, false);
+    }
+    if (! mutation_all_FName. empty ())
+    {
+      OFStream f (mutation_all_FName);
+      TsvOut td (f, 2, false);
+      td. usePound = false;
+      batch. report (td, true);
+    }
   }
 };
 

@@ -40,20 +40,18 @@
 
 
 #undef NDEBUG 
-#include "common.inc"
-
 
 #include "common.hpp"
 using namespace Common_sp;
 #include "curl_easy.hpp"
 using namespace CURL_sp;
 
+#include "common.inc"
 
 
 
 namespace 
 {
-
 
 
 #ifdef TEST_UPDATE
@@ -94,7 +92,7 @@ string getLatestMinor (Curl &curl)
         
     	  istringstream iss (line);
   		  SoftwareVersion ver (iss, true);
-  		  vers << move (ver);
+  		  vers << std::move (ver);
   		}
   		catch (...) {}
   #else
@@ -108,14 +106,14 @@ string getLatestMinor (Curl &curl)
     	  try 
     	  {
     		  SoftwareVersion ver (iss, true);
-    		  vers << move (ver);
+    		  vers << std::move (ver);
     		}
   		  catch (...) {}    		
       }
     }
   #endif
   if (vers. empty ())
-    return string ();
+    return noString;
     
   vers. sort ();
   return vers. back (). getMinor ();
@@ -150,7 +148,7 @@ string getLatestDataVersion (Curl &curl,
         
     	  istringstream iss (line);
   		  DataVersion dv (iss);
-  		  dataVersions << move (dv);
+  		  dataVersions << std::move (dv);
     	}
   		catch (...) {}
   #else
@@ -164,14 +162,14 @@ string getLatestDataVersion (Curl &curl,
     	  try 
     	  {
     		  DataVersion dv (iss);
-    		  dataVersions << move (dv);
+    		  dataVersions << std::move (dv);
     		}
   		  catch (...) {}    		
       }
     }
   #endif
   if (dataVersions. empty ())
-    return string ();
+    return noString;
     
   dataVersions. sort ();
   return dataVersions. back (). str ();

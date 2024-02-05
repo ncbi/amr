@@ -33,10 +33,10 @@
    
 
 #undef NDEBUG
-#include "common.inc"
 
 #include "gff.hpp"
 
+#include "common.inc"
 
 
 
@@ -352,7 +352,7 @@ Annot::Annot (const string &fName,
       }
     #endif
 
-      prot2loci [prot] << move (locus);
+      prot2loci [prot] << std::move (locus);
     }
     catch (const exception &e)
     {
@@ -406,7 +406,7 @@ Annot::Annot (const string &fName)
            
 	  trim (prot, '_');
 	  ASSERT (! prot. empty ());
-    prot2loci [prot] << Locus ((size_t) f. lineNum, contig, start, stop, strand == '+', false/*partial*/, 0, string (), string ());
+    prot2loci [prot] << Locus ((size_t) f. lineNum, contig, start, stop, strand == '+', false/*partial*/, 0, noString, noString);
   }
 }
   
@@ -462,7 +462,7 @@ void Annot::load_fasta2gff_dna (const string &fName)
     	string s;
     	if (! find (gff2fasta, locus. contig, s))
     	  throw runtime_error ("FASTA DNA contig " + strQuote (locus. contig) + " is not found in GFF-DNA match file " + strQuote (fName));
-    	var_cast (locus). contig = move (s);
+    	var_cast (locus). contig = std::move (s);
     }
   }
 }
@@ -479,7 +479,7 @@ const Set<Locus>& Annot::findLoci (const string &fasta_prot) const
   	string s;
   	if (! find (fasta2gff_prot, gff_prot, s))
   	  throw runtime_error ("FASTA protein " + strQuote (fasta_prot) + " is not found in GFF-protein match file");
-  	gff_prot = move (s);
+  	gff_prot = std::move (s);
   }
   ASSERT (! gff_prot. empty ());
   

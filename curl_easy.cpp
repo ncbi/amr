@@ -33,10 +33,11 @@
 
 
 #undef NDEBUG
-#include "common.inc"
 
 #include "curl_easy.hpp"
 using namespace Common_sp;
+
+#include "common.inc"
 
 
 
@@ -113,7 +114,7 @@ void Curl::download (const string &url,
     process (url, "download");
   }
   
-  ifstream f (fName);
+  IFStream f (fName);
   string s;
   f >> s;
   if (s == "<?xml")

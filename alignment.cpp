@@ -31,13 +31,12 @@
 *
 */
    
-   
 
 #undef NDEBUG 
-#include "common.inc"
 
 #include "alignment.hpp"
 
+#include "common.inc"
 
 
 
@@ -623,6 +622,42 @@ Alignment::Alignment (const string &line,
     refStart--;
     targetStart--;
 
+    if (refProt)
+    {
+      if (   refEnd == refLen 
+          && refSeq. back () == '*'
+         )
+      {
+        targetStopCodon = toEbool (targetSeq. back () == '*');
+        if (targetStopCodon == etrue)
+        {
+          nident--;        
+        //if (targetProt)
+          //targetLen -= al2target_len;
+        }
+        do
+        {
+          // Target
+          targetSeq. erase (targetSeq. size () - 1);
+          if (targetStrand)
+            targetEnd -= al2target_len;
+          else
+            targetStart += al2target_len;
+          // Reference
+          refSeq. erase (refSeq. size () - 1);
+          refEnd--;
+          QC_ASSERT (! refSeq. empty ());
+        }
+        while (targetSeq. back () != refSeq. back ());
+      //seqChanges ??
+      }
+      else if (   refEnd == refLen - 1 
+               && targetTail (false) >= al2target_len
+              )
+        targetStopCodon = efalse;
+      refLen--;
+    }
+
     normalizeSeqs (targetSeq, refSeq);    
     set_nident ();
   }
@@ -675,7 +710,7 @@ void Alignment::setSeqChanges (const Vector<AmrMutation> &refMutations,
       {
   		//ASSERT (seqChange. matchesMutation (refMutation))
   		  seqChange. mutations << & refMutation;
-        seqChanges << move (seqChange);
+        seqChanges << std::move (seqChange);
       }
     }
   	if (verbose ())
@@ -699,7 +734,7 @@ void Alignment::setSeqChanges (const Vector<AmrMutation> &refMutations,
         if (targetSeq [i] == refSeq [i])
         {
           if (seqChange. finish (refSeq, flankingLen))            
-            seqChanges << move (seqChange);
+            seqChanges << std::move (seqChange);
           seqChange = SeqChange (this, false);
           inSeqChange = false;
         }
@@ -722,7 +757,7 @@ void Alignment::setSeqChanges (const Vector<AmrMutation> &refMutations,
      )
   {
 	  SeqChange seqChange (this, targetLen);
-    seqChanges << move (seqChange);
+    seqChanges << std::move (seqChange);
   }
 #endif
   if (verbose ())
@@ -782,7 +817,7 @@ void Alignment::setSeqChanges (const Vector<AmrMutation> &refMutations,
 	  start_ref_prev = seqChange. start_ref;
 	}
 	
-//seqChanges << move (seqChanges_add);
+//seqChanges << std::move (seqChanges_add);
     
 #if 0
 	if (allMutationsP)
@@ -936,11 +971,13 @@ void Alignment::qc () const
   QC_ASSERT ((targetEnd - targetStart) % al2target_len == 0);
   QC_IMPLY (! targetSeq. empty (), (targetEnd - targetStart) / al2target_len <= targetSeq. size ());
   QC_IMPLY (targetProt, targetStrand);
+  QC_IMPLY (targetStopCodon != enull, refProt);
 
   QC_ASSERT (refStart <= refEnd);
   QC_ASSERT (refEnd <= refLen);
   QC_ASSERT ((refEnd - refStart) % al2ref_len == 0);
   QC_IMPLY (! refSeq. empty (), (refEnd - refStart) / al2ref_len <= refSeq. size ());
+//QC_IMPLY (refProt, ! contains (refSeq, "*"));
   
   refMutation. qc ();
 

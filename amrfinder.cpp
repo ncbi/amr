@@ -27,17 +27,29 @@
 * Author: Vyacheslav Brover
 *
 * File Description:
-*   AMRFinder
+*   AMRFinderPlus
+*   https://github.com/ncbi/amr
 *
-* Dependencies: NCBI BLAST, HMMer
-*               gunzip (optional)
+* Dependencies: NCBI BLAST, HMMer, gunzip (optional)
 *
 * Release changes:
-*   3.11.26 10/16/2023 PD-4772  Remove prodigal GFF format from AMRFinderPlus
-*   3.11.25 10/13/2023 PD-4771  Revert removing '*' from Prodigal output to ensure ALLELEP and EXACTP matches ??
+*   3.12.8  02/01/2024 PD-4872  ALLELEP = EXACTP for alleles; exact matches with naging tailes are preferred
+*   3.12.7  02/01/2024 PD-4872  hanging tails of target protein are allowed for EXACTP matches, but ALLELEP requires EXACTP with no hanging tails
+*           01/27/2024          replacing getFam() by getMatchFam() in amr_report.cpp
+*   3.12.6  01/26/2024          memory leaks in amr_report.cpp
+*   3.12.5  01/19/2024          BlastAlignment::BlastRule's are valid iff !fromHmm and !inFam()
+*   3.12.4  01/18/2024 PD-4856  allow multiple Blast Rules for the same protein
+*   3.12.3  01/12/2024          improved error message reporting for GFF files (https://github.com/ncbi/amr/issues/135)
+*   3.12.2  12/21/2023 PD-4843  --mutation_all should report only point mutations
+*   3.12.1  12/15/2023 PD-4838  stop codons are added to the reference proteins in AMRFinderPlus
+*                               input proteins may miss '*' at the ends
+*                               target hits have a new three-valued flag targetStopCodon: detected, missing, unknown
+*                               procsssing of Prodigal GFF format is restored
+*   3.11.26 10/16/2023 PD-4772  remove Prodigal GFF format from AMRFinderPlus
+*   3.11.25 10/13/2023 PD-4771  revert removing '*' from Prodigal output to ensure ALLELEP and EXACTP matches
 *   3.11.24 10/12/2023 PD-4769  --print_node prints FAM.id replaced by FAM.parent for non-exact allele matches
-*   3.11.23 10/06/2023 PD-4764  Remove '*' from Prodigal output to ensure ALLELEP and EXACTP matches
-*           10/05/2023 PD-4761  Remove protein sequences with >= 20 Xs
+*   3.11.23 10/06/2023 PD-4764  remove '*' from Prodigal output to ensure ALLELEP and EXACTP matches
+*           10/05/2023 PD-4761  remove protein sequences with >= 20 Xs
 *   3.11.22 10/05/2023 PD-4754  Prodigal GFF
 *   3.11.21 10/02/2023 PD-4755  bug: calling fusion2geneSymbols() for a mutation protein
 *   3.11.20 09/06/2023 PD-4722  bug: calling fusion2geneSymbols() for a mutation protein
@@ -47,12 +59,12 @@
 *   3.11.18 07/25/2023          parameter order in instruction; "can be gzipped" is added to help
 *   3.11.17 07/19/2023 PD-4687  distinct overlapping hits are not reported separately for protein targets for the same alleles or gene symbols
 *   3.11.16 07/18/2023 PD-4687  distinct overlapping hits are not reported separately for protein targets (because the start/stop are not reported)
-*   3.11.15 05/23/2023 PD-4629  "amrfinder_update -d DIR" will create DIR if DIR is missing
+*!  3.11.15 05/23/2023 PD-4629  "amrfinder_update -d DIR" will create DIR if DIR is missing
 *   3.11.14 05/06/2023 PD-4598  error messages in curl_easy.cpp
-*   3.11.13 05/04/2023 PD-4596  Prohibit ASCII characters only between 0x00 and 0x1F in GFF files
-*           04/24/2023 PD-4583  Process files ending with ".gz", see https://github.com/ncbi/amr/issues/61, dependence on gunzip (optional)
+*   3.11.13 05/04/2023 PD-4596  prohibit ASCII characters only between 0x00 and 0x1F in GFF files
+*           04/24/2023 PD-4583  process files ending with ".gz", see https://github.com/ncbi/amr/issues/61, dependence on gunzip (optional)
 *           04/19/2023          On failure no empty output file (-o) is created
-*   3.11.12 04/13/2023          Application::makeKey()
+*   3.11.12 04/13/2023          application::makeKey()
 *                      PD-4548  fasta_check.cpp prohibits '\t' (not any '\'), and all restrictions are only for nucleotide sequences
 *   3.11.11 04/13/2023 PD-4566  --hmmer_bin
 *   3.11.10 04/12/2023 PD-4548  fasta_check.cpp prohibits ';', '.', '~' in the last position of a sequence identifier
@@ -76,11 +88,11 @@
 *           11/04/2022 PD-4394  --print_node
 *           10/25/2022          setSymlink(,,bool); g++ -std=gnu++17
 *   3.10.47 10/22/2022          exec(,logFile) is added
-*           10/21/2022          Simplified: "No valid AMRFinder database found.\nSymbolic link is not found: " + db
+*           10/21/2022          simplified: "No valid AMRFinder database found.\nSymbolic link is not found: " + db
 *   3.10.46 10/21/2022          blast error messages are printed if blast fails
 *   3.10.45 10/21/2022 PD-4348  path2canonical() is sometimes needed for setSymlink(); exec() throw prints command and exit code
 *   3.10.44 10/12/2022 PD-4348  "latest" symbolic link is relative, and it is updated by "amrfinder -u"
-*   3.10.43 10/05/2022 PD-4341  Non-existant GPipe taxgroup
+*   3.10.43 10/05/2022 PD-4341  non-existant GPipe taxgroup
 *   3.10.42 10/03/2022 PD-4333  https://github.com/ncbi/amr/issues/99
 *   3.10.41 08/19/2022          "-max_target_seqs 10000" is used in all BLAST commands
 *   3.10.40 08/12/2022 PD-4297  duplicated rows in amr_report output
@@ -104,7 +116,7 @@
 *   3.10.25 04/29/2022 PD-3292  dependence on "mv", "cp", "cut", "head" and "sort" is removed
 *   3.10.24 03/25/2022 PD-4132  pmrB_RPISLR6del shadows pmrB_L10P
 *   3.10.23 02/11/2022 PD-4098  HTTPS connection for database downloading is restored (only this connection is guaranteed to exist for a user because it is needed for software installation)
-*   3.10.22 02/10/2022 PD-4098  For FTP: FTP EPSV mode is turned off (PASV is turned on)
+*   3.10.22 02/10/2022 PD-4098  for FTP: FTP EPSV mode is turned off (PASV is turned on)
 *   3.10.21 01/31/2022 PD-4071  https --> ftp
 *   3.10.20 01/13/2022 PD-4069  "Vulnerability Disclosure" at the AMRFinder download web page
 *   3.10.19 12/08/2021          $PATH is printed is case of error
@@ -128,7 +140,7 @@
 *   3.10.5  04/12/2021 PD-3772  --report_equidistant
 *   3.10.4  03/24/2021 PD-3761  amrfinder --help will not break if /tmp is full
 *   3.10.3  03/15/2021 PD-3749  --nucleotide_flank5_output, --nucleotide_flank5_size
-*   3.10.2  03/03/2021 PD-3729  Neighboring point mutations are reported
+*   3.10.2  03/03/2021 PD-3729  neighboring point mutations are reported
 *   3.10.1  02/17/2021 PD-3679  AMRProt-susceptible.tab
 *   3.9.10  02/16/2021 PD-3694  message about missing "latest/" symbolic link; amrfinder_update.cpp: createLatestLink()
 *   3.9.9   01/27/2021 PD-3674  crash for a custom database
@@ -139,7 +151,7 @@
 *   3.9.5   11/18/2020 PD-3292  dependence on awk is removed
 *                               --help prints instruction on $TMPDIR
 *   3.9.4   11/16/2020 PD-3609  ($TMPDIR or "/tmp") + "/XXXXXX"
-*   3.9.3   11/05/2020 PD-3577  Merge lines for bifunctional proteins
+*   3.9.3   11/05/2020 PD-3577  merge lines for bifunctional proteins
 *   3.9.2   11/04/2020 PD-3590  AMRProt has new fields #9 and #10: "subclass" and "class"
 *   3.9.1   10/27/2020 PD-3583  AMRProt has a new field #8 "reportable"
 *           09/30/2020 PD-2407  option --type is removed
@@ -158,7 +170,7 @@
 *   3.8.18  09/03/2020 PD-3292  removed the dependence on "which"
 *   3.8.17  09/02/2020 PD-3528  ordering of rows in the report is broken with parameter --name
 *   3.8.16  09/01/2020 PD-2322  a complete nucleotide hit is not preferred to a partial protein hit; stopCodon field is borrowed from BLASTX to BPASTP
-*   3.8.15  08/28/2020 PD-3475  Return BLAST alignment parameters for HMM-only hits where available
+*   3.8.15  08/28/2020 PD-3475  return BLAST alignment parameters for HMM-only hits where available
 *   3.8.14  08/27/2020 PD-3470  method FRAME_SHIFT, amr_report is faster
 *   3.8.13  08/25/2020 PD-2322  a complete nucleotide hit is preferred to a partial protein hit
 *   3.8.12  08/24/2020 PD-2394  fusion genes are reported to include both gene symbols on each line
@@ -170,8 +182,8 @@
 *   3.8.6   07/29/2020 PD-3468  --name option
 *           07/13/2020 PD-3484  -l for old database versions
 *   3.8.5   07/10/2020 PD-3482  --ident_min instruction
-*   3.8.4   05/13/2020 PD-3447  Custom point mutation does not match the reference sequence
-*                               Text "*** ERROR ***" is not repeated twice
+*   3.8.4   05/13/2020 PD-3447  custom point mutation does not match the reference sequence
+*                               text "*** ERROR ***" is not repeated twice
 *   3.8.3   05/01/2020          WILDTYPE mutations were reported as 0-based
 *   3.8.2   05/01/2020 PD-3419  taxgroup is removed from the DNA files, dna_mutation parameter: organism
 *                      PD-3437  --mutation_all requires --organism
@@ -183,22 +195,22 @@
 *   3.7.6   04/29/2020 PD-3419  dna_mutation: reporting gene symbol for novel mutations
 *   3.7.5   04/22/2020 PD-3427  -h prints the help message
 *   3.7.4   04/14/2020 PD-3391  Mac Conda installation
-*   3.7.3   04/09/2020 PD-3416  Redundant QC check in alignment.cpp
+*   3.7.3   04/09/2020 PD-3416  redundant QC check in alignment.cpp
 *   3.7.2   04/08/2020 PD-3363  "WILDTYPE" was not reported
 *   3.7.1   04/02/2020 PD-3154  GIs may be 0, accessions are main identifiers; file "AMRProt-suppress" is added accessions; DATA_VER_MIN is "2020-04-02.1"
 *   3.6.19  03/24/2020          Check of ">lcl|" is done only for the first sequence in FASTA
 *           03/24/2020 PD-3347  -lcl parameter in gff_check and amr_report
 *   3.6.18  03/17/2020 PD-3396  amr_report.cpp prints a better error message on missing sublcass in data
-*   3.6.17  03/12/2020          Software version is printed after software directory
+*   3.6.17  03/12/2020          software version is printed after software directory
 *   3.6.16  03/06/2020 PD-3363  --mutation_all: UNKNOWN are not reported
-*                      PD-2328  Last 2 columns of report are real HMM hits
+*                      PD-2328  last 2 columns of report are real HMM hits
 *   3.6.15  02/24/2020          "database" is printed to stderr in one line in a canonical form (without links)
 *   3.6.14  02/19/2020 PD-3363   --mutation_all: 4 types of mutations, adding DNA mutations
 *   3.6.13  02/13/2020 PD-3359,issue#23   ln -s <db>: uses path2canonical()
 *   3.6.12  02/13/2020 PD-3359,issue#23   AMRFinder database directory may contain spaces
 *   3.6.11  02/13/2020 PD-3359,issue#23   AMRFinder code directory may contain spaces
 *   3.6.10  02/06/2020 PD-3357,issue#21  --mutation_all bug
-*           01/24/2020 PD-3345   Improved error message for "GFF file mismatch"
+*           01/24/2020 PD-3345   improved error message for "GFF file mismatch"
 *   3.6.9   01/13/2020           "Database directory" is printed to stederr
 *           01/10/2020 PD-3329   ln -s .../amrfinder abc: abc calls the right executables
 *           01/20/2020           'rm" dependence is removed
@@ -212,9 +224,9 @@
 *   3.6.4   01/03/2020 PD-3230   sorting of reported rows: protein accession is ignored if contig is available
 *   3.6.3   01/03/2020 PD-3230   sorting of reported rows
 *           12/28/2019           QC in dna_mutation
-*   3.6.2   12/27/2019 PD-3230   Redundant reported lines are removed for mutated reference proteins
-*                                Reports are sorted by sort
-*   3.6.1   12/27/2019 PD-3230   Mutated proteins are added to AMRProt
+*   3.6.2   12/27/2019 PD-3230   redundant reported lines are removed for mutated reference proteins
+*                                reports are sorted by sort
+*   3.6.1   12/27/2019 PD-3230   mutated proteins are added to AMRProt
 *   3.5.10  12/20/2019           --log
 *   3.5.9   12/19/2019 PD-3294   blastx parameters: space added
 *   3.5.8   12/18/2019 issues/19 changed message if db path is bad
@@ -224,8 +236,8 @@
 *   3.5.4   12/17/2019 PD-3287   truncated short proteins are not reported
 *   3.5.3   12/16/2019 PD-3279   GPipe-GenColl assemblies, --gpipe_org
 *                      GP-28025
-*   3.5.2   12/13/2019 PD-3269   New flag --pgapx
-*   3.5.1   12/12/2019 PD-3277   Files AMRProt-mutation.tab, AMRProt-suppress, AMR_DNA-<TAXGROUP>.tab and taxgroup.tab have headers
+*   3.5.2   12/13/2019 PD-3269   new flag --pgapx
+*   3.5.1   12/12/2019 PD-3277   files AMRProt-mutation.tab, AMRProt-suppress, AMR_DNA-<TAXGROUP>.tab and taxgroup.tab have headers
 *   3.4.3   12/11/2019 PD-2171   --mutation_all bug
 *                                --debug does not imply "-verbose 1"
 *   3.4.2   12/10/2019 PD-3209   alignment correction for mutations
@@ -239,16 +251,16 @@
 *   3.4.1   12/03/2019 PD-3193   AMR_DNA-*.tab: column "genesymbol" is removed
 *                                product name is fixed for point mutations
 *                                point_mut.cpp -> dna_point_mut.cpp
-*   3.3.2   11/26/2019 PD-3193   Indel mutations: partially implemented
-*                                Bug fixed: protein point mutations were reported incorrectly if there was an offset w.r.t. the reference sequence
-*                                Files AMRProt-point_mut.tab and AMR_DNA-<taxgroup>.tab: columns allele, symbol are removed
-*                                Files taxgroup.list and gpipe.tab are replaced by taxgroup.tab
-*   3.3.1   11/22/2019 PD-3206   New files: taxgroup.list, gpipe.tab; new option --list_organisms
+*   3.3.2   11/26/2019 PD-3193   indel mutations: partially implemented
+*                                bug fixed: protein point mutations were reported incorrectly if there was an offset w.r.t. the reference sequence
+*                                files AMRProt-point_mut.tab and AMR_DNA-<taxgroup>.tab: columns allele, symbol are removed
+*                                files taxgroup.list and gpipe.tab are replaced by taxgroup.tab
+*   3.3.1   11/22/2019 PD-3206   new files: taxgroup.list, gpipe.tab; new option --list_organisms
 *   3.2.4   11/15/2019 PD-3191   dna_mutation.cpp: neighborhoodMismatch <= 0.04; good(): length >= min (refLen, 2 * flankingLen + 1)
-*   3.2.3   11/14/2019 PD-3192   Fixed error made by PD-3190
+*   3.2.3   11/14/2019 PD-3192   fixed error made by PD-3190
 *   3.2.3   11/13/2019 PD-3190   organisms for --gpipe
-*   3.2.3   11/12/2019 PD-3187   Sequence name is always from AMRProt, not from fam.tab
-*   3.2.2   11/06/2019 PD-2244   Added "LANG=C" before "sort"
+*   3.2.3   11/12/2019 PD-3187   sequence name is always from AMRProt, not from fam.tab
+*   3.2.2   11/06/2019 PD-2244   added "LANG=C" before "sort"
 *
 */
 
@@ -258,7 +270,6 @@
 #endif
    
 #undef NDEBUG 
-#include "common.inc"
 
 #include <unistd.h>
 
@@ -268,13 +279,17 @@ using namespace Common_sp;
 #include "gff.hpp"
 using namespace GFF_sp;
 
+#include "common.inc"
+
+
 
 #undef DIR  // PD-3613
 
 
 // PAR!
 // PD-3051
-#define DATA_VER_MIN "2021-02-18.1"  
+#define DATA_VER_MIN "2023-12-15.2"  
+// 3.11: "2021-02-18.1"  
 
 
 
@@ -318,10 +333,12 @@ struct ThisApplication : ShellApplication
     	addKey ("protein", "Input protein FASTA file (can be gzipped)", "", 'p', "PROT_FASTA");
     	addKey ("nucleotide", "Input nucleotide FASTA file (can be gzipped)", "", 'n', "NUC_FASTA");
     	addKey ("gff", "GFF file for protein locations (can be gzipped). Protein id should be in the attribute 'Name=<id>' (9th field) of the rows with type 'CDS' or 'gene' (3rd field).", "", 'g', "GFF_FILE");
-    	
-    	string annots (Gff::names. toString (", "));
-    	replaceStr (annots, ", prodigal", "");  // PD-4772 ??
-      addKey ("annotation_format", "Type of GFF file: " + annots, "genbank", 'a', "ANNOTATION_FORMAT");  
+
+      {    	
+      	const string annots (Gff::names. toString (", "));
+      //replaceStr (annots, ", prodigal", "");  // PD-4772 
+        addKey ("annotation_format", "Type of GFF file: " + annots, "genbank", 'a', "ANNOTATION_FORMAT");  
+      }
 
     	addKey ("database", "Alternative directory with AMRFinder database. Default: $AMRFINDER_DB", "", 'd', "DATABASE_DIR");
     	addFlag ("database_version", "Print database version", 'V');
@@ -387,7 +404,7 @@ struct ThisApplication : ShellApplication
       ASSERT (outFName != logFName);
     }
     exec (fullProg ("fasta_check") + fName + "  " + (prot ? "-aa  -stop_codon  -ambig_max " + ambigS + prependS (outFName, "  -out ") : "-len " + tmp + "/len  -hyphen  -ambig") + qcS + "  -log " + logFName + " > " + tmp + "/nseq", logFName); 
-      // "-stop_codon" PD-4771 ??
+      // "-stop_codon" PD-4771 
 
   	const StringVector vec (tmp + "/nseq", (size_t) 10, true); 
   	if (vec. size () != 3)
@@ -407,7 +424,7 @@ struct ThisApplication : ShellApplication
   {
     const size_t t = min (threads_max, threads_max_max);
     if (t <= 1)  // One thread is main
-      return string ();
+      return noString;
     
 		bool num_threadsP = false;
 		bool mt_modeP = false;
@@ -426,7 +443,7 @@ struct ThisApplication : ShellApplication
     }
     
     if (! num_threadsP)
-      return string ();
+      return noString;
     
 	  string s ("  -num_threads " + to_string (t));
 	  
@@ -491,7 +508,7 @@ struct ThisApplication : ShellApplication
   {
     TextTable t (tmp + "/amr");
     t. qc ();
-    t. filterColumns (move (columns));
+    t. filterColumns (std::move (columns));
     t. rows. filterValue ([] (const StringVector& row) { return row [0] == "NA"; });
     t. rows. sort ();
     t. rows. uniq ();
@@ -725,7 +742,7 @@ struct ThisApplication : ShellApplication
 		{
   	  istringstream versionIss (version);
   		const SoftwareVersion softwareVersion (versionIss);
-  		const SoftwareVersion softwareVersion_min (db + "/database_format_version.txt");
+  		const SoftwareVersion softwareVersion_min (db + "/database_format_version.txt"); 
   	//stderr << "Software version: " << softwareVersion. str () << '\n'; 
   		const DataVersion dataVersion (db + "/version.txt");
   		istringstream dataVersionIss (DATA_VER_MIN); 
@@ -926,6 +943,7 @@ struct ThisApplication : ShellApplication
  		bool tblastnChunks = false;
 	  const string annotS (" -gfftype " + Gff::names [(size_t) gffType] + ifS (lcl, " -lcl"));
     {
+      //                               target ref    
   		#define BLAST_FMT    "-outfmt '6 qseqid sseqid qstart qend qlen sstart send slen qseq sseq'"
   		#define TBLASTN_FMT  "-outfmt '6 sseqid qseqid sstart send slen qstart qend qlen sseq qseq'"
 
@@ -972,6 +990,7 @@ struct ThisApplication : ShellApplication
             		  fixable = true;
             		  break;
             		}
+              #if 0
           	    else if (contains (f. line, "'*' at the sequence end"))  
                 {
             	    const Warning warning (stderr);
@@ -979,8 +998,11 @@ struct ThisApplication : ShellApplication
             		  fixable = true;
             		  break;
             		}
+            	#endif
           	}
-          	if (! fixable)
+          	if (fixable)
+          	  removeFile (logFName);
+          	else
           	  throw;
             prot1 = shellQuote (tmp + "/prot");
           	fastaCheck (prot_flat, true, qcS, logFName, nProt, protLen_max, protLen_total, prot1);
@@ -1091,15 +1113,14 @@ struct ThisApplication : ShellApplication
           size_t nDna = 0;
           size_t dnaLen_max = 0;
           size_t dnaLen_total = 0;
-          /*EXEC_ASSERT (*/ fastaCheck (dna_flat, false, qcS, logFName, nDna, dnaLen_max, dnaLen_total, noString); // );
-          const string blastx (/*"tblastn"*/ dnaLen_max > 100000 ? "tblastn" : "blastx");  // PAR  // SB-3643
+          fastaCheck (dna_flat, false, qcS, logFName, nDna, dnaLen_max, dnaLen_total, noString); 
+          const string blastx (dnaLen_max > 100000 ? "tblastn" : "blastx");  // PAR  // SB-3643
 
     			stderr. section ("Running " + blastx);
     			findProg (blastx);
           {
        			const Chronometer_OnePass cop (blastx, cerr, false, qc_on && ! quiet);
             const string tblastn_par (blastp_par + "  -task tblastn-fast  -threshold 100  -window_size 15");  // SB-3643, PD-4522
-        	//const string tblastn_par (blastp_par + "  -word_size 3");  
         		const string blastx_par  (blastp_par + "  -word_size 3  -query_gencode " + to_string (gencode));
       			ASSERT (threads_max >= 1);
       			if (blastx == "blastx")
@@ -1197,7 +1218,7 @@ struct ThisApplication : ShellApplication
       		  + "  -susceptible " + shellQuote (db + "/AMRProt-susceptible.tab") 
       		  + " " + mutation_allS + " "
       		  + force_cds_report + " -pseudo" + coreS + equidistantS + printNode
-      		  + (ident == -1 ? string () : "  -ident_min "    + toString (ident)) 
+      		  + (ident == -1 ? noString : "  -ident_min "    + toString (ident)) 
       		  + "  -coverage_min " + toString (cov)
       		  + ifS (suppress_common, " -suppress_prot " + tmp + "/suppress_prot")  
       		  + nameS + qcS + " " + parm + " -log " + logFName + " > " + tmp + "/amr", logFName);
@@ -1248,6 +1269,12 @@ struct ThisApplication : ShellApplication
         mutation_allTab. rows. uniq ();
         mutation_allTab. qc ();
         mutation_allTab. saveFile (mutation_all);
+        if (qc_on)
+        {
+          const TextTable::ColNum i = mutation_allTab. col2num ("Element subtype");
+          for (const StringVector& row : mutation_allTab. rows)
+            QC_ASSERT (row [i] == "POINT");
+        }
       }
     }
 
