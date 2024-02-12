@@ -1471,6 +1471,13 @@ struct Color
 };
   
   
+inline string colorize (const string &s,
+                        bool active)
+  { if (! active)
+      return s;
+    return Color::code (Color::white, true) + s + Color::code ();
+  }
+  
 
 class OColor
 // Output color
@@ -1612,14 +1619,42 @@ struct OFStream : ofstream
 	  { open (dirName, fileName, extension); }
 	explicit OFStream (const string &pathName)
 	  { open (noString, pathName, noString); }
+	  
+	  
 	static void create (const string &pathName)
-	  { OFStream f (pathName); }
-
-
+	  { try { OFStream f (pathName); }
+		    catch (...) { throw runtime_error ("Cannot create output file " + strQuote (pathName)); }
+	  }
+	static void prepare (const string &pathName)
+	  { if (! pathName. empty ())
+	    { create (pathName);
+        removeFile (pathName);
+      }
+	  }
 	void open (const string &dirName,
 	           const string &fileName,
 	           const string &extension);
 	  // Input: !fileName.empty()
+};
+
+
+
+struct Cout : Singleton<Cout>
+{
+  unique_ptr<OFStream> f;
+  
+  
+  explicit Cout (const string &fName)
+    { if (! fName. empty ())
+        f. reset (new OFStream (fName));
+    }
+    
+  
+  ostream& operator* ()
+    { if (f)
+        return *f;
+      return cout;
+    }
 };
 
 
@@ -3326,6 +3361,9 @@ bool verbose (int inc = 0);
 
 int getVerbosity ();
 
+inline bool getQuiet ()
+  { return ! verbose (1); }
+
 
 class Verbose
 {
@@ -3390,6 +3428,7 @@ private:
   const bool active;
 	const time_t start;
 public:
+  static constexpr Color::Type color {Color::magenta};  // PAR
   
 	
   explicit Chronometer_OnePass (const string &name_arg,
@@ -3399,8 +3438,8 @@ public:
  ~Chronometer_OnePass ();
     // Print to os
 };
-	
-	
+
+
 	
 
 /////////////////////////////////////// cerr //////////////////////////////////////////
@@ -3447,14 +3486,9 @@ public:
 
 struct Stderr : Singleton<Stderr>
 {
-  const bool quiet;
+  bool quiet {false};
 
   
-  explicit Stderr (bool quiet_arg)
-    : quiet (quiet_arg)
-    {}
-
-    
   template <typename T>
     Stderr& operator<< (const T& t) 
       { if (quiet)
@@ -3477,16 +3511,26 @@ private:
   Stderr& stderr;
   const OColor oc;
 public:  
+
   
   explicit Warning (Stderr &stderr_arg)
     : stderr (stderr_arg)
-    , oc (cerr, Color::yellow, true, ! stderr. quiet)
+    , oc (cerr, Color::yellow /*PAR*/, true, ! stderr. quiet)  
     { stderr << "WARNING: "; }
  ~Warning ()
     { stderr << "\n"; }
 };
 
 
+
+struct Chronometer_OnePass_cerr : Chronometer_OnePass
+{
+  explicit Chronometer_OnePass_cerr (const string &name_arg)
+    : Chronometer_OnePass (name_arg, cerr, false, qc_on && ! getQuiet ())
+    {}
+};
+
+	
 
 
 ////////////////////////////////////// Input ///////////////////////////////////////////
@@ -4376,6 +4420,7 @@ struct Application : Singleton<Application>, Root
   const string description;
   const bool needsArg;
   const bool gnu;
+  const bool threadsUsed;
   string version {"0.0.0"};
   static constexpr const char* helpS {"help"};
   static constexpr const char* versionS {"version"};
@@ -4459,10 +4504,12 @@ public:
 protected:
   explicit Application (const string &description_arg,
                         bool needsArg_arg = true,
-                        bool gnu_arg = false)               
+                        bool gnu_arg = false,
+                        bool threadsUsed_arg = false)   
     : description (description_arg)
     , needsArg (needsArg_arg)
     , gnu (gnu_arg)
+    , threadsUsed (threadsUsed_arg)
     {}
     // To invoke: addKey(), addFlag(), addPositional(), setRequiredGroup()
   // <Command-line parameters> ::= <arg>*
@@ -4526,10 +4573,11 @@ protected:
 protected:
   virtual void initEnvironment ()
     {}
-  virtual void createTmp ()
+  virtual void initVar ()
     {}
-  string getInstruction () const;
+  string getInstruction (bool coutP) const;
   virtual string getHelp () const;
+    // Requires: must be printed to cout
   string makeKey (const string &param,
                   const string &value) const
     { if (value. empty ())
@@ -4551,6 +4599,7 @@ private:
 struct ShellApplication : Application
 // Requires: SHELL=bash
 {
+protected:
   // Environment
   const bool useTmp;
   string tmp;
@@ -4558,26 +4607,33 @@ struct ShellApplication : Application
     // If log is used then tmp is printed in the log file and the temporary files are not deleted 
 private:
   bool tmpCreated {false};
-public:
+protected:
   string execDir;
     // Ends with '/'
     // Physically real directory of the software
   mutable KeyValue prog2dir;
+  mutable Stderr stderr;
+  time_t startTime {0};
+public:
   
-
+  
   ShellApplication (const string &description_arg,
                     bool needsArg_arg,
+                    bool threadsUsed_arg,
                     bool gnu_arg,
                     bool useTmp_arg)
-    : Application (description_arg, needsArg_arg, gnu_arg)
+    : Application (description_arg, needsArg_arg, gnu_arg, threadsUsed_arg)
     , useTmp (useTmp_arg)
     {}
  ~ShellApplication ();
+   // Invokes: removeDirectory(tmp) if !logPtr
 
 
 protected:
   void initEnvironment () override;
-  void createTmp () override;
+  void initVar () override;
+    // stderr << "Running: " << getCommandLine ()
+    // threads_max correction
   string getHelp () const override;
 private:
   void body () const final;
@@ -4595,6 +4651,14 @@ protected:
                    const string &logFName = noString) const;
     // Return: `cmd > <tmp>/tmpName && cat <tmp>/tmpName`
     // Requires: cmd produces one line
+  string uncompress (const string &quotedFName,
+                     const string &suffix) const;
+    // Return: quotedFName or tmp + "/" + suffix
+    // Invokes: exec("gunzip")
+  string getBlastThreadsParam (const string &blast,
+                               size_t threads_max_max) const;
+    // Input: blast: "blastp", "blastx", etc.
+    // Invokes: fullProg(blast)
 };
 #endif
 

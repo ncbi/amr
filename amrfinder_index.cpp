@@ -61,12 +61,11 @@ namespace
 struct ThisApplication : ShellApplication
 {
   ThisApplication ()
-    : ShellApplication ("Index the database for AMRFinder", true, true, true)
+    : ShellApplication ("Index the database for AMRFinder", true, false, true, true)
     {
     	addPositional ("DATABASE", "Directory with AMRFinder database");
     	addKey ("blast_bin", "Directory for BLAST", "", '\0', "BLAST_DIR");
     	addKey ("hmmer_bin", "Directory for HMMer", "", '\0', "HMMER_DIR");
-      addFlag ("quiet", "Suppress messages to STDERR", 'q');
 	    version = SVN_REV;
     }
 
@@ -74,19 +73,15 @@ struct ThisApplication : ShellApplication
 
   void shellBody () const final
   {
-          string dbDir     = getArg ("DATABASE");
-          string blast_bin = getArg ("blast_bin");
-          string hmmer_bin = getArg ("hmmer_bin");
-    const bool   quiet     = getFlag ("quiet");
-    
-    
+    string dbDir     = getArg ("DATABASE");
+    string blast_bin = getArg ("blast_bin");
+    string hmmer_bin = getArg ("hmmer_bin");
+
     addDirSlash (dbDir);
     addDirSlash (blast_bin);
     addDirSlash (hmmer_bin);
     
         
-    Stderr stderr (quiet);
-    stderr << "Running: "<< getCommandLine () << '\n';
     const Verbose vrb (qc_on);
     
     

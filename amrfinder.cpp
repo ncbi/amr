@@ -33,7 +33,9 @@
 * Dependencies: NCBI BLAST, HMMer, gunzip (optional)
 *
 * Release changes:
-*   3.12.8  02/01/2024 PD-4872  ALLELEP = EXACTP for alleles; exact matches with naging tailes are preferred
+*   3.12.10 02/12/2024 PD-4874  -v == --version
+*   3.12.9  02/02/2024          moving some functions and variables to common.{hpp,cpp}
+*   3.12.8  02/01/2024 PD-4872  ALLELEP = EXACTP for alleles; exact matches with possibly hanging tailes are preferred
 *   3.12.7  02/01/2024 PD-4872  hanging tails of target protein are allowed for EXACTP matches, but ALLELEP requires EXACTP with no hanging tails
 *           01/27/2024          replacing getFam() by getMatchFam() in amr_report.cpp
 *   3.12.6  01/26/2024          memory leaks in amr_report.cpp
@@ -298,31 +300,31 @@ namespace
 
 
 // PAR
-constexpr size_t threads_max_min = 1;  
+//constexpr size_t threads_max_min = 1;  
 constexpr size_t threads_def = 4;
 // Cf. amr_report.cpp
 constexpr double ident_min_def = 0.9;
 constexpr double partial_coverage_min_def = 0.5;
 const string ambigS ("20");  
 
-    
-#define HELP  \
+
+const string help ( \
 "Identify AMR and virulence genes in proteins and/or contigs and print a report\n" \
 "\n" \
-"DOCUMENTATION\n" \
++ colorize ("DOCUMENTATION", true) + "\n" \
 "    See https://github.com/ncbi/amr/wiki for full documentation\n" \
 "\n" \
-"UPDATES\n" \
++ colorize ("UPDATES", true) + "\n" \
 "    Subscribe to the amrfinder-announce mailing list for database and software update notifications:\n" \
 "    https://www.ncbi.nlm.nih.gov/mailman/listinfo/amrfinder-announce"
-
+);
 
 
 
 struct ThisApplication : ShellApplication
 {
   ThisApplication ()
-    : ShellApplication (HELP, true, true, true)
+    : ShellApplication (help, true, true, true, true)
     {
     	addFlag ("update", "Update the AMRFinder database", 'u');  // PD-2379
     	addFlag ("force_update", "Force updating the AMRFinder database", 'U');  // PD-3469
@@ -366,8 +368,6 @@ struct ThisApplication : ShellApplication
 
     	addKey ("blast_bin", "Directory for BLAST. Deafult: $BLAST_BIN", "", '\0', "BLAST_DIR");
     	addKey ("hmmer_bin", "Directory for HMMer", "", '\0', "HMMER_DIR");
-
-      addFlag ("quiet", "Suppress messages to STDERR", 'q');
 
       addFlag ("pgap", "Input files PROT_FASTA, NUC_FASTA and GFF_FILE are created by the NCBI PGAP");  // = --annotation_format pgap 
       addFlag ("gpipe_org", "NCBI internal GPipe organism names");
@@ -419,70 +419,6 @@ struct ThisApplication : ShellApplication
 
   
   
-  string get_num_threads_param (const string &blast,
-                                size_t threads_max_max) const
-  {
-    const size_t t = min (threads_max, threads_max_max);
-    if (t <= 1)  // One thread is main
-      return noString;
-    
-		bool num_threadsP = false;
-		bool mt_modeP = false;
-		{
-		  const string blast_help (tmp + "/blast_help");
-      exec (fullProg (blast) + " -help > " + blast_help);
-      LineInput f (blast_help);
-      while (f. nextLine ())
-      {
-        trim (f. line);
-        if (contains (f. line, "-num_threads "))
-          num_threadsP = true;
-        if (contains (f. line, "-mt_mode "))
-          mt_modeP = true;
-      }
-    }
-    
-    if (! num_threadsP)
-      return noString;
-    
-	  string s ("  -num_threads " + to_string (t));
-	  
-	  bool mt_mode_works = true;
-  #ifdef __APPLE__
-    {
-      mt_mode_works = false;
-      const string blast_version (tmp + "/blast_version");
-      exec (fullProg (blast) + " -version > " + blast_version);
-      LineInput f (blast_version);
-      while (f. nextLine ())
-      {
-        trim (f. line);
-        const string prefix (blast + ": ");
-        if (isLeft (f. line, prefix))
-        {
-          trimSuffix (f. line, "+");
-          Istringstream iss;
-          iss. reset (f. line. substr (prefix. size ()));
-          const SoftwareVersion v (iss);
-        //PRINT (v);  
-          iss. reset ("2.13.0");  // PD-4560
-          const SoftwareVersion threshold (iss);;
-        //PRINT (threshold);  
-          mt_mode_works = (threshold <= v);
-        }
-        break;
-      }
-    }
-  #endif
-
-	  if (mt_modeP && mt_mode_works)  
-	    s += "  -mt_mode 1";
-	    
-	  return s;
-  }
-
-
-
   StringVector db2organisms () const
   {
     const TextTable taxgroup            (tmp + "/db/taxgroup.tab");
@@ -519,22 +455,6 @@ struct ThisApplication : ShellApplication
   
   
   
-  string uncompress (const string &quotedFName,
-                     const string &suffix) const
-  {
-    const string res (shellQuote (tmp + "/" + suffix));
-    ASSERT (quotedFName != res);
-    const string s (unQuote (quotedFName));
-    if (isRight (s, ".gz"))  
-    {
-      exec ("gunzip -c " + quotedFName + " > " + res);
-      return res;
-    }
-    return quotedFName;  
-  }
-
-
-
   void shellBody () const final
   {
     const bool    force_update    =             getFlag ("force_update");
@@ -570,7 +490,6 @@ struct ThisApplication : ShellApplication
     const string  dna_out          = shellQuote (getArg ("nucleotide_output"));
     const string  dnaFlank5_out    = shellQuote (getArg ("nucleotide_flank5_output"));
     const uint    dnaFlank5_size   =             arg2uint ("nucleotide_flank5_size");
-    const bool    quiet            =             getFlag ("quiet");
     const bool    gpipe_org        =             getFlag ("gpipe_org");
     const bool    database_version =             getFlag ("database_version");
     
@@ -578,8 +497,6 @@ struct ThisApplication : ShellApplication
 		const string logFName (tmp + "/log");  // Command-local log file
 
 
-    Stderr stderr (quiet);
-    stderr << "Running: "<< getCommandLine () << '\n';
     if (database_version)
       cout   << "Software directory: " << shellQuote (execDir) << endl;
     else
@@ -592,8 +509,10 @@ struct ThisApplication : ShellApplication
     if (contains (input_name, '\t'))
       throw runtime_error ("NAME cannot contain a tab character");
 
+  #if 0
     if (threads_max < threads_max_min)
       throw runtime_error ("Number of threads cannot be less than " + to_string (threads_max_min));
+  #endif
     
 		if (ident != -1.0 && (ident < 0.0 || ident > 1.0))
 		  throw runtime_error ("ident_min must be between 0 and 1");
@@ -614,27 +533,9 @@ struct ThisApplication : ShellApplication
 		  stderr << "--mutation_all option used without -O/--organism option. No point mutations will be screened";
 		}
 
-		if (! output. empty ())
-		{
-		  try { OFStream f (output); }
-		    catch (...) { throw runtime_error ("Cannot create output file " + shellQuote (output)); }
-      removeFile (output);
-		}
+    OFStream::prepare (output);
 
     
-    // For timing... 
-    const time_t start = time (NULL);
-    
-    
-    const size_t threads_max_max = get_threads_max_max ();
-    if (threads_max > threads_max_max)
-    {
-      stderr << "The number of threads cannot be greater than " << threads_max_max << " on this computer" << '\n'
-             << "The current number of threads is " << threads_max << ", reducing to " << threads_max_max << '\n';
-      threads_max = threads_max_max;
-    }
-
-
     string defaultDb;
     #ifdef CONDA_DB_DIR
     // we're in condaland
@@ -709,7 +610,7 @@ struct ThisApplication : ShellApplication
   		  exec (fullProg ("amrfinder_update") + " -d " + shellQuote (dbDir. getParent ()) + ifS (force_update, " --force_update") 
   		          + makeKey ("blast_bin", blast_bin)  
   		          + makeKey ("hmmer_bin", hmmer_bin)  
-  		          + ifS (quiet, " -q") + ifS (qc_on, " --debug") + " > " + logFName, logFName);
+  		          + ifS (getQuiet (), " -q") + ifS (qc_on, " --debug") + " > " + logFName, logFName);
       }
       else
       {
@@ -1062,16 +963,16 @@ struct ThisApplication : ShellApplication
     			    			
     			stderr. section ("Running blastp");
     			{
-      			const Chronometer_OnePass cop ("blastp", cerr, false, qc_on && ! quiet);
+      			const Chronometer_OnePass_cerr cop ("blastp");
       			// " -task blastp-fast -word_size 6  -threshold 21 "  // PD-2303
       			exec (fullProg ("blastp") + " -query " + prot1 + " -db " + tmp + "/db/AMRProt" + "  " 
       			      + blastp_par + " -task blastp-fast"  // "-threshold 100 -window_size 15" are faster, but may miss hits, see SB-3643
-      			      + get_num_threads_param ("blastp", min (nProt, protLen_total / 10000)) + " " BLAST_FMT " -out " + tmp + "/blastp > /dev/null 2> " + tmp + "/blastp-err", tmp + "/blastp-err");
+      			      + getBlastThreadsParam ("blastp", min (nProt, protLen_total / 10000)) + " " BLAST_FMT " -out " + tmp + "/blastp > /dev/null 2> " + tmp + "/blastp-err", tmp + "/blastp-err");
       		}
     			  
     			stderr. section ("Running hmmsearch");
     			{
-       			const Chronometer_OnePass cop ("hmmsearch", cerr, false, qc_on && ! quiet);
+       			const Chronometer_OnePass_cerr cop ("hmmsearch");
       			ASSERT (threads_max >= 1);
       			if (threads_max > 1 && nProt > threads_max / 2)  // PAR
       			{
@@ -1119,13 +1020,13 @@ struct ThisApplication : ShellApplication
     			stderr. section ("Running " + blastx);
     			findProg (blastx);
           {
-       			const Chronometer_OnePass cop (blastx, cerr, false, qc_on && ! quiet);
+       			const Chronometer_OnePass_cerr cop (blastx);
             const string tblastn_par (blastp_par + "  -task tblastn-fast  -threshold 100  -window_size 15");  // SB-3643, PD-4522
         		const string blastx_par  (blastp_par + "  -word_size 3  -query_gencode " + to_string (gencode));
       			ASSERT (threads_max >= 1);
       			if (blastx == "blastx")
         			exec (fullProg ("blastx") + "  -query " + dna_flat + " -db " + tmp + "/db/AMRProt" + "  "
-            			  + blastx_par + " " BLAST_FMT " " + get_num_threads_param ("blastx", min (nDna, dnaLen_total / 10002))
+            			  + blastx_par + " " BLAST_FMT " " + getBlastThreadsParam ("blastx", min (nDna, dnaLen_total / 10002))
             			  + " -out " + tmp + "/blastx > /dev/null 2> " + tmp + "/blastx-err", tmp + "/blastx-err");
             else
             {
@@ -1156,9 +1057,9 @@ struct ThisApplication : ShellApplication
       		{
       			findProg ("blastn");
       			stderr. section ("Running blastn");
-       			const Chronometer_OnePass cop ("blastn", cerr, false, qc_on && ! quiet);
+       			const Chronometer_OnePass_cerr cop ("blastn");
       			exec (fullProg ("blastn") + " -query " + dna_flat + " -db " + tmp + "/db/AMR_DNA-" + organism1 + " -evalue 1e-20  -dust no  -max_target_seqs 10000  " 
-      			      + get_num_threads_param ("blastn", min (nDna, dnaLen_total / 2500000)) + " " BLAST_FMT " -out " + tmp + "/blastn > " + logFName + " 2> " + tmp + "/blastn-err", tmp + "/blastn-err");
+      			      + getBlastThreadsParam ("blastn", min (nDna, dnaLen_total / 2500000)) + " " BLAST_FMT " -out " + tmp + "/blastn > " + logFName + " 2> " + tmp + "/blastn-err", tmp + "/blastn-err");
       		}
     		}
     		else
@@ -1208,7 +1109,7 @@ struct ThisApplication : ShellApplication
     const string printNode (print_node ? " -print_node" : "");
     const string nameS (emptyArg (input_name) ? "" : " -name " + input_name);
     {
- 			const Chronometer_OnePass cop ("amr_report", cerr, false, qc_on && ! quiet);
+ 			const Chronometer_OnePass_cerr cop ("amr_report");
       const string mutation_allS (mutation_all. empty () ? "" : ("-mutation_all " + tmp + "/mutation_all"));      
       const string coreS (add_plus ? "" : " -core");
       const string equidistantS (equidistant ? " -report_equidistant" : "");
@@ -1225,7 +1126,7 @@ struct ThisApplication : ShellApplication
   	}
 		if (blastn)
 		{
- 			const Chronometer_OnePass cop ("dna_mutation", cerr, false, qc_on && ! quiet);
+ 			const Chronometer_OnePass_cerr cop ("dna_mutation");
       const string mutation_allS (mutation_all. empty () ? "" : ("-mutation_all " + tmp + "/mutation_all.dna")); 
 			exec (fullProg ("dna_mutation") + tmp + "/blastn " + shellQuote (db + "/AMR_DNA-" + organism1 + ".tab") + " " + strQuote (organism1) + " " + mutation_allS 
 			      + nameS + printNode + qcS + " -log " + logFName + " > " + tmp + "/amr-snp", logFName);
@@ -1255,10 +1156,8 @@ struct ThisApplication : ShellApplication
         amrTab. sort (amrSortColumns);
         amrTab. rows. uniq ();  // PD-4297
         amrTab. qc ();
-    		if (output. empty ())
-    		  amrTab. saveText (cout);
-    		else
-    		  amrTab. saveFile (output);
+        Cout out (output);
+   		  amrTab. saveText (*out);
       }
 
       // Sorting mutation_all
@@ -1304,15 +1203,6 @@ struct ThisApplication : ShellApplication
       t. qc ();
       t. saveFile (tmp + "/dnaFlank5_out");
       exec (fullProg ("fasta_extract") + dna_flat + " " + tmp + "/dnaFlank5_out" + qcS + " -log " + logFName + " > " + dnaFlank5_out, logFName);  
-    }
-
-		
-  //if (! quiet)
-		{
-      // timing the run
-      const time_t end = time (NULL);
-    //const OColor oc (cerr, Color::magenta, false, true);  
-      stderr/*cerr*/ << "AMRFinder took " << end - start << " seconds to complete\n";
     }
   }
 };

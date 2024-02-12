@@ -418,7 +418,7 @@ Chronometer_OnePass::~Chronometer_OnePass ()
   const time_t stop = time (nullptr);
   
   {
-    const OColor oc (os, Color::magenta, false, true /*& os == & cerr*/);  
+    const OColor oc (os, color, false, true);  
     os << "CHRON: " << name << ": ";
     const ONumber on (os, 0, false);
     os << difftime (stop, start) << " sec.";
@@ -3552,13 +3552,13 @@ void Application::addPositional (const string &name,
 Application::Key* Application::getKey (const string &keyName) const
 {
   if (! contains (name2arg, keyName))
-    errorExitStr ("Unknown key: " + strQuote (keyName) + "\n\n" + getInstruction ());
+    errorExitStr ("Unknown key: " + strQuote (keyName) + "\n\n" + getInstruction (false));
     
   Key* key = nullptr;
   if (const Arg* arg = findPtr (name2arg, keyName))  	
     key = var_cast (arg->asKey ());
   if (! key)
-    errorExitStr (strQuote (keyName) + " is not a key\n\n" + getInstruction ());
+    errorExitStr (strQuote (keyName) + " is not a key\n\n" + getInstruction (false));
     
   return key;
 }
@@ -3571,9 +3571,9 @@ void Application::setPositional (List<Positional>::iterator &posIt,
   if (posIt == positionalArgs. end ())
   {
   	if (isLeft (value, "-"))
-      errorExitStr (strQuote (value) + " is not a valid option\n\n" + getInstruction ());
+      errorExitStr (strQuote (value) + " is not a valid option\n\n" + getInstruction (false));
   	else
-      errorExitStr (strQuote (value) + " cannot be a positional parameter\n\n" + getInstruction ());
+      errorExitStr (strQuote (value) + " cannot be a positional parameter\n\n" + getInstruction (false));
   }
   (*posIt). value = value;
   posIt++;
@@ -3594,9 +3594,11 @@ void Application::addDefaultArgs ()
 { 
   if (gnu)
 	{ 
-	  addKey ("threads", "Max. number of threads", "1", '\0', "THREADS");
+	  if (threadsUsed)
+	    addKey ("threads", "Max. number of threads", "1", '\0', "THREADS");
 	  addFlag ("debug", "Integrity checks");
     addKey ("log", "Error log file, appended, opened on application start", "", '\0', "LOG");
+    addFlag ("quiet", "Suppress messages to STDERR", 'q');
   }
 	else
 	{ 
@@ -3605,7 +3607,8 @@ void Application::addDefaultArgs ()
     addFlag ("noprogress", "Turn off progress printout");
     addFlag ("profile", "Use chronometers to profile");
     addKey ("seed", "Positive integer seed for random number generator", "1");
-    addKey ("threads", "Max. number of threads", "1");
+	  if (threadsUsed)
+      addKey ("threads", "Max. number of threads", "1");
     addKey ("json", "Output file in Json format");
     addKey ("log", "Error log file, appended");
   #ifndef _MSC_VER
@@ -3679,11 +3682,14 @@ string Application::key2shortHelp (const string &name) const
 
 
 
-string Application::getInstruction () const
+string Application::getInstruction (bool coutP) const
 {
   string instr (description);
 
-  instr += "\n\nUSAGE:   " + programName;
+  if (isRedirected (cout))
+    coutP = false;
+
+  instr += "\n\n" + colorize ("USAGE", coutP) + ":   " + programName; 
 
   for (const Positional& p : positionalArgs)
     instr += " " + p. str ();
@@ -3715,10 +3721,12 @@ string Application::getInstruction () const
 	if (! requiredGroup_prev. empty ())
 		instr += ")";
   
-  instr += "\nHELP:    " + programName + " " + ifS (gnu, "-") + "-" + helpS;
+  instr += "\n" + colorize ("HELP", coutP) + ":    " + programName + " " + ifS (gnu, "-") + "-" + helpS;
   if (gnu)
     instr += " or " + programName + " -" + helpS [0];
-  instr += "\nVERSION: " + programName + " " + ifS (gnu, "-") + "-" + versionS;
+  instr += "\n" + colorize ("VERSION", coutP) + ": " + programName + " " + ifS (gnu, "-") + "-" + versionS;
+  if (gnu)
+    instr += " or " + programName + " -" + versionS [0];
 
   return instr;
 }
@@ -3727,20 +3735,22 @@ string Application::getInstruction () const
 
 string Application::getHelp () const
 {
-  string instr (getInstruction ());
+  string instr (getInstruction (true));
 
   const string par ("\n    ");
 
+  const bool coutP = ! isRedirected (cout);
+
   if (! positionalArgs. empty ())
   {
-	  instr += "\n\nPOSITIONAL PARAMETERS:";
+	  instr += "\n\n" + colorize ("POSITIONAL PARAMETERS", coutP) + ":";
 	  for (const Positional& p : positionalArgs)
 	    instr += "\n" + p. str () + par + p. description;
 	}
 
   if (! keyArgs. empty ())
   {
-	  instr += "\n\nNAMED PARAMETERS:";
+	  instr += "\n\n" + colorize ("NAMED PARAMETERS", coutP) + ":";
 	  for (const Key& key : keyArgs)
 	  {
 	    instr += "\n" + key. getShortHelp () + par + key. description;
@@ -3819,7 +3829,7 @@ int Application::run (int argc,
 
           const string s1 (s. substr (1));
           if (s1. empty ())
-            errorExitStr ("Dash with no key\n\n" + getInstruction ());
+            errorExitStr ("Dash with no key\n\n" + getInstruction (false));
 
           string name;
           const char c = s1 [0];  // Valid if name.empty()
@@ -3828,12 +3838,12 @@ int Application::run (int argc,
           	{
           		name = s1. substr (1);
 		          if (name. empty ())
-		            errorExitStr ("Dashes with no key\n\n" + getInstruction ());
+		            errorExitStr ("Dashes with no key\n\n" + getInstruction (false));
           	}
           	else
           	{
           		if (s1. size () != 1) 
-                errorExitStr ("Single character expected: " + strQuote (s1) + "\n\n" + getInstruction ());
+                errorExitStr ("Single character expected: " + strQuote (s1) + "\n\n" + getInstruction (false));
             }
           else
           	name = s1;
@@ -3843,7 +3853,7 @@ int Application::run (int argc,
             cout << getHelp () << endl;
             return 0;
           }
-          if (name == versionS)
+          if (name == versionS || (name. empty () && c == versionS [0] && gnu))
           {
             cout << version << endl;
             return 0;
@@ -3881,18 +3891,18 @@ int Application::run (int argc,
 	      first = false;
 	    }
       if (key)
-        errorExitStr ("Key with no value: " + key->name + "\n\n" + getInstruction ());
+        errorExitStr ("Key with no value: " + key->name + "\n\n" + getInstruction (false));
 
 
 	    if (programArgs. size () == 1 && (! positionalArgs. empty () || needsArg))
 	    {
-	      cout << getInstruction () << endl;
+	      cout << getInstruction (true) << endl;
 	      return 1;
 	    }
 	    
 
 	    if (posIt != positionalArgs. end ())
-	      errorExitStr ("Too few positional parameters\n\n" + getInstruction ());
+	      errorExitStr ("Too few positional parameters\n\n" + getInstruction (false));
 	  }
     
     
@@ -3962,19 +3972,27 @@ int Application::run (int argc,
     #endif
 	  }
   
-	
-  	threads_max = str2<size_t> (getArg ("threads"));
-  	if (! threads_max)
-  		throw runtime_error ("Number of threads cannot be 0");	
-  	if (threads_max > 1 && Chronometer::enabled)
-  		throw runtime_error ("Cannot profile with threads");
+
+    ASSERT (threads_max == 1);	
+    if (threadsUsed)
+    {
+    	threads_max = str2<size_t> (getArg ("threads"));
+    	if (! threads_max)
+    		throw runtime_error ("Number of threads cannot be 0");	
+    	if (threads_max > 1 && Chronometer::enabled)
+    		throw runtime_error ("Cannot profile with threads");
+    }
 
 
-  	const Verbose vrb (gnu ? 0 : str2<int> (getArg ("verbose")));
+  	const Verbose vrb (gnu 
+  	                     ? getFlag ("quiet")
+  	                       ? -1
+  	                       : 0 
+  	                     : str2<int> (getArg ("verbose"))
+  	                   );
 	  	
-  
+		initVar ();
 		qc ();
-		createTmp ();
   	body ();
 
   
@@ -3988,7 +4006,7 @@ int Application::run (int argc,
 	}
 	catch (const std::exception &e) 
 	{ 
-	  errorExit ((e. what () + ifS (errno, string (": ") + strerror (errno))). c_str ());
+	  errorExit ((e. what () + ifS (errno, string ("\n") + strerror (errno))). c_str ());
   }
 
 
@@ -4004,6 +4022,13 @@ ShellApplication::~ShellApplication ()
 {
 	if (tmpCreated && ! logPtr)
 	  removeDirectory (tmp);
+
+  if (startTime)
+  {
+    const time_t endTime = time (NULL);
+    const OColor oc (cerr, Chronometer_OnePass::color, false, ! stderr. quiet);  
+    stderr << programName << " took " << endTime - startTime << " seconds to complete\n";
+  }
 }
 
 
@@ -4044,7 +4069,7 @@ void ShellApplication::initEnvironment ()
 
 
 
-void ShellApplication::createTmp () 
+void ShellApplication::initVar () 
 {
   ASSERT (! tmpCreated);
   
@@ -4069,6 +4094,23 @@ void ShellApplication::createTmp ()
     }
     
     tmpCreated = true;
+  }
+  
+  stderr. quiet = getQuiet ();
+
+  startTime = time (NULL);
+  stderr << "Running: " << getCommandLine () << '\n';
+
+  // threads_max
+  if (threadsUsed)
+  {
+    const size_t threads_max_max = get_threads_max_max ();
+    if (threads_max > threads_max_max)
+    {
+      stderr << "The number of threads cannot be greater than " << threads_max_max << " on this computer" << '\n'
+             << "The current number of threads is " << threads_max << ", reducing to " << threads_max_max << '\n';
+      threads_max = threads_max_max;
+    }
   }
 }
 
@@ -4140,6 +4182,86 @@ string ShellApplication::exec2str (const string &cmd,
   if (vec. size () != 1)
     throw runtime_error (cmd + "\nOne line is expected");
   return vec [0];  
+}
+
+
+
+string ShellApplication::uncompress (const string &quotedFName,
+                                     const string &suffix) const
+{
+  const string res (shellQuote (tmp + "/" + suffix));
+  QC_ASSERT (quotedFName != res);
+  const string s (unQuote (quotedFName));
+  if (isRight (s, ".gz"))  
+  {
+    exec ("gunzip -c " + quotedFName + " > " + res);
+    return res;
+  }
+  return quotedFName;  
+}
+
+
+
+string ShellApplication::getBlastThreadsParam (const string &blast,
+                                               size_t threads_max_max) const
+{
+  const size_t t = min (threads_max, threads_max_max);
+  if (t <= 1)  // One thread is main
+    return noString;
+  
+	bool num_threadsP = false;
+	bool mt_modeP = false;
+	{
+	  const string blast_help (tmp + "/blast_help");
+    exec (fullProg (blast) + " -help > " + blast_help);
+    LineInput f (blast_help);
+    while (f. nextLine ())
+    {
+      trim (f. line);
+      if (contains (f. line, "-num_threads "))
+        num_threadsP = true;
+      if (contains (f. line, "-mt_mode "))
+        mt_modeP = true;
+    }
+  }
+  
+  if (! num_threadsP)
+    return noString;
+  
+  string s ("  -num_threads " + to_string (t));
+  
+  bool mt_mode_works = true;
+#ifdef __APPLE__
+  {
+    mt_mode_works = false;
+    const string blast_version (tmp + "/blast_version");
+    exec (fullProg (blast) + " -version > " + blast_version);
+    LineInput f (blast_version);
+    while (f. nextLine ())
+    {
+      trim (f. line);
+      const string prefix (blast + ": ");
+      if (isLeft (f. line, prefix))
+      {
+        trimSuffix (f. line, "+");
+        Istringstream iss;
+        iss. reset (f. line. substr (prefix. size ()));
+        const SoftwareVersion v (iss);
+      //PRINT (v);  
+        iss. reset ("2.13.0");  // PD-4560
+        const SoftwareVersion threshold (iss);;
+      //PRINT (threshold);  
+        mt_mode_works = (threshold <= v);
+      }
+      break;
+    }
+  }
+#endif
+
+  if (mt_modeP && mt_mode_works)  
+    s += "  -mt_mode 1";
+    
+  return s;
 }
 
 

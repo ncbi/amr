@@ -201,13 +201,12 @@ struct ThisApplication : ShellApplication
   ThisApplication ()
     : ShellApplication ("Update the database for AMRFinder from " URL "\n\
 Requirement: the database directory contains subdirectories named by database versions.\
-", false, true, true)
+", false, false, true, true)
     {
     	addKey ("database", "Directory for all versions of AMRFinder databases", "$BASE/data", 'd', "DATABASE_DIR");
     	addKey ("blast_bin", "Directory for BLAST", "", '\0', "BLAST_DIR");
     	addKey ("hmmer_bin", "Directory for HMMer", "", '\0', "HMMER_DIR");
     	addFlag ("force_update", "Force updating the AMRFinder database");  // PD-3469
-      addFlag ("quiet", "Suppress messages to STDERR", 'q');
 	    version = SVN_REV;
 
       // curMinor
@@ -238,16 +237,11 @@ Requirement: the database directory contains subdirectories named by database ve
           string blast_bin    = getArg ("blast_bin");
           string hmmer_bin    = getArg ("hmmer_bin");
     const bool   force_update = getFlag ("force_update");
-    const bool   quiet        = getFlag ("quiet");
-    
-    
+        
     addDirSlash (blast_bin);
     addDirSlash (hmmer_bin);
     
         
-    Stderr stderr (quiet);
-    stderr << "Running: "<< getCommandLine () << '\n';
-	//stderr << "Current software minor version: " << curMinor << '\n'; 
     const Verbose vrb (qc_on);
     
 
@@ -375,7 +369,7 @@ Requirement: the database directory contains subdirectories named by database ve
 	  exec (fullProg ("amrfinder_index") + shellQuote (latestDir) 
 	          + makeKey ("blast_bin", blast_bin)   
 	          + makeKey ("hmmer_bin", hmmer_bin)  
-	          + ifS (quiet, " -q") + ifS (qc_on, " --debug") + " > " + tmp + "/amrfinder_index.err", tmp + "/amrfinder_index.err"); 
+	          + ifS (getQuiet (), " -q") + ifS (qc_on, " --debug") + " > " + tmp + "/amrfinder_index.err", tmp + "/amrfinder_index.err"); 
   }
 };
 
