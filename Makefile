@@ -99,12 +99,12 @@ alignment.o:	alignment.hpp alignment.hpp common.inc
 amr_report.o:	common.hpp common.inc gff.hpp alignment.hpp
 amr_reportOBJS=amr_report.o common.o gff.o alignment.o
 amr_report:	$(amr_reportOBJS)
-	$(CXX) -o $@ $(amr_reportOBJS)
+	$(COMPILE.cpp) -o $@ $(amr_reportOBJS)
 
 amrfinder.o:  common.hpp common.inc gff.hpp
 amrfinderOBJS=amrfinder.o common.o gff.o tsv.o
 amrfinder:	$(amrfinderOBJS)
-	$(CXX) -o $@ $(amrfinderOBJS) -pthread $(DBDIR)
+	$(COMPILE.cpp) -o $@ $(amrfinderOBJS) -pthread $(DBDIR)
 
 amrfinder_update.o:  common.hpp common.inc 
 amrfinder_updateOBJS=amrfinder_update.o common.o curl_easy.o
@@ -113,37 +113,37 @@ amrfinder_update:      $(amrfinder_updateOBJS)
 	then  \
 		touch amrfinder_update.cpp ;\
 	fi # make sure the next make command rebuilds amrfinder_update
-	$(CXX) -o $@ $(amrfinder_updateOBJS) -lcurl 
+	$(COMPILE.cpp) -o $@ $(amrfinder_updateOBJS) -lcurl 
 
 amrfinder_index.o:  common.hpp common.inc 
 amrfinder_indexOBJS=amrfinder_index.o common.o
 amrfinder_index:      $(amrfinder_indexOBJS) 
-	$(CXX) -o $@ $(amrfinder_indexOBJS) 
+	$(COMPILE.cpp) -o $@ $(amrfinder_indexOBJS) 
 
 fasta_check.o:	common.hpp common.inc 
 fasta_checkOBJS=fasta_check.o common.o 
 fasta_check:	$(fasta_checkOBJS)
-	$(CXX) -o $@ $(fasta_checkOBJS)
+	$(COMPILE.cpp) -o $@ $(fasta_checkOBJS)
 
 fasta_extract.o:	common.hpp common.inc
 fasta_extractOBJS=fasta_extract.o common.o
 fasta_extract:	$(fasta_extractOBJS)
-	$(CXX) -o $@ $(fasta_extractOBJS)
+	$(COMPILE.cpp) -o $@ $(fasta_extractOBJS)
 
 fasta2parts.o:	common.hpp common.inc
 fasta2partsOBJS=fasta2parts.o common.o
 fasta2parts:	$(fasta2partsOBJS)
-	$(CXX) -o $@ $(fasta2partsOBJS)
+	$(COMPILE.cpp) -o $@ $(fasta2partsOBJS)
 
 gff_check.o:	common.hpp common.inc gff.hpp
 gff_checkOBJS=gff_check.o common.o gff.o
 gff_check:	$(gff_checkOBJS)
-	$(CXX) -o $@ $(gff_checkOBJS)
+	$(COMPILE.cpp) -o $@ $(gff_checkOBJS)
 
 dna_mutation.o:	common.hpp common.inc alignment.hpp
 dna_mutationOBJS=dna_mutation.o common.o alignment.o
 dna_mutation:	$(dna_mutationOBJS)
-	$(CXX) -o $@ $(dna_mutationOBJS)
+	$(COMPILE.cpp) -o $@ $(dna_mutationOBJS)
 
 
 
