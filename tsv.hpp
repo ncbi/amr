@@ -237,24 +237,32 @@ public:
 struct TsvOut
 {
 private:
-  ostream& os;
-  const ONumber on;
+  ostream* os {nullptr};
+  unique_ptr<const ONumber> on;
   size_t lines {0};
   size_t fields_max {0};
   size_t fields {0};
 public:
   bool usePound {true};
   
-  explicit TsvOut (ostream &os_arg,
+  
+  explicit TsvOut (ostream* os_arg,
                    streamsize precision = 6,
 	                 bool scientific = false)
 	  : os (os_arg)
-	  , on (os, precision, scientific)
+	  , on (os_arg ? new ONumber (*os_arg, precision, scientific) : nullptr)
+	  {}
+	  // !os_arg <=> disabled
+  explicit TsvOut (ostream &os_arg,
+                   streamsize precision = 6,
+	                 bool scientific = false)
+	  : TsvOut (& os_arg, precision, scientific)
 	  {}
  ~TsvOut ()
     { if (fields)
         errorExitStr ("TsvOut: fields = " + to_string (fields_max));
     }
+    
     
   bool empty () const
     { return    ! lines 
@@ -263,18 +271,22 @@ public:
     }
   template <typename T>
     TsvOut& operator<< (const T &field)
-      { if (lines && fields >= fields_max)
-          throw runtime_error ("TsvOut: fields_max = " + to_string (fields_max));
-        if (fields)  
-          os << '\t'; 
-        else if (! lines && usePound)
-          os << '#';
-        os << field; 
-        fields++;
+      { if (os)
+        { if (lines && fields >= fields_max)
+            throw runtime_error ("TsvOut: fields_max = " + to_string (fields_max));
+          if (fields)  
+            *os << '\t'; 
+          else if (! lines && usePound)
+            *os << '#';
+          *os << field; 
+          fields++;
+        }
         return *this; 
       }    
   void newLn ()
-    { os << endl;
+    { if (! os)
+        return;
+      *os << endl;
       if (! lines)
         fields_max = fields;
       lines++;

@@ -33,6 +33,8 @@
 * Dependencies: NCBI BLAST, HMMer, gunzip (optional)
 *
 * Release changes:
+*                               move DOCUMENTATION section to the end of the usage message
+*   3.12.11 02/13/2024 PD-4893  move DOCUMENTATION and UPDATES sections to the end of the --help message; 
 *   3.12.10 02/12/2024 PD-4874  -v == --version
 *   3.12.9  02/02/2024          moving some functions and variables to common.{hpp,cpp}
 *   3.12.8  02/01/2024 PD-4872  ALLELEP = EXACTP for alleles; exact matches with possibly hanging tailes are preferred
@@ -291,7 +293,7 @@ using namespace GFF_sp;
 // PAR!
 // PD-3051
 #define DATA_VER_MIN "2023-12-15.2"  
-// 3.11: "2021-02-18.1"  
+  // 3.11: "2021-02-18.1"  
 
 
 
@@ -308,6 +310,7 @@ constexpr double partial_coverage_min_def = 0.5;
 const string ambigS ("20");  
 
 
+#if 0
 const string help ( \
 "Identify AMR and virulence genes in proteins and/or contigs and print a report\n" \
 "\n" \
@@ -318,13 +321,14 @@ const string help ( \
 "    Subscribe to the amrfinder-announce mailing list for database and software update notifications:\n" \
 "    https://www.ncbi.nlm.nih.gov/mailman/listinfo/amrfinder-announce"
 );
+#endif
 
 
 
 struct ThisApplication : ShellApplication
 {
   ThisApplication ()
-    : ShellApplication (help, true, true, true, true)
+    : ShellApplication ("Identify AMR and virulence genes in proteins and/or contigs and print a report", true, true, true, true)
     {
     	addFlag ("update", "Update the AMRFinder database", 'u');  // PD-2379
     	addFlag ("force_update", "Force updating the AMRFinder database", 'U');  // PD-3469
@@ -375,6 +379,10 @@ struct ThisApplication : ShellApplication
     	addKey ("parm", "amr_report parameters for testing: -nosame -noblast -skip_hmm_check -bed", "", '\0', "PARM");
 
 	    version = SVN_REV;  
+	    documentationUrl = "https://github.com/ncbi/amr/wiki";
+	    updatesDoc = "\
+    Subscribe to the amrfinder-announce mailing list for database and software update notifications:\n\
+    https://www.ncbi.nlm.nih.gov/mailman/listinfo/amrfinder-announce";
     }
 
 

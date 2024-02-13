@@ -4418,10 +4418,12 @@ struct Application : Singleton<Application>, Root
 // Usage: int main (argc, argv) { ThisApplication /*:Application*/ app; return app. run (argc, argv); }
 {  
   const string description;
+  string version {"0.0.0"};
+  string documentationUrl;
+  string updatesDoc;
   const bool needsArg;
   const bool gnu;
   const bool threadsUsed;
-  string version {"0.0.0"};
   static constexpr const char* helpS {"help"};
   static constexpr const char* versionS {"version"};
   
@@ -4576,6 +4578,8 @@ protected:
   virtual void initVar ()
     {}
   string getInstruction (bool coutP) const;
+  string getDocumentation () const;
+  string getUpdates () const;
   virtual string getHelp () const;
     // Requires: must be printed to cout
   string makeKey (const string &param,

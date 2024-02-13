@@ -3727,8 +3727,26 @@ string Application::getInstruction (bool coutP) const
   instr += "\n" + colorize ("VERSION", coutP) + ": " + programName + " " + ifS (gnu, "-") + "-" + versionS;
   if (gnu)
     instr += " or " + programName + " -" + versionS [0];
-
+    
   return instr;
+}
+
+
+
+string Application::getDocumentation () const
+{
+  if (documentationUrl. empty ())
+    return noString;
+  return "\n\n" + colorize ("DOCUMENTATION", true) + "\n    See " + documentationUrl + " for full documentation";    
+}
+
+
+
+string Application::getUpdates () const
+{
+  if (updatesDoc. empty ())
+    return noString;
+  return "\n\n" + colorize ("UPDATES", true) + "\n" + updatesDoc;
 }
 
 
@@ -3850,7 +3868,7 @@ int Application::run (int argc,
 
           if (name == helpS || (name. empty () && c == helpS [0] && gnu))
           {
-            cout << getHelp () << endl;
+            cout << getHelp () << getDocumentation () << getUpdates () << endl;
             return 0;
           }
           if (name == versionS || (name. empty () && c == versionS [0] && gnu))
@@ -3896,7 +3914,7 @@ int Application::run (int argc,
 
 	    if (programArgs. size () == 1 && (! positionalArgs. empty () || needsArg))
 	    {
-	      cout << getInstruction (true) << endl;
+	      cout << getInstruction (true) << getDocumentation () << endl;
 	      return 1;
 	    }
 	    
