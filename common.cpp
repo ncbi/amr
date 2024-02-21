@@ -3761,14 +3761,14 @@ string Application::getHelp () const
 
   if (! positionalArgs. empty ())
   {
-	  instr += "\n\n" + colorize ("POSITIONAL PARAMETERS", coutP) + ":";
+	  instr += "\n\n" + colorize ("POSITIONAL PARAMETERS", coutP) /*+ ":"*/;
 	  for (const Positional& p : positionalArgs)
 	    instr += "\n" + p. str () + par + p. description;
 	}
 
   if (! keyArgs. empty ())
   {
-	  instr += "\n\n" + colorize ("NAMED PARAMETERS", coutP) + ":";
+	  instr += "\n\n" + colorize ("NAMED PARAMETERS", coutP) /*+ ":"*/;
 	  for (const Key& key : keyArgs)
 	  {
 	    instr += "\n" + key. getShortHelp () + par + key. description;

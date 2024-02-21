@@ -260,7 +260,7 @@ public:
 	  {}
  ~TsvOut ()
     { if (fields)
-        errorExitStr ("TsvOut: fields = " + to_string (fields_max));
+        errorExitStr ("TsvOut: unfinished line with " + to_string (fields) + " fields"); 
     }
     
     

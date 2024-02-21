@@ -698,7 +698,7 @@ struct BlastAlignment : Alignment
   	             << pIdentity () * 100.0  // refIdentity
   	             << targetSeq. size ()
   	             << refAccession
-  	             << product
+  	             << product 
   	             ;
   	        // PD-775
   	        if (isMutationProt ())
@@ -732,7 +732,7 @@ struct BlastAlignment : Alignment
   	          if (! print_node_raw && allele () && ! refProtExactlyMatched (true))
   	            td << gene;
   	          else
-  	            td << famId;
+  	            td << fusion2famIds ();
   	        }
   	        IMPLY (isMutationProt () && isMutation /*! seqChange. empty () && mut && ! seqChange. replacement*/, hasMutation ());
   	        td. newLn ();
@@ -829,10 +829,15 @@ public:
         return getGeneSymbol ();
       string s;
       for (const BlastAlignment* fusion : fusions)
-      { if (! s. empty ())
-          s += "/";
-        s += fusion->getGeneSymbol ();
-      }
+        add (s, "/", fusion->getGeneSymbol ());
+      return s;
+    }
+  string fusion2famIds () const
+    { if (isMutationProt () || fusions. empty ())
+        return famId;
+      string s;
+      for (const BlastAlignment* fusion : fusions)
+        add (s, "/", fusion->famId);
       return s;
     }
 private:

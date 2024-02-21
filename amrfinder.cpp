@@ -33,8 +33,9 @@
 * Dependencies: NCBI BLAST, HMMer, gunzip (optional)
 *
 * Release changes:
+*   3.12.12 02/21/2024 PD-4906  --print_node for fusion proteins
 *                               move DOCUMENTATION section to the end of the usage message
-*   3.12.11 02/13/2024 PD-4893  move DOCUMENTATION and UPDATES sections to the end of the --help message; 
+*   3.12.11 02/13/2024 PD-4893  move DOCUMENTATION and UPDATES sections to the end of the --help message
 *   3.12.10 02/12/2024 PD-4874  -v == --version
 *   3.12.9  02/02/2024          moving some functions and variables to common.{hpp,cpp}
 *   3.12.8  02/01/2024 PD-4872  ALLELEP = EXACTP for alleles; exact matches with possibly hanging tailes are preferred
