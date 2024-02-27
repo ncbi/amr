@@ -147,11 +147,11 @@ constexpr const char* error_caption ("*** ERROR ***");
 	// Update: *logPtr
 	// Invokes: if segmFault then abort() else exit(1)
 
-[[noreturn]] void errorExitStr (const string &msg);
-  // For debugger
+void errorExitStr (const string &msg);
+  // For debugger: should not be inline
 
 [[noreturn]] void throwf (const string &s); 
-  // For debugger: should not be in-line
+  // For debugger: should not be inline
 
 void beep ();
   // Requires: !isRedirected()

@@ -265,15 +265,16 @@ namespace
     cxml->print (string (error_caption) + ": " + msg);
 
   if (segmFault)
-    abort ();
+    abort ();    
   exit (1);
 }
 
 
 
-[[noreturn]] void errorExitStr (const string &msg)
+void errorExitStr (const string &msg)
 { 
-  errorExit (msg. c_str ()); 
+  if (! uncaught_exceptions ())
+    errorExit (msg. c_str ()); 
 }
 
 

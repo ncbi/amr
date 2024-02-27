@@ -33,6 +33,7 @@
 * Dependencies: NCBI BLAST, HMMer, gunzip (optional)
 *
 * Release changes:
+*   3.12.13 02/27/2024 PD-4888  mutation.cpp is added to the distribution (used only in testing)
 *   3.12.12 02/21/2024 PD-4906  --print_node for fusion proteins
 *                               move DOCUMENTATION section to the end of the usage message
 *   3.12.11 02/13/2024 PD-4893  move DOCUMENTATION and UPDATES sections to the end of the --help message

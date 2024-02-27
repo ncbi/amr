@@ -83,7 +83,7 @@ COMPILE.cpp= $(CXX) $(CPPFLAGS) $(SVNREV) $(DBDIR) $(TEST_UPDATE_DB) -c
 
 .PHONY: all clean install release 
 
-BINARIES= amr_report amrfinder amrfinder_index amrfinder_update fasta_check fasta_extract fasta2parts gff_check dna_mutation 
+BINARIES= amr_report amrfinder amrfinder_index amrfinder_update fasta_check fasta_extract fasta2parts gff_check dna_mutation mutate
 
 all:	$(BINARIES)
 
@@ -95,6 +95,7 @@ common.o:	common.hpp common.inc
 curl_easy.o: curl_easy.hpp common.hpp common.inc
 gff.o: gff.hpp common.hpp common.inc
 alignment.o:	alignment.hpp alignment.hpp common.inc
+seq.o: seq.hpp common.hpp common.inc
 
 amr_report.o:	common.hpp common.inc gff.hpp alignment.hpp
 amr_reportOBJS=amr_report.o common.o gff.o alignment.o
@@ -144,6 +145,11 @@ dna_mutation.o:	common.hpp common.inc alignment.hpp
 dna_mutationOBJS=dna_mutation.o common.o alignment.o
 dna_mutation:	$(dna_mutationOBJS)
 	$(CXX) -o $@ $(dna_mutationOBJS)
+
+mutate.o:	common.hpp common.inc alignment.hpp seq.hpp
+mutateOBJS=mutate.o common.o alignment.o seq.o
+mutate:	$(mutateOBJS)
+	$(CXX) -o $@ $(mutateOBJS)
 
 
 
