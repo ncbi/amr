@@ -1,0 +1,3 @@
+[submodule "stxtyper"]
+	path = stxtyper
+	url = https://github.com/ncbi/stxtyper.git
