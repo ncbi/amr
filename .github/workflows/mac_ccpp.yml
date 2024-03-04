@@ -13,6 +13,8 @@ jobs:
     
     steps:
     - uses: actions/checkout@v3
+    - name: submodule checkout
+      run: git submodule update --init --recursive
     - name: prerequisites
       run: |
           /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
