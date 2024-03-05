@@ -33,7 +33,9 @@
 * Dependencies: NCBI BLAST, HMMer, gunzip (optional)
 *
 * Release changes:
-*   3.12.14 03/04/2024 PD-4910  --plus -O Escherichia: stxtyper 1.0.13 is invoked, STX* classes are suppressed in amr_report.cpp
+*   3.12.15 03/05/2024 PD-4918  stxtyper ver. 1.0.14: --print_node 
+*                               stxtyper -q
+*   3.12.14 03/05/2024 PD-4910  -n <nucl> --plus -O Escherichia: stxtyper 1.0.13 is invoked, STX* classes are suppressed in amr_report.cpp
 *   3.12.13 02/27/2024 PD-4888  mutation.cpp is added to the distribution (used only in testing)
 *   3.12.12 02/21/2024 PD-4906  --print_node for fusion proteins
 *                               move DOCUMENTATION section to the end of the usage message
@@ -364,7 +366,7 @@ struct ThisApplication : ShellApplication
       addFlag ("report_common", "Report proteins common to a taxonomy group");  // PD-2756
       addFlag ("report_all_equal", "Report all equally-scoring BLAST and HMM matches");  // PD-3772
       addKey ("name", "Text to be added as the first column \"name\" to all rows of the report, for example it can be an assembly name", "", '\0', "NAME");
-      addFlag ("print_node", "print hierarchy node (family)");  // PD-4394
+      addFlag ("print_node", "Print hierarchy node (family)");  // PD-4394
     	addKey ("mutation_all", "File to report all mutations", "", '\0', "MUT_ALL_FILE");
 
       addKey ("output", "Write output to OUTPUT_FILE instead of STDOUT", "", 'o', "OUTPUT_FILE");
@@ -1115,11 +1117,31 @@ struct ThisApplication : ShellApplication
   			}
 	  }
 		
+		
+		const bool stxTyper = blastn && organism1 == "Escherichia" && add_plus;
+	  if (stxTyper)
+	  {
+  		stderr. section ("Running stxtyper");
+ 			const Chronometer_OnePass_cerr cop ("stxtyper");
+			exec (  fullProg ("stxtyper") 
+			      + "  -n " + dna_flat 
+			      + prependS (blast_bin, "  --blast_bin ") 
+			      + "  -o " + tmp + "/stxtyper"
+			      + "  --name " + input_name 
+			      + "  --amrfinder"
+			      + ifS (print_node, "  --print_node")
+			      + "  -q "  // ifS (getVerbosity () == -1, "  -q")
+			      + ifS (qc_on, "  --debug")
+			      + "  --log " + logFName
+			      , logFName
+			      );
+	  }
+		
 
     // tmp + "/amr", tmp + "/mutation_all"
 		stderr. section ("Making report");
     const string printNode (print_node ? " -print_node" : "");
-    const string nameS (" -name " + input_name /*emptyArg (input_name) ? "" : " -name " + input_name*/);
+    const string nameS (" -name " + input_name);
     {
  			const Chronometer_OnePass_cerr cop ("amr_report");
       const string mutation_allS (mutation_all. empty () ? "" : ("-mutation_all " + tmp + "/mutation_all"));      
@@ -1138,42 +1160,26 @@ struct ThisApplication : ShellApplication
   	}
 		if (blastn)
 		{
-		  {
-   			const Chronometer_OnePass_cerr cop ("dna_mutation");
-        const string mutation_allS (mutation_all. empty () ? "" : ("-mutation_all " + tmp + "/mutation_all.dna")); 
-  			exec (fullProg ("dna_mutation") + tmp + "/blastn " + shellQuote (db + "/AMR_DNA-" + organism1 + ".tab") + " " + strQuote (organism1) + " " + mutation_allS 
-  			      + nameS + printNode + qcS + " -log " + logFName + " > " + tmp + "/amr-snp", logFName);
-  	    {
-    			ofstream f (tmp + "/amr", ios_base::out | ios_base::app);
-    			copyText (tmp + "/amr-snp", 1, f);
-    	  }
-        if (! mutation_all. empty ())
-        {
-    			ofstream f (tmp + "/mutation_all", ios_base::out | ios_base::app);
-    			copyText (tmp + "/mutation_all.dna", 1, f);
-    	  }
-    	}
-  	  if (organism1 == "Escherichia" && add_plus)
-  	  {
-    		stderr. section ("StxTyper");
-   			const Chronometer_OnePass_cerr cop ("stxtyper");
-  			exec (  fullProg ("stxtyper") 
-  			      + "  -n " + dna_flat 
-  			      + prependS (blast_bin, "  --blast_bin ") 
-  			      + "  -o " + tmp + "/stxtyper"
-  			      + "  --name " + input_name 
-  			      + "  --amrfinder"
-  			      + ifS (getVerbosity () == -1, "  -q")
-  			      + ifS (qc_on, "  --debug")
-  			      + "  --log " + logFName
-  			      , logFName
-  			      );
-  	    {
-    			ofstream f (tmp + "/amr", ios_base::out | ios_base::app);
-    			copyText (tmp + "/stxtyper", 1, f);
-    	  }
+ 			const Chronometer_OnePass_cerr cop ("dna_mutation");
+      const string mutation_allS (mutation_all. empty () ? "" : ("-mutation_all " + tmp + "/mutation_all.dna")); 
+			exec (fullProg ("dna_mutation") + tmp + "/blastn " + shellQuote (db + "/AMR_DNA-" + organism1 + ".tab") + " " + strQuote (organism1) + " " + mutation_allS 
+			      + nameS + printNode + qcS + " -log " + logFName + " > " + tmp + "/amr-snp", logFName);
+	    {
+  			ofstream f (tmp + "/amr", ios_base::out | ios_base::app);
+  			copyText (tmp + "/amr-snp", 1, f);
+  	  }
+      if (! mutation_all. empty ())
+      {
+  			ofstream f (tmp + "/mutation_all", ios_base::out | ios_base::app);
+  			copyText (tmp + "/mutation_all.dna", 1, f);
   	  }
 	  }
+	  if (stxTyper)
+    {
+			ofstream f (tmp + "/amr", ios_base::out | ios_base::app);
+			copyText (tmp + "/stxtyper", 1, f);
+	  }
+
 
     // Column names are from amr_report.cpp
 
