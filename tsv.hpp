@@ -264,6 +264,8 @@ public:
     }
     
     
+  bool live () const
+    { return os; }
   bool empty () const
     { return    ! lines 
              && ! fields_max

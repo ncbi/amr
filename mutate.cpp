@@ -59,6 +59,8 @@ struct ThisApplication : Application
   	  addPositional ("mut", "AmrMutation table: <seq_id> <1-based pos> <mutation>");
   	  addFlag ("aa", "Protein/DNA");
   	  addFlag ("orig", "Add the original, non-mutated sequences");
+
+ 	    version = SVN_REV;  
     }
 
 

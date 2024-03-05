@@ -1597,12 +1597,10 @@ void exec (const string &cmd,
 //Chronometer_OnePass cop (cmd);  
   if (verbose ())
   	cout << cmd << endl;
-  if (logPtr)
-  	*logPtr << cmd << endl;
+  LOG (cmd);
   	
 	const int status = system (cmd. c_str ());  // pipefail's are not caught
-	if (logPtr)
-	  *logPtr << "status = " << status << endl;	
+	LOG ("status = " + to_string (status));
 	if (status)
 	{
 	  string err (cmd + "\nstatus = " + to_string (status));
@@ -4147,8 +4145,8 @@ string ShellApplication::getHelp () const
 
 void ShellApplication::body () const
 {
-  if (logPtr && useTmp)
-    *logPtr << tmp << endl;
+  if (useTmp)
+    LOG (tmp);
   shellBody ();
 }
 

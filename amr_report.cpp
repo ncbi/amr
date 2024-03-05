@@ -369,6 +369,7 @@ struct BlastAlignment : Alignment
   uchar reportable {0};
   string classS;
   string subclass;
+  bool stxtyper {false};
 
   const Fam* brFam {nullptr};
   // Valid if !fromHmm and !inFam()
@@ -548,6 +549,7 @@ struct BlastAlignment : Alignment
         targetAlign    = best->targetAlign;
         targetAlign_aa = best->targetAlign_aa;
         refAccession   = best->refAccession;
+        stxtyper       = best->stxtyper;
       }
     }
   void qc () const override
@@ -2065,6 +2067,7 @@ public:
      	              )
      	           && ! suppress_prots. containsFast (blastAl->refAccession)
      	           && ! blastAl->fusionRedundant
+     	           && ! blastAl->stxtyper
      	          )
      	  {
       	  blastAl->report (td, it. first, mutationAll);
@@ -2433,6 +2436,8 @@ struct ThisApplication : Application
   	    al->qc ();  
   	    if (nosame && al->refAccession == al->targetName)
   	      continue;
+  	    if (organism == "Escherichia" && isLeft (al->classS, "STX"))
+  	      al->stxtyper = true;
  	      batch. blastAls << al. release ();
   	  }
   	}

@@ -121,6 +121,7 @@
 
 #define PRINT(x)  { Offset::newLn (cout); cout << #x << " = " << (x); }
 
+#define LOG(x)  { if (logPtr) *logPtr << (x) << endl; }
 
 #define XSTR(s) STR(s)
 #define STR(s)  #s
