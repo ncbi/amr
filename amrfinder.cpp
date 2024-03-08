@@ -33,6 +33,7 @@
 * Dependencies: NCBI BLAST, HMMer, gunzip (optional)
 *
 * Release changes:
+*   3.12.16 03/08/2024 PD-4923  verify the version of stxtyper
 *   3.12.15 03/05/2024 PD-4918  stxtyper ver. 1.0.14: --print_node 
 *                               stxtyper -q
 *   3.12.14 03/05/2024 PD-4910  -n <nucl> --plus -O Escherichia: stxtyper 1.0.13 is invoked, STX* classes are suppressed in amr_report.cpp
@@ -849,6 +850,20 @@ struct ThisApplication : ShellApplication
     
 
 	  const bool blastn = ! emptyArg (dna) && ! organism1. empty () && fileExists (db + "/AMR_DNA-" + organism1);
+		const bool stxTyper = blastn && organism1 == "Escherichia" && add_plus;
+		
+		
+		if (stxTyper)
+		{
+		  const string verFName (tmp + "/stxtyper-ver");
+			exec (fullProg ("stxtyper") + " -v > " + verFName, logFName);
+	    LineInput f (verFName);
+	    if (! f. nextLine ())
+	      throw runtime_error ("Cannot get the version of StxTyper");
+	    const string stxTyperVersion ("1.0.14");  // PAR
+	    if (f. line != stxTyperVersion)
+	      throw runtime_error ("AMRFinder invokes StxTyper version " + f. line + ". Expected StxTyper version is " + stxTyperVersion);		  
+		}
 
 
     // Create files for amr_report    
@@ -1118,7 +1133,6 @@ struct ThisApplication : ShellApplication
 	  }
 		
 		
-		const bool stxTyper = blastn && organism1 == "Escherichia" && add_plus;
 	  if (stxTyper)
 	  {
   		stderr. section ("Running stxtyper");

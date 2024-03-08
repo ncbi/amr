@@ -2355,6 +2355,17 @@ template <typename T>
       { if (P::empty ())
       	  return no_index;
       	checkSorted ();
+      	if (P::size () < 8)  // PAR
+      	{
+      	  for (size_t i = 0; i < P::size (); i++)
+      	  {
+      	    if (value == (*this) [i])
+          	  return i;
+      	    if (value < (*this) [i])
+          	  return exact ? no_index : i;
+          }
+          return no_index;
+      	}
       	size_t lo = 0;  // vec.at(lo) <= value
       	size_t hi = P::size () - 1;  
       	// lo <= hi
