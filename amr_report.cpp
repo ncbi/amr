@@ -2021,7 +2021,7 @@ public:
          << "Stop"     // targetEnd              //  4
          << "Strand";  // targetStrand           //  5
     // Reference
-    td << "Gene symbol"                          //  6 or 2
+    td << "Gene symbol"                          //  6 or 2   // "Element symbol" - PD-4924 ??
        << "Sequence name"                        //  7 or 3
        << "Scope"  // PD-2825                    //  8 or 4
        // PD-1856
@@ -2067,7 +2067,7 @@ public:
      	              )
      	           && ! suppress_prots. containsFast (blastAl->refAccession)
      	           && ! blastAl->fusionRedundant
-     	           && ! blastAl->stxtyper
+     	         //&& ! blastAl->stxtyper  // PD-4926
      	          )
      	  {
       	  blastAl->report (td, it. first, mutationAll);

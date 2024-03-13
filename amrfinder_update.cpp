@@ -316,7 +316,7 @@ Requirement: the database directory contains subdirectories named by database ve
         {
           const Warning w (stderr);
           stderr << shellQuote (latestDir) << " contains the latest version: " << version_old. front () << '\n';
-          stderr << "Skipping update, use amrfinder --force_update to overwrite the existing database";
+          stderr << "Skipping update\nUse amrfinder --force_update to overwrite the existing database";
           createLatestLink (mainDirS, /*latestDir*/ load_data_version);
           return;
         }

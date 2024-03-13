@@ -33,7 +33,10 @@
 * Dependencies: NCBI BLAST, HMMer, gunzip (optional)
 *
 * Release changes:
-*   3.12.16 03/08/2024 PD-4923  verify the version of stxtyper
+*           03/13/2024 PD-4926  StxTyper ver. 1.0.16; amr_report.cpp reports all stx genes
+*           03/11/2024 PD-4924  StxTyper 1.0.15: dead stxA2j EFK5907329.1 is replaced by EMA1832120.1
+*   3.12.17 03/08/2024 PD-4925  more detailed explanation for the message "The BLAST database for AMRProt was not found."
+*   3.12.16 03/08/2024 PD-4923  verify the version of StxTyper
 *   3.12.15 03/05/2024 PD-4918  stxtyper ver. 1.0.14: --print_node 
 *                               stxtyper -q
 *   3.12.14 03/05/2024 PD-4910  -n <nucl> --plus -O Escherichia: stxtyper 1.0.13 is invoked, STX* classes are suppressed in amr_report.cpp
@@ -207,7 +210,7 @@
 *   3.7.4   04/14/2020 PD-3391  Mac Conda installation
 *   3.7.3   04/09/2020 PD-3416  redundant QC check in alignment.cpp
 *   3.7.2   04/08/2020 PD-3363  "WILDTYPE" was not reported
-*   3.7.1   04/02/2020 PD-3154  GIs may be 0, accessions are main identifiers; file "AMRProt-suppress" is added accessions; DATA_VER_MIN is "2020-04-02.1"
+*   3.7.1   04/02/2020 PD-3154  GIs may be 0, accessions are main identifiers; file "AMRProt-suppress" is added accessions; dataVer_min is "2020-04-02.1"
 *   3.6.19  03/24/2020          Check of ">lcl|" is done only for the first sequence in FASTA
 *           03/24/2020 PD-3347  -lcl parameter in gff_check and amr_report
 *   3.6.18  03/17/2020 PD-3396  amr_report.cpp prints a better error message on missing sublcass in data
@@ -298,8 +301,9 @@ using namespace GFF_sp;
 
 // PAR!
 // PD-3051
-#define DATA_VER_MIN "2023-12-15.2"  
+const string dataVer_min ("2023-12-15.2");
   // 3.11: "2021-02-18.1"  
+const string stxTyperVersion ("1.0.16");  
 
 
 
@@ -648,9 +652,12 @@ struct ThisApplication : ShellApplication
 		  stderr << "Database directory: " << shellQuote (path2canonical (db)) << '\n';
     setSymlink (db, tmp + "/db", true);
 
-		if (! fileExists (db + "/AMRProt.phr"))
-			throw runtime_error ("The BLAST database for AMRProt was not found. Use amrfinder -u to download and prepare database for AMRFinderPlus");
-			 // "BLAST database " + shellQuote (db + "/AMRProt.phr") + " does not exist");
+    {
+      // PD-4925
+      const string dbTest (db + "/AMRProt.phr");
+  		if (! fileExists (dbTest))
+  			throw runtime_error ("The BLAST database for AMRProt (" + dbTest + ") was not found.\nUse amrfinder -u or amrfinder --force_update to download and prepare database for AMRFinderPlus");
+    }
 
 
 		// PD-3051
@@ -660,7 +667,7 @@ struct ThisApplication : ShellApplication
   		const SoftwareVersion softwareVersion_min (db + "/database_format_version.txt"); 
   	//stderr << "Software version: " << softwareVersion. str () << '\n'; 
   		const DataVersion dataVersion (db + "/version.txt");
-  		istringstream dataVersionIss (DATA_VER_MIN); 
+  		istringstream dataVersionIss (dataVer_min); 
   		const DataVersion dataVersion_min (dataVersionIss);  
       if (database_version)
         cout   << "Database version: " << dataVersion. str () << endl;
@@ -860,7 +867,6 @@ struct ThisApplication : ShellApplication
 	    LineInput f (verFName);
 	    if (! f. nextLine ())
 	      throw runtime_error ("Cannot get the version of StxTyper");
-	    const string stxTyperVersion ("1.0.14");  // PAR
 	    if (f. line != stxTyperVersion)
 	      throw runtime_error ("AMRFinder invokes StxTyper version " + f. line + ". Expected StxTyper version is " + stxTyperVersion);		  
 		}
@@ -1203,7 +1209,7 @@ struct ThisApplication : ShellApplication
       StringVector amrSortColumns;
       if (! (emptyArg (dna) && emptyArg (gff)))
         amrSortColumns << "Contig id" << "Start" << "Stop" << "Strand";    
-      amrSortColumns << "Protein identifier" << "Gene symbol";
+      amrSortColumns << "Protein identifier" << "Gene symbol";  
 
       {
         TextTable amrTab (tmp + "/amr");

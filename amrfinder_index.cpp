@@ -116,7 +116,7 @@ struct ThisApplication : ShellApplication
     }
     
     
-    stderr << "Indexing" << "\n";
+    stderr. section ("Indexing");
     exec (fullProg ("hmmpress") + " -f " + shellQuote (dbDir + "AMR.LIB") + " > /dev/null 2> " + tmp + "/hmmpress.err", tmp + "/hmmpress.err");
     setSymlink (dbDir, tmp + "/db", true);
 	  exec (fullProg ("makeblastdb") + " -in " + tmp + "/db/AMRProt" + "  -dbtype prot  -logfile " + tmp + "/makeblastdb.AMRProt", tmp + "/makeblastdb.AMRProt");  
