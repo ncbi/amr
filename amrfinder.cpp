@@ -303,7 +303,7 @@ using namespace GFF_sp;
 // PD-3051
 const string dataVer_min ("2023-12-15.2");
   // 3.11: "2021-02-18.1"  
-const string stxTyperVersion ("1.0.16");  
+const string stxTyperVersion ("1.0.19");  
 
 
 
