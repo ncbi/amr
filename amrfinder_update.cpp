@@ -29,6 +29,8 @@
 * File Description:
 *   Updating of AMRFinder data
 *
+* Dependencies: libcurl
+
 * Release changes: see amrfinder.cpp
 *
 */

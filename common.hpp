@@ -2470,17 +2470,18 @@ template <typename T>
       void setMinus (const Vector<U> &other)
         { filterIndex ([&] (size_t i) { return other. containsFast ((*this) [i]); }); }
         
-    size_t findDuplicate () const
+    size_t findDuplicate (bool checkSortedP = true) const
       { if (P::size () <= 1)
           return no_index;
-        checkSorted ();
+        if (checkSortedP)
+          checkSorted ();
         for (size_t i = 1; i < P::size (); i++)
           if ((*this) [i] == (*this) [i - 1])
             return i;
         return no_index;
       }
-    bool isUniq () const
-      { return findDuplicate () == no_index; }
+    bool isUniq (bool checkSortedP = true) const
+      { return findDuplicate (checkSortedP) == no_index; }
     template <typename Equal /*bool equal (const T &a, const T &b)*/>
   	  void uniq (const Equal &equal)
   	    { if (P::size () <= 1)

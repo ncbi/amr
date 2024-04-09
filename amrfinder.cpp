@@ -30,9 +30,10 @@
 *   AMRFinderPlus
 *   https://github.com/ncbi/amr
 *
-* Dependencies: NCBI BLAST, HMMer, gunzip (optional)
+* Dependencies: NCBI BLAST, HMMer, libcurl, gunzip (optional)
 *
 * Release changes:
+*           03/26/2024          StxTyper ver. 1.0.19
 *           03/13/2024 PD-4926  StxTyper ver. 1.0.16; amr_report.cpp reports all stx genes
 *           03/11/2024 PD-4924  StxTyper 1.0.15: dead stxA2j EFK5907329.1 is replaced by EMA1832120.1
 *   3.12.17 03/08/2024 PD-4925  more detailed explanation for the message "The BLAST database for AMRProt was not found."
@@ -303,7 +304,7 @@ using namespace GFF_sp;
 // PD-3051
 const string dataVer_min ("2023-12-15.2");
   // 3.11: "2021-02-18.1"  
-const string stxTyperVersion ("1.0.16");  
+const string stxTyperVersion ("1.0.19");  
 
 
 
