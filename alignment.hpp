@@ -152,6 +152,7 @@ struct SeqChange : Root
 	  
 	VectorPtr<AmrMutation> mutations;
 	  // !nullptr
+	  // Matching AmrMutation's
 	
 	const SeqChange* replacement {nullptr};
 	  // !nullptr => *this is replaced by *replacement
@@ -249,8 +250,10 @@ struct Alignment : Root
   size_t refEnd {0};
   size_t refLen {0};  
   AmrMutation refMutation;
-    // !empty() => refSeq is an allele
+    // !empty() => refSeq contains AmrMutation::allele
 //int ref_offset {0};
+
+  // targetSeq.size () = refSeq.size()
   
   // Alignment
   bool alProt {false};

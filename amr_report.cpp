@@ -369,7 +369,7 @@ struct BlastAlignment : Alignment
   uchar reportable {0};
   string classS;
   string subclass;
-  bool stxtyper {false};
+//bool stxtyper {false};
 
   const Fam* brFam {nullptr};
   // Valid if !fromHmm and !inFam()
@@ -549,7 +549,7 @@ struct BlastAlignment : Alignment
         targetAlign    = best->targetAlign;
         targetAlign_aa = best->targetAlign_aa;
         refAccession   = best->refAccession;
-        stxtyper       = best->stxtyper;
+      //stxtyper       = best->stxtyper;
       }
     }
   void qc () const override
@@ -747,11 +747,15 @@ struct BlastAlignment : Alignment
   bool isMutationProt () const
     { return resistance == "mutation"; }
   bool isSusceptibleProt () const
-    { return resistance == "susceptible"; }
+    { return resistance == "susceptible"; }  // Similar to isMutationProt(): low identity <=> point mutations
   bool inFam () const
     { return    ! isMutationProt () 
              && ! isSusceptibleProt (); 
     } 
+#if 0
+  bool notInFam () const
+    { return ! inFam (); }
+#endif
   Set<string> getMutationSymbols () const
     { Set<string> mutationSymbols;
       for (const SeqChange& seqChange : seqChanges)
@@ -990,11 +994,13 @@ public:
     { ASSERT (! fromHmm);
       if (refAccession. empty ())
         return true;
-      if (! refMutation. empty ())
-        return true;
+    //if (! refMutation. empty ())   // PD-4981: drop
+      //return true;
       if (! reportPseudo && pseudo ())
         return false;
-      if (isSusceptibleProt () && ! susceptible)
+      if (isMutationProt () && seqChanges. empty ())  // PD-4981
+        return false;
+      if (isSusceptibleProt () && ! susceptible)  // Alien organism
         return false;
 		  if (susceptible && pIdentity () > susceptible->cutoff + frac_delta)
 		    return false;
@@ -1006,7 +1012,7 @@ public:
     	   )
   	    return false;
   	  if (brFam)
-  	    return true;
+  	    return true;  	  
   	  if (inFam ())
   	    return false;
 	    if (partial ())
@@ -1115,26 +1121,36 @@ private:
     // Reflexive
     { if (this == & other)
         return true;
+      // PD-4981
+      if (isMutationProt () != other. isMutationProt ())  
+        return false;
+      if (refMutation. empty () != other. refMutation. empty ())  
+        return false;
+      if (isSusceptibleProt () != other. isSusceptibleProt ())          
+        return false;
+      //
       if (targetProt == other. targetProt)  
       {
 	    	if (targetName != other. targetName)
 	        return false;
+	    #if 0  // PD-4981
         if (   !        refMutation. empty ()
             || ! other. refMutation. empty ()
            )
           return false;
+      #endif
         // PD-807, PD-4277
         if (   ! other. insideEq (*this)
         	  && !        insideEq (other)
         	 )
           if (   ! targetProt 
-              || (   ! isMutationProt ()   // PD-4722
-                  && ! other. isMutationProt ()   // PD-4755
+              || (   inFam () /*! isMutationProt ()*/   // PD-4722
+                  && other. inFam () /*! other. isMutationProt ()*/   // PD-4755
                   && fusion2geneSymbols () != other. fusion2geneSymbols ()
                  )
              )  // PD-4687
             return false;
-        if (   ! isMutationProt ()
+        if (   inFam () /*! isMutationProt ()*/
             && ! refAccession. empty () 
             && refAccession == other. refAccession  // PD-4013
            )  
@@ -1147,7 +1163,7 @@ private:
         }
         else
         {
-  	      LESS_PART (other, *this, hasMutation ());
+  	      LESS_PART (other, *this, /*notInFam ()*/ hasMutation ());
   	      LESS_PART (other, *this, refProtExactlyMatched (false));  // PD-1261, PD-1678
   	      LESS_PART (other, *this, nident);
   	      LESS_PART (*this, other, refEffectiveLen ());  
@@ -1155,8 +1171,10 @@ private:
 	    }
 	    else
 	    { 
+	    #if 0  // PD-4981
         if (refMutation. empty () != other. refMutation. empty ())  // PD-4706
           return false;
+      #endif
         // PD-1902, PD-2139, PD-2313, PD-2320
 	    	if (targetProt && ! matchesCds (other))
 	    	  return false;
@@ -1205,7 +1223,7 @@ public:
     // Requires: all SCCs of betterEq() are complete subgraphs ??
     { return    betterEq (other) 
     	       && (   ! other. betterEq (*this)
-    	           || (! equidistant && refAccession < other. refAccession)  // Tie resolution: PD-1245
+    	           || (inFam () && ! equidistant && refAccession < other. refAccession)  // Tie resolution: PD-1245
     	          );
     }
   bool better (const HmmAlignment& other) const
@@ -1490,6 +1508,8 @@ struct Batch
 	    if (! organism. empty ())
 	    {
 	      {
+	        if (mutation_tab. empty ())
+	          throw runtime_error ("mutation_tab is empty");
   	    	if (verbose ())
   	    		cout << "Reading " << mutation_tab << endl;
   	      LineInput f (mutation_tab);
@@ -1546,6 +1566,7 @@ struct Batch
     					double cutoff = 0.0;
         	  	iss. reset (f. line);
     	  	  	iss >> organism_ >> genesymbol >> accession >> cutoff >> classS >> subclass >> name;
+    	  	  	QC_ASSERT (! name. empty ());
     	  	  	replace (organism_, '_', ' ');
     	  	  	if (organism_ == organism)
     	  	  	{
@@ -1896,7 +1917,7 @@ public:
     	  for (const BlastAlignment* blastAl : target2goodBlastAls [it. first])
     	    if (blastAl->better (**hmmIt))
   	      {
-  	        if (! blastAl->isMutationProt ())
+  	        if (blastAl->inFam () /*! blastAl->isMutationProt ()*/)
   	        {
     	        IMPLY (blastAl->hmmAl, blastAl->hmmAl == *hmmIt);  // PD-4290
     	        var_cast (blastAl) -> hmmAl = *hmmIt;
@@ -1937,7 +1958,7 @@ public:
         const BlastAlignment* fusionMain = nullptr;
         for (const BlastAlignment* blastAl : goodBlastAls_)
         {
-          if (blastAl->isMutationProt ())
+          if (! blastAl->inFam () /*blastAl->isMutationProt ()*/)
             continue;
           if (blastAl->fromHmm)
             continue;
@@ -2166,7 +2187,7 @@ HmmAlignment::Domain::Domain (const string &line,
 
 constexpr double ident_min_def = 0.9;
 constexpr double complete_coverage_min_def = 0.9;
-constexpr double partial_coverage_min_def = 0.5;
+constexpr double  partial_coverage_min_def = 0.5;
 
 
 
@@ -2436,8 +2457,10 @@ struct ThisApplication : Application
   	    al->qc ();  
   	    if (nosame && al->refAccession == al->targetName)
   	      continue;
+  	  #if 0
   	    if (organism == "Escherichia" && isLeft (al->classS, "STX"))
   	      al->stxtyper = true;
+  	  #endif
  	      batch. blastAls << al. release ();
   	  }
   	}

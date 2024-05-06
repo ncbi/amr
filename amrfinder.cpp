@@ -33,7 +33,12 @@
 * Dependencies: NCBI BLAST, HMMer, libcurl, gunzip (optional)
 *
 * Release changes:
-*           03/26/2024          StxTyper ver. 1.0.19
+*           05/06/2024          BlastAlignment: isMutation() => !seqChanges.empty()
+*                                               good() is not using refMutation
+*                                               betterEq(): only within the same category: inFam(), isMutationProt(), isSusceptibleProt(), refMutation
+*           04/30/2024 PD-4981  !isMutation() --> inFam() 
+*           04/26/2024          StxTyper does not use --log parameter
+*   3.12.18 03/26/2024          StxTyper ver. 1.0.19
 *           03/13/2024 PD-4926  StxTyper ver. 1.0.16; amr_report.cpp reports all stx genes
 *           03/11/2024 PD-4924  StxTyper 1.0.15: dead stxA2j EFK5907329.1 is replaced by EMA1832120.1
 *   3.12.17 03/08/2024 PD-4925  more detailed explanation for the message "The BLAST database for AMRProt was not found."
@@ -1153,7 +1158,7 @@ struct ThisApplication : ShellApplication
 			      + ifS (print_node, "  --print_node")
 			      + "  -q "  // ifS (getVerbosity () == -1, "  -q")
 			      + ifS (qc_on, "  --debug")
-			      + "  --log " + logFName
+			      + " > " + logFName
 			      , logFName
 			      );
 	  }

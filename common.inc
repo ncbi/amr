@@ -84,6 +84,18 @@
 #define QC_ASSERT(cond)  { errno = 0; if (! (cond)) ERROR_MSG (#cond) }
 
 
+namespace 
+{
+  const bool debugP = 
+    #ifdef NDEBUG
+      false
+    #else
+      true
+    #endif
+    ;
+}
+
+
 // Logic errors
 #ifdef NDEBUG                                       
   #define ASSERT(cond)

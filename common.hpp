@@ -1261,6 +1261,13 @@ inline string shellQuote (string s)
   	return "\'" + s + "\'";
   }
 
+inline string getFileExtension (const string &path)  
+  { const size_t pos = path. rfind ('.');
+  	if (pos == string::npos)
+  		return noString;
+  	return path. substr (pos + 1);
+  }
+
 inline string trimExtension (const string &path)
   {
     const size_t pos = path. rfind ('.');
@@ -3899,7 +3906,7 @@ public:
 
 
   [[noreturn]] void error (const Token &wrongToken,
-                           const string &expected)
+                           const string &expected) const
     { throw TextPos::Error (wrongToken. tp, expected, true); }
   [[noreturn]] void error (const string &what,
 	                         bool expected = true) const
@@ -3915,9 +3922,9 @@ public:
     // ... &>
   Token getXmlMarkupDeclaration ();
     // ... >
-  char getNextChar ();
+  char getNextChar (bool unget);
     // Return: '\0' <=> EOF
-    // Invokes: ci.unget()
+    // Invokes: if (unget) ci.unget()
 	void get (const string &expected)
     { const Token t (get ());
     	if (! t. isNameText (expected))
@@ -3934,9 +3941,8 @@ public:
    			error (t, Token::type2str (Token::eDouble) + " " + toString (expected)); 
     }
 	void get (char expected)
-    { const Token t (get ());
-    	if (! t. isDelimiter (expected))
-   			error (t, Token::type2str (Token::eDelimiter) + " " + strQuote (toString (expected), '\'')); 
+    { if (getNextChar (false) != expected)    
+   			error (Token::type2str (Token::eDelimiter) + " " + strQuote (toString (expected), '\'')); 
     }
   void setLast (Token &&t)
     { last = std::move (t); }
