@@ -30,12 +30,6 @@ jobs:
           ./amrfinder --database_version
     - name: make test
       run: make test
-    - name: debugging commands
-      run: |
-          echo $SHELL
-          pwd
-          ./amrfinder -V
-          ./amrfinder -u
     - name: test for no-overwrite database update (PD-3469 / https://github.com/ncbi/amr/issues/16)
       run: ./amrfinder -u 2>&1 | fgrep 'Skipping update'
     - name: make github_binaries
