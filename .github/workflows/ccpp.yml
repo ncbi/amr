@@ -29,8 +29,7 @@ jobs:
       run: make test
     - name: test for no-overwrite database update (PD-3469 / https://github.com/ncbi/amr/issues/16)
       run: |
-          ./amrfinder -u 2>&1 | tee output
-          fgrep 'Skipping update' output
+          ./amrfinder -u 2>&1 | tee output | fgrep 'Skipping update' output
     - name: make github_binaries
       run: make github_binaries
     - uses: actions/upload-artifact@v2
