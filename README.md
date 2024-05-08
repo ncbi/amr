@@ -9,6 +9,7 @@ Currently it will need to be compiled from source to install.
     git checkout stxtype
     git submodule update --init
     make
+    ./amrfinder -u
     make test
 
 # NCBI Antimicrobial Resistance Gene Finder (AMRFinderPlus)
