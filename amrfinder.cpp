@@ -33,6 +33,7 @@
 * Dependencies: NCBI BLAST, HMMer, libcurl, gunzip (optional)
 *
 * Release changes:
+*   3.12.19 05/21/2024 PD-5002  StxTyper 1.0.20
 *           05/06/2024          BlastAlignment: isMutation() => !seqChanges.empty()
 *                                               good() is not using refMutation
 *                                               betterEq(): only within the same category: inFam(), isMutationProt(), isSusceptibleProt(), refMutation
@@ -309,7 +310,7 @@ using namespace GFF_sp;
 // PD-3051
 const string dataVer_min ("2023-12-15.2");
   // 3.11: "2021-02-18.1"  
-const string stxTyperVersion ("1.0.19");  
+const string stxTyperVersion ("1.0.20");  
 
 
 

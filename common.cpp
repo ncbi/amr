@@ -667,7 +667,8 @@ bool isIdentifier (const string& name,
 
 
 
-bool isNatural (const string& name)
+bool isNatural (const string& name,
+                bool leadingZeroAllowed)
 {
   if (name. empty ())
     return false;
@@ -676,7 +677,7 @@ bool isNatural (const string& name)
       return false;
   if (name. size () == 1)
     return true;
-  if (name [0] == '0')
+  if (! leadingZeroAllowed && name [0] == '0')
     return false;
   return true;
 }
@@ -1360,25 +1361,25 @@ size_t Dir::create ()
 
 //
 
-void setSymlink (string path,
-                 const string &fName,
-                 bool pathIsAbsolute)
+void setSymlink (string fromFName,
+                 const string &toFName,
+                 bool fromPathIsAbsolute)
 { 
-  ASSERT (! path. empty ());
-  ASSERT (! fName. empty ());
-  const string err (string ("Cannot make ") + (pathIsAbsolute ? "an absolute" : "a relative") + " symlink for " + strQuote (path) + " as " + strQuote (fName));
-  if (pathIsAbsolute)
-    path = path2canonical (path);
+  ASSERT (! fromFName. empty ());
+  ASSERT (! toFName. empty ());
+  const string err (string ("Cannot make ") + (fromPathIsAbsolute ? "an absolute" : "a relative") + " symlink for " + strQuote (fromFName) + " as " + strQuote (toFName));
+  if (fromPathIsAbsolute)
+    fromFName = path2canonical (fromFName);
   else
   { 
-    if (path [0] == '/')
-      throw runtime_error (err + " because " + strQuote (path) + " is absolute");
-    const Dir dir (fName);
-    const string absPath (dir. getParent () + "/" + path);
+    if (fromFName [0] == '/')
+      throw runtime_error (err + " because " + strQuote (fromFName) + " is absolute");
+    const Dir dir (toFName);
+    const string absPath (dir. getParent () + "/" + fromFName);
     if (getFiletype (absPath, false) == Filetype::none)
       throw runtime_error (err + " because " + strQuote (absPath) + " does not exist");
   }
-  if (symlink (path. c_str (), fName. c_str ()))
+  if (symlink (fromFName. c_str (), toFName. c_str ()))
     throw runtime_error (err);
 }
 
@@ -2874,7 +2875,7 @@ Json::Json (JsonContainer* parent,
 
 string Json::toStr (const string& s)
 { 
-  if (isNatural (s))
+  if (isNatural (s, false))
     return s;
     
   // https://www.json.org/json-en.html
@@ -4024,6 +4025,7 @@ int Application::run (int argc,
   	{
   	  ASSERT (jRoot);
   		OFStream f (jsonFName);
+  		jRoot->qc ();
       jRoot->saveText (f);
       jRoot. reset ();
     }

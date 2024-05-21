@@ -46,6 +46,61 @@ namespace Common_sp
 
 
 
+struct Date : Root
+{
+  enum Format {fmt_Year, fmt_None};  // not complete list ??
+  short year {0};
+  char month {0};
+    // 0 .. 12 - 1
+  char day {0};
+    // 0 .. days[month] - 1  // leap year ??
+  
+  
+  Date () = default;
+  explicit Date (short year_arg,
+                 char month_arg = 0,
+                 char day_arg = 0)
+    : year (year_arg)
+    , month (month_arg)
+    , day (day_arg)
+    {}
+  static bool isYear (short n)
+    { return n > 1000 && n < 2500; }  // PAR
+  static Date parse (const string &s,
+                     Format fmt);
+    // Return: !empty() <=> success
+  bool empty () const final
+    { return    ! year 
+             && ! month
+             && ! day; 
+    }
+  void saveText (ostream &os) const final
+    { os << std::setfill('0') << std::setw(4) <<       year      << '-' 
+         << std::setfill('0') << std::setw(2) << (int) month + 1 << '-' 
+         << std::setfill('0') << std::setw(2) << (int) day   + 1; 
+    }
+  JsonMap* toJson (JsonContainer* parent, 
+                   const string& name = noString) const override
+    { auto j = new JsonMap (parent, name);
+      new JsonInt (year,  j, "year");
+      new JsonInt (month, j, "month");
+      new JsonInt (day,   j, "day");
+      return j;
+    }
+    
+    
+  bool operator== (const Date &other) const
+    { return    year  == other. year
+             && month == other. month
+             && day   == other. day;
+    }
+  bool operator<= (const Date &other) const;
+  Date operator- (const Date &other) const;
+    // Requires: other <= *this
+};
+  
+  
+
 struct TextTable : Named
 // Tab-delimited (tsv) table with a header
 // name: file name or empty()
@@ -158,6 +213,10 @@ public:
     { duplicateColumn (columnName_from, columnName_to);
       columnName_from = columnName_to;
     }
+  ColNum findDate (Date::Format &fmt) const;
+    // Date column is not empty and has the same format fmt in all rows
+    // Return: no_index <=> not found
+    // Output: fmt, valid if return != no_index
 private:
   int compare (const StringVector& row1,
                const StringVector& row2,

@@ -46,6 +46,59 @@ namespace Common_sp
  
 
 
+// Date
+
+Date Date::parse (const string &s,
+                  Format fmt)
+{ 
+  Date d;
+  istringstream iss (s);
+  short year = 0;
+  string tmp;
+  iss >> year >> tmp;
+  switch (fmt)
+  {
+    case fmt_Year:
+      if (! tmp. empty ())
+        return d;
+      if (! isYear (year))
+        return d;
+      return Date (year);
+    default: throw runtime_error (FUNC "Unknown date format");
+  }
+}
+
+
+
+bool Date::operator<= (const Date &other) const
+{
+  LESS_PART (*this, other, year);
+  LESS_PART (*this, other, month);
+  LESS_PART (*this, other, day);
+  return true;
+}
+
+
+
+Date Date::operator- (const Date &other) const
+{ 
+  Date d ( short (year  - other. year)
+         , char  (month - other. month)
+         , char  (day   - other. day)
+         );
+  // Normalization 
+  // day < 0 ??
+  while (d. month < 0)
+  {
+    d. month = char (d. month + 12);
+    d. year --;
+  }
+  return d;
+}
+
+
+
+
 // TextTable
 
 void TextTable::Header::qc () const
@@ -332,6 +385,36 @@ void TextTable::duplicateColumn (const string &columnName_from,
   for (StringVector& row : rows)
     row << row [from];
   qc ();
+}
+
+
+
+TextTable::ColNum TextTable::findDate (Date::Format &fmt) const
+{
+  FFOR (ColNum, dateCol, header. size ())
+  {
+    const Header& h = header [dateCol];
+    if (   h. null
+        || h. scientific
+       )
+      continue;
+    size_t fmt_ = 0;
+    while (fmt_ < Date::fmt_None)
+    {
+      fmt = Date::Format (fmt_);
+      bool isDate = true;
+      for (const StringVector& row : rows)
+        if (Date::parse (row [dateCol], fmt). empty ())
+        {
+          isDate = false;
+          break;
+        }
+      if (isDate)
+        return dateCol;
+      fmt_++;
+    }
+  }
+  return no_index;
 }
 
 
