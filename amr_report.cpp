@@ -500,15 +500,15 @@ struct BlastAlignment : Alignment
 		    if (! targetProt)
 		      cdss. emplace_back (0, targetName, targetStart, targetEnd, targetStrand, partialDna, 0, noString, noString);
 	
-		    if (const Vector<AmrMutation>* refMutations = findPtr (accession2mutations, refAccession))
-		    {
-		    	if (verbose ())
-		        cout << "AmrMutation protein found: " << refAccession << endl << line << endl;
-  	      QC_ASSERT (isMutationProt ());  	      
-  	      setSeqChanges (*refMutations, 0);
-  	      if (verbose ())
-  	        cout << endl;
-		    }
+  	    if (isMutationProt ())
+  		    if (const Vector<AmrMutation>* refMutations = findPtr (accession2mutations, refAccession))
+  		    {
+  		    	if (verbose ())
+  		        cout << "AmrMutation protein found: " << refAccession << endl << line << endl;
+    	      setSeqChanges (*refMutations, 0);
+    	      if (verbose ())
+    	        cout << endl;
+  		    }
 
 		    susceptible = findPtr (accession2susceptible, refAccession);
 		  }

@@ -33,6 +33,7 @@
 * Dependencies: NCBI BLAST, HMMer, libcurl, gunzip (optional)
 *
 * Release changes:
+*   3.12.20 05/22/2024 PD-4078  a regular reference protein can have point mutations
 *   3.12.19 05/21/2024 PD-5002  StxTyper 1.0.20
 *           05/06/2024          BlastAlignment: isMutation() => !seqChanges.empty()
 *                                               good() is not using refMutation
