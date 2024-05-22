@@ -31,7 +31,7 @@ jobs:
       run: ./amrfinder -u 2>&1 | fgrep 'Skipping update'
     - name: make github_binaries
       run: make github_binaries
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       with:
           name: release-binary
           path: amrfinder_binaries_v*.tar.gz
