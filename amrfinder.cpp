@@ -33,6 +33,9 @@
 * Dependencies: NCBI BLAST, HMMer, libcurl, gunzip (optional)
 *
 * Release changes:
+*                      PD-4969  redundant QC check is removed
+*                               -db_gencode parameter is added to tblastn
+*   3.12.22 06/03/2024 PD-5015  HMMs are not applied to mutation proteins
 *   3.12.21 05/31/2024 PD-5014  duplicate susceptible proteins are not reported
 *   3.12.20 05/22/2024 PD-4078  a regular reference protein can have point mutations
 *   3.12.19 05/21/2024 PD-5002  StxTyper 1.0.20
@@ -1065,7 +1068,7 @@ struct ThisApplication : ShellApplication
     			findProg (blastx);
           {
        			const Chronometer_OnePass_cerr cop (blastx);
-            const string tblastn_par (blastp_par + "  -task tblastn-fast  -threshold 100  -window_size 15");  // SB-3643, PD-4522
+            const string tblastn_par (blastp_par + "  -task tblastn-fast  -threshold 100  -window_size 15  -db_gencode " + to_string (gencode));  // SB-3643, PD-4522
         		const string blastx_par  (blastp_par + "  -word_size 3  -query_gencode " + to_string (gencode));
       			ASSERT (threads_max >= 1);
       			if (blastx == "blastx")

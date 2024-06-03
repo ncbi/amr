@@ -1231,6 +1231,7 @@ public:
   bool better (const HmmAlignment& other) const
     { ASSERT (other. good ());
     	ASSERT (other. blastAl. get ());
+    	ASSERT (inFam ());
     	if (targetProt)
     	{ if (targetName != other. sseqid)
 	        return false;
@@ -1238,8 +1239,6 @@ public:
 	    else
 	    	if (! other. blastAl->matchesCds (*this))
 	    		return false;
-    	if (hasMutation ())
-    	  return true;
     #if 0  // PD-4333
     	if (verbose () && ! inFam ())
     	{ cout << "!inFam(): ";
@@ -1250,7 +1249,7 @@ public:
     	}
     #endif
       return    refProtExactlyMatched (true) 
-             || (inFam () && getMatchFam () -> descendantOf (other. fam))  
+             || (getMatchFam () -> descendantOf (other. fam))  
              ;
     }
   size_t getCdsStart () const
@@ -1334,8 +1333,7 @@ bool HmmAlignment::better (const BlastAlignment& other) const
 { 
   ASSERT (good ());
   ASSERT (other. good ());
-	if (! other. inFam ())
-	  return false;
+	ASSERT (other. inFam ());
 	if (! other. targetProt)
 	  return false;
 	if (sseqid != other. targetName)
@@ -1781,6 +1779,7 @@ public:
  	  reportDebug ("Good Blasts");
         
 	  // PD-2322
+	  // setStopCodon()
     for (const auto& it : target2blastAls)
    	  for (const BlastAlignment* blastAlP : it. second)
         if (blastAlP->targetProt)
@@ -1867,16 +1866,7 @@ public:
               goodIter. erase ();
           goodHmmAls << hmmAl;
         }
-        if (verbose ())
-        {
-          cout << "Pareto-better HMMs: (Criterion " << (int) criterion << "): " << goodHmmAls. size () << endl;
-          for (const HmmAlignment* al : goodHmmAls)
-          {
-            al->saveText (cout);
-            cout << endl;
-          }
-        }
-        //
+        reportDebug ("Pareto-better HMMs (Criterion " + to_string ((int) criterion) + ")");
         if (criterion < 1)
           hmmAls_ = std::move (goodHmmAls);
       }
@@ -1914,29 +1904,28 @@ public:
   	        }
     reportDebug ("Best Blasts left");
 
+    // PD-2783
     for (auto& it : target2goodHmmAls)
       for (Iter<VectorPtr<HmmAlignment>> hmmIt (it. second); hmmIt. next ();)
     	  for (const BlastAlignment* blastAl : target2goodBlastAls [it. first])
-    	    if (blastAl->better (**hmmIt))
+    	    if (blastAl->inFam () && blastAl->better (**hmmIt))
   	      {
-  	        if (blastAl->inFam () /*! blastAl->isMutationProt ()*/)
-  	        {
-    	        IMPLY (blastAl->hmmAl, blastAl->hmmAl == *hmmIt);  // PD-4290
-    	        var_cast (blastAl) -> hmmAl = *hmmIt;
-    	      }
+  	        var_cast (blastAl) -> hmmAl = *hmmIt;
             hmmIt. erase ();
   	        break;
   	      }
+    reportDebug ("HMMs non-suppressed by BLAST");
 
-    // PD-2783
  	  for (auto& it : target2goodBlastAls)
       for (Iter<VectorPtr<BlastAlignment>> blastIt (it. second); blastIt. next ();)
-    	  for (const HmmAlignment* hmmAl : target2goodHmmAls [it. first])
-    	    if (hmmAl->better (**blastIt))
-  	      {
-            blastIt. erase ();
-  	        break;
-  	      }
+        if ((*blastIt) -> inFam ())
+      	  for (const HmmAlignment* hmmAl : target2goodHmmAls [it. first])
+      	    if (hmmAl->better (**blastIt))
+    	      {
+              blastIt. erase ();
+    	        break;
+    	      }
+    reportDebug ("Best HMMs left");
 
     // Output 
     
@@ -2001,7 +1990,9 @@ public:
     if (! verbose ())
       return;
     
-    cout << endl << header << " (target2blastAls):" << endl;
+    cout << endl;
+    
+    cout << header << " (target2blastAls):" << endl;
  	  for (const auto& it : target2blastAls)
 		  for (const BlastAlignment* blastAl : it. second)
 		  {
@@ -2019,6 +2010,24 @@ public:
 		  }
 		cout << endl;
 		  
+    cout << header << " (target2hmmAls):" << endl;
+ 	  for (const auto& it : target2hmmAls)
+		  for (const HmmAlignment* hmmAl : it. second)
+		  {
+		    cout << it. first << ": ";
+		    hmmAl->saveText (cout);
+		  }
+		cout << endl;
+
+    cout << header << " (target2goodHmmAls):" << endl;
+ 	  for (const auto& it : target2goodHmmAls)
+		  for (const HmmAlignment* hmmAl : it. second)
+		  {
+		    cout << it. first << ": ";
+		    hmmAl->saveText (cout);
+		  }
+		cout << endl;
+
 		cout << endl;
 	}
 		
