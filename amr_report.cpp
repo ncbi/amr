@@ -81,6 +81,7 @@ struct BlastRule : Root
   // 0 <=> undefined
   // 0 .. 1
   double ident {0.0};
+    // Of alignment
   double target_coverage {0.0};  // Not used
   double ref_coverage {0.0};
 
@@ -436,6 +437,7 @@ struct BlastAlignment : Alignment
         {
   		    // PD-4856
   		    ASSERT (! brFam);
+  		    // brFam
           EXEC_ASSERT (brFam = getFam ());          
           while (brFam)
           {
@@ -1223,7 +1225,7 @@ public:
     // Requires: all SCCs of betterEq() are complete subgraphs ??
     { return    betterEq (other) 
     	       && (   ! other. betterEq (*this)
-    	           || (inFam () && ! equidistant && refAccession < other. refAccession)  // Tie resolution: PD-1245
+    	           || (! isMutationProt () /*inFam () --PD-5014*/ && ! equidistant && refAccession < other. refAccession)  // Tie resolution: PD-1245
     	          );
     }
   bool better (const HmmAlignment& other) const

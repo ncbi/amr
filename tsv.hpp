@@ -48,7 +48,7 @@ namespace Common_sp
 
 struct Date : Root
 {
-  enum Format {fmt_Year, fmt_None};  // not complete list ??
+  enum Format {fmt_Year, fmt_YMD, fmt_None};  // not complete list ??
   short year {0};
   char month {0};
     // 0 .. 12 - 1
@@ -66,6 +66,10 @@ struct Date : Root
     {}
   static bool isYear (short n)
     { return n > 1000 && n < 2500; }  // PAR
+  static bool isMonth  (short n)
+    { return between<short> (n, 0, 12); }  
+  static bool isDay  (short n)
+    { return between<short> (n, 0, 31); }   // Must depend on month ??
   static Date parse (const string &s,
                      Format fmt);
     // Return: !empty() <=> success
@@ -94,7 +98,12 @@ struct Date : Root
              && month == other. month
              && day   == other. day;
     }
-  bool operator<= (const Date &other) const;
+  bool less (const Date &other,
+             bool equal) const;
+  bool operator<= (const Date &other) const
+    { return less (other, true); }
+  bool operator< (const Date &other) const
+    { return less (other, false); }
   Date operator- (const Date &other) const;
     // Requires: other <= *this
 };
@@ -120,6 +129,7 @@ struct TextTable : Named
     static constexpr size_t choices_max {7};  // PAR
     Set<string> choices;
       // size() <= choices_max + 1
+    Header () = default;
     explicit Header (const string &name_arg)
       : Named (name_arg)
       {}

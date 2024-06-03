@@ -51,31 +51,48 @@ namespace Common_sp
 Date Date::parse (const string &s,
                   Format fmt)
 { 
-  Date d;
   istringstream iss (s);
   short year = 0;
+  short month = 0;
+  short day = 0;
+  char c1 = '\0';
+  char c2 = '\0';
   string tmp;
-  iss >> year >> tmp;
   switch (fmt)
   {
     case fmt_Year:
-      if (! tmp. empty ())
-        return d;
-      if (! isYear (year))
-        return d;
-      return Date (year);
+      iss >> year >> tmp;
+      if (   tmp. empty ()
+          && isYear (year)
+         )
+        return Date (year);
+      break;
+    case fmt_YMD:
+      iss >> year >> c1 >> month >> c2 >> day >> tmp;
+      month--;
+      day--;
+      if (   tmp. empty ()
+          && isYear  (year)
+          && isMonth (month)
+          && isDay   (day)
+          && c1 == c2
+         )
+        return Date (year, (char) month, (char) day);
+      break;
     default: throw runtime_error (FUNC "Unknown date format");
   }
+  return Date ();
 }
 
 
 
-bool Date::operator<= (const Date &other) const
+bool Date::less (const Date &other,
+                 bool equal) const
 {
   LESS_PART (*this, other, year);
   LESS_PART (*this, other, month);
   LESS_PART (*this, other, day);
-  return true;
+  return equal;
 }
 
 
