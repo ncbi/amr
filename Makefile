@@ -177,8 +177,9 @@ github_binaries:
 		false; \
 	fi
 #   first recompile amrfinder.o to pick up the new version info
-	rm amrfinder.o amrfinder
-	make
+#	and remove excess NCBI paths
+	make clean
+	make CXX=/usr/bin/g++
 	mkdir $(GITHUB_FILE)
 	echo $(VERSION_STRING) > $(GITHUB_FILE)/version.txt
 	cp $(GITHUB_FILES) $(GITHUB_FILE)
