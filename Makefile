@@ -188,6 +188,6 @@ github_binaries:
 	rm -r $(GITHUB_FILE)/*
 	rmdir $(GITHUB_FILE)
 
-test : $(DISTFILES) Makefile *.cpp *.hpp *.inc test_dna.fa test_prot.fa test_prot.gff test_dna.fa test_dna.expected test_prot.expected test_both.expected
-	./test_amrfinder.sh
+test: $(DISTFILES) Makefile *.cpp *.hpp *.inc test_dna.fa test_prot.fa test_prot.gff test_dna.fa test_dna.expected test_prot.expected test_both.expected
 	make -C stxtyper test
+	./test_amrfinder.sh
