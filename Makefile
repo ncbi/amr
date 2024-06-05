@@ -83,7 +83,8 @@ COMPILE.cpp= $(CXX) $(CPPFLAGS) $(SVNREV) $(DBDIR) $(TEST_UPDATE_DB) -c
 
 .PHONY: all clean install release stxtyper test
 
-BINARIES= amr_report amrfinder amrfinder_index amrfinder_update fasta_check fasta_extract fasta2parts gff_check dna_mutation mutate
+BINARIES= amr_report amrfinder amrfinder_index amrfinder_update fasta_check \
+		  fasta_extract fasta2parts gff_check dna_mutation mutate
 
 all:	$(BINARIES) stxtyper
 
@@ -170,6 +171,7 @@ install:
 # amrfinder binaries for github binary release
 GITHUB_FILE=amrfinder_binaries_v$(VERSION_STRING)
 GITHUB_FILES = test_amrfinder.sh test_*.expected test_*.fa test_*.gff $(BINARIES)
+
 github_binaries:
 	@if [ ! -e version.txt ]; \
 	then \
@@ -177,15 +179,18 @@ github_binaries:
 		false; \
 	fi
 #   first recompile amrfinder.o to pick up the new version info
-#	and remove excess NCBI paths
-	make clean
-	make CXX=/usr/bin/g++
+#	and remove leaky NCBI paths
+#	make clean
+	make all CXX=/usr/bin/g++ LD_RUN_PATH= -d
 	mkdir $(GITHUB_FILE)
 	echo $(VERSION_STRING) > $(GITHUB_FILE)/version.txt
 	cp $(GITHUB_FILES) $(GITHUB_FILE)
+	make -C stxtyper install INSTALL_DIR=../$(GITHUB_FILE)/stxtyper
+	cp stxtyper/test_stxtyper.sh stxtyper/version.txt $(GITHUB_FILE)/stxtyper
+	mkdir $(GITHUB_FILE)/stxtyper/test
+	cp -R stxtyper/test/*.fa stxtyper/test/*.expected $(GITHUB_FILE)/stxtyper/test
 	if [ -e $(GITHUB_FILE).tar.gz ]; then rm $(GITHUB_FILE).tar.gz; fi
 	cd $(GITHUB_FILE); tar cvfz ../$(GITHUB_FILE).tar.gz *
-#	tar cvfz $(GITHUB_FILE).tar.gz $(GITHUB_FILE)/*
 	rm -r $(GITHUB_FILE)/*
 	rmdir $(GITHUB_FILE)
 
