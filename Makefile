@@ -180,7 +180,7 @@ github_binaries:
 	fi
 #   first recompile amrfinder.o to pick up the new version info
 #	and remove leaky NCBI paths
-#	make clean
+	make clean
 	make all CXX=/usr/bin/g++ LD_RUN_PATH= -d
 	mkdir $(GITHUB_FILE)
 	echo $(VERSION_STRING) > $(GITHUB_FILE)/version.txt
