@@ -1710,7 +1710,7 @@ void Xml::TextFile::tagStart (const string &tag)
 	string tag_ (tag);
 	replace (tag_, ':', '_');
 	if (! isIdentifier (tag_, true))
-    throw runtime_error (FUNC "Bad tag name: " + strQuote (tag));
+    throw runtime_error (FUNC "Bad textual XML tag name: " + strQuote (tag));
 
 	printRaw ("<" + tag + ">"); 
 }
@@ -4032,7 +4032,7 @@ int Application::run (int argc,
 	}
 	catch (const std::exception &e) 
 	{ 
-	  errorExit ((e. what () + ifS (errno, string ("\n") + strerror (errno))). c_str ());
+	  errorExit ((ifS (errno, strerror (errno) + string ("\n")) + e. what ()). c_str ());
   }
 
 

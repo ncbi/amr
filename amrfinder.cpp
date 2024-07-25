@@ -33,6 +33,8 @@
 * Dependencies: NCBI BLAST, HMMer, libcurl, gunzip (optional)
 *
 * Release changes:
+*   3.12.23            PD-5054  Check that the file "AMR_DNA-" + organism1 + ".ndb" exists
+*                      PD-5038  StxTyper version 1.0.21
 *                      PD-4969  redundant QC check is removed
 *                               -db_gencode parameter is added to tblastn
 *   3.12.22 06/03/2024 PD-5015  HMMs are not applied to mutation proteins
@@ -315,7 +317,7 @@ using namespace GFF_sp;
 // PD-3051
 const string dataVer_min ("2023-12-15.2");
   // 3.11: "2021-02-18.1"  
-const string stxTyperVersion ("1.0.20");  
+const string stxTyperVersion ("1.0.21");  
 
 
 
@@ -467,14 +469,14 @@ struct ThisApplication : ShellApplication
   
   
   
-  void prepare_fasta_extract (StringVector &&columns,
+  void prepare_fasta_extract (const StringVector &columns,
                               const string &tmpSuf,
                               bool saveHeader) const
   // Input: tmp + "/amr"
   {
     TextTable t (tmp + "/amr");
     t. qc ();
-    t. filterColumns (std::move (columns));
+    t. filterColumns (columns);
     t. rows. filterValue ([] (const StringVector& row) { return row [0] == "NA"; });
     t. rows. sort ();
     t. rows. uniq ();
@@ -872,6 +874,14 @@ struct ThisApplication : ShellApplication
 		const bool stxTyper = blastn && organism1 == "Escherichia" && add_plus;
 		
 		
+		if (blastn)
+    {
+      // PD-5054
+      const string dbTest (db + "/AMR_DNA-" + organism1 + ".ndb");
+  		if (! fileExists (dbTest))
+  			throw runtime_error ("The BLAST database for AMR_DNA-" + organism1 + " was not found.\nUse amrfinder -u or amrfinder --force_update to download and prepare database for AMRFinderPlus");
+    }
+
 		if (stxTyper)
 		{
 		  const string verFName (tmp + "/stxtyper-ver");

@@ -138,42 +138,54 @@ TextTable::TextTable (const string &tableFName,
   {
     LineInput f (tableFName);
     bool dataExists = true;
+    // header
     while (f. nextLine ())
     {
+      if (verbose ())
+        cerr << f. lineNum << endl;
+      trimTrailing (f. line);
       if (f. line. empty ())
-        break;
-      if (f. line. front () == '#')
+        continue;
+      const bool thisPound = (f. line. front () == '#');
+      if (thisPound)
       {
         pound = true;
         f. line. erase (0, 1);
       }
-      else
-        if (! header. empty ())
-          break;
-      header. clear ();
-      StringVector h (f. line, '\t', true);
-      for (string& s : h)
-        header << std::move (Header (std::move (s)));
-      ASSERT (! header. empty ());
-      if (! pound)
+      if (f. line. empty ())
+        continue;
+      if (header. empty () || thisPound)
       {
-        dataExists = f. nextLine ();
+        header. clear ();
+        StringVector h (f. line, '\t', true);
+        for (string& s : h)
+          header << std::move (Header (std::move (s)));
+      }
+      ASSERT (! header. empty ());
+      if (! thisPound)
+      {
+        if (! pound)
+          dataExists = f. nextLine ();
         break;
       }
     }
     if (header. empty ())
       throw Error (*this, "Cannot read the table header");
-    if (dataExists)
-      for (;;)
+    // dataExists <=> f.line is valid
+    // rows[]
+    while (dataExists)
+    {
+      trimTrailing (f. line);
+      if (! f. line. empty ())
       {
-        StringVector line (f. line, '\t', true);
-        FFOR_START (size_t, i, line. size (), header. size ())
-          line << noString;        
-        rows << std::move (line);
-        ASSERT (line. empty ());
-        if (! f. nextLine ())
-          break;
+        StringVector row (f. line, '\t', true);
+        FFOR_START (size_t, i, row. size (), header. size ())
+          row << noString;        
+        rows << std::move (row);
+        ASSERT (row. empty ());
       }
+      dataExists = f. nextLine ();
+    }
   }
   
   if (! columnSynonymsFName. empty ())
@@ -221,7 +233,8 @@ void TextTable::setHeader ()
       throw Error (*this, "Row " + to_string (row_num) + " contains " + to_string (row. size ()) + " columns whereas header has " + to_string (header. size ()) + " columns");
     FFOR (RowNum, i, row. size ())
     {
-      const string& field = row [i];
+      string field (row [i]);
+      trim (field);
       Header& h = header [i];
       if (field. empty ())
       {
@@ -436,6 +449,32 @@ TextTable::ColNum TextTable::findDate (Date::Format &fmt) const
 
 
 
+bool TextTable::isKey (ColNum colNum) const
+{
+  ASSERT (colNum < header. size ());
+
+  const Header& h = header [colNum];
+  if (h. null)
+    return false;
+  if (h. numeric)
+    if (   h. scientific
+        || h. decimals > 0
+       )
+      return false;
+    
+  unordered_set<string> values;  values. rehash (rows. size ());
+  for (const StringVector& row : rows)
+  {
+    ASSERT (! row [colNum]. empty ());
+    if (! values. insert (row [colNum]). second)
+      return false;
+  }
+      
+  return true;
+}
+
+
+
 int TextTable::compare (const StringVector& row1,
                         const StringVector& row2,
                         ColNum column) const
@@ -591,6 +630,7 @@ void TextTable::merge (RowNum toRowNum,
                        const Vector<ColNum> &aggr) 
 {
   ASSERT (toRowNum < fromRowNum);
+  
         StringVector& to   = rows [toRowNum];
   const StringVector& from = rows [fromRowNum];
 
@@ -628,6 +668,8 @@ void TextTable::merge (RowNum toRowNum,
   {
     if (from [i]. empty ())
       continue;
+    if (contains (from [i], aggr_sep))
+      throw runtime_error ("Cannot aggregate column " + header [i]. name + " for row " + to_string (fromRowNum + 1) + " because it contains " + strQuote (string (1, aggr_sep)));
     if (to [i]. empty ())
       to [i] = from [i];
     else

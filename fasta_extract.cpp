@@ -140,7 +140,10 @@ bool process (const string &id,
         for (char &c : seq1)
           c = complementaryNucleotide (c);
       }
-    }
+    //strLower (seq1);  // Letter case can indicate nucleotide quality
+    }    
+  //else
+    //strUpper (seq1);
     constexpr size_t line_len = 60;  // PAR
     for (size_t i = 0; i < seq1. size (); i += line_len)
       cout << seq1. substr (i, line_len) << endl;

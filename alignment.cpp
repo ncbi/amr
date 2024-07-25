@@ -761,7 +761,10 @@ void Alignment::setSeqChanges (const Vector<AmrMutation> &refMutations,
   }
 #endif
   if (verbose ())
+  {
     PRINT (seqChanges. size ());
+    cout << endl;
+  }
 
   
 //Vector<SeqChange> seqChanges_add;

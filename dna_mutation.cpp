@@ -325,12 +325,10 @@ struct ThisApplication : Application
   	      if (verbose ())
   	        cout << f. line << endl;  
   	    }
-  	    auto al = new BlastnAlignment (f. line, organism);
+  	    unique_ptr<BlastnAlignment> al (new BlastnAlignment (f. line, organism));
   	    al->qc ();  
   	    if (al->good ())
-  	      batch. blastAls << al;
-  	    else
-  	      delete al;
+  	      batch. blastAls << al. release ();
   	  }
   	}
   	if (verbose ())
