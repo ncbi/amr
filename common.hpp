@@ -1487,6 +1487,14 @@ inline string colorize (const string &s,
       return s;
     return Color::code (Color::white, true) + s + Color::code ();
   }
+
+inline string colorizeUrl (const string &s,
+                           bool active)
+  { const string prefix ("https://");
+    if (! active)
+      return prefix + s;
+    return Color::code (Color::blue, true) + prefix + s + Color::code ();
+  }
   
 
 class OColor

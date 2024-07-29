@@ -33,6 +33,8 @@
 * Dependencies: NCBI BLAST, HMMer, libcurl, gunzip (optional)
 *
 * Release changes:
+*   3.12.24            PD-5064  StxTyper version 1.0.23
+*                               colorizeUrl()
 *   3.12.23            PD-5054  Check that the file "AMR_DNA-" + organism1 + ".ndb" exists
 *                      PD-5038  StxTyper version 1.0.21
 *                      PD-4969  redundant QC check is removed
@@ -317,7 +319,7 @@ using namespace GFF_sp;
 // PD-3051
 const string dataVer_min ("2023-12-15.2");
   // 3.11: "2021-02-18.1"  
-const string stxTyperVersion ("1.0.21");  
+const string stxTyperVersion ("1.0.23");  
 
 
 
@@ -339,11 +341,11 @@ const string help ( \
 "Identify AMR and virulence genes in proteins and/or contigs and print a report\n" \
 "\n" \
 + colorize ("DOCUMENTATION", true) + "\n" \
-"    See https://github.com/ncbi/amr/wiki for full documentation\n" \
+"    See " + colorizeUrl ("github.com/ncbi/amr/wiki", true) + " for full documentation\n" \
 "\n" \
 + colorize ("UPDATES", true) + "\n" \
 "    Subscribe to the amrfinder-announce mailing list for database and software update notifications:\n" \
-"    https://www.ncbi.nlm.nih.gov/mailman/listinfo/amrfinder-announce"
+"    " + colorizeUrl ("www.ncbi.nlm.nih.gov/mailman/listinfo/amrfinder-announce", true)
 );
 #endif
 
@@ -403,10 +405,10 @@ struct ThisApplication : ShellApplication
     	addKey ("parm", "amr_report parameters for testing: -nosame -noblast -skip_hmm_check -bed", "", '\0', "PARM");
 
 	    version = SVN_REV;  
-	    documentationUrl = "https://github.com/ncbi/amr/wiki";
+	    documentationUrl = colorizeUrl ("github.com/ncbi/amr/wiki", true);
 	    updatesDoc = "\
     Subscribe to the amrfinder-announce mailing list for database and software update notifications:\n\
-    https://www.ncbi.nlm.nih.gov/mailman/listinfo/amrfinder-announce";
+    " + colorizeUrl ("www.ncbi.nlm.nih.gov/mailman/listinfo/amrfinder-announce", true);
     }
 
 
@@ -648,7 +650,7 @@ struct ThisApplication : ShellApplication
       {
         const Warning warning (stderr);
         stderr << "Updating database directory works only for databases with the default data directory format." << '\n'
-               << "         Please see https://github.com/ncbi/amr/wiki for details." << "\n"
+               << "         Please see " + colorizeUrl ("github.com/ncbi/amr/wiki", true) + " for details." << "\n"
                << "         Current database directory is: " << dbDir. get () << "\n"
                << "         New database directories will be created as subdirectories of " << dbDir. getParent ();
       }
