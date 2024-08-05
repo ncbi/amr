@@ -1481,20 +1481,21 @@ struct Color
 };
   
   
-inline string colorize (const string &s,
-                        bool active)
-  { if (! active)
+inline string colorize_raw (const string &s,
+                            Color::Type color,
+                            bool screen)
+  { if (! screen)
       return s;
-    return Color::code (Color::white, true) + s + Color::code ();
+    return Color::code (color, true) + s + Color::code ();
   }
 
+inline string colorize (const string &s,
+                        bool screen)
+  { return colorize_raw (s, Color::white, screen); }
+
 inline string colorizeUrl (const string &s,
-                           bool active)
-  { const string prefix ("https://");
-    if (! active)
-      return prefix + s;
-    return Color::code (Color::blue, true) + prefix + s + Color::code ();
-  }
+                           bool screen)
+  { return colorize_raw (s, Color::blue, screen); }
   
 
 class OColor
@@ -2978,21 +2979,24 @@ template <typename T>
   	    { operator= (other); }
   	template <typename U, typename V>
     	Set<T>& operator= (const map<U,V> &other)
-    	  { universal = false;
+    	  { P::clear ();
+    	    universal = false;
     	    for (const auto& it : other)
   	        P::insert (it. first);
   	      return *this;
     	  }
   	template <typename U, typename V>
     	Set<T>& operator= (const unordered_map<U,V> &other)
-    	  { universal = false;
+    	  { P::clear ();
+    	    universal = false;
     	    for (const auto& it : other)
   	        P::insert (it. first);
   	      return *this;
     	  }
   	template <typename U>
     	Set<T>& operator= (const vector<U> &other)
-    	  { universal = false;
+    	  { P::clear ();
+    	    universal = false;
     	    for (const U& u : other)
   	        P::insert (u);
   	      return *this;
@@ -4459,7 +4463,10 @@ struct Application : Singleton<Application>, Root
 {  
   const string description;
   string version {"0.0.0"};
-  string documentationUrl;
+  // Without "https://"
+  string documentationUrl;  
+  string updatesUrl;  
+  //
   string updatesDoc;
   const bool needsArg;
   const bool gnu;
@@ -4617,10 +4624,10 @@ protected:
     {}
   virtual void initVar ()
     {}
-  string getInstruction (bool coutP) const;
-  string getDocumentation () const;
-  string getUpdates () const;
-  virtual string getHelp () const;
+  string getInstruction (bool screen) const;
+  string getDocumentation (bool screen) const;
+  string getUpdates (bool screen) const;
+  virtual string getHelp (bool screen) const;
     // Requires: must be printed to cout
   string makeKey (const string &param,
                   const string &value) const
@@ -4678,7 +4685,7 @@ protected:
   void initVar () override;
     // stderr << "Running: " << getCommandLine ()
     // threads_max correction
-  string getHelp () const override;
+  string getHelp (bool screen) const override;
 private:
   void body () const final;
   virtual void shellBody () const = 0;

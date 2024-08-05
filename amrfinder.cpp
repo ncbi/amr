@@ -33,6 +33,8 @@
 * Dependencies: NCBI BLAST, HMMer, libcurl, gunzip (optional)
 *
 * Release changes:
+*   3.12.25 08/05/2024 PD-5076  StxTyper version 1.0.24
+*                               colorize() is suppressed for redirected output
 *   3.12.24            PD-5064  StxTyper version 1.0.23
 *                               colorizeUrl()
 *   3.12.23            PD-5054  Check that the file "AMR_DNA-" + organism1 + ".ndb" exists
@@ -319,7 +321,7 @@ using namespace GFF_sp;
 // PD-3051
 const string dataVer_min ("2023-12-15.2");
   // 3.11: "2021-02-18.1"  
-const string stxTyperVersion ("1.0.23");  
+const string stxTyperVersion ("1.0.24");  
 
 
 
@@ -334,21 +336,6 @@ constexpr size_t threads_def = 4;
 constexpr double ident_min_def = 0.9;
 constexpr double partial_coverage_min_def = 0.5;
 const string ambigS ("20");  
-
-
-#if 0
-const string help ( \
-"Identify AMR and virulence genes in proteins and/or contigs and print a report\n" \
-"\n" \
-+ colorize ("DOCUMENTATION", true) + "\n" \
-"    See " + colorizeUrl ("github.com/ncbi/amr/wiki", true) + " for full documentation\n" \
-"\n" \
-+ colorize ("UPDATES", true) + "\n" \
-"    Subscribe to the amrfinder-announce mailing list for database and software update notifications:\n" \
-"    " + colorizeUrl ("www.ncbi.nlm.nih.gov/mailman/listinfo/amrfinder-announce", true)
-);
-#endif
-
 
 
 struct ThisApplication : ShellApplication
@@ -405,10 +392,10 @@ struct ThisApplication : ShellApplication
     	addKey ("parm", "amr_report parameters for testing: -nosame -noblast -skip_hmm_check -bed", "", '\0', "PARM");
 
 	    version = SVN_REV;  
-	    documentationUrl = colorizeUrl ("github.com/ncbi/amr/wiki", true);
+	    documentationUrl = "https://github.com/ncbi/amr/wiki";
+	    updatesUrl = "https://www.ncbi.nlm.nih.gov/mailman/listinfo/amrfinder-announce";
 	    updatesDoc = "\
-    Subscribe to the amrfinder-announce mailing list for database and software update notifications:\n\
-    " + colorizeUrl ("www.ncbi.nlm.nih.gov/mailman/listinfo/amrfinder-announce", true);
+    Subscribe to the amrfinder-announce mailing list for database and software update notifications";
     }
 
 
@@ -650,7 +637,7 @@ struct ThisApplication : ShellApplication
       {
         const Warning warning (stderr);
         stderr << "Updating database directory works only for databases with the default data directory format." << '\n'
-               << "         Please see " + colorizeUrl ("github.com/ncbi/amr/wiki", true) + " for details." << "\n"
+               << "         Please see " + colorizeUrl ("https://github.com/ncbi/amr/wiki", ! isRedirected (cerr)) + " for details." << "\n"
                << "         Current database directory is: " << dbDir. get () << "\n"
                << "         New database directories will be created as subdirectories of " << dbDir. getParent ();
       }

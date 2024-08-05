@@ -251,7 +251,7 @@ Requirement: the database directory contains subdirectories named by database ve
         
     
     // FTP site files
-    stderr << "Looking up the published databases at " << URL << '\n';    
+    stderr << "Looking up the published databases at " << colorizeUrl (URL, ! isRedirected (cerr)) << '\n';    
     string load_minor = curMinor;
     string load_data_version;    
     {
@@ -283,7 +283,7 @@ Requirement: the database directory contains subdirectories named by database ve
         const Warning w (stderr);
         stderr << "A newer version of the database exists (" << published_data_version << "), but it requires "
                   "a newer version of the software (" << published_minor << ") to install.\n"
-                  "See https://github.com/ncbi/amr/wiki/Upgrading for more information.\n";
+                  "See " + colorizeUrl ("https://github.com/ncbi/amr/wiki/Upgrading", ! isRedirected (cerr)) + " for more information.\n";
       }
     }
     ASSERT (! load_data_version. empty ());

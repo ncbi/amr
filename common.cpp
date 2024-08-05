@@ -3689,14 +3689,11 @@ string Application::key2shortHelp (const string &name) const
 
 
 
-string Application::getInstruction (bool coutP) const
+string Application::getInstruction (bool screen) const
 {
   string instr (description);
 
-  if (isRedirected (cout))
-    coutP = false;
-
-  instr += "\n\n" + colorize ("USAGE", coutP) + ":   " + programName; 
+  instr += "\n\n" + colorize ("USAGE", screen) + ":   " + programName; 
 
   for (const Positional& p : positionalArgs)
     instr += " " + p. str ();
@@ -3728,10 +3725,10 @@ string Application::getInstruction (bool coutP) const
 	if (! requiredGroup_prev. empty ())
 		instr += ")";
   
-  instr += "\n" + colorize ("HELP", coutP) + ":    " + programName + " " + ifS (gnu, "-") + "-" + helpS;
+  instr += "\n" + colorize ("HELP", screen) + ":    " + programName + " " + ifS (gnu, "-") + "-" + helpS;
   if (gnu)
     instr += " or " + programName + " -" + helpS [0];
-  instr += "\n" + colorize ("VERSION", coutP) + ": " + programName + " " + ifS (gnu, "-") + "-" + versionS;
+  instr += "\n" + colorize ("VERSION", screen) + ": " + programName + " " + ifS (gnu, "-") + "-" + versionS;
   if (gnu)
     instr += " or " + programName + " -" + versionS [0];
     
@@ -3740,42 +3737,43 @@ string Application::getInstruction (bool coutP) const
 
 
 
-string Application::getDocumentation () const
+string Application::getDocumentation (bool screen) const
 {
   if (documentationUrl. empty ())
     return noString;
-  return "\n\n" + colorize ("DOCUMENTATION", true) + "\n    See " + documentationUrl + " for full documentation";    
+  return "\n\n" + colorize ("DOCUMENTATION", screen) + "\n    See " + colorizeUrl (documentationUrl, screen) + " for full documentation";    
 }
 
 
 
-string Application::getUpdates () const
+string Application::getUpdates (bool screen) const
 {
   if (updatesDoc. empty ())
     return noString;
-  return "\n\n" + colorize ("UPDATES", true) + "\n" + updatesDoc;
+  string s ("\n\n" + colorize ("UPDATES", screen) + "\n" + updatesDoc);
+  if (! updatesUrl. empty ())
+    s += ": " + colorizeUrl (updatesUrl, screen);
+  return s;
 }
 
 
 
-string Application::getHelp () const
+string Application::getHelp (bool screen) const
 {
-  string instr (getInstruction (true));
+  string instr (getInstruction (screen));
 
   const string par ("\n    ");
 
-  const bool coutP = ! isRedirected (cout);
-
   if (! positionalArgs. empty ())
   {
-	  instr += "\n\n" + colorize ("POSITIONAL PARAMETERS", coutP) /*+ ":"*/;
+	  instr += "\n\n" + colorize ("POSITIONAL PARAMETERS", screen) /*+ ":"*/;
 	  for (const Positional& p : positionalArgs)
 	    instr += "\n" + p. str () + par + p. description;
 	}
 
   if (! keyArgs. empty ())
   {
-	  instr += "\n\n" + colorize ("NAMED PARAMETERS", coutP) /*+ ":"*/;
+	  instr += "\n\n" + colorize ("NAMED PARAMETERS", screen) /*+ ":"*/;
 	  for (const Key& key : keyArgs)
 	  {
 	    instr += "\n" + key. getShortHelp () + par + key. description;
@@ -3875,7 +3873,8 @@ int Application::run (int argc,
 
           if (name == helpS || (name. empty () && c == helpS [0] && gnu))
           {
-            cout << getHelp () << getDocumentation () << getUpdates () << endl;
+	          const bool screen = ! isRedirected (cout);
+            cout << getHelp (screen) << getDocumentation (screen) << getUpdates (screen) << endl;
             return 0;
           }
           if (name == versionS || (name. empty () && c == versionS [0] && gnu))
@@ -3921,7 +3920,8 @@ int Application::run (int argc,
 
 	    if (programArgs. size () == 1 && (! positionalArgs. empty () || needsArg))
 	    {
-	      cout << getInstruction (true) << getDocumentation () << endl;
+	      const bool screen = ! isRedirected (cout);
+	      cout << getInstruction (screen) << getDocumentation (screen) << endl;
 	      return 1;
 	    }
 	    
@@ -4142,9 +4142,9 @@ void ShellApplication::initVar ()
 
 
 
-string ShellApplication::getHelp () const 
+string ShellApplication::getHelp (bool screen) const 
 {
-  string help (Application::getHelp ());
+  string help (Application::getHelp (screen));
   if (useTmp)
     help += "\n\nTemporary directory used is $TMPDIR or \"/tmp\"";
   return help;
