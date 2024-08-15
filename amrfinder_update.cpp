@@ -329,19 +329,19 @@ Requirement: the database directory contains subdirectories named by database ve
     
     stderr << "Downloading AMRFinder database version " << load_data_version << " into " << shellQuote (latestDir) << "\n";
     fetchAMRFile (curl, urlDir, latestDir, "AMR.LIB");
-    fetchAMRFile (curl, urlDir, latestDir, "AMRProt");
-    fetchAMRFile (curl, urlDir, latestDir, "AMRProt-mutation.tab");
-    fetchAMRFile (curl, urlDir, latestDir, "AMRProt-suppress");
-    fetchAMRFile (curl, urlDir, latestDir, "AMRProt-susceptible.tab");
-    fetchAMRFile (curl, urlDir, latestDir, "AMR_CDS");
+    fetchAMRFile (curl, urlDir, latestDir, "AMRProt.fa");
+    fetchAMRFile (curl, urlDir, latestDir, "AMRProt-mutation.tsv");
+    fetchAMRFile (curl, urlDir, latestDir, "AMRProt-suppress.tsv");
+    fetchAMRFile (curl, urlDir, latestDir, "AMRProt-susceptible.tsv");
+    fetchAMRFile (curl, urlDir, latestDir, "AMR_CDS.fa");
     fetchAMRFile (curl, urlDir, latestDir, "database_format_version.txt");  // PD-3051 
-    fetchAMRFile (curl, urlDir, latestDir, "fam.tab");
-    fetchAMRFile (curl, urlDir, latestDir, "taxgroup.tab");
+    fetchAMRFile (curl, urlDir, latestDir, "fam.tsv");
+    fetchAMRFile (curl, urlDir, latestDir, "taxgroup.tsv");
     fetchAMRFile (curl, urlDir, latestDir, versionFName);
     
     StringVector dnaPointMuts;
     {
-      LineInput f (latestDir + "taxgroup.tab");
+      LineInput f (latestDir + "taxgroup.tsv");
       while (f. nextLine ())
       {
    	    if (isLeft (f. line, "#"))
@@ -358,8 +358,8 @@ Requirement: the database directory contains subdirectories named by database ve
     
     for (const string& dnaPointMut : dnaPointMuts)
     {
-      fetchAMRFile (curl, urlDir, latestDir, "AMR_DNA-" + dnaPointMut);
-      fetchAMRFile (curl, urlDir, latestDir, "AMR_DNA-" + dnaPointMut + ".tab");
+      fetchAMRFile (curl, urlDir, latestDir, "AMR_DNA-" + dnaPointMut + ".fa");
+      fetchAMRFile (curl, urlDir, latestDir, "AMR_DNA-" + dnaPointMut + ".tsv");
     }
 
     fetchAMRFile (curl, urlDir, latestDir, "changes.txt");

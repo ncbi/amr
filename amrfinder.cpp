@@ -33,6 +33,9 @@
 * Dependencies: NCBI BLAST, HMMer, libcurl, gunzip (optional)
 *
 * Release changes:
+*   3.13.1  08/14/2024 PD-5084  AmrMutation(geneMutation_std,geneMutation_reported)
+*                               point mutation files have columns: standard_mutation_symbol, reported_mutation_symbol
+*                      PD-5091  files: .fa, .tsv
 *   3.12.25 08/05/2024 PD-5076  StxTyper version 1.0.24
 *                               colorize() is suppressed for redirected output
 *   3.12.24            PD-5064  StxTyper version 1.0.23
@@ -319,7 +322,8 @@ using namespace GFF_sp;
 
 // PAR!
 // PD-3051
-const string dataVer_min ("2023-12-15.2");
+const string dataVer_min ("2024-08-14.2");
+  // 3.12: "2023-12-15.2"
   // 3.11: "2021-02-18.1"  
 const string stxTyperVersion ("1.0.24");  
 
@@ -442,9 +446,9 @@ struct ThisApplication : ShellApplication
   
   StringVector db2organisms () const
   {
-    const TextTable taxgroup            (tmp + "/db/taxgroup.tab");
-    const TextTable AMRProt_mutation    (tmp + "/db/AMRProt-mutation.tab");
-    const TextTable AMRProt_susceptible (tmp + "/db/AMRProt-susceptible.tab");
+    const TextTable taxgroup            (tmp + "/db/taxgroup.tsv");
+    const TextTable AMRProt_mutation    (tmp + "/db/AMRProt-mutation.tsv");
+    const TextTable AMRProt_susceptible (tmp + "/db/AMRProt-susceptible.tsv");
     taxgroup. qc ();
     AMRProt_mutation. qc ();
     AMRProt_susceptible. qc ();
@@ -657,9 +661,9 @@ struct ThisApplication : ShellApplication
 
     {
       // PD-4925
-      const string dbTest (db + "/AMRProt.phr");
+      const string dbTest (db + "/AMRProt.fa.phr");
   		if (! fileExists (dbTest))
-  			throw runtime_error ("The BLAST database for AMRProt (" + dbTest + ") was not found.\nUse amrfinder -u or amrfinder --force_update to download and prepare database for AMRFinderPlus");
+  			throw runtime_error ("The BLAST database for AMRProt.fa (" + dbTest + ") was not found.\nUse amrfinder -u or amrfinder --force_update to download and prepare database for AMRFinderPlus");
     }
 
 
@@ -777,7 +781,7 @@ struct ThisApplication : ShellApplication
  	  	ASSERT (! organism1. empty ());
       if (gpipe_org)
       {
-        LineInput f (db + "/taxgroup.tab");
+        LineInput f (db + "/taxgroup.tsv");
         Istringstream iss;
         bool found = false;
         while (f. nextLine ())
@@ -859,16 +863,16 @@ struct ThisApplication : ShellApplication
     }
     
 
-	  const bool blastn = ! emptyArg (dna) && ! organism1. empty () && fileExists (db + "/AMR_DNA-" + organism1);
+	  const bool blastn = ! emptyArg (dna) && ! organism1. empty () && fileExists (db + "/AMR_DNA-" + organism1 + ".fa");
 		const bool stxTyper = blastn && organism1 == "Escherichia" && add_plus;
 		
 		
 		if (blastn)
     {
       // PD-5054
-      const string dbTest (db + "/AMR_DNA-" + organism1 + ".ndb");
+      const string dbTest (db + "/AMR_DNA-" + organism1 + ".fa.ndb");
   		if (! fileExists (dbTest))
-  			throw runtime_error ("The BLAST database for AMR_DNA-" + organism1 + " was not found.\nUse amrfinder -u or amrfinder --force_update to download and prepare database for AMRFinderPlus");
+  			throw runtime_error ("The BLAST database for AMR_DNA-" + organism1 + ".fa was not found.\nUse amrfinder -u or amrfinder --force_update to download and prepare database for AMRFinderPlus");
     }
 
 		if (stxTyper)
@@ -1011,7 +1015,7 @@ struct ThisApplication : ShellApplication
     			{
       			const Chronometer_OnePass_cerr cop ("blastp");
       			// " -task blastp-fast -word_size 6  -threshold 21 "  // PD-2303
-      			exec (fullProg ("blastp") + " -query " + prot1 + " -db " + tmp + "/db/AMRProt" + "  " 
+      			exec (fullProg ("blastp") + " -query " + prot1 + " -db " + tmp + "/db/AMRProt.fa" + "  " 
       			      + blastp_par + " -task blastp-fast"  // "-threshold 100 -window_size 15" are faster, but may miss hits, see SB-3643
       			      + getBlastThreadsParam ("blastp", min (nProt, protLen_total / 10000)) + " " BLAST_FMT " -out " + tmp + "/blastp > /dev/null 2> " + tmp + "/blastp-err", tmp + "/blastp-err");
       		}
@@ -1071,7 +1075,7 @@ struct ThisApplication : ShellApplication
         		const string blastx_par  (blastp_par + "  -word_size 3  -query_gencode " + to_string (gencode));
       			ASSERT (threads_max >= 1);
       			if (blastx == "blastx")
-        			exec (fullProg ("blastx") + "  -query " + dna_flat + " -db " + tmp + "/db/AMRProt" + "  "
+        			exec (fullProg ("blastx") + "  -query " + dna_flat + " -db " + tmp + "/db/AMRProt.fa" + "  "
             			  + blastx_par + " " BLAST_FMT " " + getBlastThreadsParam ("blastx", min (nDna, dnaLen_total / 10002))
             			  + " -out " + tmp + "/blastx > /dev/null 2> " + tmp + "/blastx-err", tmp + "/blastx-err");
             else
@@ -1082,7 +1086,7 @@ struct ThisApplication : ShellApplication
         			if (threads_max > 1)
         			{
           		  createDirectory (tmp + "/AMRProt_chunk");
-          		  exec (fullProg ("fasta2parts") + " " + shellQuote (db + "/AMRProt") + " " + to_string (threads_max) + " " + tmp + "/AMRProt_chunk" + qcS + " -log " + logFName, logFName);
+          		  exec (fullProg ("fasta2parts") + " " + shellQuote (db + "/AMRProt.fa") + " " + to_string (threads_max) + " " + tmp + "/AMRProt_chunk" + qcS + " -log " + logFName, logFName);
           		  createDirectory (tmp + "/tblastn_dir");
           		  createDirectory (tmp + "/tblastn_dir.err");
                 Threads th (threads_max - 1, true);  
@@ -1094,7 +1098,7 @@ struct ThisApplication : ShellApplication
           		  tblastnChunks = true;
           	  }
           	  else
-          			exec (fullProg ("tblastn") + "  -db " + tmp + "/nucl  -query " + tmp + "/db/AMRProt  "
+          			exec (fullProg ("tblastn") + "  -db " + tmp + "/nucl  -query " + tmp + "/db/AMRProt.fa  "
               			  + tblastn_par + " " TBLASTN_FMT "  -out " + tmp + "/blastx > /dev/null 2> " + tmp + "/tblastn-err", tmp + "/tblastn-err");
             }
           }
@@ -1104,7 +1108,7 @@ struct ThisApplication : ShellApplication
       			findProg ("blastn");
       			stderr. section ("Running blastn");
        			const Chronometer_OnePass_cerr cop ("blastn");
-      			exec (fullProg ("blastn") + " -query " + dna_flat + " -db " + tmp + "/db/AMR_DNA-" + organism1 + " -evalue 1e-20  -dust no  -max_target_seqs 10000  " 
+      			exec (fullProg ("blastn") + " -query " + dna_flat + " -db " + tmp + "/db/AMR_DNA-" + organism1 + ".fa  -evalue 1e-20  -dust no  -max_target_seqs 10000  " 
       			      + getBlastThreadsParam ("blastn", min (nDna, dnaLen_total / 2500000)) + " " BLAST_FMT " -out " + tmp + "/blastn > " + logFName + " 2> " + tmp + "/blastn-err", tmp + "/blastn-err");
       		}
     		}
@@ -1136,7 +1140,7 @@ struct ThisApplication : ShellApplication
   	if (suppress_common)
   	{
 			OFStream outF (tmp + "/suppress_prot");
-			LineInput f (db + "/AMRProt-suppress");
+			LineInput f (db + "/AMRProt-suppress.tsv");
 			while (f. nextLine ())
 			  if (! isLeft (f. line, "#"))
   			{
@@ -1178,10 +1182,10 @@ struct ThisApplication : ShellApplication
       const string mutation_allS (mutation_all. empty () ? "" : ("-mutation_all " + tmp + "/mutation_all"));      
       const string coreS (add_plus ? "" : " -core");
       const string equidistantS (equidistant ? " -report_equidistant" : "");
-  		exec (fullProg ("amr_report") + " -fam " + shellQuote (db + "/fam.tab") + "  " + amr_report_blastp + "  " + amr_report_blastx
+  		exec (fullProg ("amr_report") + " -fam " + shellQuote (db + "/fam.tsv") + "  " + amr_report_blastp + "  " + amr_report_blastx
       		  + "  -organism " + strQuote (organism1) 
-      		  + "  -mutation "    + shellQuote (db + "/AMRProt-mutation.tab") 
-      		  + "  -susceptible " + shellQuote (db + "/AMRProt-susceptible.tab") 
+      		  + "  -mutation "    + shellQuote (db + "/AMRProt-mutation.tsv") 
+      		  + "  -susceptible " + shellQuote (db + "/AMRProt-susceptible.tsv") 
       		  + " " + mutation_allS + " "
       		  + force_cds_report + " -pseudo" + coreS + equidistantS + printNode
       		  + (ident == -1 ? noString : "  -ident_min "    + toString (ident)) 
@@ -1193,7 +1197,7 @@ struct ThisApplication : ShellApplication
 		{
  			const Chronometer_OnePass_cerr cop ("dna_mutation");
       const string mutation_allS (mutation_all. empty () ? "" : ("-mutation_all " + tmp + "/mutation_all.dna")); 
-			exec (fullProg ("dna_mutation") + tmp + "/blastn " + shellQuote (db + "/AMR_DNA-" + organism1 + ".tab") + " " + strQuote (organism1) + " " + mutation_allS 
+			exec (fullProg ("dna_mutation") + tmp + "/blastn " + shellQuote (db + "/AMR_DNA-" + organism1 + ".tsv") + " " + strQuote (organism1) + " " + mutation_allS 
 			      + nameS + printNode + qcS + " -log " + logFName + " > " + tmp + "/amr-snp", logFName);
 	    {
   			ofstream f (tmp + "/amr", ios_base::out | ios_base::app);

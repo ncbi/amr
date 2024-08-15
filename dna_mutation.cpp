@@ -210,7 +210,7 @@ struct Batch
 	  {
 	    {
         LineInput f (mutation_tab);
-  	  	string accession, geneMutation, classS, subclass, name;
+  	  	string accession, geneMutation_std, geneMutation_report, classS, subclass, name;
   			int pos;
    	  	Istringstream iss;
     	  while (f. nextLine ())
@@ -218,9 +218,11 @@ struct Batch
 	  	    if (isLeft (f. line, "#"))
 	  	      continue;
      	  	iss. reset (f. line);
-    	  	iss >> accession >> pos >> geneMutation >> classS >> subclass >> name;
+     	  	name. clear ();
+    	  	iss >> accession >> pos >> geneMutation_std >> geneMutation_report >> classS >> subclass >> name;
     	  	QC_ASSERT (pos > 0);
-   	  		accession2mutations [accession] << std::move (AmrMutation ((size_t) pos, geneMutation, classS, subclass, name));
+    	  	QC_ASSERT (! name. empty ());
+   	  		accession2mutations [accession] << std::move (AmrMutation ((size_t) pos, geneMutation_std, geneMutation_report, classS, subclass, name));
     	  }	    
     	}
   	  for (auto& it : accession2mutations)

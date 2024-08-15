@@ -56,7 +56,7 @@ struct ThisApplication : Application
     : Application ("Mutate a FASTA file")
     {
   	  addPositional ("in", "Input FASTA file");
-  	  addPositional ("mut", "AmrMutation table: <seq_id> <1-based pos> <mutation>");
+  	  addPositional ("mut", "AmrMutation table: <seq_id> <1-based pos> <mutation_std> <mutation_report>");
   	  addFlag ("aa", "Protein/DNA");
   	  addFlag ("orig", "Add the original, non-mutated sequences");
 
@@ -79,13 +79,17 @@ struct ThisApplication : Application
       Istringstream iss;
       string seqId;
       size_t pos;
-      string mutation;
+      string mutation_std;
+      string mutation_report;
       while (in. nextLine ())
       {
         iss. reset (in. line);
-        mutation. clear ();
-        iss >> seqId >> pos >> mutation;
-        id2mutation [seqId] << move (AmrMutation (pos, mutation));
+        mutation_std. clear ();
+        mutation_report. clear ();
+        iss >> seqId >> pos >> mutation_std >> mutation_report;
+        AmrMutation mut (pos, mutation_std, mutation_report, "X", "X", "X");
+        mut. qc ();
+        id2mutation [seqId] << std::move (mut);
       }
     }
   
@@ -93,26 +97,39 @@ struct ThisApplication : Application
 	  Multifasta fIn (inFName, aa);
 	  while (fIn. next ())
 	  {
-	    unique_ptr<const Seq> seq;
-	    if (aa)
-	      seq. reset (new Peptide (fIn, 1000, false));  // PAR
-	    else
-	      seq. reset (new Dna     (fIn, 100000, false));  // PAR
-	    seq->qc ();
-	    if (orig)
-	      seq->saveText (cout);
-	    if (const Vector<AmrMutation>* muts = findPtr (id2mutation, seq->getId ()))
-	      for (const AmrMutation& mut : *muts)
+ 	    unique_ptr<const Seq> seq;
+	    try
+  	  {
+  	    if (aa)
   	    {
-  	      unique_ptr<Seq> seq1 (seq->copy ());
-  	      mut. apply (seq1->seq);
-  	      if (! aa)
-  	        strLower (seq1->seq);
-    	    seq1->name += ":" + to_string (mut. pos + 1) + ":" + mut. geneMutation;
-    	    seq1->qc ();
-    	    seq1->saveText (cout);
+  	      auto pep = new Peptide (fIn, 1000, false);  // PAR
+  	      pep->pseudo = true;
+  	      seq. reset (pep);  
   	    }
-	  }
+  	    else
+  	      seq. reset (new Dna     (fIn, 100000, false));  // PAR
+  	    seq->qc ();
+  	    if (orig)
+  	      seq->saveText (cout);
+  	    if (const Vector<AmrMutation>* muts = findPtr (id2mutation, seq->getId ()))
+  	      for (const AmrMutation& mut : *muts)
+    	    {
+    	      unique_ptr<Seq> seq1 (seq->copy ());
+    	      mut. apply (seq1->seq);
+    	      if (! aa)
+    	        strLower (seq1->seq);
+      	    seq1->name += ":" + to_string (mut. pos_real + 1) + ":" + mut. geneMutation;
+      	    seq1->qc ();
+      	    seq1->saveText (cout);
+    	    }
+  	  }
+  	  catch (const exception &e)
+  	  {
+  	    if (seq)
+  	      throw runtime_error (seq->name + "\n" + e. what ());
+  	    throw;
+  	  }
+  	}
   }
 };
 

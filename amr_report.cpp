@@ -1520,14 +1520,15 @@ struct Batch
   	  	      continue;
   	  	    try
   	  	    {
-    	  	  	string organism_, accession, geneMutation, classS, subclass, name;
+    	  	  	string organism_, accession, geneMutation_std, geneMutation_report, classS, subclass, name;
     					int pos;
         	  	iss. reset (f. line);
-    	  	  	iss >> organism_ >> accession >> pos >> geneMutation >> classS >> subclass >> name;
+    	  	  	iss >> organism_ >> accession >> pos >> geneMutation_std >> geneMutation_report >> classS >> subclass >> name;
     	  	  	QC_ASSERT (pos > 0);
+    	  	  	QC_ASSERT (! name. empty ());
     	  	  	replace (organism_, '_', ' ');
     	  	  	if (organism_ == organism)
-    	  	  		accession2mutations [accession]. emplace_back ((size_t) pos, geneMutation, classS, subclass, name);
+    	  	  		accession2mutations [accession]. emplace_back ((size_t) pos, geneMutation_std, geneMutation_report, classS, subclass, name);
     	  	  	else
     	  	  	  alien_prots << accession;
     	  	  }
@@ -1741,14 +1742,14 @@ public:
             PRINT (fs. refName);
             PRINT (seqChange. start_target);
             PRINT (fs. targetPos);
-            PRINT (mut->ref_pos);
+            PRINT (mut->pos_std);
             PRINT (fs. refPos);
             PRINT (mut->frameshift_insertion);
             PRINT (fs. insertion);
           #endif
             if (   al->refName                      == fs. refName
                 && seqChange. start_target          == fs. targetPos
-                && (size_t) mut->ref_pos            == fs. refPos
+                && (size_t) mut->pos_std            == fs. refPos
                 && (long) mut->frameshift_insertion == fs. insertion
                )
             {
