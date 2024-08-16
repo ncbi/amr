@@ -77,16 +77,15 @@ struct ThisApplication : Application
     {
       LineInput in (mutFName);
       Istringstream iss;
-      string seqId;
-      size_t pos;
-      string mutation_std;
-      string mutation_report;
       while (in. nextLine ())
       {
         iss. reset (in. line);
-        mutation_std. clear ();
-        mutation_report. clear ();
+        string seqId;
+        size_t pos;
+        string mutation_std;
+        string mutation_report;
         iss >> seqId >> pos >> mutation_std >> mutation_report;
+        QC_ASSERT (! mutation_report. empty ());
         AmrMutation mut (pos, mutation_std, mutation_report, "X", "X", "X");
         mut. qc ();
         id2mutation [seqId] << std::move (mut);

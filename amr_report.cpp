@@ -42,6 +42,7 @@ using namespace Common_sp;
 using namespace GFF_sp;
 #include "alignment.hpp"
 using namespace Alignment_sp;
+#include "columns.hpp"
 
 #include "common.inc"
 
@@ -2046,41 +2047,40 @@ public:
     if (! input_name. empty ())
       td << "Name";
     // Target
-    td << "Protein identifier";                  //  1  // targetName  // PD-2534  
+    td << prot_colName;                          //  1  // targetName 
     if (cdsExist)  
-      // Contig
-      td << "Contig id"                          //  2
-         << "Start"    // targetStart            //  3
-         << "Stop"     // targetEnd              //  4
-         << "Strand";  // targetStrand           //  5
+      // Contig (target)
+      td << contig_colName                       //  2
+         << start_colName                        //  3
+         << stop_colName                         //  4
+         << strand_colName;                      //  5
     // Reference
-    td << "Gene symbol"                          //  6 or 2   // "Element symbol" - PD-4924 ??
-       << "Sequence name"                        //  7 or 3
-       << "Scope"  // PD-2825                    //  8 or 4
-       // PD-1856
-       << "Element type"                         //  9 or 5
-       << "Element subtype"                      // 10 or 6
-       << "Class"                                // 11 or 7
-       << "Subclass"                             // 12 or 8
+    td << genesymbol_colName                     //  6 or 2  
+       << elemName_colName                       //  7 or 3
+       << scope_colName                          //  8 or 4       
+       << type_colName                           //  9 or 5
+       << subtype_colName                        // 10 or 6
+       << class_colName                          // 11 or 7
+       << subclass_colName                       // 12 or 8
+       << method_colName                         // 13 or 9
+       // target
+       << targetLen_colName                      // 14 or 10       
        //
-       << "Method"                               // 13 or 9
-       << "Target length"                        // 14 or 10
+       << refLen_colName                         // 15 or 11  // refLen
+       << refCov_colName                         // 16 or 12  // queryCoverage
+       << refIdent_colName                       // 17 or 13 
+       << alignLen_colName                       // 18 or 14  // targetSeq.size()
+       << closestRefAccession_colName            // 19 or 15  // refAccession
+       << closestRefName_colName                 // 20 or 16
        //
-       << "Reference sequence length"            // 15 or 11  // refLen
-       << "% Coverage of reference sequence"     // 16 or 12  // queryCoverage
-       << "% Identity to reference sequence"     // 17 or 13 
-       << "Alignment length"                     // 18 or 14  // targetSeq. size ()
-       << "Accession of closest sequence"        // 19 or 15  // refAccession
-       << "Name of closest sequence"             // 20 or 16
-       //
-       << "HMM id"                               // 21 or 17
-       << "HMM description"                      // 22 or 18
+       << hmmAccession_colName                   // 21 or 17
+       << hmmDescr_colName                       // 22 or 18
        ;
     if (cdsExist)
     	if (useCrossOrigin)
       	 td << "Cross-origin length";
     if (print_node)
-      td << "Hierarchy node"; 
+      td << hierarchyNode_colName; 
     td. newLn ();
 
  	  for (const auto& it : target2goodBlastAls)

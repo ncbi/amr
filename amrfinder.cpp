@@ -33,6 +33,8 @@
 * Dependencies: NCBI BLAST, HMMer, libcurl, gunzip (optional)
 *
 * Release changes:
+*                               StxTyper version 1.0.25
+*   3.13.2  08/16/2024 PD-5085  column names to match MicroBIGG-E
 *   3.13.1  08/14/2024 PD-5084  AmrMutation(geneMutation_std,geneMutation_reported)
 *                               point mutation files have columns: standard_mutation_symbol, reported_mutation_symbol
 *                      PD-5091  files: .fa, .tsv
@@ -312,6 +314,7 @@
 using namespace Common_sp;
 #include "gff.hpp"
 using namespace GFF_sp;
+#include "columns.hpp"
 
 #include "common.inc"
 
@@ -325,7 +328,7 @@ using namespace GFF_sp;
 const string dataVer_min ("2024-08-14.2");
   // 3.12: "2023-12-15.2"
   // 3.11: "2021-02-18.1"  
-const string stxTyperVersion ("1.0.24");  
+const string stxTyperVersion ("1.0.25");  
 
 
 
@@ -1223,8 +1226,8 @@ struct ThisApplication : ShellApplication
     {
       StringVector amrSortColumns;
       if (! (emptyArg (dna) && emptyArg (gff)))
-        amrSortColumns << "Contig id" << "Start" << "Stop" << "Strand";    
-      amrSortColumns << "Protein identifier" << "Gene symbol";  
+        amrSortColumns << contig_colName << start_colName << stop_colName << strand_colName;    
+      amrSortColumns << prot_colName << genesymbol_colName;  
 
       {
         TextTable amrTab (tmp + "/amr");
@@ -1245,7 +1248,7 @@ struct ThisApplication : ShellApplication
         mutation_allTab. saveFile (mutation_all);
         if (qc_on)
         {
-          const TextTable::ColNum i = mutation_allTab. col2num ("Element subtype");
+          const TextTable::ColNum i = mutation_allTab. col2num (subtype_colName);
           for (const StringVector& row : mutation_allTab. rows)
             QC_ASSERT (row [i] == "POINT");
         }
@@ -1255,18 +1258,18 @@ struct ThisApplication : ShellApplication
 
     if (! emptyArg (prot_out))
     {
-      prepare_fasta_extract (StringVector {"Protein identifier", "Gene symbol", "Sequence name"}, "prot_out", false);
+      prepare_fasta_extract (StringVector {prot_colName, genesymbol_colName, elemName_colName}, "prot_out", false);
       exec (fullProg ("fasta_extract") + prot + " " + tmp + "/prot_out -aa" + qcS + " -log " + logFName + " > " + prot_out, logFName);  
     }
     if (! emptyArg (dna_out))
     {
-      prepare_fasta_extract (StringVector {"Contig id", "Start", "Stop", "Strand", "Gene symbol", "Sequence name"}, "dna_out", false);
+      prepare_fasta_extract (StringVector {contig_colName, start_colName, stop_colName, strand_colName, genesymbol_colName, elemName_colName}, "dna_out", false);
       exec (fullProg ("fasta_extract") + dna_flat + " " + tmp + "/dna_out" + qcS + " -log " + logFName + " > " + dna_out, logFName);  
     }
     if (! emptyArg (dnaFlank5_out))
     {
-      prepare_fasta_extract (StringVector {"Contig id", "Start", "Stop", "Strand", "Gene symbol", "Sequence name"}, "dna_out", true);
-      //                                    0            1        2       3
+      prepare_fasta_extract (StringVector {contig_colName, start_colName, stop_colName, strand_colName, genesymbol_colName, elemName_colName}, "dna_out", true);
+      //                                   0               1              2             3
       TextTable t (tmp + "/dna_out");
       t. qc ();
       for (StringVector& row : t. rows)
