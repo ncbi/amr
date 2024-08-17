@@ -98,17 +98,17 @@ gff.o: gff.hpp common.hpp common.inc
 alignment.o:	alignment.hpp alignment.hpp common.inc
 seq.o: seq.hpp common.hpp common.inc
 
-amr_report.o:	common.hpp common.inc gff.hpp alignment.hpp
+amr_report.o:	common.hpp common.inc gff.hpp alignment.hpp tsv.hpp columns.hpp version.txt
 amr_reportOBJS=amr_report.o common.o gff.o alignment.o
 amr_report:	$(amr_reportOBJS)
 	$(CXX) $(LDFLAGS) -o $@ $(amr_reportOBJS)
 
-amrfinder.o:  common.hpp common.inc gff.hpp
+amrfinder.o:  common.hpp common.inc gff.hpp tsv.hpp columns.hpp version.txt
 amrfinderOBJS=amrfinder.o common.o gff.o tsv.o
 amrfinder:	$(amrfinderOBJS)
 	$(CXX) $(LDFLAGS) -o $@ $(amrfinderOBJS) -pthread $(DBDIR)
 
-amrfinder_update.o:  common.hpp common.inc 
+amrfinder_update.o:  common.hpp common.inc curl_easy.hpp version.txt
 amrfinder_updateOBJS=amrfinder_update.o common.o curl_easy.o
 amrfinder_update:      $(amrfinder_updateOBJS) 
 	@if [ "$(TEST_UPDATE)" != "" ]  ; \
@@ -117,37 +117,37 @@ amrfinder_update:      $(amrfinder_updateOBJS)
 	fi # make sure the next make command rebuilds amrfinder_update
 	$(CXX) $(LDFLAGS) -o $@ $(amrfinder_updateOBJS) -lcurl 
 
-amrfinder_index.o:  common.hpp common.inc 
+amrfinder_index.o:  common.hpp common.inc version.txt
 amrfinder_indexOBJS=amrfinder_index.o common.o
 amrfinder_index:      $(amrfinder_indexOBJS) 
 	$(CXX) $(LDFLAGS) -o $@ $(amrfinder_indexOBJS) 
 
-fasta_check.o:	common.hpp common.inc 
+fasta_check.o:	common.hpp common.inc version.txt
 fasta_checkOBJS=fasta_check.o common.o 
 fasta_check:	$(fasta_checkOBJS)
 	$(CXX) $(LDFLAGS) -o $@ $(fasta_checkOBJS)
 
-fasta_extract.o:	common.hpp common.inc
+fasta_extract.o:	common.hpp common.inc version.txt
 fasta_extractOBJS=fasta_extract.o common.o
 fasta_extract:	$(fasta_extractOBJS)
 	$(CXX) $(LDFLAGS) -o $@ $(fasta_extractOBJS)
 
-fasta2parts.o:	common.hpp common.inc
+fasta2parts.o:	common.hpp common.inc version.txt
 fasta2partsOBJS=fasta2parts.o common.o
 fasta2parts:	$(fasta2partsOBJS)
 	$(CXX) $(LDFLAGS) -o $@ $(fasta2partsOBJS)
 
-gff_check.o:	common.hpp common.inc gff.hpp
+gff_check.o:	common.hpp common.inc gff.hpp version.txt
 gff_checkOBJS=gff_check.o common.o gff.o
 gff_check:	$(gff_checkOBJS)
 	$(CXX) $(LDFLAGS) -o $@ $(gff_checkOBJS)
 
-dna_mutation.o:	common.hpp common.inc alignment.hpp
+dna_mutation.o:	common.hpp common.inc alignment.hpp tsv.hpp columns.hpp version.txt
 dna_mutationOBJS=dna_mutation.o common.o alignment.o
 dna_mutation:	$(dna_mutationOBJS)
 	$(CXX) $(LDFLAGS) -o $@ $(dna_mutationOBJS)
 
-mutate.o:	common.hpp common.inc alignment.hpp seq.hpp
+mutate.o:	common.hpp common.inc alignment.hpp seq.hpp version.txt
 mutateOBJS=mutate.o common.o alignment.o seq.o
 mutate:	$(mutateOBJS)
 	$(CXX) -o $@ $(mutateOBJS)
