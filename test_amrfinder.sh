@@ -11,13 +11,13 @@ else
 fi
 
 echo Downloading fresh test data...
-curl -s -f \
-     -O https://raw.githubusercontent.com/ncbi/amr/master/test_dna.fa \
-     -O https://raw.githubusercontent.com/ncbi/amr/master/test_prot.fa \
-     -O https://raw.githubusercontent.com/ncbi/amr/master/test_prot.gff \
-     -O https://raw.githubusercontent.com/ncbi/amr/master/test_both.expected \
-     -O https://raw.githubusercontent.com/ncbi/amr/master/test_dna.expected \
-     -O https://raw.githubusercontent.com/ncbi/amr/master/test_prot.expected
+# curl -s -f \
+     # -O https://raw.githubusercontent.com/ncbi/amr/master/test_dna.fa \
+     # -O https://raw.githubusercontent.com/ncbi/amr/master/test_prot.fa \
+     # -O https://raw.githubusercontent.com/ncbi/amr/master/test_prot.gff \
+     # -O https://raw.githubusercontent.com/ncbi/amr/master/test_both.expected \
+     # -O https://raw.githubusercontent.com/ncbi/amr/master/test_dna.expected \
+     # -O https://raw.githubusercontent.com/ncbi/amr/master/test_prot.expected
 
 if [ $? != 0 ]
 then
