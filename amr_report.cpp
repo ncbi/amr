@@ -838,7 +838,7 @@ public:
         return getGeneSymbol ();
       string s;
       for (const BlastAlignment* fusion : fusions)
-        add (s, "/", fusion->getGeneSymbol ());
+        add (s, "/" /*fusion_infix*/, fusion->getGeneSymbol ());  // PD-5155 ??
       return s;
     }
   string fusion2famIds () const
@@ -846,7 +846,7 @@ public:
         return famId;
       string s;
       for (const BlastAlignment* fusion : fusions)
-        add (s, "/", fusion->famId);
+        add (s, fusion_infix, fusion->famId);
       return s;
     }
 private:

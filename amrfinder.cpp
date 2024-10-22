@@ -33,6 +33,9 @@
 * Dependencies: NCBI BLAST, HMMer, libcurl, gunzip (optional)
 *
 * Release changes:
+*   4.0.1   10/22/2024 PD-5155  "::" as a fusion infix for hierarchy_node
+*                      PD-5085  Change column "Element length" to "Target length"
+*                      PD-5085  StxTyper version 1.0.26
 *   4.0.0   10/22/2024 PD-5156  StxTyper etc.
 *   3.13.3  09/11/2024          Instruction for -gff: "Locations are in the --nucleotide file."
 *                               StxTyper version 1.0.25
@@ -330,7 +333,7 @@ using namespace GFF_sp;
 const string dataVer_min ("2024-08-14.2");
   // 3.12: "2023-12-15.2"
   // 3.11: "2021-02-18.1"  
-const string stxTyperVersion ("1.0.25");  
+const string stxTyperVersion ("1.0.26");  
 
 
 

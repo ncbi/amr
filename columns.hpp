@@ -52,7 +52,7 @@ constexpr const char* class_colName = "Class";
 constexpr const char* subclass_colName = "Subclass";
 //        
 constexpr const char* method_colName = "Method";
-constexpr const char* targetLen_colName = "Element length";  // was: "Target length" ??
+constexpr const char* targetLen_colName = "Target length";  // was: "Element length" (temporarily)
 constexpr const char* refLen_colName = "Reference sequence length";
 constexpr const char* refCov_colName = "% Coverage of reference";
 constexpr const char* refIdent_colName = "% Identity to reference";
@@ -62,3 +62,8 @@ constexpr const char* closestRefName_colName = "Closest reference name";
 constexpr const char* hmmAccession_colName = "HMM accession";
 constexpr const char* hmmDescr_colName = "HMM description";
 constexpr const char* hierarchyNode_colName = "Hierarchy node";
+
+
+// PD-5155
+constexpr const char* fusion_infix = "::";  // was: "/"
+  
