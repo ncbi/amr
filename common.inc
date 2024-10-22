@@ -73,7 +73,7 @@
 
 #define ERROR_MSG(msg)                     \
   { if (! std::uncaught_exceptions ())     \
-      throw runtime_error (std::string ("\"" __FILE__ "\", line ") + to_string (__LINE__) + ", in " + (FUNC) + (msg));  \
+      throwf (std::string ("\"" __FILE__ "\", line ") + to_string (__LINE__) + ", in " + (FUNC) + (msg));  \
     exit (1);                              \
   }
 #define ERROR            ERROR_MSG ("ERROR")

@@ -167,6 +167,7 @@ struct TextTable : Named
     // size() = number of columns
   Vector<StringVector> rows;
     // StringVector::size() = header.size()
+    // Values are trim()'ed
   typedef  size_t  ColNum;
     // no_index <=> no column
   typedef  size_t  RowNum;

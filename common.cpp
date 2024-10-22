@@ -297,7 +297,7 @@ string getStack ()
   char** strings = backtrace_symbols (buffer, nptrs);
   if (strings /*&& ! which ("addr2line"). empty ()*/) 
   {
-    FOR_START (int, i, 1, nptrs)
+    FOR_REV_END (int, i, 1, nptrs)
       s += string (strings [i]) + "\n";  
     s += "Use: addr2line -f -C -e " + programArgs [0] + "  -a <address>";
   //free (strings);
@@ -320,6 +320,10 @@ string getStack ()
 
 
 
+//bool InputError::on = false;
+
+
+
 
 //
 
@@ -336,6 +340,15 @@ bool isRedirected (const ostream &os)
 	  return ! isatty (fileno (stderr));
 	return false;
 #endif
+}
+
+
+
+void sleepNano (long nanoSec)
+{
+  const timespec request = {0, nanoSec}; 
+  timespec remaining; 
+  EXEC_ASSERT (! nanosleep (& request, & remaining));  
 }
 
 
@@ -364,7 +377,7 @@ void Chronometer::start ()
 { 
   if (! on ())
     return;
-  if (startTime != noclock)
+  if (started ())
     throw runtime_error (FUNC "Chronometer \""  + name + "\" is not stopped");
   startTime = clock (); 
 }  
@@ -375,7 +388,7 @@ void Chronometer::stop ()
 { 
   if (! on ())
     return;
-  if (startTime == noclock)
+  if (! started ())
     throw runtime_error (FUNC "Chronometer \"" + name + "\" is not started");
   time += clock () - startTime; 
   startTime = noclock;
@@ -529,6 +542,23 @@ string nonPrintable2str (char c)
 		default: s = "x" + uchar2hex ((uchar) c);
 	}	  	
 	return "<" + s + ">";
+}
+
+
+
+string to_url (const string &s)
+{
+  string url;
+  for (const char c : s)
+    if (   isLetter (c)
+        || isDigit (c)
+        || c == '_'
+       )
+      url += c;
+    else
+      url += "%" + uchar2hex ((uchar) c);
+      
+  return url;
 }
 
 
@@ -1241,7 +1271,7 @@ void removeDirectory (const string &dirName)
     {
       case Filetype::link: 
         if (unlink (name. c_str ()))
-          throw runtime_error ("cannot unlink " + strQuote (name));
+          throw logic_error ("cannot unlink " + strQuote (name));
         break;
       case Filetype::dir:
         removeDirectory (name);
@@ -1250,17 +1280,45 @@ void removeDirectory (const string &dirName)
         removeFile (name);
         break;
       default:
-        throw runtime_error ("Cannot remove directory item " + strQuote (name) + " of type " + strQuote (filetype2name (t)));
+        throw logic_error ("Cannot remove directory item " + strQuote (name) + " of type " + strQuote (filetype2name (t)));
     }
   }
   if (rmdir (dirName. c_str ()))
-    throw runtime_error ("Cannot remove directory " + strQuote (dirName));
+    throw logic_error ("Cannot remove directory " + strQuote (dirName));
+}
+
+
+
+string makeTempDir ()
+{
+  string tmpDir (getEnv ("TMPDIR"));
+  if (tmpDir. empty ())
+    tmpDir = "/tmp";
+
+  string tmp = tmpDir + "/" + programName + ".XXXXXX";
+  if (! mkdtemp (var_cast (tmp. c_str ())))
+    throw runtime_error ("Error creating a temporary directory in " + tmpDir);
+	if (tmp. empty ())
+		throw runtime_error ("Cannot create a temporary directory in " + tmpDir);
+
+  {
+  	const string testFName (tmp + "/test");
+    {
+      ofstream f (testFName);
+      f << "abc" << endl;
+      if (! f. good ())
+		    throw runtime_error (tmpDir + " is full, make space there or use environment variable TMPDIR to change location for temporary files");
+    }
+    removeFile (testFName);
+  }
+
+  return tmp;  
 }
 
 
 
 void concatTextDir (const string &inDirName,
-                   const string &outFName)
+                    const string &outFName)
 {
   RawDirItemGenerator dig (0, inDirName, false);
   OFStream outF (outFName);
@@ -2058,6 +2116,22 @@ void Progress::report () const
 
 // TextPos
 
+string TextPos::str () const
+{ 
+  if (lineNum == -1)
+    return noString;
+  return "line " + to_string (lineNum + 1) + ", " +
+	          (eol () 
+	             ? "end of line" 
+	             : last ()
+	                 ?	"last position"
+	                 : "pos. " + to_string (charNum + 1)
+	          ) + 
+	          ": ";
+}
+
+
+
 void TextPos::inc (bool eol_arg)
 { 
  	if (eol ())
@@ -2315,7 +2389,7 @@ void Token::readInput (CharInput &in,
   qc ();
 
   if (verbose ())
-  	cout << type2str (type) << ' ' << *this << ' ' << tp. str () << endl;
+  	cout << tp. str () << type2str (type) << ' ' << *this << endl;
 }
 
 
@@ -2470,13 +2544,17 @@ Token TokenInput::get ()
   const Token last_ (last);
   last = Token ();
   if (! last_. empty ())
+  {
+    tp = last_. tp;
     return last_;
+  }
     
   for (;;)  
   { 
     Token t (ci, dashInName, consecutiveQuotesInText);
     if (t. empty ())
       break;
+    tp = t. tp;
     if (! t. isDelimiter (commentStart))
       return t;
     ci. getLine ();
@@ -2723,6 +2801,31 @@ char TokenInput::getNextChar (bool unget)
   if (unget)
     ci. unget ();
   return c;
+}
+
+
+
+
+// BraceInput
+
+void BraceInput::skipComment ()
+{
+	get ('{');
+	size_t n = 1;
+	for (;;)
+	{
+		const Token t (get ());
+		if (t. isDelimiter ('{'))
+			n++;
+		else if (t. isDelimiter ('}'))
+		{
+			ASSERT (n);
+			n--;
+			if (! n)
+				break;
+		}
+	}
+//get (endChar);
 }
 
 
@@ -3235,8 +3338,8 @@ struct RawDirItemGenerator::Imp
 
 
 RawDirItemGenerator::RawDirItemGenerator (size_t progress_displayPeriod,
-                                    const string& dirName_arg,
-                                    bool large_arg)
+                                          const string& dirName_arg,
+                                          bool large_arg)
 : ItemGenerator (0, progress_displayPeriod)
 , dirName (dirName_arg)
 , imp (new Imp (dirName_arg))
@@ -4030,9 +4133,24 @@ int Application::run (int argc,
       jRoot. reset ();
     }
 	}
+  catch (const std::range_error     &e)  { errorExitStr (string ("Range error: ")     + e. what ()); }
+  catch (const std::overflow_error  &e)  { errorExitStr (string ("Overflow error: ")  + e. what ()); }
+  catch (const std::underflow_error &e)  { errorExitStr (string ("Underflow error: ") + e. what ()); }
+  catch (const std::system_error    &e)  { errorExitStr (string ("System error: ")    + e. what ()); }
+  catch (const std::runtime_error   &e)  
+    {
+      beep ();
+      ostream* os = logPtr ? logPtr : & cerr;
+    	{
+    	  const OColor oc (*os, Color::red, true, true);
+        *os << error_caption;
+      }
+      *os << endl << e. what () << endl;
+      exit (1);
+    }
 	catch (const std::exception &e) 
 	{ 
-	  errorExit ((ifS (errno, strerror (errno) + string ("\n")) + e. what ()). c_str ());
+	  errorExitStr (ifS (errno, strerror (errno) + string ("\n")) + e. what ());
   }
 
 
@@ -4046,7 +4164,7 @@ int Application::run (int argc,
 
 ShellApplication::~ShellApplication ()
 {
-	if (tmpCreated && ! logPtr)
+	if (! tmp. empty () && ! logPtr)
 	  removeDirectory (tmp);
 
   if (startTime)
@@ -4064,16 +4182,6 @@ void ShellApplication::initEnvironment ()
   ASSERT (tmp. empty ());
   ASSERT (! programArgs. empty ());
   
-  // tmp
-  if (useTmp)
-  {
-    string s (getEnv ("TMPDIR"));
-    if (s. empty ())
-      tmp = "/tmp";
-    else
-      tmp = std::move (s);
-  }
-
   // execDir, programName
 	execDir = getProgramDirName ();
 	if (execDir. empty ())
@@ -4097,30 +4205,9 @@ void ShellApplication::initEnvironment ()
 
 void ShellApplication::initVar () 
 {
-  ASSERT (! tmpCreated);
-  
+  ASSERT (tmp. empty ());  
   if (useTmp)
-  {
-    const string tmpDir (tmp);
-    tmp += "/" + programName + ".XXXXXX";
-    if (! mkdtemp (var_cast (tmp. c_str ())))
-      throw runtime_error ("Error creating a temporary directory in " + tmpDir);
-  	if (tmp. empty ())
-  		throw runtime_error ("Cannot create a temporary directory in " + tmpDir);
-
-    {
-    	const string testFName (tmp + "/test");
-      {
-        ofstream f (testFName);
-        f << "abc" << endl;
-        if (! f. good ())
-  		    throw runtime_error (tmpDir + " is full, make space there or use environment variable TMPDIR to change location for temporary files");
-      }
-      removeFile (testFName);
-    }
-    
-    tmpCreated = true;
-  }
+    tmp = makeTempDir ();
   
   stderr. quiet = getQuiet ();
 
@@ -4154,7 +4241,7 @@ string ShellApplication::getHelp (bool screen) const
 
 void ShellApplication::body () const
 {
-  if (useTmp)
+  if (! tmp. empty ())
     LOG (tmp);
   shellBody ();
 }
@@ -4199,6 +4286,7 @@ string ShellApplication::exec2str (const string &cmd,
                                    const string &tmpName,
                                    const string &logFName) const
 {
+  ASSERT (! tmp. empty ());
   ASSERT (! contains (tmpName, ' '));
   const string out (tmp + "/" + tmpName);
   exec (cmd + " > " + out, logFName);
@@ -4213,6 +4301,7 @@ string ShellApplication::exec2str (const string &cmd,
 string ShellApplication::uncompress (const string &quotedFName,
                                      const string &suffix) const
 {
+  ASSERT (! tmp. empty ());
   const string res (shellQuote (tmp + "/" + suffix));
   QC_ASSERT (quotedFName != res);
   const string s (unQuote (quotedFName));
@@ -4229,6 +4318,8 @@ string ShellApplication::uncompress (const string &quotedFName,
 string ShellApplication::getBlastThreadsParam (const string &blast,
                                                size_t threads_max_max) const
 {
+  ASSERT (! tmp. empty ());
+
   const size_t t = min (threads_max, threads_max_max);
   if (t <= 1)  // One thread is main
     return noString;

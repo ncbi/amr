@@ -33,6 +33,8 @@
 * Dependencies: NCBI BLAST, HMMer, libcurl, gunzip (optional)
 *
 * Release changes:
+*   4.0.0   10/22/2024 PD-5156  StxTyper etc.
+*   3.13.3  09/11/2024          Instruction for -gff: "Locations are in the --nucleotide file."
 *                               StxTyper version 1.0.25
 *   3.13.2  08/16/2024 PD-5085  column names to match MicroBIGG-E
 *   3.13.1  08/14/2024 PD-5084  AmrMutation(geneMutation_std,geneMutation_reported)
@@ -357,12 +359,11 @@ struct ThisApplication : ShellApplication
       addKey ("dir", "Common directory of the --protein, --nucleotide and --gff files", "", '\0', "DIRECTORY");
     #endif
     	addKey ("protein", "Input protein FASTA file (can be gzipped)", "", 'p', "PROT_FASTA");
-    	addKey ("nucleotide", "Input assembled nucleotide FASTA file (can be gzipped)", "", 'n', "NUC_FASTA");
-    	addKey ("gff", "GFF file for protein locations (can be gzipped). Protein id should be in the attribute 'Name=<id>' (9th field) of the rows with type 'CDS' or 'gene' (3rd field).", "", 'g', "GFF_FILE");
+    	addKey ("nucleotide", "Input nucleotide FASTA file (can be gzipped)", "", 'n', "NUC_FASTA");
+    	addKey ("gff", "GFF file for protein locations (can be gzipped). Locations are in the --nucleotide file. Protein ids should be in the attribute 'Name=<id>' (9th field) of the rows with type 'CDS' or 'gene' (3rd field).", "", 'g', "GFF_FILE");
 
       {    	
       	const string annots (Gff::names. toString (", "));
-      //replaceStr (annots, ", prodigal", "");  // PD-4772 
         addKey ("annotation_format", "Type of GFF file: " + annots, "genbank", 'a', "ANNOTATION_FORMAT");  
       }
 

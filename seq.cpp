@@ -53,6 +53,7 @@ const char* extSparseDnaAlphabet = "-acgtbdhkmnrsvwyACGTBDHKMNRSVWY";
 const char* extDnaAlphabet = & extSparseDnaAlphabet [1];
 const char* dnaWildcards   = & extDnaAlphabet [4];
 
+
 const char* peptideAlphabet              =  "ACDEFGHIKLMNPQRSTVWY";
 const char* extPeptideAlphabet           =  "ACDEFGHIKLMNPQRSTVWYXBZJUO";
 const char* extSparseTermPeptideAlphabet = "-ACDEFGHIKLMNPQRSTVWYXBZJUO*";
@@ -498,7 +499,7 @@ size_t nuc2num (char wildNucleotide)
     case 'g': return 2; break;
     case 't': return 3; break;
   }  
-  if (charInSet (c, dnaWildcards))
+  if (isAmbigNucl (c))
     return 4;
   NEVER_CALL;
 }
@@ -3236,7 +3237,7 @@ void SubstMat::qc () const
   {
     if (! goodChar (i))
       continue;
-    QC_IMPLY (! charInSet (char (i), peptideWildcards), sim [i] [i] >= 0.0);
+    QC_IMPLY (! isAmbigAa (char (i)), sim [i] [i] >= 0.0);
     FOR (size_t, j, sim_size)
     {
       if (! goodChar (j))
@@ -3357,7 +3358,7 @@ size_t aa2num (char wildAminoacid)
     	i++;
   if (wildAminoacid == *terminator)
     return 20;
-  if (charInSet (c, peptideWildcards))
+  if (isAmbigAa (c))
     return 21;
 
   NEVER_CALL;
@@ -4158,8 +4159,8 @@ Align::Align (const Peptide &pep1,
                               const char c1 = pep1. seq [row - 1];
                               const char c2 = pep2. seq [col - 1];
                               if (   c1 == c2
-                                  && ! charInSet (c1, peptideWildcards)
-                                  && ! charInSet (c2, peptideWildcards)
+                                  && ! isAmbigAa (c1)
+                                  && ! isAmbigAa (c2)
                                  )
                               {
                                 transformation = '|';
@@ -4464,9 +4465,11 @@ Mutation::Mutation (bool prot_arg,
       frameshift = true;
       allele. clear ();
     }
+  #if 0
     for (const char c : allele)
-      if (strchr (peptideWildcards, c))
+      if (isAmbigAa (c))
         ambig = true;
+  #endif
   }
   else
   {
@@ -4474,10 +4477,14 @@ Mutation::Mutation (bool prot_arg,
       ref. clear ();
     if (allele == "DEL")
       allele. clear ();
+  #if 0
     for (const char c : allele)
-      if (strchr (dnaWildcards, c))
+      if (isAmbigNucl (c))
         ambig = true;
+  #endif
   }
+  
+  setAmbig ();
 }
 
 
@@ -4495,6 +4502,19 @@ Mutation::Mutation (string geneName_arg,
 , frameshift (frameshift_arg)
 {
   ASSERT (! geneName. empty ());
+  setAmbig ();
+}
+
+
+
+void Mutation::setAmbig ()
+{
+  for (const char c : allele)
+    if (isAmbig (c, prot))
+    {
+      ambig = true;
+      return;
+    }
 }
 
 
