@@ -845,7 +845,7 @@ struct ThisApplication : ShellApplication
     prog2dir ["amr_report"]    = execDir;	
 		prog2dir ["dna_mutation"]  = execDir;
     prog2dir ["fasta_extract"] = execDir;
-		prog2dir ["stxtyper"]      = execDir + "stxtyper/";
+		prog2dir ["stxtyper"]      = execDir + "stx/";
     
 
     if (pgap)

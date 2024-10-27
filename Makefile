@@ -153,12 +153,12 @@ mutate:	$(mutateOBJS)
 	$(CXX) -o $@ $(mutateOBJS)
 
 stxtyper:
-		$(MAKE) -C stxtyper
+		$(MAKE) -C stx
 
 clean:
 	rm -f *.o
 	rm -f $(BINARIES)
-	$(MAKE) -C stxtyper clean
+	$(MAKE) -C stx clean
 
 install:
 	@if [ ! -e $(DESTDIR)$(bindir) ]; \
@@ -166,7 +166,7 @@ install:
 		mkdir -p $(DESTDIR)$(bindir); \
 	fi
 	$(INSTALL) $(BINARIES) $(DESTDIR)$(bindir)
-	make -C stxtyper install PREFIX=$(PREFIX) bindir=$(bindir)
+	make -C stx install PREFIX=$(PREFIX) bindir=$(bindir)
 
 # amrfinder binaries for github binary release
 GITHUB_FILE=amrfinder_binaries_v$(VERSION_STRING)
@@ -181,19 +181,20 @@ github_binaries:
 #   first recompile amrfinder.o to pick up the new version info
 #	and remove leaky NCBI paths
 	make clean
-	make all CXX=/usr/bin/g++ LD_RUN_PATH= -d
+	make all CXX=/usr/bin/g++ LD_RUN_PATH= 
 	mkdir $(GITHUB_FILE)
 	echo $(VERSION_STRING) > $(GITHUB_FILE)/version.txt
 	cp $(GITHUB_FILES) $(GITHUB_FILE)
-	make -C stxtyper install INSTALL_DIR=../$(GITHUB_FILE)/stxtyper
-	cp stxtyper/test_stxtyper.sh stxtyper/version.txt $(GITHUB_FILE)/stxtyper
-	mkdir $(GITHUB_FILE)/stxtyper/test
-	cp -R stxtyper/test/*.fa stxtyper/test/*.expected $(GITHUB_FILE)/stxtyper/test
+	make -C stx
+	make -C stx install INSTALL_DIR=../$(GITHUB_FILE)/stx CXX=/usr/bin/g++ LD_RUN_PATH=
+	cp stx/test_stxtyper.sh stx/version.txt $(GITHUB_FILE)/stx
+	mkdir $(GITHUB_FILE)/stx/test
+	cp -R stx/test/*.fa stx/test/*.expected $(GITHUB_FILE)/stx/test
 	if [ -e $(GITHUB_FILE).tar.gz ]; then rm $(GITHUB_FILE).tar.gz; fi
-	cd $(GITHUB_FILE); tar cvfz ../$(GITHUB_FILE).tar.gz *
+	cd $(GITHUB_FILE); ln -s stx/stxtyper .; tar cvfz ../$(GITHUB_FILE).tar.gz *
 	rm -r $(GITHUB_FILE)/*
 	rmdir $(GITHUB_FILE)
 
 test: $(DISTFILES) Makefile *.cpp *.hpp *.inc test_dna.fa test_prot.fa test_prot.gff test_dna.fa test_dna.expected test_prot.expected test_both.expected
-	make -C stxtyper test
+	make -C stx test
 	./test_amrfinder.sh
