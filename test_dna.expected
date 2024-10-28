@@ -20,3 +20,6 @@ NA	contig15	1	2905	+	23S_A2058T	Escherichia azithromycin/erythromycin/telithromy
 NA	contig16	1	720	+	nfsA_K141STOP	Escherichia nitrofurantoin resistant NfsA	core	AMR	POINT	NITROFURAN	NITROFURANTOIN	POINTX	240	240	100.00	99.17	240	WP_089631889.1	nitroreductase NfsA	NA	NA	nfsA
 NA	contig16	1	720	+	nfsA_R15C	Escherichia nitrofurantoin resistant NfsA	core	AMR	POINT	NITROFURAN	NITROFURANTOIN	POINTX	240	240	100.00	99.17	240	WP_089631889.1	nitroreductase NfsA	NA	NA	nfsA
 NA	contig17	1	247	+	ampC_T-14TGT	Escherichia cephalosporin resistant ampC	core	AMR	POINT	BETA-LACTAM	CEPHALOSPORIN	POINTN	247	245	100.00	99.19	247	NZ_CP041538.1:1149245-1149489	ampC/blaEC promoter region	NA	NA	NA
+NA	contig18	279	1235	+	stxA2	Shiga toxin Stx2 subunit A	plus	VIRULENCE	VIRULENCE	STX2	stxA2	EXACTX	319	319	100.00	100.00	319	TJA36680.1	Shiga toxin Stx2 subunit A	NA	NA	stxA2_acd
+NA	contig18	279	1519	+	stx2a_operon	stx2a operon	plus	VIRULENCE	STX_TYPE	STX2	STX2A	COMPLETE	1241			100.00	410	AAS07600.1, AAM90978.1	Shiga toxin stx2a	NA	NA	stxA2a::stxB2a
+NA	contig18	1250	1516	+	stxB2	Shiga toxin Stx2a subunit B	plus	VIRULENCE	VIRULENCE	STX2	stxB2a	EXACTX	89	89	100.00	100.00	89	AAM90978.1	Shiga toxin Stx2a subunit B	NA	NA	stxB2a
