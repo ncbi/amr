@@ -2,12 +2,13 @@ data/
 *.o
 amr_report
 amrfinder
-fasta_check
-fasta_extract
-dna_mutation
-gff_check
 amrfinder_index
 amrfinder_update
 amrfinder_customize
+dna_mutation
+fasta_check
+fasta_extract
 fasta2parts
+gff_check
+mutate
 *.got

@@ -265,15 +265,16 @@ namespace
     cxml->print (string (error_caption) + ": " + msg);
 
   if (segmFault)
-    abort ();
+    abort ();    
   exit (1);
 }
 
 
 
-[[noreturn]] void errorExitStr (const string &msg)
+void errorExitStr (const string &msg)
 { 
-  errorExit (msg. c_str ()); 
+  if (! uncaught_exceptions ())
+    errorExit (msg. c_str ()); 
 }
 
 
@@ -296,7 +297,7 @@ string getStack ()
   char** strings = backtrace_symbols (buffer, nptrs);
   if (strings /*&& ! which ("addr2line"). empty ()*/) 
   {
-    FOR_START (int, i, 1, nptrs)
+    FOR_REV_END (int, i, 1, nptrs)
       s += string (strings [i]) + "\n";  
     s += "Use: addr2line -f -C -e " + programArgs [0] + "  -a <address>";
   //free (strings);
@@ -319,6 +320,10 @@ string getStack ()
 
 
 
+//bool InputError::on = false;
+
+
+
 
 //
 
@@ -335,6 +340,15 @@ bool isRedirected (const ostream &os)
 	  return ! isatty (fileno (stderr));
 	return false;
 #endif
+}
+
+
+
+void sleepNano (long nanoSec)
+{
+  const timespec request = {0, nanoSec}; 
+  timespec remaining; 
+  EXEC_ASSERT (! nanosleep (& request, & remaining));  
 }
 
 
@@ -363,7 +377,7 @@ void Chronometer::start ()
 { 
   if (! on ())
     return;
-  if (startTime != noclock)
+  if (started ())
     throw runtime_error (FUNC "Chronometer \""  + name + "\" is not stopped");
   startTime = clock (); 
 }  
@@ -374,7 +388,7 @@ void Chronometer::stop ()
 { 
   if (! on ())
     return;
-  if (startTime == noclock)
+  if (! started ())
     throw runtime_error (FUNC "Chronometer \"" + name + "\" is not started");
   time += clock () - startTime; 
   startTime = noclock;
@@ -418,7 +432,7 @@ Chronometer_OnePass::~Chronometer_OnePass ()
   const time_t stop = time (nullptr);
   
   {
-    const OColor oc (os, Color::magenta, false, true /*& os == & cerr*/);  
+    const OColor oc (os, color, false, true);  
     os << "CHRON: " << name << ": ";
     const ONumber on (os, 0, false);
     os << difftime (stop, start) << " sec.";
@@ -528,6 +542,23 @@ string nonPrintable2str (char c)
 		default: s = "x" + uchar2hex ((uchar) c);
 	}	  	
 	return "<" + s + ">";
+}
+
+
+
+string to_url (const string &s)
+{
+  string url;
+  for (const char c : s)
+    if (   isLetter (c)
+        || isDigit (c)
+        || c == '_'
+       )
+      url += c;
+    else
+      url += "%" + uchar2hex ((uchar) c);
+      
+  return url;
 }
 
 
@@ -666,7 +697,8 @@ bool isIdentifier (const string& name,
 
 
 
-bool isNatural (const string& name)
+bool isNatural (const string& name,
+                bool leadingZeroAllowed)
 {
   if (name. empty ())
     return false;
@@ -675,7 +707,7 @@ bool isNatural (const string& name)
       return false;
   if (name. size () == 1)
     return true;
-  if (name [0] == '0')
+  if (! leadingZeroAllowed && name [0] == '0')
     return false;
   return true;
 }
@@ -1239,7 +1271,7 @@ void removeDirectory (const string &dirName)
     {
       case Filetype::link: 
         if (unlink (name. c_str ()))
-          throw runtime_error ("cannot unlink " + strQuote (name));
+          throw logic_error ("cannot unlink " + strQuote (name));
         break;
       case Filetype::dir:
         removeDirectory (name);
@@ -1248,17 +1280,45 @@ void removeDirectory (const string &dirName)
         removeFile (name);
         break;
       default:
-        throw runtime_error ("Cannot remove directory item " + strQuote (name) + " of type " + strQuote (filetype2name (t)));
+        throw logic_error ("Cannot remove directory item " + strQuote (name) + " of type " + strQuote (filetype2name (t)));
     }
   }
   if (rmdir (dirName. c_str ()))
-    throw runtime_error ("Cannot remove directory " + strQuote (dirName));
+    throw logic_error ("Cannot remove directory " + strQuote (dirName));
+}
+
+
+
+string makeTempDir ()
+{
+  string tmpDir (getEnv ("TMPDIR"));
+  if (tmpDir. empty ())
+    tmpDir = "/tmp";
+
+  string tmp = tmpDir + "/" + programName + ".XXXXXX";
+  if (! mkdtemp (var_cast (tmp. c_str ())))
+    throw runtime_error ("Error creating a temporary directory in " + tmpDir);
+	if (tmp. empty ())
+		throw runtime_error ("Cannot create a temporary directory in " + tmpDir);
+
+  {
+  	const string testFName (tmp + "/test");
+    {
+      ofstream f (testFName);
+      f << "abc" << endl;
+      if (! f. good ())
+		    throw runtime_error (tmpDir + " is full, make space there or use environment variable TMPDIR to change location for temporary files");
+    }
+    removeFile (testFName);
+  }
+
+  return tmp;  
 }
 
 
 
 void concatTextDir (const string &inDirName,
-                   const string &outFName)
+                    const string &outFName)
 {
   RawDirItemGenerator dig (0, inDirName, false);
   OFStream outF (outFName);
@@ -1359,25 +1419,25 @@ size_t Dir::create ()
 
 //
 
-void setSymlink (string path,
-                 const string &fName,
-                 bool pathIsAbsolute)
+void setSymlink (string fromFName,
+                 const string &toFName,
+                 bool fromPathIsAbsolute)
 { 
-  ASSERT (! path. empty ());
-  ASSERT (! fName. empty ());
-  const string err (string ("Cannot make ") + (pathIsAbsolute ? "an absolute" : "a relative") + " symlink for " + strQuote (path) + " as " + strQuote (fName));
-  if (pathIsAbsolute)
-    path = path2canonical (path);
+  ASSERT (! fromFName. empty ());
+  ASSERT (! toFName. empty ());
+  const string err (string ("Cannot make ") + (fromPathIsAbsolute ? "an absolute" : "a relative") + " symlink for " + strQuote (fromFName) + " as " + strQuote (toFName));
+  if (fromPathIsAbsolute)
+    fromFName = path2canonical (fromFName);
   else
   { 
-    if (path [0] == '/')
-      throw runtime_error (err + " because " + strQuote (path) + " is absolute");
-    const Dir dir (fName);
-    const string absPath (dir. getParent () + "/" + path);
+    if (fromFName [0] == '/')
+      throw runtime_error (err + " because " + strQuote (fromFName) + " is absolute");
+    const Dir dir (toFName);
+    const string absPath (dir. getParent () + "/" + fromFName);
     if (getFiletype (absPath, false) == Filetype::none)
       throw runtime_error (err + " because " + strQuote (absPath) + " does not exist");
   }
-  if (symlink (path. c_str (), fName. c_str ()))
+  if (symlink (fromFName. c_str (), toFName. c_str ()))
     throw runtime_error (err);
 }
 
@@ -1596,12 +1656,10 @@ void exec (const string &cmd,
 //Chronometer_OnePass cop (cmd);  
   if (verbose ())
   	cout << cmd << endl;
-  if (logPtr)
-  	*logPtr << cmd << endl;
+  LOG (cmd);
   	
 	const int status = system (cmd. c_str ());  // pipefail's are not caught
-	if (logPtr)
-	  *logPtr << "status = " << status << endl;	
+	LOG ("status = " + to_string (status));
 	if (status)
 	{
 	  string err (cmd + "\nstatus = " + to_string (status));
@@ -1710,7 +1768,7 @@ void Xml::TextFile::tagStart (const string &tag)
 	string tag_ (tag);
 	replace (tag_, ':', '_');
 	if (! isIdentifier (tag_, true))
-    throw runtime_error (FUNC "Bad tag name: " + strQuote (tag));
+    throw runtime_error (FUNC "Bad textual XML tag name: " + strQuote (tag));
 
 	printRaw ("<" + tag + ">"); 
 }
@@ -2058,6 +2116,22 @@ void Progress::report () const
 
 // TextPos
 
+string TextPos::str () const
+{ 
+  if (lineNum == -1)
+    return noString;
+  return "line " + to_string (lineNum + 1) + ", " +
+	          (eol () 
+	             ? "end of line" 
+	             : last ()
+	                 ?	"last position"
+	                 : "pos. " + to_string (charNum + 1)
+	          ) + 
+	          ": ";
+}
+
+
+
 void TextPos::inc (bool eol_arg)
 { 
  	if (eol ())
@@ -2263,12 +2337,12 @@ void Token::readInput (CharInput &in,
 	}
 	else if (isDigit (c) || c == '-')
 	{
+	  bool minusPossible = true;
 		while (   ! in. eof 
 		       && (   isDigit (c)
 		           || c == '.'
-		           || c == 'e'
-		           || c == 'E'
-		           || c == '-'
+		           || toUpper (c) == 'E'
+		           || (c == '-' && minusPossible)
 		           || c == 'x'
 		           || isHex (c)
 		          )
@@ -2276,6 +2350,7 @@ void Token::readInput (CharInput &in,
 		{ 
 			name += c;
 			c = in. get (); 
+			minusPossible = (toUpper (c) == 'E');
 		}
 		if (! in. eof)
 			in. unget ();
@@ -2314,7 +2389,7 @@ void Token::readInput (CharInput &in,
   qc ();
 
   if (verbose ())
-  	cout << type2str (type) << ' ' << *this << ' ' << tp. str () << endl;
+  	cout << tp. str () << type2str (type) << ' ' << *this << endl;
 }
 
 
@@ -2469,13 +2544,17 @@ Token TokenInput::get ()
   const Token last_ (last);
   last = Token ();
   if (! last_. empty ())
+  {
+    tp = last_. tp;
     return last_;
+  }
     
   for (;;)  
   { 
     Token t (ci, dashInName, consecutiveQuotesInText);
     if (t. empty ())
       break;
+    tp = t. tp;
     if (! t. isDelimiter (commentStart))
       return t;
     ci. getLine ();
@@ -2503,7 +2582,7 @@ Token TokenInput::getXmlText ()
 	    ci. error ("XML text is not finished: end of file\n" + t. name, false);
 	  if (c == '<')
 	  {
-	    const char nextChar = getNextChar ();
+	    const char nextChar = getNextChar (true);
 	    if (nextChar == '/')
 	    {
 	      if (htmlTags)
@@ -2708,7 +2787,7 @@ Token TokenInput::getXmlMarkupDeclaration ()
 
 
 
-char TokenInput::getNextChar () 
+char TokenInput::getNextChar (bool unget) 
 { 
   QC_ASSERT (last. empty ());
 
@@ -2719,8 +2798,34 @@ char TokenInput::getNextChar ()
 	if (ci. eof)
 		return '\0';  
 		
-  ci. unget ();
+  if (unget)
+    ci. unget ();
   return c;
+}
+
+
+
+
+// BraceInput
+
+void BraceInput::skipComment ()
+{
+	get ('{');
+	size_t n = 1;
+	for (;;)
+	{
+		const Token t (get ());
+		if (t. isDelimiter ('{'))
+			n++;
+		else if (t. isDelimiter ('}'))
+		{
+			ASSERT (n);
+			n--;
+			if (! n)
+				break;
+		}
+	}
+//get (endChar);
 }
 
 
@@ -2755,6 +2860,11 @@ void OFStream::open (const string &dirName,
 	QC_ASSERT (! fileName. empty ());
 	QC_ASSERT (! is_open ());
 	
+#if 0
+  if (! dirName. empty () && contains (fileName, '/'))
+    throw runtime_error ("Slash in file name: " + strQuote (fileName));
+#endif
+
 	string pathName;
 	if (! dirName. empty () && ! isDirName (dirName))
 	  pathName = dirName + "/";
@@ -2868,7 +2978,7 @@ Json::Json (JsonContainer* parent,
 
 string Json::toStr (const string& s)
 { 
-  if (isNatural (s))
+  if (isNatural (s, false))
     return s;
     
   // https://www.json.org/json-en.html
@@ -3228,8 +3338,8 @@ struct RawDirItemGenerator::Imp
 
 
 RawDirItemGenerator::RawDirItemGenerator (size_t progress_displayPeriod,
-                                    const string& dirName_arg,
-                                    bool large_arg)
+                                          const string& dirName_arg,
+                                          bool large_arg)
 : ItemGenerator (0, progress_displayPeriod)
 , dirName (dirName_arg)
 , imp (new Imp (dirName_arg))
@@ -3552,13 +3662,13 @@ void Application::addPositional (const string &name,
 Application::Key* Application::getKey (const string &keyName) const
 {
   if (! contains (name2arg, keyName))
-    errorExitStr ("Unknown key: " + strQuote (keyName) + "\n\n" + getInstruction ());
+    errorExitStr ("Unknown key: " + strQuote (keyName) + "\n\n" + getInstruction (false));
     
   Key* key = nullptr;
   if (const Arg* arg = findPtr (name2arg, keyName))  	
     key = var_cast (arg->asKey ());
   if (! key)
-    errorExitStr (strQuote (keyName) + " is not a key\n\n" + getInstruction ());
+    errorExitStr (strQuote (keyName) + " is not a key\n\n" + getInstruction (false));
     
   return key;
 }
@@ -3571,9 +3681,9 @@ void Application::setPositional (List<Positional>::iterator &posIt,
   if (posIt == positionalArgs. end ())
   {
   	if (isLeft (value, "-"))
-      errorExitStr (strQuote (value) + " is not a valid option\n\n" + getInstruction ());
+      errorExitStr (strQuote (value) + " is not a valid option\n\n" + getInstruction (false));
   	else
-      errorExitStr (strQuote (value) + " cannot be a positional parameter\n\n" + getInstruction ());
+      errorExitStr (strQuote (value) + " cannot be a positional parameter\n\n" + getInstruction (false));
   }
   (*posIt). value = value;
   posIt++;
@@ -3594,9 +3704,11 @@ void Application::addDefaultArgs ()
 { 
   if (gnu)
 	{ 
-	  addKey ("threads", "Max. number of threads", "1", '\0', "THREADS");
+	  if (threadsUsed)
+	    addKey ("threads", "Max. number of threads", "1", '\0', "THREADS");
 	  addFlag ("debug", "Integrity checks");
     addKey ("log", "Error log file, appended, opened on application start", "", '\0', "LOG");
+    addFlag ("quiet", "Suppress messages to STDERR", 'q');
   }
 	else
 	{ 
@@ -3605,7 +3717,8 @@ void Application::addDefaultArgs ()
     addFlag ("noprogress", "Turn off progress printout");
     addFlag ("profile", "Use chronometers to profile");
     addKey ("seed", "Positive integer seed for random number generator", "1");
-    addKey ("threads", "Max. number of threads", "1");
+	  if (threadsUsed)
+      addKey ("threads", "Max. number of threads", "1");
     addKey ("json", "Output file in Json format");
     addKey ("log", "Error log file, appended");
   #ifndef _MSC_VER
@@ -3679,11 +3792,11 @@ string Application::key2shortHelp (const string &name) const
 
 
 
-string Application::getInstruction () const
+string Application::getInstruction (bool screen) const
 {
   string instr (description);
 
-  instr += "\n\nUSAGE:   " + programName;
+  instr += "\n\n" + colorize ("USAGE", screen) + ":   " + programName; 
 
   for (const Positional& p : positionalArgs)
     instr += " " + p. str ();
@@ -3715,32 +3828,55 @@ string Application::getInstruction () const
 	if (! requiredGroup_prev. empty ())
 		instr += ")";
   
-  instr += "\nHELP:    " + programName + " " + ifS (gnu, "-") + "-" + helpS;
+  instr += "\n" + colorize ("HELP", screen) + ":    " + programName + " " + ifS (gnu, "-") + "-" + helpS;
   if (gnu)
     instr += " or " + programName + " -" + helpS [0];
-  instr += "\nVERSION: " + programName + " " + ifS (gnu, "-") + "-" + versionS;
-
+  instr += "\n" + colorize ("VERSION", screen) + ": " + programName + " " + ifS (gnu, "-") + "-" + versionS;
+  if (gnu)
+    instr += " or " + programName + " -" + versionS [0];
+    
   return instr;
 }
 
 
 
-string Application::getHelp () const
+string Application::getDocumentation (bool screen) const
 {
-  string instr (getInstruction ());
+  if (documentationUrl. empty ())
+    return noString;
+  return "\n\n" + colorize ("DOCUMENTATION", screen) + "\n    See " + colorizeUrl (documentationUrl, screen) + " for full documentation";    
+}
+
+
+
+string Application::getUpdates (bool screen) const
+{
+  if (updatesDoc. empty ())
+    return noString;
+  string s ("\n\n" + colorize ("UPDATES", screen) + "\n" + updatesDoc);
+  if (! updatesUrl. empty ())
+    s += ": " + colorizeUrl (updatesUrl, screen);
+  return s;
+}
+
+
+
+string Application::getHelp (bool screen) const
+{
+  string instr (getInstruction (screen));
 
   const string par ("\n    ");
 
   if (! positionalArgs. empty ())
   {
-	  instr += "\n\nPOSITIONAL PARAMETERS:";
+	  instr += "\n\n" + colorize ("POSITIONAL PARAMETERS", screen) /*+ ":"*/;
 	  for (const Positional& p : positionalArgs)
 	    instr += "\n" + p. str () + par + p. description;
 	}
 
   if (! keyArgs. empty ())
   {
-	  instr += "\n\nNAMED PARAMETERS:";
+	  instr += "\n\n" + colorize ("NAMED PARAMETERS", screen) /*+ ":"*/;
 	  for (const Key& key : keyArgs)
 	  {
 	    instr += "\n" + key. getShortHelp () + par + key. description;
@@ -3819,7 +3955,7 @@ int Application::run (int argc,
 
           const string s1 (s. substr (1));
           if (s1. empty ())
-            errorExitStr ("Dash with no key\n\n" + getInstruction ());
+            errorExitStr ("Dash with no key\n\n" + getInstruction (false));
 
           string name;
           const char c = s1 [0];  // Valid if name.empty()
@@ -3828,22 +3964,23 @@ int Application::run (int argc,
           	{
           		name = s1. substr (1);
 		          if (name. empty ())
-		            errorExitStr ("Dashes with no key\n\n" + getInstruction ());
+		            errorExitStr ("Dashes with no key\n\n" + getInstruction (false));
           	}
           	else
           	{
           		if (s1. size () != 1) 
-                errorExitStr ("Single character expected: " + strQuote (s1) + "\n\n" + getInstruction ());
+                errorExitStr ("Single character expected: " + strQuote (s1) + "\n\n" + getInstruction (false));
             }
           else
           	name = s1;
 
           if (name == helpS || (name. empty () && c == helpS [0] && gnu))
           {
-            cout << getHelp () << endl;
+	          const bool screen = ! isRedirected (cout);
+            cout << getHelp (screen) << getDocumentation (screen) << getUpdates (screen) << endl;
             return 0;
           }
-          if (name == versionS)
+          if (name == versionS || (name. empty () && c == versionS [0] && gnu))
           {
             cout << version << endl;
             return 0;
@@ -3881,18 +4018,19 @@ int Application::run (int argc,
 	      first = false;
 	    }
       if (key)
-        errorExitStr ("Key with no value: " + key->name + "\n\n" + getInstruction ());
+        errorExitStr ("Key with no value: " + key->name + "\n\n" + getInstruction (false));
 
 
 	    if (programArgs. size () == 1 && (! positionalArgs. empty () || needsArg))
 	    {
-	      cout << getInstruction () << endl;
+	      const bool screen = ! isRedirected (cout);
+	      cout << getInstruction (screen) << getDocumentation (screen) << endl;
 	      return 1;
 	    }
 	    
 
 	    if (posIt != positionalArgs. end ())
-	      errorExitStr ("Too few positional parameters\n\n" + getInstruction ());
+	      errorExitStr ("Too few positional parameters\n\n" + getInstruction (false));
 	  }
     
     
@@ -3962,19 +4100,27 @@ int Application::run (int argc,
     #endif
 	  }
   
-	
-  	threads_max = str2<size_t> (getArg ("threads"));
-  	if (! threads_max)
-  		throw runtime_error ("Number of threads cannot be 0");	
-  	if (threads_max > 1 && Chronometer::enabled)
-  		throw runtime_error ("Cannot profile with threads");
+
+    ASSERT (threads_max == 1);	
+    if (threadsUsed)
+    {
+    	threads_max = str2<size_t> (getArg ("threads"));
+    	if (! threads_max)
+    		throw runtime_error ("Number of threads cannot be 0");	
+    	if (threads_max > 1 && Chronometer::enabled)
+    		throw runtime_error ("Cannot profile with threads");
+    }
 
 
-  	const Verbose vrb (gnu ? 0 : str2<int> (getArg ("verbose")));
+  	const Verbose vrb (gnu 
+  	                     ? getFlag ("quiet")
+  	                       ? -1
+  	                       : 0 
+  	                     : str2<int> (getArg ("verbose"))
+  	                   );
 	  	
-  
+		initVar ();
 		qc ();
-		createTmp ();
   	body ();
 
   
@@ -3982,13 +4128,29 @@ int Application::run (int argc,
   	{
   	  ASSERT (jRoot);
   		OFStream f (jsonFName);
+  		jRoot->qc ();
       jRoot->saveText (f);
       jRoot. reset ();
     }
 	}
+  catch (const std::range_error     &e)  { errorExitStr (string ("Range error: ")     + e. what ()); }
+  catch (const std::overflow_error  &e)  { errorExitStr (string ("Overflow error: ")  + e. what ()); }
+  catch (const std::underflow_error &e)  { errorExitStr (string ("Underflow error: ") + e. what ()); }
+  catch (const std::system_error    &e)  { errorExitStr (string ("System error: ")    + e. what ()); }
+  catch (const std::runtime_error   &e)  
+    {
+      beep ();
+      ostream* os = logPtr ? logPtr : & cerr;
+    	{
+    	  const OColor oc (*os, Color::red, true, true);
+        *os << error_caption;
+      }
+      *os << endl << e. what () << endl;
+      exit (1);
+    }
 	catch (const std::exception &e) 
 	{ 
-	  errorExit ((e. what () + ifS (errno, string (": ") + strerror (errno))). c_str ());
+	  errorExitStr (ifS (errno, strerror (errno) + string ("\n")) + e. what ());
   }
 
 
@@ -4002,8 +4164,15 @@ int Application::run (int argc,
 
 ShellApplication::~ShellApplication ()
 {
-	if (tmpCreated && ! logPtr)
+	if (! tmp. empty () && ! logPtr)
 	  removeDirectory (tmp);
+
+  if (startTime)
+  {
+    const time_t endTime = time (NULL);
+    const OColor oc (cerr, Chronometer_OnePass::color, false, ! stderr. quiet);  
+    stderr << programName << " took " << endTime - startTime << " seconds to complete\n";
+  }
 }
 
 
@@ -4013,16 +4182,6 @@ void ShellApplication::initEnvironment ()
   ASSERT (tmp. empty ());
   ASSERT (! programArgs. empty ());
   
-  // tmp
-  if (useTmp)
-  {
-    string s (getEnv ("TMPDIR"));
-    if (s. empty ())
-      tmp = "/tmp";
-    else
-      tmp = std::move (s);
-  }
-
   // execDir, programName
 	execDir = getProgramDirName ();
 	if (execDir. empty ())
@@ -4044,39 +4203,35 @@ void ShellApplication::initEnvironment ()
 
 
 
-void ShellApplication::createTmp () 
+void ShellApplication::initVar () 
 {
-  ASSERT (! tmpCreated);
-  
+  ASSERT (tmp. empty ());  
   if (useTmp)
-  {
-    const string tmpDir (tmp);
-    tmp += "/" + programName + ".XXXXXX";
-    if (! mkdtemp (var_cast (tmp. c_str ())))
-      throw runtime_error ("Error creating a temporary directory in " + tmpDir);
-  	if (tmp. empty ())
-  		throw runtime_error ("Cannot create a temporary directory in " + tmpDir);
+    tmp = makeTempDir ();
+  
+  stderr. quiet = getQuiet ();
 
+  startTime = time (NULL);
+  stderr << "Running: " << getCommandLine () << '\n';
+
+  // threads_max
+  if (threadsUsed)
+  {
+    const size_t threads_max_max = get_threads_max_max ();
+    if (threads_max > threads_max_max)
     {
-    	const string testFName (tmp + "/test");
-      {
-        ofstream f (testFName);
-        f << "abc" << endl;
-        if (! f. good ())
-  		    throw runtime_error (tmpDir + " is full, make space there or use environment variable TMPDIR to change location for temporary files");
-      }
-      removeFile (testFName);
+      stderr << "The number of threads cannot be greater than " << threads_max_max << " on this computer" << '\n'
+             << "The current number of threads is " << threads_max << ", reducing to " << threads_max_max << '\n';
+      threads_max = threads_max_max;
     }
-    
-    tmpCreated = true;
   }
 }
 
 
 
-string ShellApplication::getHelp () const 
+string ShellApplication::getHelp (bool screen) const 
 {
-  string help (Application::getHelp ());
+  string help (Application::getHelp (screen));
   if (useTmp)
     help += "\n\nTemporary directory used is $TMPDIR or \"/tmp\"";
   return help;
@@ -4086,8 +4241,8 @@ string ShellApplication::getHelp () const
 
 void ShellApplication::body () const
 {
-  if (logPtr && useTmp)
-    *logPtr << tmp << endl;
+  if (! tmp. empty ())
+    LOG (tmp);
   shellBody ();
 }
 
@@ -4124,8 +4279,6 @@ string ShellApplication::fullProg (const string &progName) const
 	ASSERT (isDirName (dir));
 	return shellQuote (dir + progName) + " ";
 }
-#endif
-
 
 
 
@@ -4133,6 +4286,7 @@ string ShellApplication::exec2str (const string &cmd,
                                    const string &tmpName,
                                    const string &logFName) const
 {
+  ASSERT (! tmp. empty ());
   ASSERT (! contains (tmpName, ' '));
   const string out (tmp + "/" + tmpName);
   exec (cmd + " > " + out, logFName);
@@ -4141,6 +4295,90 @@ string ShellApplication::exec2str (const string &cmd,
     throw runtime_error (cmd + "\nOne line is expected");
   return vec [0];  
 }
+
+
+
+string ShellApplication::uncompress (const string &quotedFName,
+                                     const string &suffix) const
+{
+  ASSERT (! tmp. empty ());
+  const string res (shellQuote (tmp + "/" + suffix));
+  QC_ASSERT (quotedFName != res);
+  const string s (unQuote (quotedFName));
+  if (isRight (s, ".gz"))  
+  {
+    exec ("gunzip -c " + quotedFName + " > " + res);
+    return res;
+  }
+  return quotedFName;  
+}
+
+
+
+string ShellApplication::getBlastThreadsParam (const string &blast,
+                                               size_t threads_max_max) const
+{
+  ASSERT (! tmp. empty ());
+
+  const size_t t = min (threads_max, threads_max_max);
+  if (t <= 1)  // One thread is main
+    return noString;
+  
+	bool num_threadsP = false;
+	bool mt_modeP = false;
+	{
+	  const string blast_help (tmp + "/blast_help");
+    exec (fullProg (blast) + " -help > " + blast_help);
+    LineInput f (blast_help);
+    while (f. nextLine ())
+    {
+      trim (f. line);
+      if (contains (f. line, "-num_threads "))
+        num_threadsP = true;
+      if (contains (f. line, "-mt_mode "))
+        mt_modeP = true;
+    }
+  }
+  
+  if (! num_threadsP)
+    return noString;
+  
+  string s ("  -num_threads " + to_string (t));
+  
+  bool mt_mode_works = true;
+#ifdef __APPLE__
+  {
+    mt_mode_works = false;
+    const string blast_version (tmp + "/blast_version");
+    exec (fullProg (blast) + " -version > " + blast_version);
+    LineInput f (blast_version);
+    while (f. nextLine ())
+    {
+      trim (f. line);
+      const string prefix (blast + ": ");
+      if (isLeft (f. line, prefix))
+      {
+        trimSuffix (f. line, "+");
+        Istringstream iss;
+        iss. reset (f. line. substr (prefix. size ()));
+        const SoftwareVersion v (iss);
+      //PRINT (v);  
+        iss. reset ("2.13.0");  // PD-4560
+        const SoftwareVersion threshold (iss);;
+      //PRINT (threshold);  
+        mt_mode_works = (threshold <= v);
+      }
+      break;
+    }
+  }
+#endif
+
+  if (mt_modeP && mt_mode_works)  
+    s += "  -mt_mode 1";
+    
+  return s;
+}
+#endif   // _MSC_VER
 
 
 

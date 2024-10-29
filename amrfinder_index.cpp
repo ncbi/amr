@@ -61,12 +61,11 @@ namespace
 struct ThisApplication : ShellApplication
 {
   ThisApplication ()
-    : ShellApplication ("Index the database for AMRFinder", true, true, true)
+    : ShellApplication ("Index the database for AMRFinder", true, false, true, true)
     {
     	addPositional ("DATABASE", "Directory with AMRFinder database");
     	addKey ("blast_bin", "Directory for BLAST", "", '\0', "BLAST_DIR");
     	addKey ("hmmer_bin", "Directory for HMMer", "", '\0', "HMMER_DIR");
-      addFlag ("quiet", "Suppress messages to STDERR", 'q');
 	    version = SVN_REV;
     }
 
@@ -74,19 +73,15 @@ struct ThisApplication : ShellApplication
 
   void shellBody () const final
   {
-          string dbDir     = getArg ("DATABASE");
-          string blast_bin = getArg ("blast_bin");
-          string hmmer_bin = getArg ("hmmer_bin");
-    const bool   quiet     = getFlag ("quiet");
-    
-    
+    string dbDir     = getArg ("DATABASE");
+    string blast_bin = getArg ("blast_bin");
+    string hmmer_bin = getArg ("hmmer_bin");
+
     addDirSlash (dbDir);
     addDirSlash (blast_bin);
     addDirSlash (hmmer_bin);
     
         
-    Stderr stderr (quiet);
-    stderr << "Running: "<< getCommandLine () << '\n';
     const Verbose vrb (qc_on);
     
     
@@ -105,7 +100,7 @@ struct ThisApplication : ShellApplication
     // Cf. amrfinder_update.cpp
     StringVector dnaPointMuts;
     {
-      LineInput f (dbDir + "taxgroup.tab");
+      LineInput f (dbDir + "taxgroup.tsv");
       while (f. nextLine ())
       {
    	    if (isLeft (f. line, "#"))
@@ -121,13 +116,13 @@ struct ThisApplication : ShellApplication
     }
     
     
-    stderr << "Indexing" << "\n";
+    stderr. section ("Indexing");
     exec (fullProg ("hmmpress") + " -f " + shellQuote (dbDir + "AMR.LIB") + " > /dev/null 2> " + tmp + "/hmmpress.err", tmp + "/hmmpress.err");
     setSymlink (dbDir, tmp + "/db", true);
-	  exec (fullProg ("makeblastdb") + " -in " + tmp + "/db/AMRProt" + "  -dbtype prot  -logfile " + tmp + "/makeblastdb.AMRProt", tmp + "/makeblastdb.AMRProt");  
-	  exec (fullProg ("makeblastdb") + " -in " + tmp + "/db/AMR_CDS" + "  -dbtype nucl  -logfile " + tmp + "/makeblastdb.AMR_CDS", tmp + "/makeblastdb.AMR_CDS");  
+	  exec (fullProg ("makeblastdb") + " -in " + tmp + "/db/AMRProt.fa" + "  -dbtype prot  -logfile " + tmp + "/makeblastdb.AMRProt", tmp + "/makeblastdb.AMRProt");  
+	  exec (fullProg ("makeblastdb") + " -in " + tmp + "/db/AMR_CDS.fa" + "  -dbtype nucl  -logfile " + tmp + "/makeblastdb.AMR_CDS", tmp + "/makeblastdb.AMR_CDS");  
     for (const string& dnaPointMut : dnaPointMuts)
-  	  exec (fullProg ("makeblastdb") + " -in " + tmp + "/db/AMR_DNA-" + dnaPointMut + "  -dbtype nucl  -logfile " + tmp + "/makeblastdb.AMR_DNA-" + dnaPointMut, tmp + "/makeblastdb.AMR_DNA-" + dnaPointMut);
+  	  exec (fullProg ("makeblastdb") + " -in " + tmp + "/db/AMR_DNA-" + dnaPointMut + ".fa  -dbtype nucl  -logfile " + tmp + "/makeblastdb.AMR_DNA-" + dnaPointMut, tmp + "/makeblastdb.AMR_DNA-" + dnaPointMut);
   }
 };
 

@@ -162,7 +162,7 @@ struct Annot : Root
     // Output: fasta2gff_prot
   void load_fasta2gff_dna (const string &fName);
     // Input: fName: file is created by gff_check.cpp -gff_dna_match
-    // Output: Locus:;contig
+    // Output: Locus::contig
   const Set<Locus>& findLoci (const string &fasta_prot) const;
     // Return: !empty()
     // throw if not found

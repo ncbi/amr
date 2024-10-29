@@ -29,6 +29,8 @@
 * File Description:
 *   Updating of AMRFinder data
 *
+* Dependencies: libcurl
+
 * Release changes: see amrfinder.cpp
 *
 */
@@ -201,13 +203,12 @@ struct ThisApplication : ShellApplication
   ThisApplication ()
     : ShellApplication ("Update the database for AMRFinder from " URL "\n\
 Requirement: the database directory contains subdirectories named by database versions.\
-", false, true, true)
+", false, false, true, true)
     {
     	addKey ("database", "Directory for all versions of AMRFinder databases", "$BASE/data", 'd', "DATABASE_DIR");
     	addKey ("blast_bin", "Directory for BLAST", "", '\0', "BLAST_DIR");
     	addKey ("hmmer_bin", "Directory for HMMer", "", '\0', "HMMER_DIR");
     	addFlag ("force_update", "Force updating the AMRFinder database");  // PD-3469
-      addFlag ("quiet", "Suppress messages to STDERR", 'q');
 	    version = SVN_REV;
 
       // curMinor
@@ -238,16 +239,11 @@ Requirement: the database directory contains subdirectories named by database ve
           string blast_bin    = getArg ("blast_bin");
           string hmmer_bin    = getArg ("hmmer_bin");
     const bool   force_update = getFlag ("force_update");
-    const bool   quiet        = getFlag ("quiet");
-    
-    
+        
     addDirSlash (blast_bin);
     addDirSlash (hmmer_bin);
     
         
-    Stderr stderr (quiet);
-    stderr << "Running: "<< getCommandLine () << '\n';
-	//stderr << "Current software minor version: " << curMinor << '\n'; 
     const Verbose vrb (qc_on);
     
 
@@ -255,7 +251,7 @@ Requirement: the database directory contains subdirectories named by database ve
         
     
     // FTP site files
-    stderr << "Looking up the published databases at " << URL << '\n';    
+    stderr << "Looking up the published databases at " << colorizeUrl (URL, ! isRedirected (cerr)) << '\n';    
     string load_minor = curMinor;
     string load_data_version;    
     {
@@ -287,7 +283,7 @@ Requirement: the database directory contains subdirectories named by database ve
         const Warning w (stderr);
         stderr << "A newer version of the database exists (" << published_data_version << "), but it requires "
                   "a newer version of the software (" << published_minor << ") to install.\n"
-                  "See https://github.com/ncbi/amr/wiki/Upgrading for more information.\n";
+                  "See " + colorizeUrl ("https://github.com/ncbi/amr/wiki/Upgrading", ! isRedirected (cerr)) + " for more information.\n";
       }
     }
     ASSERT (! load_data_version. empty ());
@@ -322,7 +318,7 @@ Requirement: the database directory contains subdirectories named by database ve
         {
           const Warning w (stderr);
           stderr << shellQuote (latestDir) << " contains the latest version: " << version_old. front () << '\n';
-          stderr << "Skipping update, use amrfinder --force_update to overwrite the existing database";
+          stderr << "Skipping update\nUse amrfinder --force_update to overwrite the existing database";
           createLatestLink (mainDirS, /*latestDir*/ load_data_version);
           return;
         }
@@ -333,19 +329,19 @@ Requirement: the database directory contains subdirectories named by database ve
     
     stderr << "Downloading AMRFinder database version " << load_data_version << " into " << shellQuote (latestDir) << "\n";
     fetchAMRFile (curl, urlDir, latestDir, "AMR.LIB");
-    fetchAMRFile (curl, urlDir, latestDir, "AMRProt");
-    fetchAMRFile (curl, urlDir, latestDir, "AMRProt-mutation.tab");
-    fetchAMRFile (curl, urlDir, latestDir, "AMRProt-suppress");
-    fetchAMRFile (curl, urlDir, latestDir, "AMRProt-susceptible.tab");
-    fetchAMRFile (curl, urlDir, latestDir, "AMR_CDS");
+    fetchAMRFile (curl, urlDir, latestDir, "AMRProt.fa");
+    fetchAMRFile (curl, urlDir, latestDir, "AMRProt-mutation.tsv");
+    fetchAMRFile (curl, urlDir, latestDir, "AMRProt-suppress.tsv");
+    fetchAMRFile (curl, urlDir, latestDir, "AMRProt-susceptible.tsv");
+    fetchAMRFile (curl, urlDir, latestDir, "AMR_CDS.fa");
     fetchAMRFile (curl, urlDir, latestDir, "database_format_version.txt");  // PD-3051 
-    fetchAMRFile (curl, urlDir, latestDir, "fam.tab");
-    fetchAMRFile (curl, urlDir, latestDir, "taxgroup.tab");
+    fetchAMRFile (curl, urlDir, latestDir, "fam.tsv");
+    fetchAMRFile (curl, urlDir, latestDir, "taxgroup.tsv");
     fetchAMRFile (curl, urlDir, latestDir, versionFName);
     
     StringVector dnaPointMuts;
     {
-      LineInput f (latestDir + "taxgroup.tab");
+      LineInput f (latestDir + "taxgroup.tsv");
       while (f. nextLine ())
       {
    	    if (isLeft (f. line, "#"))
@@ -362,8 +358,8 @@ Requirement: the database directory contains subdirectories named by database ve
     
     for (const string& dnaPointMut : dnaPointMuts)
     {
-      fetchAMRFile (curl, urlDir, latestDir, "AMR_DNA-" + dnaPointMut);
-      fetchAMRFile (curl, urlDir, latestDir, "AMR_DNA-" + dnaPointMut + ".tab");
+      fetchAMRFile (curl, urlDir, latestDir, "AMR_DNA-" + dnaPointMut + ".fa");
+      fetchAMRFile (curl, urlDir, latestDir, "AMR_DNA-" + dnaPointMut + ".tsv");
     }
 
     fetchAMRFile (curl, urlDir, latestDir, "changes.txt");
@@ -375,7 +371,7 @@ Requirement: the database directory contains subdirectories named by database ve
 	  exec (fullProg ("amrfinder_index") + shellQuote (latestDir) 
 	          + makeKey ("blast_bin", blast_bin)   
 	          + makeKey ("hmmer_bin", hmmer_bin)  
-	          + ifS (quiet, " -q") + ifS (qc_on, " --debug") + " > " + tmp + "/amrfinder_index.err", tmp + "/amrfinder_index.err"); 
+	          + ifS (getQuiet (), " -q") + ifS (qc_on, " --debug") + " > " + tmp + "/amrfinder_index.err", tmp + "/amrfinder_index.err"); 
   }
 };
 

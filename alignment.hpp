@@ -50,9 +50,22 @@ static constexpr char pm_delimiter = '_';
 struct AmrMutation : Root
 // Database
 {
-	size_t pos {0};
+	size_t pos_real {0};  
 	  // In whole reference sequence
 	  // = start of reference
+	
+	string geneMutation_std;
+  // Function of geneMutation_std
+  // Upper-case
+  string reference;
+	string allele;
+	string gene;
+	int pos_std {0};  
+	size_t frameshift {no_index};
+	  // Position of '*' after getStop()
+	int frameshift_insertion {0};
+
+	// To be reported
 	// !empty()
 	string geneMutation;
 	string classS;
@@ -60,33 +73,28 @@ struct AmrMutation : Root
 	string name;
 	  // Species binomial + resistance
 	
-  // Function of geneMutation_arg
-  // Upper-case
-  string reference;
-	string allele;
-	string gene;
-	int ref_pos {0};
-	size_t frameshift {no_index};
-	  // Position of '*' after getStop()
-	int frameshift_insertion {0};
-
 	
-	AmrMutation (size_t pos_arg,
+  // Input: pos_arg: 1-based
+	AmrMutation (size_t pos_real_arg,
+  		 				 const string &geneMutation_std_arg,
   		 				 const string &geneMutation_arg,
-  			 			 const string &class_arg = "X",
-  				 		 const string &subclass_arg = "X",
-  					 	 const string &name_arg = "X");
-		// Input: pos_arg: 1-based
+  			 			 const string &class_arg,    
+  				 		 const string &subclass_arg, 
+  					 	 const string &name_arg);    
+	AmrMutation (size_t pos_arg,
+  		 				 const string &geneMutation_std_arg)
+    : AmrMutation (pos_arg, geneMutation_std_arg, geneMutation_std_arg, "X", "X", "X")
+    {}
 	AmrMutation () = default;
 	AmrMutation (AmrMutation &&other) = default;
 	AmrMutation& operator= (const AmrMutation &other) = default;
 	AmrMutation& operator= (AmrMutation &&other) = default;
 private:
-	static void parse (string &geneMutation,
+	static void parse (const string &geneMutation_std,
 	                   string &reference,
 	                   string &allele,
                      string &gene,
-                     int &ref_pos,
+                     int &pos_std,
                      size_t &frameshift,
                      int &frameshift_insertion);
 public:
@@ -95,30 +103,30 @@ public:
     { if (empty ())
         os << "empty";
       else
-        os << pos + 1 << ' ' << geneMutation << ' ' << frameshift_insertion << ' ' << name; 
+        os << pos_real + 1 << ' ' << geneMutation << ' ' << frameshift_insertion << ' ' << name; 
     }
   bool empty () const override
-    { return geneMutation. empty (); }
+    { return geneMutation_std. empty (); }
 
 
   size_t getStop () const
-    { return pos + reference. size (); }
+    { return pos_real + reference. size (); }
   string wildtype () const
-    { return gene + "_" + reference + to_string (ref_pos + 1) + reference; }
+    { return gene + "_" + reference + to_string (pos_std + 1) + reference; }
   bool operator< (const AmrMutation &other) const;
   bool operator== (const AmrMutation &other) const
-    { return geneMutation == other. geneMutation; }
+    { return geneMutation_std == other. geneMutation_std; }
   void apply (string &seq) const
-    { if (pos >= seq. size ())
-        throw runtime_error ("AmrMutation position " + to_string (pos) + " is outside the sequence: " + seq);
+    { if (pos_real >= seq. size ())
+        throw runtime_error ("AmrMutation position " + to_string (pos_real) + " is outside the sequence: " + seq);
       if (frameshift != no_index)
         throw runtime_error ("AmrMutation is a frameshift");
       if (verbose ())
-        cerr         << seq. substr (0, pos) 
+        cerr         << seq. substr (0, pos_real) 
              << endl << allele 
-             << endl << seq. substr (pos + reference. size ())
+             << endl << seq. substr (pos_real + reference. size ())
              << endl;
-      seq = seq. substr (0, pos) + allele + seq. substr (pos + reference. size ());
+      seq = seq. substr (0, pos_real) + allele + seq. substr (pos_real + reference. size ());
     }
 };
 
@@ -152,6 +160,7 @@ struct SeqChange : Root
 	  
 	VectorPtr<AmrMutation> mutations;
 	  // !nullptr
+	  // Matching AmrMutation's
 	
 	const SeqChange* replacement {nullptr};
 	  // !nullptr => *this is replaced by *replacement
@@ -249,8 +258,10 @@ struct Alignment : Root
   size_t refEnd {0};
   size_t refLen {0};  
   AmrMutation refMutation;
-    // !empty() => refSeq is an allele
+    // !empty() => refSeq contains AmrMutation::allele
 //int ref_offset {0};
+
+  // targetSeq.size () = refSeq.size()
   
   // Alignment
   bool alProt {false};

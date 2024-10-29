@@ -41,6 +41,7 @@
 using namespace Common_sp;
 #include "alignment.hpp"
 using namespace Alignment_sp;
+#include "columns.hpp"
 
 #include "common.inc"
 
@@ -210,17 +211,18 @@ struct Batch
 	  {
 	    {
         LineInput f (mutation_tab);
-  	  	string accession, geneMutation, classS, subclass, name;
-  			int pos;
    	  	Istringstream iss;
     	  while (f. nextLine ())
     	  {
 	  	    if (isLeft (f. line, "#"))
 	  	      continue;
      	  	iss. reset (f. line);
-    	  	iss >> accession >> pos >> geneMutation >> classS >> subclass >> name;
+    	  	string accession, geneMutation_std, geneMutation_report, classS, subclass, name;
+    			int pos;
+    	  	iss >> accession >> pos >> geneMutation_std >> geneMutation_report >> classS >> subclass >> name;
     	  	QC_ASSERT (pos > 0);
-   	  		accession2mutations [accession] << std::move (AmrMutation ((size_t) pos, geneMutation, classS, subclass, name));
+    	  	QC_ASSERT (! name. empty ());
+   	  		accession2mutations [accession] << std::move (AmrMutation ((size_t) pos, geneMutation_std, geneMutation_report, classS, subclass, name));
     	  }	    
     	}
   	  for (auto& it : accession2mutations)
@@ -240,36 +242,37 @@ struct Batch
   	// Cf. BlastnAlignment::report()
     if (! input_name. empty ())
       td << "Name";
-    td << "Protein identifier"   // targetName  // PD-2534
+    td << prot_colName   // targetName 
        // Contig
-       << "Contig id"
-       << "Start"  // targetStart
-       << "Stop"  // targetEnd
-       << "Strand"   // targetStrand
-       << "Gene symbol"
-       << "AmrMutation name"
-       << "Scope"  // PD-2825
-       // PD-1856
-       << "Element type"
-       << "Element subtype"
-       << "class"
-       << "Subclass"
+       << contig_colName
+       // target
+       << start_colName  
+       << stop_colName
+       << strand_colName
        //
-       << "Method"
-       << "Target length" 
+       << genesymbol_colName
+       << elemName_colName  // was: "AmrMutation name"
+       << scope_colName
+       << type_colName
+       << subtype_colName
+       << class_colName
+       << subclass_colName
        //
-       << "Reference gene length"         // refLen
-       << "% Coverage of reference gene"  // queryCoverage
-       << "% Identity to reference gene"  
-       << "Alignment length"                 // length
-       << "Accession of reference gene"    
-       << "Name of reference gene"
+       << method_colName
+       << targetLen_colName
        //
-       << "HMM id"
-       << "HMM description"
+       << refLen_colName  // refLen
+       << refCov_colName  // queryCoverage
+       << refIdent_colName
+       << alignLen_colName  // length
+       << closestRefAccession_colName 
+       << closestRefName_colName
+       //
+       << hmmAccession_colName
+       << hmmDescr_colName
        ;
     if (print_node)
-      td << "Hierarchy node"; 	      
+      td << hierarchyNode_colName; 	      
     td. newLn ();
 
   	for (const BlastnAlignment* blastAl : blastAls)
@@ -325,12 +328,10 @@ struct ThisApplication : Application
   	      if (verbose ())
   	        cout << f. line << endl;  
   	    }
-  	    auto al = new BlastnAlignment (f. line, organism);
+  	    unique_ptr<BlastnAlignment> al (new BlastnAlignment (f. line, organism));
   	    al->qc ();  
   	    if (al->good ())
-  	      batch. blastAls << al;
-  	    else
-  	      delete al;
+  	      batch. blastAls << al. release ();
   	  }
   	}
   	if (verbose ())
