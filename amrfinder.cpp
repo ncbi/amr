@@ -33,6 +33,7 @@
 * Dependencies: NCBI BLAST, HMMer, libcurl, gunzip (optional)
 *
 * Release changes:
+*   4.0.3   10/29/2024 PD-5167  Don't fail with error on older versions of blast+
 *   4.0.2   10/23/2024 PD-5155  StxTyper version 1.0.27
 *   4.0.1   10/22/2024 PD-5155  "::" is a fusion infix for the column "Hierarchy node"
 *                      PD-5085  Change column "Element length" to "Target length"
@@ -879,7 +880,9 @@ struct ThisApplication : ShellApplication
     {
       // PD-5054
       const string dbTest (db + "/AMR_DNA-" + organism1 + ".fa.ndb");
-  		if (! fileExists (dbTest))
+      // PD-5167
+      const string dbTest2 (db + "/AMR_DNA-" + organism1 + ".fa.nin"); // for older versions of blast
+  		if (! fileExists (dbTest) && ! fileExists (dbTest2))
   			throw runtime_error ("The BLAST database for AMR_DNA-" + organism1 + ".fa was not found.\nUse amrfinder -u or amrfinder --force_update to download and prepare database for AMRFinderPlus");
     }
 
