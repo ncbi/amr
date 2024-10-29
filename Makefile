@@ -167,6 +167,8 @@ install:
 	fi
 	$(INSTALL) $(BINARIES) $(DESTDIR)$(bindir)
 	make -C stx install PREFIX=$(PREFIX) bindir=$(bindir)
+	mkdir $(DESTDIR)$(bindir)/stx
+	ln -s ../stxtyper $(DESTDIR)$(bindir)/stx/stxtyper
 
 # amrfinder binaries for github binary release
 GITHUB_FILE=amrfinder_binaries_v$(VERSION_STRING)
