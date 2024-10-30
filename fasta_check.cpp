@@ -120,10 +120,7 @@ struct ThisApplication : Application
   		      throw runtime_error (id + ": Too many ambiguities");
   		  }
   		  if (skip)
-  		  {
-  		    if (logPtr)
-  		      *logPtr << "Skipping " << id << endl;
-  		  }
+  		    { LOG ("Skipping " + id); }
   		  else
   		  {
      	  	if (lenF. get ())

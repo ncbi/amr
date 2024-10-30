@@ -46,6 +46,76 @@ namespace Common_sp
  
 
 
+// Date
+
+Date Date::parse (const string &s,
+                  Format fmt)
+{ 
+  istringstream iss (s);
+  short year = 0;
+  short month = 0;
+  short day = 0;
+  char c1 = '\0';
+  char c2 = '\0';
+  string tmp;
+  switch (fmt)
+  {
+    case fmt_Year:
+      iss >> year >> tmp;
+      if (   tmp. empty ()
+          && isYear (year)
+         )
+        return Date (year);
+      break;
+    case fmt_YMD:
+      iss >> year >> c1 >> month >> c2 >> day >> tmp;
+      month--;
+      day--;
+      if (   tmp. empty ()
+          && isYear  (year)
+          && isMonth (month)
+          && isDay   (day)
+          && c1 == c2
+         )
+        return Date (year, (char) month, (char) day);
+      break;
+    default: throw runtime_error (FUNC "Unknown date format");
+  }
+  return Date ();
+}
+
+
+
+bool Date::less (const Date &other,
+                 bool equal) const
+{
+  LESS_PART (*this, other, year);
+  LESS_PART (*this, other, month);
+  LESS_PART (*this, other, day);
+  return equal;
+}
+
+
+
+Date Date::operator- (const Date &other) const
+{ 
+  Date d ( short (year  - other. year)
+         , char  (month - other. month)
+         , char  (day   - other. day)
+         );
+  // Normalization 
+  // day < 0 ??
+  while (d. month < 0)
+  {
+    d. month = char (d. month + 12);
+    d. year --;
+  }
+  return d;
+}
+
+
+
+
 // TextTable
 
 void TextTable::Header::qc () const
@@ -68,42 +138,54 @@ TextTable::TextTable (const string &tableFName,
   {
     LineInput f (tableFName);
     bool dataExists = true;
+    // header
     while (f. nextLine ())
     {
+      if (verbose ())
+        cerr << f. lineNum << endl;
+      trimTrailing (f. line);
       if (f. line. empty ())
-        break;
-      if (f. line. front () == '#')
+        continue;
+      const bool thisPound = (f. line. front () == '#');
+      if (thisPound)
       {
         pound = true;
         f. line. erase (0, 1);
       }
-      else
-        if (! header. empty ())
-          break;
-      header. clear ();
-      StringVector h (f. line, '\t', true);
-      for (string& s : h)
-        header << std::move (Header (std::move (s)));
-      ASSERT (! header. empty ());
-      if (! pound)
+      if (f. line. empty ())
+        continue;
+      if (header. empty () || thisPound)
       {
-        dataExists = f. nextLine ();
+        header. clear ();
+        StringVector h (f. line, '\t', true);
+        for (string& s : h)
+          header << std::move (Header (std::move (s)));
+      }
+      ASSERT (! header. empty ());
+      if (! thisPound)
+      {
+        if (! pound)
+          dataExists = f. nextLine ();
         break;
       }
     }
     if (header. empty ())
       throw Error (*this, "Cannot read the table header");
-    if (dataExists)
-      for (;;)
+    // dataExists <=> f.line is valid
+    // rows[]
+    while (dataExists)
+    {
+      trimTrailing (f. line);
+      if (! f. line. empty ())
       {
-        StringVector line (f. line, '\t', true);
-        FFOR_START (size_t, i, line. size (), header. size ())
-          line << noString;        
-        rows << std::move (line);
-        ASSERT (line. empty ());
-        if (! f. nextLine ())
-          break;
+        StringVector row (f. line, '\t', true);
+        FFOR_START (size_t, i, row. size (), header. size ())
+          row << noString;        
+        rows << std::move (row);
+        ASSERT (row. empty ());
       }
+      dataExists = f. nextLine ();
+    }
   }
   
   if (! columnSynonymsFName. empty ())
@@ -151,7 +233,8 @@ void TextTable::setHeader ()
       throw Error (*this, "Row " + to_string (row_num) + " contains " + to_string (row. size ()) + " columns whereas header has " + to_string (header. size ()) + " columns");
     FFOR (RowNum, i, row. size ())
     {
-      const string& field = row [i];
+      string field (row [i]);
+      trim (field);
       Header& h = header [i];
       if (field. empty ())
       {
@@ -336,6 +419,62 @@ void TextTable::duplicateColumn (const string &columnName_from,
 
 
 
+TextTable::ColNum TextTable::findDate (Date::Format &fmt) const
+{
+  FFOR (ColNum, dateCol, header. size ())
+  {
+    const Header& h = header [dateCol];
+    if (   h. null
+        || h. scientific
+       )
+      continue;
+    size_t fmt_ = 0;
+    while (fmt_ < Date::fmt_None)
+    {
+      fmt = Date::Format (fmt_);
+      bool isDate = true;
+      for (const StringVector& row : rows)
+        if (Date::parse (row [dateCol], fmt). empty ())
+        {
+          isDate = false;
+          break;
+        }
+      if (isDate)
+        return dateCol;
+      fmt_++;
+    }
+  }
+  return no_index;
+}
+
+
+
+bool TextTable::isKey (ColNum colNum) const
+{
+  ASSERT (colNum < header. size ());
+
+  const Header& h = header [colNum];
+  if (h. null)
+    return false;
+  if (h. numeric)
+    if (   h. scientific
+        || h. decimals > 0
+       )
+      return false;
+    
+  unordered_set<string> values;  values. rehash (rows. size ());
+  for (const StringVector& row : rows)
+  {
+    ASSERT (! row [colNum]. empty ());
+    if (! values. insert (row [colNum]). second)
+      return false;
+  }
+      
+  return true;
+}
+
+
+
 int TextTable::compare (const StringVector& row1,
                         const StringVector& row2,
                         ColNum column) const
@@ -491,6 +630,7 @@ void TextTable::merge (RowNum toRowNum,
                        const Vector<ColNum> &aggr) 
 {
   ASSERT (toRowNum < fromRowNum);
+  
         StringVector& to   = rows [toRowNum];
   const StringVector& from = rows [fromRowNum];
 
@@ -528,6 +668,8 @@ void TextTable::merge (RowNum toRowNum,
   {
     if (from [i]. empty ())
       continue;
+    if (contains (from [i], aggr_sep))
+      throw runtime_error ("Cannot aggregate column " + header [i]. name + " for row " + to_string (fromRowNum + 1) + " because it contains " + strQuote (string (1, aggr_sep)));
     if (to [i]. empty ())
       to [i] = from [i];
     else

@@ -47,19 +47,21 @@ namespace Alignment_sp
 
 // AmrMutation
 
-AmrMutation::AmrMutation (size_t pos_arg,
-                  				const string &geneMutation_arg,
+AmrMutation::AmrMutation (size_t pos_real_arg,
+            		 				  const string &geneMutation_std_arg,
+            		 				  const string &geneMutation_arg,
                   				const string &class_arg,
                   				const string &subclass_arg,
                   				const string &name_arg)
-: pos (pos_arg)
-, geneMutation (geneMutation_arg)
+: pos_real (pos_real_arg)
+, geneMutation_std (geneMutation_std_arg)
+, geneMutation     (geneMutation_arg)
 , classS (class_arg)
 , subclass (subclass_arg)
 , name (name_arg)
 { 
-  QC_ASSERT (pos > 0);
-	pos--;
+  QC_ASSERT (pos_real > 0);
+	pos_real--;
 	
 	QC_ASSERT (! name. empty ());
   QC_ASSERT (! contains (name, '\t'));
@@ -67,7 +69,7 @@ AmrMutation::AmrMutation (size_t pos_arg,
   QC_ASSERT (! contains (name, "  "));
   
   // reference, allele
-	parse (geneMutation, reference, allele, gene, ref_pos, frameshift, frameshift_insertion);
+	parse (geneMutation_std, reference, allele, gene, pos_std, frameshift, frameshift_insertion);
 	if (allele == "STOP")
 	  allele = "*";
 	else if (allele == "del")
@@ -78,29 +80,29 @@ AmrMutation::AmrMutation (size_t pos_arg,
 
 
 
-void AmrMutation::parse (string &geneMutation,
+void AmrMutation::parse (const string &geneMutation_std,
                          string &reference,
                          string &allele,
                          string &gene,
-                         int &ref_pos,
+                         int &pos_std,
                          size_t &frameshift,
                          int &frameshift_insertion)
 { 
-  QC_ASSERT (! geneMutation. empty ());
+  QC_ASSERT (! geneMutation_std. empty ());
   QC_ASSERT (reference. empty ());
   QC_ASSERT (allele. empty ());
   QC_ASSERT (frameshift == no_index);
   QC_ASSERT (! frameshift_insertion);
   
-
-  string pureMutation (geneMutation);
+  
+  string pureMutation (geneMutation_std);
 
   static const string fsInfix ("fsTer");  // ...fsTer<N>{ins|del}<M>
-  const size_t fsInfix_pos = geneMutation. find (fsInfix);
+  const size_t fsInfix_pos = geneMutation_std. find (fsInfix);
   if (fsInfix_pos != no_index)
   {
     pureMutation. erase (fsInfix_pos);
-    string suffix = geneMutation. substr (fsInfix_pos + fsInfix. size ());  // <N>{ins|del}<M>
+    string suffix = geneMutation_std. substr (fsInfix_pos + fsInfix. size ());  // <N>{ins|del}<M>
     size_t indel_pos = suffix. find ("ins");
     bool ins = true;  // {ins|del}
     if (indel_pos == string::npos)
@@ -116,12 +118,11 @@ void AmrMutation::parse (string &geneMutation,
     suffix. erase (indel_pos);  // <N>
     frameshift = str2<size_t> (suffix);
     QC_ASSERT (frameshift != no_index);
-    geneMutation. erase (fsInfix_pos + fsInfix. size () + suffix. size ());  // ...fsTer<N>
   }
 
   enum Type {inAllele, inPos, inRef};
   Type type = inAllele;
-  string ref_posS;
+  string pos_stdS;
   FOR_REV (size_t, i, pureMutation. size ())
   {
     const char c = pureMutation [i];
@@ -132,7 +133,7 @@ void AmrMutation::parse (string &geneMutation,
           allele += c;
         else
         {
-          ref_posS = string (1, c);
+          pos_stdS = string (1, c);
           type = inPos;
         }
         break;
@@ -143,7 +144,7 @@ void AmrMutation::parse (string &geneMutation,
           reference = string (1, c);
         }
         else
-          ref_posS += c;
+          pos_stdS += c;
         break;
       case inRef:
         if (isAlpha (c))
@@ -154,9 +155,9 @@ void AmrMutation::parse (string &geneMutation,
           QC_ASSERT (i);
           Common_sp::reverse (allele);
           Common_sp::reverse (reference);
-          Common_sp::reverse (ref_posS);
+          Common_sp::reverse (pos_stdS);
           gene = pureMutation. substr (0, i);
-          ref_pos = stoi (ref_posS) - 1;
+          pos_std = stoi (pos_stdS) - 1;
           return;
         }
         break;
@@ -175,6 +176,7 @@ void AmrMutation::qc () const
   if (empty ())
     return;
     
+  QC_ASSERT (! geneMutation. empty ());
 	QC_ASSERT (isUpper (reference));
 	QC_ASSERT (isUpper (allele));
 	QC_ASSERT (reference != allele);
@@ -183,7 +185,7 @@ void AmrMutation::qc () const
 	QC_ASSERT (! gene. empty ());
 	QC_ASSERT (! reference. empty ());  
 	QC_IMPLY (frameshift != no_index, ! allele. empty ());
-	QC_IMPLY (frameshift != no_index, ref_pos >= 0);
+	QC_IMPLY (frameshift != no_index, pos_std >= 0);
 	QC_ASSERT ((frameshift == no_index) == (frameshift_insertion == 0));
 	QC_IMPLY (frameshift_insertion, frameshift_insertion % 3);
 }
@@ -193,8 +195,8 @@ void AmrMutation::qc () const
 bool AmrMutation::operator< (const AmrMutation &other) const
 { 
   LESS_PART (*this, other, gene);
-  LESS_PART (*this, other, pos);
-  LESS_PART (*this, other, geneMutation);
+  LESS_PART (*this, other, pos_real);
+  LESS_PART (*this, other, geneMutation_std);
   return false;
 }
 
@@ -230,7 +232,7 @@ void SeqChange::qc () const
   for (const AmrMutation* mutation : mutations)
   {
     QC_ASSERT (mutation);
-    QC_ASSERT (between (mutation->pos, al->refStart, al->refEnd));
+    QC_ASSERT (between (mutation->pos_real, al->refStart, al->refEnd));
     QC_IMPLY (mutation->frameshift != no_index, al->refProt);
     QC_IMPLY (mutation->frameshift != no_index, ! al->targetProt);
   }
@@ -424,17 +426,17 @@ bool SeqChange::matchesMutation (const AmrMutation& mut) const
   if (empty ())
     return false;
     
-  if (   mut. pos        < start_ref
+  if (   mut. pos_real        < start_ref
       || mut. getStop () > stop_ref
      )
     return false;
     
-  const size_t head = mut. pos - start_ref;
+  const size_t head = mut. pos_real - start_ref;
   const size_t tail = stop_ref - mut. getStop ();
   ASSERT (head + mut. reference. size () + tail == reference. size ());
   const string ref_seg (reference. substr (head, mut. reference. size ()));
   if (ref_seg != mut. reference)
-    throw runtime_error ("Reference sequence has " + strQuote (ref_seg) + ", but mutation is: " + mut. geneMutation);
+    throw runtime_error ("Reference sequence has " + strQuote (ref_seg) + ", but mutation is: " + mut. geneMutation_std);
   
   // PD-3267 
   // ??
@@ -761,13 +763,16 @@ void Alignment::setSeqChanges (const Vector<AmrMutation> &refMutations,
   }
 #endif
   if (verbose ())
+  {
     PRINT (seqChanges. size ());
+    cout << endl;
+  }
 
   
 //Vector<SeqChange> seqChanges_add;
 	size_t j = 0;
 	
-  while (j < refMutations. size () && refMutations [j]. pos < refStart)
+  while (j < refMutations. size () && refMutations [j]. pos_real < refStart)
   {
   //if (allMutationsP)
   	//seqChanges_add << SeqChange (this, & refMutations [j]);
@@ -792,11 +797,11 @@ void Alignment::setSeqChanges (const Vector<AmrMutation> &refMutations,
 		    cout << endl;
 		  }
 	  #if 0
-		  if (mut. pos < seqChange. start_ref)
+		  if (mut. pos_real < seqChange. start_ref)
 	     if (allMutationsP)
       	  seqChanges_add << SeqChange (this, & mut);  // "seqChanges <<" destroys seqChange
     #endif
-		  if (mut. pos >= seqChange. stop_ref)
+		  if (mut. pos_real >= seqChange. stop_ref)
 		    break;
 		#if 0
 		  cout << mut << endl;
@@ -834,7 +839,7 @@ void Alignment::setSeqChanges (const Vector<AmrMutation> &refMutations,
     size_t i = 0;
     for (const AmrMutation& mut : refMutations)
     {
-      while (refPos < mut. pos)
+      while (refPos < mut. pos_real)
       {
         ASSERT (refSeq [i] != '-');
         i++;
@@ -846,7 +851,7 @@ void Alignment::setSeqChanges (const Vector<AmrMutation> &refMutations,
       }
       if (! refSeq [i])
         break;
-      if (   refPos == mut. pos
+      if (   refPos == mut. pos_real
           && isLeft (string (& refSeq    [i]), mut. reference)
           && isLeft (string (& targetSeq [i]), mut. reference)
          )
@@ -871,8 +876,8 @@ size_t Alignment::refMutation2refSeq_pos ()
 {
   ASSERT (! refMutation. empty ());
   
-  if (   refMutation. pos < refStart
-      || refMutation. pos + refMutation. allele. size () > refEnd
+  if (   refMutation. pos_real < refStart
+      || refMutation. pos_real + refMutation. allele. size () > refEnd
      )
     return no_index;
     
@@ -881,10 +886,10 @@ size_t Alignment::refMutation2refSeq_pos ()
 	size_t i = 0;
 	while (i < refSeq. size ())
 	{
-	  ASSERT (pos <= refMutation. pos);
+	  ASSERT (pos <= refMutation. pos_real);
 	  if (refSeq [i] != '-')
 	  {
-      if (pos == refMutation. pos)
+      if (pos == refMutation. pos_real)
       {
         if (   refSeq.    substr (i, refMutation. allele. size ()) == refMutation. allele
             && targetSeq. substr (i, refMutation. allele. size ()) == refMutation. allele

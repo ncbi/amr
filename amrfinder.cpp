@@ -30,9 +30,46 @@
 *   AMRFinderPlus
 *   https://github.com/ncbi/amr
 *
-* Dependencies: NCBI BLAST, HMMer, gunzip (optional)
+* Dependencies: NCBI BLAST, HMMer, libcurl, gunzip (optional)
 *
 * Release changes:
+*   4.0.3   10/29/2024 PD-5167  Don't fail with error on older versions of blast+
+*   4.0.2   10/23/2024 PD-5155  StxTyper version 1.0.27
+*   4.0.1   10/22/2024 PD-5155  "::" is a fusion infix for the column "Hierarchy node"
+*                      PD-5085  Change column "Element length" to "Target length"
+*                      PD-5085  StxTyper version 1.0.26
+*   4.0.0   10/22/2024 PD-5156  StxTyper etc.
+*   3.13.3  09/11/2024          Instruction for -gff: "Locations are in the --nucleotide file."
+*                               StxTyper version 1.0.25
+*   3.13.2  08/16/2024 PD-5085  column names to match MicroBIGG-E
+*   3.13.1  08/14/2024 PD-5084  AmrMutation(geneMutation_std,geneMutation_reported)
+*                               point mutation files have columns: standard_mutation_symbol, reported_mutation_symbol
+*                      PD-5091  files: .fa, .tsv
+*   3.12.25 08/05/2024 PD-5076  StxTyper version 1.0.24
+*                               colorize() is suppressed for redirected output
+*   3.12.24            PD-5064  StxTyper version 1.0.23
+*                               colorizeUrl()
+*   3.12.23            PD-5054  Check that the file "AMR_DNA-" + organism1 + ".ndb" exists
+*                      PD-5038  StxTyper version 1.0.21
+*                      PD-4969  redundant QC check is removed
+*                               -db_gencode parameter is added to tblastn
+*   3.12.22 06/03/2024 PD-5015  HMMs are not applied to mutation proteins
+*   3.12.21 05/31/2024 PD-5014  duplicate susceptible proteins are not reported
+*   3.12.20 05/22/2024 PD-4078  a regular reference protein can have point mutations
+*   3.12.19 05/21/2024 PD-5002  StxTyper 1.0.20
+*           05/06/2024          BlastAlignment: isMutation() => !seqChanges.empty()
+*                                               good() is not using refMutation
+*                                               betterEq(): only within the same category: inFam(), isMutationProt(), isSusceptibleProt(), refMutation
+*           04/30/2024 PD-4981  !isMutation() --> inFam() 
+*           04/26/2024          StxTyper does not use --log parameter
+*   3.12.18 03/26/2024          StxTyper ver. 1.0.19
+*           03/13/2024 PD-4926  StxTyper ver. 1.0.16; amr_report.cpp reports all stx genes
+*           03/11/2024 PD-4924  StxTyper 1.0.15: dead stxA2j EFK5907329.1 is replaced by EMA1832120.1
+*   3.12.17 03/08/2024 PD-4925  more detailed explanation for the message "The BLAST database for AMRProt was not found."
+*   3.12.16 03/08/2024 PD-4923  verify the version of StxTyper
+*   3.12.15 03/05/2024 PD-4918  stxtyper ver. 1.0.14: --print_node 
+*                               stxtyper -q
+*   3.12.14 03/05/2024 PD-4910  -n <nucl> --plus -O Escherichia: stxtyper 1.0.13 is invoked, STX* classes are suppressed in amr_report.cpp
 *   3.12.13 02/27/2024 PD-4888  mutation.cpp is added to the distribution (used only in testing)
 *   3.12.12 02/21/2024 PD-4906  --print_node for fusion proteins
 *                               move DOCUMENTATION section to the end of the usage message
@@ -203,7 +240,7 @@
 *   3.7.4   04/14/2020 PD-3391  Mac Conda installation
 *   3.7.3   04/09/2020 PD-3416  redundant QC check in alignment.cpp
 *   3.7.2   04/08/2020 PD-3363  "WILDTYPE" was not reported
-*   3.7.1   04/02/2020 PD-3154  GIs may be 0, accessions are main identifiers; file "AMRProt-suppress" is added accessions; DATA_VER_MIN is "2020-04-02.1"
+*   3.7.1   04/02/2020 PD-3154  GIs may be 0, accessions are main identifiers; file "AMRProt-suppress" is added accessions; dataVer_min is "2020-04-02.1"
 *   3.6.19  03/24/2020          Check of ">lcl|" is done only for the first sequence in FASTA
 *           03/24/2020 PD-3347  -lcl parameter in gff_check and amr_report
 *   3.6.18  03/17/2020 PD-3396  amr_report.cpp prints a better error message on missing sublcass in data
@@ -284,6 +321,7 @@
 using namespace Common_sp;
 #include "gff.hpp"
 using namespace GFF_sp;
+#include "columns.hpp"
 
 #include "common.inc"
 
@@ -294,8 +332,10 @@ using namespace GFF_sp;
 
 // PAR!
 // PD-3051
-#define DATA_VER_MIN "2023-12-15.2"  
+const string dataVer_min ("2024-08-14.2");
+  // 3.12: "2023-12-15.2"
   // 3.11: "2021-02-18.1"  
+const string stxTyperVersion ("1.0.27");  
 
 
 
@@ -312,21 +352,6 @@ constexpr double partial_coverage_min_def = 0.5;
 const string ambigS ("20");  
 
 
-#if 0
-const string help ( \
-"Identify AMR and virulence genes in proteins and/or contigs and print a report\n" \
-"\n" \
-+ colorize ("DOCUMENTATION", true) + "\n" \
-"    See https://github.com/ncbi/amr/wiki for full documentation\n" \
-"\n" \
-+ colorize ("UPDATES", true) + "\n" \
-"    Subscribe to the amrfinder-announce mailing list for database and software update notifications:\n" \
-"    https://www.ncbi.nlm.nih.gov/mailman/listinfo/amrfinder-announce"
-);
-#endif
-
-
-
 struct ThisApplication : ShellApplication
 {
   ThisApplication ()
@@ -340,11 +365,10 @@ struct ThisApplication : ShellApplication
     #endif
     	addKey ("protein", "Input protein FASTA file (can be gzipped)", "", 'p', "PROT_FASTA");
     	addKey ("nucleotide", "Input nucleotide FASTA file (can be gzipped)", "", 'n', "NUC_FASTA");
-    	addKey ("gff", "GFF file for protein locations (can be gzipped). Protein id should be in the attribute 'Name=<id>' (9th field) of the rows with type 'CDS' or 'gene' (3rd field).", "", 'g', "GFF_FILE");
+    	addKey ("gff", "GFF file for protein locations (can be gzipped). Locations are in the --nucleotide file. Protein ids should be in the attribute 'Name=<id>' (9th field) of the rows with type 'CDS' or 'gene' (3rd field).", "", 'g', "GFF_FILE");
 
       {    	
       	const string annots (Gff::names. toString (", "));
-      //replaceStr (annots, ", prodigal", "");  // PD-4772 
         addKey ("annotation_format", "Type of GFF file: " + annots, "genbank", 'a', "ANNOTATION_FORMAT");  
       }
 
@@ -363,7 +387,7 @@ struct ThisApplication : ShellApplication
       addFlag ("report_common", "Report proteins common to a taxonomy group");  // PD-2756
       addFlag ("report_all_equal", "Report all equally-scoring BLAST and HMM matches");  // PD-3772
       addKey ("name", "Text to be added as the first column \"name\" to all rows of the report, for example it can be an assembly name", "", '\0', "NAME");
-      addFlag ("print_node", "print hierarchy node (family)");  // PD-4394
+      addFlag ("print_node", "Print hierarchy node (family)");  // PD-4394
     	addKey ("mutation_all", "File to report all mutations", "", '\0', "MUT_ALL_FILE");
 
       addKey ("output", "Write output to OUTPUT_FILE instead of STDOUT", "", 'o', "OUTPUT_FILE");
@@ -382,9 +406,9 @@ struct ThisApplication : ShellApplication
 
 	    version = SVN_REV;  
 	    documentationUrl = "https://github.com/ncbi/amr/wiki";
+	    updatesUrl = "https://www.ncbi.nlm.nih.gov/mailman/listinfo/amrfinder-announce";
 	    updatesDoc = "\
-    Subscribe to the amrfinder-announce mailing list for database and software update notifications:\n\
-    https://www.ncbi.nlm.nih.gov/mailman/listinfo/amrfinder-announce";
+    Subscribe to the amrfinder-announce mailing list for database and software update notifications";
     }
 
 
@@ -431,9 +455,9 @@ struct ThisApplication : ShellApplication
   
   StringVector db2organisms () const
   {
-    const TextTable taxgroup            (tmp + "/db/taxgroup.tab");
-    const TextTable AMRProt_mutation    (tmp + "/db/AMRProt-mutation.tab");
-    const TextTable AMRProt_susceptible (tmp + "/db/AMRProt-susceptible.tab");
+    const TextTable taxgroup            (tmp + "/db/taxgroup.tsv");
+    const TextTable AMRProt_mutation    (tmp + "/db/AMRProt-mutation.tsv");
+    const TextTable AMRProt_susceptible (tmp + "/db/AMRProt-susceptible.tsv");
     taxgroup. qc ();
     AMRProt_mutation. qc ();
     AMRProt_susceptible. qc ();
@@ -447,14 +471,14 @@ struct ThisApplication : ShellApplication
   
   
   
-  void prepare_fasta_extract (StringVector &&columns,
+  void prepare_fasta_extract (const StringVector &columns,
                               const string &tmpSuf,
                               bool saveHeader) const
   // Input: tmp + "/amr"
   {
     TextTable t (tmp + "/amr");
     t. qc ();
-    t. filterColumns (std::move (columns));
+    t. filterColumns (columns);
     t. rows. filterValue ([] (const StringVector& row) { return row [0] == "NA"; });
     t. rows. sort ();
     t. rows. uniq ();
@@ -626,7 +650,7 @@ struct ThisApplication : ShellApplication
       {
         const Warning warning (stderr);
         stderr << "Updating database directory works only for databases with the default data directory format." << '\n'
-               << "         Please see https://github.com/ncbi/amr/wiki for details." << "\n"
+               << "         Please see " + colorizeUrl ("https://github.com/ncbi/amr/wiki", ! isRedirected (cerr)) + " for details." << "\n"
                << "         Current database directory is: " << dbDir. get () << "\n"
                << "         New database directories will be created as subdirectories of " << dbDir. getParent ();
       }
@@ -644,9 +668,12 @@ struct ThisApplication : ShellApplication
 		  stderr << "Database directory: " << shellQuote (path2canonical (db)) << '\n';
     setSymlink (db, tmp + "/db", true);
 
-		if (! fileExists (db + "/AMRProt.phr"))
-			throw runtime_error ("The BLAST database for AMRProt was not found. Use amrfinder -u to download and prepare database for AMRFinderPlus");
-			 // "BLAST database " + shellQuote (db + "/AMRProt.phr") + " does not exist");
+    {
+      // PD-4925
+      const string dbTest (db + "/AMRProt.fa.phr");
+  		if (! fileExists (dbTest))
+  			throw runtime_error ("The BLAST database for AMRProt.fa (" + dbTest + ") was not found.\nUse amrfinder -u or amrfinder --force_update to download and prepare database for AMRFinderPlus");
+    }
 
 
 		// PD-3051
@@ -656,7 +683,7 @@ struct ThisApplication : ShellApplication
   		const SoftwareVersion softwareVersion_min (db + "/database_format_version.txt"); 
   	//stderr << "Software version: " << softwareVersion. str () << '\n'; 
   		const DataVersion dataVersion (db + "/version.txt");
-  		istringstream dataVersionIss (DATA_VER_MIN); 
+  		istringstream dataVersionIss (dataVer_min); 
   		const DataVersion dataVersion_min (dataVersionIss);  
       if (database_version)
         cout   << "Database version: " << dataVersion. str () << endl;
@@ -763,7 +790,7 @@ struct ThisApplication : ShellApplication
  	  	ASSERT (! organism1. empty ());
       if (gpipe_org)
       {
-        LineInput f (db + "/taxgroup.tab");
+        LineInput f (db + "/taxgroup.tsv");
         Istringstream iss;
         bool found = false;
         while (f. nextLine ())
@@ -819,6 +846,7 @@ struct ThisApplication : ShellApplication
     prog2dir ["amr_report"]    = execDir;	
 		prog2dir ["dna_mutation"]  = execDir;
     prog2dir ["fasta_extract"] = execDir;
+		prog2dir ["stxtyper"]      = execDir + "stx/";
     
 
     if (pgap)
@@ -844,7 +872,30 @@ struct ThisApplication : ShellApplication
     }
     
 
-	  const bool blastn = ! emptyArg (dna) && ! organism1. empty () && fileExists (db + "/AMR_DNA-" + organism1);
+	  const bool blastn = ! emptyArg (dna) && ! organism1. empty () && fileExists (db + "/AMR_DNA-" + organism1 + ".fa");
+		const bool stxTyper = blastn && organism1 == "Escherichia" && add_plus;
+		
+		
+		if (blastn)
+    {
+      // PD-5054
+      const string dbTest (db + "/AMR_DNA-" + organism1 + ".fa.ndb");
+      // PD-5167
+      const string dbTest2 (db + "/AMR_DNA-" + organism1 + ".fa.nin"); // for older versions of blast
+  		if (! fileExists (dbTest) && ! fileExists (dbTest2))
+  			throw runtime_error ("The BLAST database for AMR_DNA-" + organism1 + ".fa was not found.\nUse amrfinder -u or amrfinder --force_update to download and prepare database for AMRFinderPlus");
+    }
+
+		if (stxTyper)
+		{
+		  const string verFName (tmp + "/stxtyper-ver");
+			exec (fullProg ("stxtyper") + " -v > " + verFName, logFName);
+	    LineInput f (verFName);
+	    if (! f. nextLine ())
+	      throw runtime_error ("Cannot get the version of StxTyper");
+	    if (f. line != stxTyperVersion)
+	      throw runtime_error ("AMRFinder invokes StxTyper version " + f. line + ". Expected StxTyper version is " + stxTyperVersion);		  
+		}
 
 
     // Create files for amr_report    
@@ -975,7 +1026,7 @@ struct ThisApplication : ShellApplication
     			{
       			const Chronometer_OnePass_cerr cop ("blastp");
       			// " -task blastp-fast -word_size 6  -threshold 21 "  // PD-2303
-      			exec (fullProg ("blastp") + " -query " + prot1 + " -db " + tmp + "/db/AMRProt" + "  " 
+      			exec (fullProg ("blastp") + " -query " + prot1 + " -db " + tmp + "/db/AMRProt.fa" + "  " 
       			      + blastp_par + " -task blastp-fast"  // "-threshold 100 -window_size 15" are faster, but may miss hits, see SB-3643
       			      + getBlastThreadsParam ("blastp", min (nProt, protLen_total / 10000)) + " " BLAST_FMT " -out " + tmp + "/blastp > /dev/null 2> " + tmp + "/blastp-err", tmp + "/blastp-err");
       		}
@@ -1031,11 +1082,11 @@ struct ThisApplication : ShellApplication
     			findProg (blastx);
           {
        			const Chronometer_OnePass_cerr cop (blastx);
-            const string tblastn_par (blastp_par + "  -task tblastn-fast  -threshold 100  -window_size 15");  // SB-3643, PD-4522
+            const string tblastn_par (blastp_par + "  -task tblastn-fast  -threshold 100  -window_size 15  -db_gencode " + to_string (gencode));  // SB-3643, PD-4522
         		const string blastx_par  (blastp_par + "  -word_size 3  -query_gencode " + to_string (gencode));
       			ASSERT (threads_max >= 1);
       			if (blastx == "blastx")
-        			exec (fullProg ("blastx") + "  -query " + dna_flat + " -db " + tmp + "/db/AMRProt" + "  "
+        			exec (fullProg ("blastx") + "  -query " + dna_flat + " -db " + tmp + "/db/AMRProt.fa" + "  "
             			  + blastx_par + " " BLAST_FMT " " + getBlastThreadsParam ("blastx", min (nDna, dnaLen_total / 10002))
             			  + " -out " + tmp + "/blastx > /dev/null 2> " + tmp + "/blastx-err", tmp + "/blastx-err");
             else
@@ -1046,7 +1097,7 @@ struct ThisApplication : ShellApplication
         			if (threads_max > 1)
         			{
           		  createDirectory (tmp + "/AMRProt_chunk");
-          		  exec (fullProg ("fasta2parts") + " " + shellQuote (db + "/AMRProt") + " " + to_string (threads_max) + " " + tmp + "/AMRProt_chunk" + qcS + " -log " + logFName, logFName);
+          		  exec (fullProg ("fasta2parts") + " " + shellQuote (db + "/AMRProt.fa") + " " + to_string (threads_max) + " " + tmp + "/AMRProt_chunk" + qcS + " -log " + logFName, logFName);
           		  createDirectory (tmp + "/tblastn_dir");
           		  createDirectory (tmp + "/tblastn_dir.err");
                 Threads th (threads_max - 1, true);  
@@ -1058,7 +1109,7 @@ struct ThisApplication : ShellApplication
           		  tblastnChunks = true;
           	  }
           	  else
-          			exec (fullProg ("tblastn") + "  -db " + tmp + "/nucl  -query " + tmp + "/db/AMRProt  "
+          			exec (fullProg ("tblastn") + "  -db " + tmp + "/nucl  -query " + tmp + "/db/AMRProt.fa  "
               			  + tblastn_par + " " TBLASTN_FMT "  -out " + tmp + "/blastx > /dev/null 2> " + tmp + "/tblastn-err", tmp + "/tblastn-err");
             }
           }
@@ -1068,7 +1119,7 @@ struct ThisApplication : ShellApplication
       			findProg ("blastn");
       			stderr. section ("Running blastn");
        			const Chronometer_OnePass_cerr cop ("blastn");
-      			exec (fullProg ("blastn") + " -query " + dna_flat + " -db " + tmp + "/db/AMR_DNA-" + organism1 + " -evalue 1e-20  -dust no  -max_target_seqs 10000  " 
+      			exec (fullProg ("blastn") + " -query " + dna_flat + " -db " + tmp + "/db/AMR_DNA-" + organism1 + ".fa  -evalue 1e-20  -dust no  -max_target_seqs 10000  " 
       			      + getBlastThreadsParam ("blastn", min (nDna, dnaLen_total / 2500000)) + " " BLAST_FMT " -out " + tmp + "/blastn > " + logFName + " 2> " + tmp + "/blastn-err", tmp + "/blastn-err");
       		}
     		}
@@ -1100,7 +1151,7 @@ struct ThisApplication : ShellApplication
   	if (suppress_common)
   	{
 			OFStream outF (tmp + "/suppress_prot");
-			LineInput f (db + "/AMRProt-suppress");
+			LineInput f (db + "/AMRProt-suppress.tsv");
 			while (f. nextLine ())
 			  if (! isLeft (f. line, "#"))
   			{
@@ -1113,20 +1164,39 @@ struct ThisApplication : ShellApplication
   			}
 	  }
 		
+		
+	  if (stxTyper)
+	  {
+  		stderr. section ("Running stxtyper");
+ 			const Chronometer_OnePass_cerr cop ("stxtyper");
+			exec (  fullProg ("stxtyper") 
+			      + "  -n " + dna_flat 
+			      + prependS (blast_bin, "  --blast_bin ") 
+			      + "  -o " + tmp + "/stxtyper"
+			      + "  --name " + input_name 
+			      + "  --amrfinder"
+			      + ifS (print_node, "  --print_node")
+			      + "  -q "  // ifS (getVerbosity () == -1, "  -q")
+			      + ifS (qc_on, "  --debug")
+			      + " > " + logFName
+			      , logFName
+			      );
+	  }
+		
 
     // tmp + "/amr", tmp + "/mutation_all"
 		stderr. section ("Making report");
     const string printNode (print_node ? " -print_node" : "");
-    const string nameS (emptyArg (input_name) ? "" : " -name " + input_name);
+    const string nameS (" -name " + input_name);
     {
  			const Chronometer_OnePass_cerr cop ("amr_report");
       const string mutation_allS (mutation_all. empty () ? "" : ("-mutation_all " + tmp + "/mutation_all"));      
       const string coreS (add_plus ? "" : " -core");
       const string equidistantS (equidistant ? " -report_equidistant" : "");
-  		exec (fullProg ("amr_report") + " -fam " + shellQuote (db + "/fam.tab") + "  " + amr_report_blastp + "  " + amr_report_blastx
+  		exec (fullProg ("amr_report") + " -fam " + shellQuote (db + "/fam.tsv") + "  " + amr_report_blastp + "  " + amr_report_blastx
       		  + "  -organism " + strQuote (organism1) 
-      		  + "  -mutation "    + shellQuote (db + "/AMRProt-mutation.tab") 
-      		  + "  -susceptible " + shellQuote (db + "/AMRProt-susceptible.tab") 
+      		  + "  -mutation "    + shellQuote (db + "/AMRProt-mutation.tsv") 
+      		  + "  -susceptible " + shellQuote (db + "/AMRProt-susceptible.tsv") 
       		  + " " + mutation_allS + " "
       		  + force_cds_report + " -pseudo" + coreS + equidistantS + printNode
       		  + (ident == -1 ? noString : "  -ident_min "    + toString (ident)) 
@@ -1138,7 +1208,7 @@ struct ThisApplication : ShellApplication
 		{
  			const Chronometer_OnePass_cerr cop ("dna_mutation");
       const string mutation_allS (mutation_all. empty () ? "" : ("-mutation_all " + tmp + "/mutation_all.dna")); 
-			exec (fullProg ("dna_mutation") + tmp + "/blastn " + shellQuote (db + "/AMR_DNA-" + organism1 + ".tab") + " " + strQuote (organism1) + " " + mutation_allS 
+			exec (fullProg ("dna_mutation") + tmp + "/blastn " + shellQuote (db + "/AMR_DNA-" + organism1 + ".tsv") + " " + strQuote (organism1) + " " + mutation_allS 
 			      + nameS + printNode + qcS + " -log " + logFName + " > " + tmp + "/amr-snp", logFName);
 	    {
   			ofstream f (tmp + "/amr", ios_base::out | ios_base::app);
@@ -1150,6 +1220,12 @@ struct ThisApplication : ShellApplication
   			copyText (tmp + "/mutation_all.dna", 1, f);
   	  }
 	  }
+	  if (stxTyper)
+    {
+			ofstream f (tmp + "/amr", ios_base::out | ios_base::app);
+			copyText (tmp + "/stxtyper", 1, f);
+	  }
+
 
     // Column names are from amr_report.cpp
 
@@ -1158,8 +1234,8 @@ struct ThisApplication : ShellApplication
     {
       StringVector amrSortColumns;
       if (! (emptyArg (dna) && emptyArg (gff)))
-        amrSortColumns << "Contig id" << "Start" << "Stop" << "Strand";    
-      amrSortColumns << "Protein identifier" << "Gene symbol";
+        amrSortColumns << contig_colName << start_colName << stop_colName << strand_colName;    
+      amrSortColumns << prot_colName << genesymbol_colName;  
 
       {
         TextTable amrTab (tmp + "/amr");
@@ -1180,7 +1256,7 @@ struct ThisApplication : ShellApplication
         mutation_allTab. saveFile (mutation_all);
         if (qc_on)
         {
-          const TextTable::ColNum i = mutation_allTab. col2num ("Element subtype");
+          const TextTable::ColNum i = mutation_allTab. col2num (subtype_colName);
           for (const StringVector& row : mutation_allTab. rows)
             QC_ASSERT (row [i] == "POINT");
         }
@@ -1190,18 +1266,18 @@ struct ThisApplication : ShellApplication
 
     if (! emptyArg (prot_out))
     {
-      prepare_fasta_extract (StringVector {"Protein identifier", "Gene symbol", "Sequence name"}, "prot_out", false);
+      prepare_fasta_extract (StringVector {prot_colName, genesymbol_colName, elemName_colName}, "prot_out", false);
       exec (fullProg ("fasta_extract") + prot + " " + tmp + "/prot_out -aa" + qcS + " -log " + logFName + " > " + prot_out, logFName);  
     }
     if (! emptyArg (dna_out))
     {
-      prepare_fasta_extract (StringVector {"Contig id", "Start", "Stop", "Strand", "Gene symbol", "Sequence name"}, "dna_out", false);
+      prepare_fasta_extract (StringVector {contig_colName, start_colName, stop_colName, strand_colName, genesymbol_colName, elemName_colName}, "dna_out", false);
       exec (fullProg ("fasta_extract") + dna_flat + " " + tmp + "/dna_out" + qcS + " -log " + logFName + " > " + dna_out, logFName);  
     }
     if (! emptyArg (dnaFlank5_out))
     {
-      prepare_fasta_extract (StringVector {"Contig id", "Start", "Stop", "Strand", "Gene symbol", "Sequence name"}, "dna_out", true);
-      //                                    0            1        2       3
+      prepare_fasta_extract (StringVector {contig_colName, start_colName, stop_colName, strand_colName, genesymbol_colName, elemName_colName}, "dna_out", true);
+      //                                   0               1              2             3
       TextTable t (tmp + "/dna_out");
       t. qc ();
       for (StringVector& row : t. rows)

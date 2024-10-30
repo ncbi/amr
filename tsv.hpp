@@ -46,6 +46,76 @@ namespace Common_sp
 
 
 
+struct Date : Root
+{
+  enum Format {fmt_Year, fmt_YMD, fmt_None};  // not complete list ??
+  short year {0};
+  char month {0};
+    // 0 .. 12 - 1
+  char day {0};
+    // 0 .. days[month] - 1  // leap year ??
+  
+  
+  Date () = default;
+  explicit Date (short year_arg,
+                 char month_arg = 0,
+                 char day_arg = 0)
+    : year (year_arg)
+    , month (month_arg)
+    , day (day_arg)
+    {}
+  static bool isYear (short n)
+    { return n > 1000 && n < 2500; }  // PAR
+  static bool isMonth  (short n)
+    { return between<short> (n, 0, 12); }  
+  static bool isDay  (short n)
+    { return between<short> (n, 0, 31); }   // Must depend on month ??
+  static Date parse (const string &s,
+                     Format fmt);
+    // Return: !empty() <=> success
+  bool empty () const final
+    { return    ! year 
+             && ! month
+             && ! day; 
+    }
+  void saveText (ostream &os) const final
+    { os << std::setfill('0') << std::setw(4) <<       year      << '-' 
+         << std::setfill('0') << std::setw(2) << (int) month + 1 << '-' 
+         << std::setfill('0') << std::setw(2) << (int) day   + 1; 
+    }
+  JsonMap* toJson (JsonContainer* parent, 
+                   const string& name = noString) const override
+    { auto j = new JsonMap (parent, name);
+      new JsonInt (year,  j, "year");
+      new JsonInt (month, j, "month");
+      new JsonInt (day,   j, "day");
+      return j;
+    }
+    
+    
+  bool operator== (const Date &other) const
+    { return    year  == other. year
+             && month == other. month
+             && day   == other. day;
+    }
+  bool less (const Date &other,
+             bool equal) const;
+  bool operator<= (const Date &other) const
+    { return less (other, true); }
+  bool operator< (const Date &other) const
+    { return less (other, false); }
+  Date operator- (const Date &other) const;
+    // Requires: other <= *this
+  bool year_divisible () const
+    { return ! month && ! day; }
+  bool quarter_divisible () const
+    { return ! (month % 3) && ! day; }
+  bool month_divisible () const
+    { return ! day; }
+};
+  
+  
+
 struct TextTable : Named
 // Tab-delimited (tsv) table with a header
 // name: file name or empty()
@@ -62,9 +132,11 @@ struct TextTable : Named
     bool scientific {false};
     streamsize decimals {0};
     bool null {false};
+      // = can be empty()
     static constexpr size_t choices_max {7};  // PAR
     Set<string> choices;
       // size() <= choices_max + 1
+    Header () = default;
     explicit Header (const string &name_arg)
       : Named (name_arg)
       {}
@@ -95,6 +167,7 @@ struct TextTable : Named
     // size() = number of columns
   Vector<StringVector> rows;
     // StringVector::size() = header.size()
+    // Values are trim()'ed
   typedef  size_t  ColNum;
     // no_index <=> no column
   typedef  size_t  RowNum;
@@ -113,8 +186,9 @@ struct TextTable : Named
 
   explicit TextTable (const string &tableFName,
                       const string &columnSynonymsFName = noString);
-    // columnSynonymsFName: syn_format
-    // Top lines starting with '#': comment + header
+    // Input: tableFName: format: [{'#' <comment> <EOL>}* '#'] <header> <EOL> {<row> <EOL>>}*
+    //                    empty lines are skipped
+    //        columnSynonymsFName: <syn_format>
     // Rows where number of columns < header size are added empty values
   static constexpr const char* syn_format {"Column synonyms file with the format: {<main synonym> <eol> {<synonym> <eol>}* {<eol>|<eof>}}*"};
   TextTable () = default;
@@ -158,6 +232,11 @@ public:
     { duplicateColumn (columnName_from, columnName_to);
       columnName_from = columnName_to;
     }
+  ColNum findDate (Date::Format &fmt) const;
+    // Date column is not empty and has the same format fmt in all rows
+    // Return: no_index <=> not found
+    // Output: fmt, valid if return != no_index
+  bool isKey (ColNum colNum) const;
 private:
   int compare (const StringVector& row1,
                const StringVector& row2,
@@ -173,6 +252,7 @@ public:
               const StringVector &minV,
               const StringVector &maxV,
               const StringVector &aggr);
+    // aggr: slow
     // Invokes: filterColumns(by + sum + aggr)
 private:
   void merge (RowNum toRowNum,
@@ -264,6 +344,8 @@ public:
     }
     
     
+  bool live () const
+    { return os; }
   bool empty () const
     { return    ! lines 
              && ! fields_max

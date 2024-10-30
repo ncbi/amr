@@ -15,3 +15,7 @@ contig13	.	gene	1	1137	.	+	.	Name=emrD3-suppressed-in-vibrio
 contig13	.	gene	1141	1491	.	+	.	Name=arsR-suppressed-in-escherichia
 contig14	.	gene	1093	2181	.	+	.	Name=pmrB_C84R
 contig16	.	gene	1	423	.	+	.	Name=nfsA_R15C_K141STOP
+contig18	.	gene	279	1238	.	+	.	Name=stxA2a_prot
+contig18	Protein Homology	CDS	279	1238	.	+	0	Name=stxA2a_prot
+contig18	.	gene	1250	1519	.	+	.	Name=stxB2a_prot
+contig18	Protein Homology	CDS	1250	1519	.	+	0	Name=stxB2a_prot

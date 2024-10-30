@@ -42,6 +42,7 @@ using namespace Common_sp;
 using namespace GFF_sp;
 #include "alignment.hpp"
 using namespace Alignment_sp;
+#include "columns.hpp"
 
 #include "common.inc"
 
@@ -81,6 +82,7 @@ struct BlastRule : Root
   // 0 <=> undefined
   // 0 .. 1
   double ident {0.0};
+    // Of alignment
   double target_coverage {0.0};  // Not used
   double ref_coverage {0.0};
 
@@ -369,6 +371,7 @@ struct BlastAlignment : Alignment
   uchar reportable {0};
   string classS;
   string subclass;
+//bool stxtyper {false};
 
   const Fam* brFam {nullptr};
   // Valid if !fromHmm and !inFam()
@@ -435,6 +438,7 @@ struct BlastAlignment : Alignment
         {
   		    // PD-4856
   		    ASSERT (! brFam);
+  		    // brFam
           EXEC_ASSERT (brFam = getFam ());          
           while (brFam)
           {
@@ -499,15 +503,15 @@ struct BlastAlignment : Alignment
 		    if (! targetProt)
 		      cdss. emplace_back (0, targetName, targetStart, targetEnd, targetStrand, partialDna, 0, noString, noString);
 	
-		    if (const Vector<AmrMutation>* refMutations = findPtr (accession2mutations, refAccession))
-		    {
-		    	if (verbose ())
-		        cout << "AmrMutation protein found: " << refAccession << endl << line << endl;
-  	      QC_ASSERT (isMutationProt ());  	      
-  	      setSeqChanges (*refMutations, 0);
-  	      if (verbose ())
-  	        cout << endl;
-		    }
+  	    if (isMutationProt ())
+  		    if (const Vector<AmrMutation>* refMutations = findPtr (accession2mutations, refAccession))
+  		    {
+  		    	if (verbose ())
+  		        cout << "AmrMutation protein found: " << refAccession << endl << line << endl;
+    	      setSeqChanges (*refMutations, 0);
+    	      if (verbose ())
+    	        cout << endl;
+  		    }
 
 		    susceptible = findPtr (accession2susceptible, refAccession);
 		  }
@@ -548,6 +552,7 @@ struct BlastAlignment : Alignment
         targetAlign    = best->targetAlign;
         targetAlign_aa = best->targetAlign_aa;
         refAccession   = best->refAccession;
+      //stxtyper       = best->stxtyper;
       }
     }
   void qc () const override
@@ -745,11 +750,15 @@ struct BlastAlignment : Alignment
   bool isMutationProt () const
     { return resistance == "mutation"; }
   bool isSusceptibleProt () const
-    { return resistance == "susceptible"; }
+    { return resistance == "susceptible"; }  // Similar to isMutationProt(): low identity <=> point mutations
   bool inFam () const
     { return    ! isMutationProt () 
              && ! isSusceptibleProt (); 
     } 
+#if 0
+  bool notInFam () const
+    { return ! inFam (); }
+#endif
   Set<string> getMutationSymbols () const
     { Set<string> mutationSymbols;
       for (const SeqChange& seqChange : seqChanges)
@@ -829,7 +838,7 @@ public:
         return getGeneSymbol ();
       string s;
       for (const BlastAlignment* fusion : fusions)
-        add (s, "/", fusion->getGeneSymbol ());
+        add (s, "/" /*fusion_infix*/, fusion->getGeneSymbol ());  // PD-5155 ??
       return s;
     }
   string fusion2famIds () const
@@ -837,7 +846,7 @@ public:
         return famId;
       string s;
       for (const BlastAlignment* fusion : fusions)
-        add (s, "/", fusion->famId);
+        add (s, fusion_infix, fusion->famId);
       return s;
     }
 private:
@@ -988,11 +997,13 @@ public:
     { ASSERT (! fromHmm);
       if (refAccession. empty ())
         return true;
-      if (! refMutation. empty ())
-        return true;
+    //if (! refMutation. empty ())   // PD-4981: drop
+      //return true;
       if (! reportPseudo && pseudo ())
         return false;
-      if (isSusceptibleProt () && ! susceptible)
+      if (isMutationProt () && seqChanges. empty ())  // PD-4981
+        return false;
+      if (isSusceptibleProt () && ! susceptible)  // Alien organism
         return false;
 		  if (susceptible && pIdentity () > susceptible->cutoff + frac_delta)
 		    return false;
@@ -1004,7 +1015,7 @@ public:
     	   )
   	    return false;
   	  if (brFam)
-  	    return true;
+  	    return true;  	  
   	  if (inFam ())
   	    return false;
 	    if (partial ())
@@ -1113,26 +1124,36 @@ private:
     // Reflexive
     { if (this == & other)
         return true;
+      // PD-4981
+      if (isMutationProt () != other. isMutationProt ())  
+        return false;
+      if (refMutation. empty () != other. refMutation. empty ())  
+        return false;
+      if (isSusceptibleProt () != other. isSusceptibleProt ())          
+        return false;
+      //
       if (targetProt == other. targetProt)  
       {
 	    	if (targetName != other. targetName)
 	        return false;
+	    #if 0  // PD-4981
         if (   !        refMutation. empty ()
             || ! other. refMutation. empty ()
            )
           return false;
+      #endif
         // PD-807, PD-4277
         if (   ! other. insideEq (*this)
         	  && !        insideEq (other)
         	 )
           if (   ! targetProt 
-              || (   ! isMutationProt ()   // PD-4722
-                  && ! other. isMutationProt ()   // PD-4755
+              || (   inFam () /*! isMutationProt ()*/   // PD-4722
+                  && other. inFam () /*! other. isMutationProt ()*/   // PD-4755
                   && fusion2geneSymbols () != other. fusion2geneSymbols ()
                  )
              )  // PD-4687
             return false;
-        if (   ! isMutationProt ()
+        if (   inFam () /*! isMutationProt ()*/
             && ! refAccession. empty () 
             && refAccession == other. refAccession  // PD-4013
            )  
@@ -1145,7 +1166,7 @@ private:
         }
         else
         {
-  	      LESS_PART (other, *this, hasMutation ());
+  	      LESS_PART (other, *this, /*notInFam ()*/ hasMutation ());
   	      LESS_PART (other, *this, refProtExactlyMatched (false));  // PD-1261, PD-1678
   	      LESS_PART (other, *this, nident);
   	      LESS_PART (*this, other, refEffectiveLen ());  
@@ -1153,8 +1174,10 @@ private:
 	    }
 	    else
 	    { 
+	    #if 0  // PD-4981
         if (refMutation. empty () != other. refMutation. empty ())  // PD-4706
           return false;
+      #endif
         // PD-1902, PD-2139, PD-2313, PD-2320
 	    	if (targetProt && ! matchesCds (other))
 	    	  return false;
@@ -1203,12 +1226,13 @@ public:
     // Requires: all SCCs of betterEq() are complete subgraphs ??
     { return    betterEq (other) 
     	       && (   ! other. betterEq (*this)
-    	           || (! equidistant && refAccession < other. refAccession)  // Tie resolution: PD-1245
+    	           || (! isMutationProt () /*inFam () --PD-5014*/ && ! equidistant && refAccession < other. refAccession)  // Tie resolution: PD-1245
     	          );
     }
   bool better (const HmmAlignment& other) const
     { ASSERT (other. good ());
     	ASSERT (other. blastAl. get ());
+    	ASSERT (inFam ());
     	if (targetProt)
     	{ if (targetName != other. sseqid)
 	        return false;
@@ -1216,8 +1240,6 @@ public:
 	    else
 	    	if (! other. blastAl->matchesCds (*this))
 	    		return false;
-    	if (hasMutation ())
-    	  return true;
     #if 0  // PD-4333
     	if (verbose () && ! inFam ())
     	{ cout << "!inFam(): ";
@@ -1228,7 +1250,7 @@ public:
     	}
     #endif
       return    refProtExactlyMatched (true) 
-             || (inFam () && getMatchFam () -> descendantOf (other. fam))  
+             || (getMatchFam () -> descendantOf (other. fam))  
              ;
     }
   size_t getCdsStart () const
@@ -1312,8 +1334,7 @@ bool HmmAlignment::better (const BlastAlignment& other) const
 { 
   ASSERT (good ());
   ASSERT (other. good ());
-	if (! other. inFam ())
-	  return false;
+	ASSERT (other. inFam ());
 	if (! other. targetProt)
 	  return false;
 	if (sseqid != other. targetName)
@@ -1488,6 +1509,8 @@ struct Batch
 	    if (! organism. empty ())
 	    {
 	      {
+	        if (mutation_tab. empty ())
+	          throw runtime_error ("mutation_tab is empty");
   	    	if (verbose ())
   	    		cout << "Reading " << mutation_tab << endl;
   	      LineInput f (mutation_tab);
@@ -1498,14 +1521,15 @@ struct Batch
   	  	      continue;
   	  	    try
   	  	    {
-    	  	  	string organism_, accession, geneMutation, classS, subclass, name;
+    	  	  	string organism_, accession, geneMutation_std, geneMutation_report, classS, subclass, name;
     					int pos;
         	  	iss. reset (f. line);
-    	  	  	iss >> organism_ >> accession >> pos >> geneMutation >> classS >> subclass >> name;
+    	  	  	iss >> organism_ >> accession >> pos >> geneMutation_std >> geneMutation_report >> classS >> subclass >> name;
     	  	  	QC_ASSERT (pos > 0);
+    	  	  	QC_ASSERT (! name. empty ());
     	  	  	replace (organism_, '_', ' ');
     	  	  	if (organism_ == organism)
-    	  	  		accession2mutations [accession]. emplace_back ((size_t) pos, geneMutation, classS, subclass, name);
+    	  	  		accession2mutations [accession]. emplace_back ((size_t) pos, geneMutation_std, geneMutation_report, classS, subclass, name);
     	  	  	else
     	  	  	  alien_prots << accession;
     	  	  }
@@ -1544,6 +1568,7 @@ struct Batch
     					double cutoff = 0.0;
         	  	iss. reset (f. line);
     	  	  	iss >> organism_ >> genesymbol >> accession >> cutoff >> classS >> subclass >> name;
+    	  	  	QC_ASSERT (! name. empty ());
     	  	  	replace (organism_, '_', ' ');
     	  	  	if (organism_ == organism)
     	  	  	{
@@ -1718,14 +1743,14 @@ public:
             PRINT (fs. refName);
             PRINT (seqChange. start_target);
             PRINT (fs. targetPos);
-            PRINT (mut->ref_pos);
+            PRINT (mut->pos_std);
             PRINT (fs. refPos);
             PRINT (mut->frameshift_insertion);
             PRINT (fs. insertion);
           #endif
             if (   al->refName                      == fs. refName
                 && seqChange. start_target          == fs. targetPos
-                && (size_t) mut->ref_pos            == fs. refPos
+                && (size_t) mut->pos_std            == fs. refPos
                 && (long) mut->frameshift_insertion == fs. insertion
                )
             {
@@ -1756,6 +1781,7 @@ public:
  	  reportDebug ("Good Blasts");
         
 	  // PD-2322
+	  // setStopCodon()
     for (const auto& it : target2blastAls)
    	  for (const BlastAlignment* blastAlP : it. second)
         if (blastAlP->targetProt)
@@ -1842,16 +1868,7 @@ public:
               goodIter. erase ();
           goodHmmAls << hmmAl;
         }
-        if (verbose ())
-        {
-          cout << "Pareto-better HMMs: (Criterion " << (int) criterion << "): " << goodHmmAls. size () << endl;
-          for (const HmmAlignment* al : goodHmmAls)
-          {
-            al->saveText (cout);
-            cout << endl;
-          }
-        }
-        //
+        reportDebug ("Pareto-better HMMs (Criterion " + to_string ((int) criterion) + ")");
         if (criterion < 1)
           hmmAls_ = std::move (goodHmmAls);
       }
@@ -1889,29 +1906,28 @@ public:
   	        }
     reportDebug ("Best Blasts left");
 
+    // PD-2783
     for (auto& it : target2goodHmmAls)
       for (Iter<VectorPtr<HmmAlignment>> hmmIt (it. second); hmmIt. next ();)
     	  for (const BlastAlignment* blastAl : target2goodBlastAls [it. first])
-    	    if (blastAl->better (**hmmIt))
+    	    if (blastAl->inFam () && blastAl->better (**hmmIt))
   	      {
-  	        if (! blastAl->isMutationProt ())
-  	        {
-    	        IMPLY (blastAl->hmmAl, blastAl->hmmAl == *hmmIt);  // PD-4290
-    	        var_cast (blastAl) -> hmmAl = *hmmIt;
-    	      }
+  	        var_cast (blastAl) -> hmmAl = *hmmIt;
             hmmIt. erase ();
   	        break;
   	      }
+    reportDebug ("HMMs non-suppressed by BLAST");
 
-    // PD-2783
  	  for (auto& it : target2goodBlastAls)
       for (Iter<VectorPtr<BlastAlignment>> blastIt (it. second); blastIt. next ();)
-    	  for (const HmmAlignment* hmmAl : target2goodHmmAls [it. first])
-    	    if (hmmAl->better (**blastIt))
-  	      {
-            blastIt. erase ();
-  	        break;
-  	      }
+        if ((*blastIt) -> inFam ())
+      	  for (const HmmAlignment* hmmAl : target2goodHmmAls [it. first])
+      	    if (hmmAl->better (**blastIt))
+    	      {
+              blastIt. erase ();
+    	        break;
+    	      }
+    reportDebug ("Best HMMs left");
 
     // Output 
     
@@ -1935,7 +1951,7 @@ public:
         const BlastAlignment* fusionMain = nullptr;
         for (const BlastAlignment* blastAl : goodBlastAls_)
         {
-          if (blastAl->isMutationProt ())
+          if (! blastAl->inFam () /*blastAl->isMutationProt ()*/)
             continue;
           if (blastAl->fromHmm)
             continue;
@@ -1976,7 +1992,9 @@ public:
     if (! verbose ())
       return;
     
-    cout << endl << header << " (target2blastAls):" << endl;
+    cout << endl;
+    
+    cout << header << " (target2blastAls):" << endl;
  	  for (const auto& it : target2blastAls)
 		  for (const BlastAlignment* blastAl : it. second)
 		  {
@@ -1994,6 +2012,24 @@ public:
 		  }
 		cout << endl;
 		  
+    cout << header << " (target2hmmAls):" << endl;
+ 	  for (const auto& it : target2hmmAls)
+		  for (const HmmAlignment* hmmAl : it. second)
+		  {
+		    cout << it. first << ": ";
+		    hmmAl->saveText (cout);
+		  }
+		cout << endl;
+
+    cout << header << " (target2goodHmmAls):" << endl;
+ 	  for (const auto& it : target2goodHmmAls)
+		  for (const HmmAlignment* hmmAl : it. second)
+		  {
+		    cout << it. first << ": ";
+		    hmmAl->saveText (cout);
+		  }
+		cout << endl;
+
 		cout << endl;
 	}
 		
@@ -2011,41 +2047,40 @@ public:
     if (! input_name. empty ())
       td << "Name";
     // Target
-    td << "Protein identifier";                  //  1  // targetName  // PD-2534  
+    td << prot_colName;                          //  1  // targetName 
     if (cdsExist)  
-      // Contig
-      td << "Contig id"                          //  2
-         << "Start"    // targetStart            //  3
-         << "Stop"     // targetEnd              //  4
-         << "Strand";  // targetStrand           //  5
+      // Contig (target)
+      td << contig_colName                       //  2
+         << start_colName                        //  3
+         << stop_colName                         //  4
+         << strand_colName;                      //  5
     // Reference
-    td << "Gene symbol"                          //  6 or 2
-       << "Sequence name"                        //  7 or 3
-       << "Scope"  // PD-2825                    //  8 or 4
-       // PD-1856
-       << "Element type"                         //  9 or 5
-       << "Element subtype"                      // 10 or 6
-       << "Class"                                // 11 or 7
-       << "Subclass"                             // 12 or 8
+    td << genesymbol_colName                     //  6 or 2  
+       << elemName_colName                       //  7 or 3
+       << scope_colName                          //  8 or 4       
+       << type_colName                           //  9 or 5
+       << subtype_colName                        // 10 or 6
+       << class_colName                          // 11 or 7
+       << subclass_colName                       // 12 or 8
+       << method_colName                         // 13 or 9
+       // target
+       << targetLen_colName                      // 14 or 10       
        //
-       << "Method"                               // 13 or 9
-       << "Target length"                        // 14 or 10
+       << refLen_colName                         // 15 or 11  // refLen
+       << refCov_colName                         // 16 or 12  // queryCoverage
+       << refIdent_colName                       // 17 or 13 
+       << alignLen_colName                       // 18 or 14  // targetSeq.size()
+       << closestRefAccession_colName            // 19 or 15  // refAccession
+       << closestRefName_colName                 // 20 or 16
        //
-       << "Reference sequence length"            // 15 or 11  // refLen
-       << "% Coverage of reference sequence"     // 16 or 12  // queryCoverage
-       << "% Identity to reference sequence"     // 17 or 13 
-       << "Alignment length"                     // 18 or 14  // targetSeq. size ()
-       << "Accession of closest sequence"        // 19 or 15  // refAccession
-       << "Name of closest sequence"             // 20 or 16
-       //
-       << "HMM id"                               // 21 or 17
-       << "HMM description"                      // 22 or 18
+       << hmmAccession_colName                   // 21 or 17
+       << hmmDescr_colName                       // 22 or 18
        ;
     if (cdsExist)
     	if (useCrossOrigin)
       	 td << "Cross-origin length";
     if (print_node)
-      td << "Hierarchy node"; 
+      td << hierarchyNode_colName; 
     td. newLn ();
 
  	  for (const auto& it : target2goodBlastAls)
@@ -2065,6 +2100,7 @@ public:
      	              )
      	           && ! suppress_prots. containsFast (blastAl->refAccession)
      	           && ! blastAl->fusionRedundant
+     	         //&& ! blastAl->stxtyper  // PD-4926
      	          )
      	  {
       	  blastAl->report (td, it. first, mutationAll);
@@ -2163,7 +2199,7 @@ HmmAlignment::Domain::Domain (const string &line,
 
 constexpr double ident_min_def = 0.9;
 constexpr double complete_coverage_min_def = 0.9;
-constexpr double partial_coverage_min_def = 0.5;
+constexpr double  partial_coverage_min_def = 0.5;
 
 
 
@@ -2433,6 +2469,10 @@ struct ThisApplication : Application
   	    al->qc ();  
   	    if (nosame && al->refAccession == al->targetName)
   	      continue;
+  	  #if 0
+  	    if (organism == "Escherichia" && isLeft (al->classS, "STX"))
+  	      al->stxtyper = true;
+  	  #endif
  	      batch. blastAls << al. release ();
   	  }
   	}

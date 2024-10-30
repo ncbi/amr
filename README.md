@@ -1,3 +1,17 @@
+# WARNING: This is an experimental version that includes StxTyper
+
+Currently it will need to be compiled from source to install.
+
+### Downloading and compiling AMRFinderPlus with StxTyper
+
+    git clone https://github.com/ncbi/amr.git
+    cd amr
+    git checkout stxtype
+    git submodule update --init
+    make
+    ./amrfinder -u
+    make test
+
 # NCBI Antimicrobial Resistance Gene Finder (AMRFinderPlus)
 
 This software and the accompanying database are designed to find acquired antimicrobial resistance genes and point mutations in protein and/or assembled nucleotide sequences. We have also added "plus" stress, heat, and biocide resistance and virulence factors for [some organisms](https://github.com/evolarjun/amr/wiki/Curated-organisms).

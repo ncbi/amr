@@ -73,7 +73,7 @@
 
 #define ERROR_MSG(msg)                     \
   { if (! std::uncaught_exceptions ())     \
-      throw runtime_error (std::string ("\"" __FILE__ "\", line ") + to_string (__LINE__) + ", in " + (FUNC) + (msg));  \
+      throwf (std::string ("\"" __FILE__ "\", line ") + to_string (__LINE__) + ", in " + (FUNC) + (msg));  \
     exit (1);                              \
   }
 #define ERROR            ERROR_MSG ("ERROR")
@@ -82,6 +82,18 @@
 
 
 #define QC_ASSERT(cond)  { errno = 0; if (! (cond)) ERROR_MSG (#cond) }
+
+
+namespace 
+{
+  const bool debugP = 
+    #ifdef NDEBUG
+      false
+    #else
+      true
+    #endif
+    ;
+}
 
 
 // Logic errors
@@ -121,6 +133,7 @@
 
 #define PRINT(x)  { Offset::newLn (cout); cout << #x << " = " << (x); }
 
+#define LOG(x)  { if (logPtr) *logPtr << (x) << endl; }
 
 #define XSTR(s) STR(s)
 #define STR(s)  #s
