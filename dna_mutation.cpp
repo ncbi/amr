@@ -56,7 +56,7 @@ bool print_node = false;
 
 
 
-struct BlastnAlignment : Alignment
+struct BlastnAlignment final : Alignment
 {
 	// PD-2001
  	static constexpr const size_t flankingLen = 200;  // PAR  
@@ -289,7 +289,7 @@ struct Batch
 
 // ThisApplication
 
-struct ThisApplication : Application
+struct ThisApplication final : Application
 {
   ThisApplication ()
     : Application ("Find mutations at DNA level and report in the format of amr_report.cpp")

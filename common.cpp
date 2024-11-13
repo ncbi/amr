@@ -514,7 +514,7 @@ size_t powInt (size_t a,
 		if (b)
 			return 0;
 		else
-			throw runtime_error ("powInt: 0^0");
+			throw runtime_error (FUNC "powInt: 0^0");
 }
 
 
@@ -1075,7 +1075,7 @@ string unpercent (const string &s)
 {
   for (const char c : s)
   	if (between (c, '\0', ' ') /*! printable (c)*/)
-  		throw runtime_error (FUNC "Non-printable character: " + to_string (uchar (c)));
+  		throw runtime_error (FUNC "Non-printable character: " + to_string (uint (c)));
 
   string r;
   constexpr size_t hex_pos_max = 2;
@@ -1271,7 +1271,7 @@ void removeDirectory (const string &dirName)
     {
       case Filetype::link: 
         if (unlink (name. c_str ()))
-          throw logic_error ("cannot unlink " + strQuote (name));
+          throw runtime_error (FUNC "cannot unlink " + strQuote (name));
         break;
       case Filetype::dir:
         removeDirectory (name);
@@ -1280,11 +1280,11 @@ void removeDirectory (const string &dirName)
         removeFile (name);
         break;
       default:
-        throw logic_error ("Cannot remove directory item " + strQuote (name) + " of type " + strQuote (filetype2name (t)));
+        throw runtime_error (FUNC "Cannot remove directory item " + strQuote (name) + " of type " + strQuote (filetype2name (t)));
     }
   }
   if (rmdir (dirName. c_str ()))
-    throw logic_error ("Cannot remove directory " + strQuote (dirName));
+    throw runtime_error (FUNC "Cannot remove directory " + strQuote (dirName));
 }
 
 
@@ -1490,7 +1490,7 @@ bool getChar (istream &is,
     return false;
   }
   if (! (i >= 0 && i <= 255))
-    throw runtime_error ("Cannot read character: " + to_string (i));
+    throw runtime_error (FUNC "Cannot read character: " + to_string (i));
   c = static_cast<char> (i);
 
   return true;
@@ -1902,7 +1902,7 @@ void Named::qc () const
   Root::qc ();
     
   if (! goodName (name))
-    throw runtime_error ("Bad name: " + strQuote (name));
+    throw runtime_error (FUNC "Bad name: " + strQuote (name));
 }
 
 
@@ -2164,7 +2164,7 @@ Input::Input (istream &is_arg,
 { 
   QC_ASSERT (is);
   if (! is->good ())
-    throw runtime_error ("Bad input stream");
+    throw runtime_error (FUNC "Bad input stream");
 }
  
 
@@ -2420,7 +2420,7 @@ void Token::qc () const
   		                 QC_ASSERT (Common_sp::isDelimiter (name [0]));
   		                 break;
   		case eDateTime:  break;
-  		default: throw runtime_error ("Token: Unknown type");
+  		default: throw logic_error ("Token: Unknown type");
   	}
   }
 }
@@ -2452,7 +2452,7 @@ void Token::saveText (ostream &os) const
 		                 break;
 		case eDelimiter: os << name;          
 		                 break;
- 		default: throw runtime_error ("Token: Unknown type");
+ 		default: throw logic_error ("Token: Unknown type");
 	}
 }
 
@@ -2871,9 +2871,13 @@ void OFStream::open (const string &dirName,
 	pathName += fileName;
 	if (! extension. empty ())
 		pathName += "." + extension;
-		
+	
   exceptions (std::ios::failbit | std::ios::badbit);  // In ifstream these flags collide with eofbit
-	ofstream::open (pathName);
+	try {	ofstream::open (pathName); }
+    catch (const exception &e)
+    {
+      throw runtime_error ("Cannot create file " + shellQuote (pathName) + "\n" + e. what ());
+    }
 
 	if (! good ())
 	  throw runtime_error ("Cannot create file " + shellQuote (pathName));
@@ -2894,9 +2898,9 @@ bool PairFile::next ()
   iss >> name1 >> name2;
   
   if (name2. empty ())
-  	throw runtime_error ("No pair: " + strQuote (name1) + " - " + strQuote (name2));
+  	throw runtime_error (FUNC "No pair: " + strQuote (name1) + " - " + strQuote (name2));
   if (! sameAllowed && name1 == name2)
-  	throw runtime_error ("Same name: " + name1);
+  	throw runtime_error (FUNC "Same name: " + name1);
   	
   if (orderNames && name1 > name2)
   	swap (name1, name2);
@@ -3042,10 +3046,10 @@ string Json::getString () const
 { 
   const auto* this_ = this;
   if (! this_ || asJsonNull ())
-    throw runtime_error ("undefined");
+    throw logic_error ("undefined");
   if (const JsonString* j = asJsonString ())
     return j->s;
-  throw runtime_error ("Not a JsonString");
+  throw logic_error ("Not a JsonString");
 }
 
 
@@ -3054,10 +3058,10 @@ long long Json::getInt () const
 { 
   const auto* this_ = this;
   if (! this_ || asJsonNull ())
-    throw runtime_error ("undefined");
+    throw logic_error ("undefined");
   if (const JsonInt* j = asJsonInt ())
     return j->n;
-  throw runtime_error ("Not a JsonInt");
+  throw logic_error ("Not a JsonInt");
 }
 
 
@@ -3066,12 +3070,12 @@ double Json::getDouble () const
 { 
   const auto* this_ = this;
   if (! this_)
-    throw runtime_error ("undefined");
+    throw logic_error ("undefined");
   if (asJsonNull ())
     return numeric_limits<double>::quiet_NaN ();
   if (const JsonDouble* j = asJsonDouble ())
     return j->n;
-  throw runtime_error ("Not a JsonDouble");
+  throw logic_error ("Not a JsonDouble");
 }
 
 
@@ -3080,10 +3084,10 @@ bool Json::getBoolean () const
 { 
   const auto* this_ = this;
   if (! this_ || asJsonNull ())
-    throw runtime_error ("undefined");
+    throw logic_error ("undefined");
   if (const JsonBoolean* j = asJsonBoolean ())
     return j->b;
-  throw runtime_error ("Not a JsonBoolean");
+  throw logic_error ("Not a JsonBoolean");
 }
 
 
@@ -3092,12 +3096,12 @@ const Json* Json::at (const string& name_arg) const
 { 
   const auto* this_ = this;
   if (! this_)
-    throw runtime_error ("undefined");
+    throw logic_error ("undefined");
   if (asJsonNull ())
     return nullptr;
   if (const JsonMap* j = asJsonMap ())
     return findPtr (j->data, name_arg);
-  throw runtime_error ("Not a JsonMap");
+  throw logic_error ("Not a JsonMap");
 }
 
 
@@ -3106,17 +3110,17 @@ const Json* Json::at (size_t index) const
 { 
   const auto* this_ = this;
   if (! this_)
-    throw runtime_error ("undefined");
+    throw logic_error ("undefined");
   if (asJsonNull ())
     return nullptr;
   if (const JsonArray* j = asJsonArray ())
   {
     if (index >= j->data. size ())
-      throw runtime_error ("Index out of range");
+      throw runtime_error (FUNC "Index out of range");
     else
       return j->data [index];
   }
-  throw runtime_error ("Not a JsonArray");
+  throw logic_error ("Not a JsonArray");
 }        
 
 
@@ -3125,12 +3129,12 @@ size_t Json::getSize () const
 { 
   const auto* this_ = this;
   if (! this_)
-    throw runtime_error ("undefined");
+    throw logic_error ("undefined");
   if (asJsonNull ())
     return 0;
   if (const JsonArray* j = asJsonArray ())
     return j->data. size ();
-  throw runtime_error ("Not a JsonArray");
+  throw logic_error ("Not a JsonArray");
 }        
 
 
@@ -3623,7 +3627,7 @@ void Application::addKey (const string &name,
   ASSERT (! name. empty ());
   ASSERT (! contains (name2arg, name));
   if (acronym && contains (char2arg, acronym))
-  	throw logic_error ("Duplicate option " + strQuote (string (1, acronym)));
+  	throw logic_error ("Duplicate key " + strQuote (string (1, acronym)));
   keyArgs << Key (*this, name, argDescription, defaultValue, acronym, var);
   name2arg [name] = & keyArgs. back ();
   if (acronym)
@@ -3639,7 +3643,7 @@ void Application::addFlag (const string &name,
   ASSERT (! name. empty ());
   ASSERT (! contains (name2arg, name));
   if (acronym && contains (char2arg, acronym))
-  	throw logic_error ("Duplicate option " + strQuote (string (1, acronym)));
+  	throw logic_error ("Duplicate flag " + strQuote (string (1, acronym)));
   keyArgs << Key (*this, name, argDescription, acronym);
   name2arg [name] = & keyArgs. back ();
   if (acronym)
@@ -3662,13 +3666,13 @@ void Application::addPositional (const string &name,
 Application::Key* Application::getKey (const string &keyName) const
 {
   if (! contains (name2arg, keyName))
-    errorExitStr ("Unknown key: " + strQuote (keyName) + "\n\n" + getInstruction (false));
+    throw runtime_error ("Unknown key: " + strQuote (keyName) + "\n\n" + getInstruction (false));
     
   Key* key = nullptr;
   if (const Arg* arg = findPtr (name2arg, keyName))  	
     key = var_cast (arg->asKey ());
   if (! key)
-    errorExitStr (strQuote (keyName) + " is not a key\n\n" + getInstruction (false));
+    throw runtime_error (strQuote (keyName) + " is not a key\n\n" + getInstruction (false));
     
   return key;
 }
@@ -3681,9 +3685,9 @@ void Application::setPositional (List<Positional>::iterator &posIt,
   if (posIt == positionalArgs. end ())
   {
   	if (isLeft (value, "-"))
-      errorExitStr (strQuote (value) + " is not a valid option\n\n" + getInstruction (false));
+      throw runtime_error (strQuote (value) + " is not a valid option\n\n" + getInstruction (false));
   	else
-      errorExitStr (strQuote (value) + " cannot be a positional parameter\n\n" + getInstruction (false));
+      throw runtime_error (strQuote (value) + " cannot be a positional parameter\n\n" + getInstruction (false));
   }
   (*posIt). value = value;
   posIt++;
@@ -3788,6 +3792,31 @@ string Application::key2shortHelp (const string &name) const
   if (const Key* key = arg->asKey ())
     return key->getShortHelp ();
   throw logic_error ("Parameter " + strQuote (name) + " is not a key");
+}
+
+
+
+void Application::initEnvironment () 
+{
+  ASSERT (! programArgs. empty ());
+  
+  // execDir, programName
+	execDir = getProgramDirName ();
+	if (execDir. empty ())
+		execDir = which (programArgs. front ());
+  if (! isDirName (execDir))
+    throw logic_error ("Cannot identify the directory of the executable");
+  {
+    string s (programArgs. front ());
+    programName = rfindSplit (s, fileSlash);
+    execDir = getDirName (path2canonical (execDir + programName));
+  }
+
+  string execDir_ (execDir);
+  trimSuffix (execDir_, "/");				
+  for (Key& key : keyArgs)
+    if (! key. flag)
+      replaceStr (key. defaultValue, "$BASE", execDir_);
 }
 
 
@@ -3955,7 +3984,7 @@ int Application::run (int argc,
 
           const string s1 (s. substr (1));
           if (s1. empty ())
-            errorExitStr ("Dash with no key\n\n" + getInstruction (false));
+            throw runtime_error ("Dash with no key\n\n" + getInstruction (false));
 
           string name;
           const char c = s1 [0];  // Valid if name.empty()
@@ -3964,12 +3993,12 @@ int Application::run (int argc,
           	{
           		name = s1. substr (1);
 		          if (name. empty ())
-		            errorExitStr ("Dashes with no key\n\n" + getInstruction (false));
+		            throw runtime_error ("Dashes with no key\n\n" + getInstruction (false));
           	}
           	else
           	{
           		if (s1. size () != 1) 
-                errorExitStr ("Single character expected: " + strQuote (s1) + "\n\n" + getInstruction (false));
+                throw runtime_error ("Single character expected: " + strQuote (s1) + "\n\n" + getInstruction (false));
             }
           else
           	name = s1;
@@ -3999,7 +4028,7 @@ int Application::run (int argc,
 					if (key)
           {
 	          if (keysRead. contains (key))
-	            errorExitStr ("Parameter " + strQuote (key->name) + " is used more than once");
+	            throw runtime_error ("Parameter " + strQuote (key->name) + " is used more than once");
 	          else
 	            keysRead << key;
 	            
@@ -4018,7 +4047,7 @@ int Application::run (int argc,
 	      first = false;
 	    }
       if (key)
-        errorExitStr ("Key with no value: " + key->name + "\n\n" + getInstruction (false));
+        throw runtime_error ("Key with no value: " + key->name + "\n\n" + getInstruction (false));
 
 
 	    if (programArgs. size () == 1 && (! positionalArgs. empty () || needsArg))
@@ -4030,7 +4059,7 @@ int Application::run (int argc,
 	    
 
 	    if (posIt != positionalArgs. end ())
-	      errorExitStr ("Too few positional parameters\n\n" + getInstruction (false));
+	      throw runtime_error ("Too few positional parameters\n\n" + getInstruction (false));
 	  }
     
     
@@ -4085,7 +4114,7 @@ int Application::run (int argc,
 	  			
 	  	seed_global = str2<ulong> (getArg ("seed"));
 	  	if (! seed_global)
-	  		throw runtime_error ("seed cannot be 0");
+	  		throw runtime_error ("Seed cannot be 0");
 	  
 	  	jsonFName = getArg ("json");
 	  	ASSERT (! jRoot);
@@ -4180,25 +4209,7 @@ ShellApplication::~ShellApplication ()
 void ShellApplication::initEnvironment () 
 {
   ASSERT (tmp. empty ());
-  ASSERT (! programArgs. empty ());
-  
-  // execDir, programName
-	execDir = getProgramDirName ();
-	if (execDir. empty ())
-		execDir = which (programArgs. front ());
-  if (! isDirName (execDir))
-    throw logic_error ("Cannot identify the directory of the executable");
-  {
-    string s (programArgs. front ());
-    programName = rfindSplit (s, fileSlash);
-    execDir = getDirName (path2canonical (execDir + programName));
-  }
-
-  string execDir_ (execDir);
-  trimSuffix (execDir_, "/");				
-  for (Key& key : keyArgs)
-    if (! key. flag)
-      replaceStr (key. defaultValue, "$BASE", execDir_);
+  Application::initEnvironment ();
 }
 
 

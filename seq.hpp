@@ -311,7 +311,7 @@ public:
 
 
 
-struct Multifasta : Root
+struct Multifasta final : Root
 /* Usage:
      { Multifasta fa (...);
        while (fa. next ())
@@ -403,12 +403,11 @@ char complementaryNucleotide (char wildNucleotide);
   // Possible blank is preserved
   // Requires: wildNucleotide in extDnaAlphabet
 
-char getUnionNucleotide (const string& charSet);
+char getUnionNucleotide (const string &charSet);
   // Return: in extDnaAlphabet + '-'; if empty set then ' '
   // Requires: CharSet is in extDnaAlphabet + '-'
 
-char getIntersectNucleotide (const char* charSet);
-  // GetIintersectChar
+char getIntersectNucleotide (const string &charSet);
   // Return: in extDnaAlphabet + '-'; if empty set then ' '
   // Requires: CharSet is in extDnaAlphabet + '-'
 
@@ -751,7 +750,7 @@ struct Dna : Seq
 
 
 
-struct FastaDna : Dna
+struct FastaDna final : Dna
 {
   FastaDna (const string &fName,
             size_t reserveLen,
@@ -807,10 +806,11 @@ inline bool aaMatch (char aa1,
   }
 
 typedef  double  AlignScore;
+constexpr AlignScore score_inf = numeric_limits<AlignScore>::max ();
 
 
 
-struct SubstMat : Root
+struct SubstMat final : Root
 // Substitution matrix for protein alignment
 // NCBI: e.g., /am/ftp-blast/matrices/BLOSUM62
 /*           ------ default -----
@@ -832,25 +832,28 @@ struct SubstMat : Root
   AlignScore sim [sim_size] [sim_size];  
   
   
+  SubstMat () = default;
   explicit SubstMat (const string &fName);
   void qc () const override;
-    // Print anomalies
   void saveText (ostream& os) const override;
     
     
-  bool goodChar (size_t i) const
+  bool goodIndex (size_t i) const
     { return sim [i] [i] == sim [i] [i]; }  // Not a NaN
+  void printAnomalies () const;
   AlignScore getSubstitutionDist (size_t row,
                                   size_t col) const
     { return sim [row] [row] + sim [col] [col] - 2 * sim [row] [col]; }
   AlignScore getDeletionDist (size_t row,
                               AlignScore gap_sim) const
     { return sim [row] [row] - 2 * gap_sim; }
+  AlignScore char2score (char c1,
+                         char c2) const;
 };
 
 	
 	
-struct PeptideOrf : Root
+struct PeptideOrf final : Root
 // DNA -> translation of a segment -> ORF
 {
   size_t translationStart {no_index};
@@ -870,8 +873,8 @@ struct PeptideOrf : Root
 
   PeptideOrf (size_t translationStart_arg,
               Strand strand_arg,
-      		     const Peptide* peptide,
-             size_t start_arg);
+      		    const Peptide* peptide,
+              size_t start_arg);
     // Input: peptide: DNA segment translation
   PeptideOrf (size_t translationStart_arg,
               Strand strand_arg,
@@ -1013,7 +1016,7 @@ struct Peptide : Seq
 
 
 
-struct FastaPeptide : Peptide
+struct FastaPeptide final : Peptide
 {
   FastaPeptide (const string &fName,
                 size_t reserveLen,
@@ -1053,8 +1056,8 @@ inline Seq* makeSeq (Multifasta &fa,
 
 //
 
-struct Cds : Root
-// All lengths are in na
+struct Cds final : Root
+// All lengths are in nt
 {
   // PAR
   static constexpr size_t peptideSize_min = 20;  // aa
@@ -1143,7 +1146,7 @@ public:
 
 
 
-struct DnaAnnot : Root
+struct DnaAnnot final : Root
 {
   Vector<Cds> cdss;  
   
@@ -1164,7 +1167,7 @@ struct DnaAnnot : Root
 
 // Align
 
-struct Align : Root
+struct Align final : Root
 // Needleman-Wunsch algorithm 
 {
 	// Output:
@@ -1235,7 +1238,7 @@ public:
 
 
 
-struct Mutation : Root
+struct Mutation final : Root
 {
   bool prot {false};
   string geneName;
@@ -1319,7 +1322,7 @@ public:
 
     
 
-struct KmerIndex : Named, Singleton<KmerIndex>
+struct KmerIndex final : Named, Singleton<KmerIndex>
 // DNA k-mer index
 // Assumptions for time: DNA sequence length is O(1)
 //                       DNA identifier length is O(1)

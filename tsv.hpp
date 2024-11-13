@@ -253,7 +253,7 @@ public:
               const StringVector &maxV,
               const StringVector &aggr);
     // aggr: slow
-    // Invokes: filterColumns(by + sum + aggr)
+    // Invokes: sort(by), filterColumns(by + sum + aggr)
 private:
   void merge (RowNum toRowNum,
               RowNum fromRowNum,

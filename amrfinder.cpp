@@ -33,7 +33,10 @@
 * Dependencies: NCBI BLAST, HMMer, libcurl, gunzip (optional)
 *
 * Release changes:
-*   4.0.3   10/29/2024 PD-5167  Don't fail with error on older versions of blast+
+*   4.0.5   11/13/2024 PD-5175  prohibit --database_version and -p or -n
+*   4.0.4   10/29/2024          colorizeDir()
+*                               stxtyper/ -> stx/
+*   4.0.3   10/29/2024 PD-5167  Allow AMRFinderPlus to work with older versions of blast
 *   4.0.2   10/23/2024 PD-5155  StxTyper version 1.0.27
 *   4.0.1   10/22/2024 PD-5155  "::" is a fusion infix for the column "Hierarchy node"
 *                      PD-5085  Change column "Element length" to "Target length"
@@ -107,7 +110,7 @@
 *   3.11.13 05/04/2023 PD-4596  prohibit ASCII characters only between 0x00 and 0x1F in GFF files
 *           04/24/2023 PD-4583  process files ending with ".gz", see https://github.com/ncbi/amr/issues/61, dependence on gunzip (optional)
 *           04/19/2023          On failure no empty output file (-o) is created
-*   3.11.12 04/13/2023          application::makeKey()
+*   3.11.12 04/13/2023          Application::makeKey()
 *                      PD-4548  fasta_check.cpp prohibits '\t' (not any '\'), and all restrictions are only for nucleotide sequences
 *   3.11.11 04/13/2023 PD-4566  --hmmer_bin
 *   3.11.10 04/12/2023 PD-4548  fasta_check.cpp prohibits ';', '.', '~' in the last position of a sequence identifier
@@ -352,7 +355,7 @@ constexpr double partial_coverage_min_def = 0.5;
 const string ambigS ("20");  
 
 
-struct ThisApplication : ShellApplication
+struct ThisApplication final : ShellApplication
 {
   ThisApplication ()
     : ShellApplication ("Identify AMR and virulence genes in proteins and/or contigs and print a report", true, true, true, true)
@@ -373,7 +376,7 @@ struct ThisApplication : ShellApplication
       }
 
     	addKey ("database", "Alternative directory with AMRFinder database. Default: $AMRFINDER_DB", "", 'd', "DATABASE_DIR");
-    	addFlag ("database_version", "Print database version", 'V');
+    	addFlag ("database_version", "Print database version and exit", 'V');
 
     	addKey ("ident_min", "Minimum proportion of identical amino acids in alignment for hit (0..1). -1 means use a curated threshold if it exists and " + toString (ident_min_def) + " otherwise", "-1", 'i', "MIN_IDENT");
     	  // "PD-3482
@@ -531,10 +534,12 @@ struct ThisApplication : ShellApplication
 		const string logFName (tmp + "/log");  // Command-local log file
 
 
+    const bool screen = ! isRedirected (cerr);
+
     if (database_version)
       cout   << "Software directory: " << shellQuote (execDir) << endl;
     else
-      stderr << "Software directory: " << shellQuote (execDir) << '\n';
+      stderr << "Software directory: " << colorizeDir (execDir, screen) << '\n';
     if (database_version)
       cout   << "Software version: " << version << endl; 
     else
@@ -579,11 +584,11 @@ struct ThisApplication : ShellApplication
         const Warning warning (stderr);
         stderr << "This was compiled for running under bioconda, but $CONDA_PREFIX was not found" << '\n';
         defaultDb = string (s) + "/share/amrfinderplus/data/latest";
-        stderr << "Reverting to $PREFIX: " << defaultDb;
+        stderr << "Reverting to $PREFIX: " << colorizeDir (defaultDb, screen);
       } else {
         const Warning warning (stderr);
         stderr << "This was compiled for running under bioconda, but $CONDA_PREFIX was not found" << '\n';
-        stderr << "Reverting to hard coded directory: " << CONDA_DB_DIR "/latest";
+        stderr << "Reverting to hard coded directory: " << colorizeDir (CONDA_DB_DIR "/latest", screen);
         defaultDb = CONDA_DB_DIR "/latest";
       }
     #else
@@ -650,9 +655,9 @@ struct ThisApplication : ShellApplication
       {
         const Warning warning (stderr);
         stderr << "Updating database directory works only for databases with the default data directory format." << '\n'
-               << "         Please see " + colorizeUrl ("https://github.com/ncbi/amr/wiki", ! isRedirected (cerr)) + " for details." << "\n"
-               << "         Current database directory is: " << dbDir. get () << "\n"
-               << "         New database directories will be created as subdirectories of " << dbDir. getParent ();
+               << "         Please see " + colorizeUrl ("https://github.com/ncbi/amr/wiki", screen) + " for details." << "\n"
+               << "         Current database directory is: " << colorizeDir (dbDir. get (), screen) << "\n"
+               << "         New database directories will be created as subdirectories of: " << colorizeDir (dbDir. getParent (), screen);
       }
 		}
 
@@ -665,7 +670,7 @@ struct ThisApplication : ShellApplication
     if (database_version)
       cout   << "Database directory: " << shellQuote (path2canonical (db)) << endl;
     else
-		  stderr << "Database directory: " << shellQuote (path2canonical (db)) << '\n';
+		  stderr << "Database directory: " << colorizeDir (path2canonical (db), screen) << '\n';
     setSymlink (db, tmp + "/db", true);
 
     {
@@ -694,7 +699,13 @@ struct ThisApplication : ShellApplication
       if (dataVersion < dataVersion_min)
         throw runtime_error ("Software requires database version at least " + dataVersion_min. str () + downloadLatestInstr);
       if (database_version)
+      {
+        if (! prot. empty ())
+          throw runtime_error ("No processing of " + prot + " is done");
+        if (! dna. empty ())
+          throw runtime_error ("No processing of " + dna + " is done");
         return;
+      }
     }
     
     
@@ -846,7 +857,7 @@ struct ThisApplication : ShellApplication
     prog2dir ["amr_report"]    = execDir;	
 		prog2dir ["dna_mutation"]  = execDir;
     prog2dir ["fasta_extract"] = execDir;
-		prog2dir ["stxtyper"]      = execDir + "stx/";
+		prog2dir ["stxtyper"]      = execDir + "stx/";  // was: "stxtyper/"
     
 
     if (pgap)
@@ -879,10 +890,11 @@ struct ThisApplication : ShellApplication
 		if (blastn)
     {
       // PD-5054
-      const string dbTest (db + "/AMR_DNA-" + organism1 + ".fa.ndb");
-      // PD-5167
-      const string dbTest2 (db + "/AMR_DNA-" + organism1 + ".fa.nin"); // for older versions of blast
-  		if (! fileExists (dbTest) && ! fileExists (dbTest2))
+      const string dbTest1 (db + "/AMR_DNA-" + organism1 + ".fa.ndb");
+      const string dbTest2 (db + "/AMR_DNA-" + organism1 + ".fa.nin");  // For older versions of blast; PD-5167
+  		if (   ! fileExists (dbTest1) 
+  		    && ! fileExists (dbTest2)
+  		   )
   			throw runtime_error ("The BLAST database for AMR_DNA-" + organism1 + ".fa was not found.\nUse amrfinder -u or amrfinder --force_update to download and prepare database for AMRFinderPlus");
     }
 

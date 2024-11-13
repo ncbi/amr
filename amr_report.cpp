@@ -76,7 +76,7 @@ map <string/*accession*/, Vector<AmrMutation>>  accession2mutations;
 
 
 
-struct BlastRule : Root
+struct BlastRule final : Root
 // PD-2310
 {
   // 0 <=> undefined
@@ -298,7 +298,7 @@ public:
 
 
 
-struct Susceptible : Root
+struct Susceptible final : Root
 {
 	// !empty()
 	string genesymbol;
@@ -343,7 +343,7 @@ map <string/*accession*/, Susceptible>  accession2susceptible;
 
 
 
-struct BlastAlignment : Alignment
+struct BlastAlignment final : Alignment
 // BLASTP or BLASTX
 {
   // target    
@@ -2203,7 +2203,7 @@ constexpr double  partial_coverage_min_def = 0.5;
 
 
 
-struct ThisApplication : Application
+struct ThisApplication final : Application
 {
   ThisApplication ()
     : Application ("Report AMR proteins")

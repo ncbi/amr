@@ -70,9 +70,8 @@ size_t alphabet2Pos (const char* alphabet,
   
   if (const char* s = strchr (alphabet, c))
     return (size_t) (s - alphabet);
-  cout << c << "  " << alphabet << endl;
-  ERROR;
-  return no_index;
+  
+  throw runtime_error (FUNC "Bad character " + string (1, c) + " for alphabet: " + alphabet);;
 }
 
 
@@ -1079,7 +1078,7 @@ char getUnionNucleotide (const string& charSet)
 
 
 
-char getIntersectNucleotide (const string& charSet)
+char getIntersectNucleotide (const string &charSet)
 {
   if (charSet. empty ())
     return ' ';
@@ -1342,7 +1341,7 @@ char codon2aa (const char codon [3],
       Case 11: if (                  (c[1] == 't' && c[2] == 'g')
                    || (c[0] == 'a' && c[1] == 't')               )  startcodon = true;  
       Case 25: if (    c[0] != 'c' && c[1] == 't' && c[2] == 'g' )  startcodon = true;
-      Default: throw runtime_error (FUNC "Genetic code " + to_string (gencode) + " is not implemented");
+      Default: throw runtime_error (FUNC "Genetic code " + to_string ((int) gencode) + " is not implemented");
     }
     if (startcodon)
       aa = toLower (aa);
@@ -3235,16 +3234,14 @@ void SubstMat::qc () const
   // sim[][]
   FOR (size_t, i, sim_size)
   {
-    if (! goodChar (i))
+    if (! goodIndex (i))
       continue;
     QC_IMPLY (! isAmbigAa (char (i)), sim [i] [i] >= 0.0);
     FOR (size_t, j, sim_size)
     {
-      if (! goodChar (j))
+      if (! goodIndex (j))
         continue;
       QC_ASSERT (fabs (sim [i] [j] - sim [j] [i]) < 1e-6);  // PAR
-      if (sim [i] [i] < sim [i] [j])
-        cout << "sim(" << char (i) << ',' << char (i) << ") < sim(" << char(i) << ',' << char(j) << ")" << endl;          
     }
   }
 }  
@@ -3254,21 +3251,67 @@ void SubstMat::qc () const
 void SubstMat::saveText (ostream& os) const 
 {
   FOR (size_t, i, sim_size)
-    if (goodChar (i))
+    if (goodIndex (i))
       os << ' ' << char (i);
   os << endl;
   
   FOR (size_t, i, sim_size)
-    if (goodChar (i))
+    if (goodIndex (i))
     {
       os << char (i);
       FOR (size_t, j, sim_size)
-        if (goodChar (j))
+        if (goodIndex (j))
           os << ' ' << sim [i] [j];
       os << endl;
     }
 }
 
+
+
+void SubstMat::printAnomalies () const
+{
+  FOR (size_t, i, sim_size)
+  {
+    if (! goodIndex (i))
+      continue;
+    FOR (size_t, j, sim_size)
+    {
+      if (! goodIndex (j))
+        continue;
+      if (sim [i] [i] < sim [i] [j])
+        cout << "sim(" << char (i) << ',' << char (i) << ") < sim(" << char(i) << ',' << char(j) << ")" << endl;
+    }
+  }
+}
+  
+
+
+AlignScore SubstMat::char2score (char c1,
+                                 char c2) const
+{ 
+  QC_ASSERT (c1 >= '\0');
+  QC_ASSERT (c2 >= '\0');
+
+  const size_t i1 = (size_t) c1;
+  const size_t i2 = (size_t) c2;
+  QC_ASSERT (i1 < sim_size);
+  QC_ASSERT (i2 < sim_size);
+
+  if (   c1 == '-' 
+      || c2 == '-'
+     )
+    return 0;
+    
+    
+  if (! goodIndex (i1))
+    throw runtime_error ("Bad amino acid: " + string (1, c1) + " (" + to_string (i1));
+  if (! goodIndex (i2))
+    throw runtime_error ("Bad amino acid: " + string (1, c2) + " (" + to_string (i2));
+    
+  const AlignScore s = sim [i1] [i2]; 
+  ASSERT (s == s);
+  return s;
+}
 
 
 

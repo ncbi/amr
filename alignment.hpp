@@ -47,7 +47,7 @@ static constexpr char pm_delimiter = '_';
 
 
 
-struct AmrMutation : Root
+struct AmrMutation final : Root
 // Database
 {
 	size_t pos_real {0};  
@@ -136,7 +136,7 @@ struct Alignment;
 
 
 
-struct SeqChange : Root
+struct SeqChange final : Root
 // Observation
 {
   const Alignment* al {nullptr};

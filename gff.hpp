@@ -115,7 +115,7 @@ struct Gff
 
 
 
-struct Annot : Root
+struct Annot final : Root
 {	
   // Protein GFF id is a function of attributes (column in GFF)
   map<string/*protein GFF id*/,Set<Locus>> prot2loci; 

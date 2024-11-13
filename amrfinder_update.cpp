@@ -37,7 +37,9 @@
 
 
 
+// PAR
 #define HTTPS 1   // 0: FTP
+//#define TEST_UPDATE  
 
 
 
@@ -250,8 +252,10 @@ Requirement: the database directory contains subdirectories named by database ve
     Curl curl;
         
     
+    const bool screen = ! isRedirected (cerr);
+    
     // FTP site files
-    stderr << "Looking up the published databases at " << colorizeUrl (URL, ! isRedirected (cerr)) << '\n';    
+    stderr << "Looking up the published databases at " << colorizeUrl (URL, screen) << '\n';    
     string load_minor = curMinor;
     string load_data_version;    
     {
@@ -268,7 +272,7 @@ Requirement: the database directory contains subdirectories named by database ve
 
       const string cur_data_version (getLatestDataVersion (curl, curMinor));
       load_data_version = cur_data_version;    
-      if (cur_data_version. empty ())
+      if (cur_data_version. empty ())  // Contents of (URL + curMinor) are empty ??
       {
         stderr << "\n";
         const Warning w (stderr);
@@ -277,13 +281,14 @@ Requirement: the database directory contains subdirectories named by database ve
         load_minor        = published_minor;
         load_data_version = published_data_version;
       }
-      else if (cur_data_version != published_data_version)  // cur_data_version < published_data_version
+      else if (cur_data_version != published_data_version)  
       {   
+        ASSERT (cur_data_version < published_data_version);
         stderr << "\n";
         const Warning w (stderr);
         stderr << "A newer version of the database exists (" << published_data_version << "), but it requires "
                   "a newer version of the software (" << published_minor << ") to install.\n"
-                  "See " + colorizeUrl ("https://github.com/ncbi/amr/wiki/Upgrading", ! isRedirected (cerr)) + " for more information.\n";
+                  "See " + colorizeUrl ("https://github.com/ncbi/amr/wiki/Upgrading", screen) + " for more information.\n";
       }
     }
     ASSERT (! load_data_version. empty ());
@@ -301,11 +306,11 @@ Requirement: the database directory contains subdirectories named by database ve
     const string urlDir (URL + load_minor + "/" + load_data_version + "/");    
     const string latestDir (mainDirS + load_data_version + "/");
     
-    stderr << "Looking for the target directory " << latestDir << "\n";
+    stderr << "Looking for the target directory: " << colorizeDir (latestDir, screen) << "\n";
     if (directoryExists (latestDir))
     {
       if (force_update)
-        stderr << shellQuote (latestDir) << " already exists, overwriting what was there\n";
+        stderr << colorizeDir (latestDir, screen) << ": already exists, overwriting what was there\n";
       else
       {
         curl. download (urlDir + versionFName, tmp + "/curl");
@@ -317,7 +322,7 @@ Requirement: the database directory contains subdirectories named by database ve
            )
         {
           const Warning w (stderr);
-          stderr << shellQuote (latestDir) << " contains the latest version: " << version_old. front () << '\n';
+          stderr << colorizeDir (latestDir, screen) << ": contains the latest version " << version_old. front () << '\n';
           stderr << "Skipping update\nUse amrfinder --force_update to overwrite the existing database";
           createLatestLink (mainDirS, /*latestDir*/ load_data_version);
           return;
@@ -327,7 +332,8 @@ Requirement: the database directory contains subdirectories named by database ve
     else
       Dir (latestDir). create ();
     
-    stderr << "Downloading AMRFinder database version " << load_data_version << " into " << shellQuote (latestDir) << "\n";
+    stderr << "Downloading AMRFinder database version " << load_data_version << " into: " << colorizeDir (latestDir, screen) << "\n";
+    // Requires: Software version >= 3.13.1
     fetchAMRFile (curl, urlDir, latestDir, "AMR.LIB");
     fetchAMRFile (curl, urlDir, latestDir, "AMRProt.fa");
     fetchAMRFile (curl, urlDir, latestDir, "AMRProt-mutation.tsv");

@@ -155,20 +155,6 @@ void errorExitStr (const string &msg);
   // Invokes: throw logic_error
 
 
-#if 0
-struct InputError : runtime_error  // ??
-{ 
-  static bool on;
-    // Init: false
-    
-  InputError (const string &what_arg) 
-    : runtime_error (what_arg) 
-    { on = true; } 
-};
-#endif
-
-
-
 void sleepNano (long nanoSec);
 
 
@@ -431,7 +417,11 @@ template <typename T, typename UnaryPredicate>
 template <typename To, typename From>
   inline void insertAll (To &to,
                          const From &from)
-    { to. insert (to. begin (), from. begin (), from. end ()); }
+    { 
+      #pragma GCC diagnostic ignored "-Waggressive-loop-optimizations"
+      to. insert (to. begin (), from. begin (), from. end ()); 
+      #pragma GCC diagnostic warning "-Waggressive-loop-optimizations"
+    }
 
 template <typename To, typename From>
   inline void insertIter (To &to,
@@ -920,7 +910,7 @@ struct Rand
 {
 	static const long /*actually ulong*/ max_;
 private:
-	long seed;
+	long seed {0};
 	  // 0 < seed < max_
 public:
 	
@@ -974,11 +964,11 @@ struct DisjointCluster
 // Cormen, Leiserson, Rivest, Introduction to Algorithms, p. 449
 {
 protected:
-  DisjointCluster* parentDC;
+  DisjointCluster* parentDC {nullptr};
     // !nullptr
     // Tree
     // = this <=> root
-  size_t rankDC;
+  size_t rankDC {0};
     // Upper bound on the height of *this
     // (Height = max. # arcs between *this and a leaf)
 public:
@@ -1008,8 +998,8 @@ struct Nocopy
 {
 protected:
 	Nocopy () = default;
-  Nocopy (const Nocopy &) = delete;
-  Nocopy (Nocopy &&) = delete;
+  explicit Nocopy (const Nocopy &) = delete;
+  explicit Nocopy (Nocopy &&) = delete;
   Nocopy& operator= (const Nocopy &) = delete;
 };
 
@@ -1125,6 +1115,18 @@ template <typename T>
     template <typename U/*:<T>*/>
       explicit List (const vector<U> &other)
         { *this << other; }
+    bool empty () const
+      {
+        #pragma GCC diagnostic ignored "-Wnull-dereference"
+        return P::empty ();
+        #pragma GCC diagnostic warning "-Wnull-dereference"
+      }
+    size_t size () const
+      {
+        #pragma GCC diagnostic ignored "-Wnull-dereference"
+        return P::size ();
+        #pragma GCC diagnostic warning "-Wnull-dereference"
+      }
 
   	  
   	T at (size_t index) const
@@ -1451,7 +1453,7 @@ void readLine (istream &is,
 
 
 
-struct Istringstream : istringstream
+struct Istringstream final : istringstream
 {
   Istringstream () = default;
   void reset (const string &s)
@@ -1510,7 +1512,7 @@ struct Color
 		#ifdef _MSC_VER
 		  return noString
 		#else
-    	return string ("\033[") + (bright ? "1;" : "") + to_string (color) + "m"; 
+    	return string ("\033[") + (bright ? "1;" : "") + to_string ((int) color) + "m"; 
 		#endif
     }
 };
@@ -1518,20 +1520,25 @@ struct Color
   
 inline string colorize_raw (const string &s,
                             Color::Type color,
+                            bool bright,
                             bool screen)
   { if (! screen)
       return s;
-    return Color::code (color, true) + s + Color::code ();
+    return Color::code (color, bright) + s + Color::code ();
   }
 
 inline string colorize (const string &s,
                         bool screen)
-  { return colorize_raw (s, Color::white, screen); }
-
+  { return colorize_raw (s, Color::white, true, screen); }  
+    
 inline string colorizeUrl (const string &s,
                            bool screen)
-  { return colorize_raw (s, Color::blue, screen); }
+  { return colorize_raw (s, Color::blue, true, screen); }  
   
+inline string colorizeDir (const string &s,
+                           bool screen)
+  { return colorize_raw (s, Color::green, false, screen); }  
+
 
 class OColor
 // Output color
@@ -1602,13 +1609,13 @@ private:
                          int fd2);
 public:
 #endif
-template <class T>
-  const COutErr& operator<< (const T &val) const
-    { cout << val;
-      if (! both)
-        cerr << val;
-      return *this;
-    }
+  template <typename T>
+    const COutErr& operator<< (const T &val) const
+      { cout << val;
+        if (! both)
+          cerr << val;
+        return *this;
+      }
   const COutErr& operator<< (ostream& (*pfun) (ostream&)) const
     { pfun (cout);
       if (! both)
@@ -1961,7 +1968,7 @@ struct Xml
   
 
   
-  struct TextFile : File
+  struct TextFile final : File
   // Tag::name: idenifier with possible '-'
   {
   private:
@@ -1991,7 +1998,7 @@ struct Xml
   
   
   
-  struct BinFile : File
+  struct BinFile final : File
   // Binary XML
   //   <Data> ::= <nameIndex> <Data>* 0 0 <text> 0
   //     <nameIndex> ::= <byte> <byte>
@@ -2089,7 +2096,7 @@ inline ostream& operator<< (ostream &os,
 
 
 template <typename T /*Root*/> 
-  struct AutoPtr : unique_ptr<T>  
+  struct AutoPtr final : unique_ptr<T>  
   {
   private:
   	typedef  unique_ptr<T>  P;
@@ -4155,7 +4162,7 @@ public:
 
 
 
-struct JsonNull : Json
+struct JsonNull final : Json
 {
   explicit JsonNull (JsonContainer* parent,
                      const string& name = noString)
@@ -4171,7 +4178,7 @@ struct JsonNull : Json
 
 
 
-struct JsonString : Json
+struct JsonString final : Json
 {
   const string s;
 
@@ -4192,7 +4199,7 @@ struct JsonString : Json
 
 
 
-struct JsonInt : Json
+struct JsonInt final : Json
 {
   const long long n;
   
@@ -4212,7 +4219,7 @@ struct JsonInt : Json
 
 
 
-struct JsonDouble : Json
+struct JsonDouble final : Json
 {
   const double n;
   const streamsize decimals;
@@ -4243,7 +4250,7 @@ struct JsonDouble : Json
 
 
 
-struct JsonBoolean : Json
+struct JsonBoolean final : Json
 {
   const bool b;
   
@@ -4277,7 +4284,7 @@ public:
 
 
 
-struct JsonArray : JsonContainer
+struct JsonArray final : JsonContainer
 {
   friend struct Json;
 private:
@@ -4306,7 +4313,7 @@ public:
 
 
 
-struct JsonMap : JsonContainer
+struct JsonMap final : JsonContainer
 {
   friend struct Json;
 private:
@@ -4384,7 +4391,7 @@ public:
 
 
 
-struct FileItemGenerator : ItemGenerator, Nocopy
+struct FileItemGenerator final : ItemGenerator, Nocopy
 {
 private:
   string fName;
@@ -4404,7 +4411,7 @@ public:
   
 
 #ifndef _MSC_VER
-struct RawDirItemGenerator : ItemGenerator, Nocopy
+struct RawDirItemGenerator final : ItemGenerator, Nocopy
 {
 private:
   string dirName;
@@ -4431,7 +4438,7 @@ public:
 
 
 
-struct DirItemGenerator : ItemGenerator
+struct DirItemGenerator final : ItemGenerator
 {
 private:
   StringVector vec;
@@ -4460,7 +4467,7 @@ public:
 
   
 
-struct NumberItemGenerator : ItemGenerator
+struct NumberItemGenerator final : ItemGenerator
 {
 private:
   size_t index {0};
@@ -4586,6 +4593,9 @@ struct Application : Singleton<Application>, Root
   const bool needsArg;
   const bool gnu;
   const bool threadsUsed;
+  string execDir;
+    // Ends with '/'
+    // Physically real directory of the software
   static constexpr const char* helpS {"help"};
   static constexpr const char* versionS {"version"};
   
@@ -4607,7 +4617,7 @@ protected:
     virtual const Key* asKey () const
       { return nullptr; }
   };
-  struct Positional : Arg
+  struct Positional final : Arg
   {
     Positional (const string &name_arg, 
                 const string &description_arg)
@@ -4618,7 +4628,7 @@ protected:
     const Positional* asPositional () const final
       { return this; }
   };  
-  struct Key : Arg
+  struct Key final : Arg
   {
   	const Application& app;
     const bool flag;
@@ -4735,8 +4745,7 @@ protected:
   string getProgramDirName () const
     { return getDirName (programArgs. front ()); }
 protected:
-  virtual void initEnvironment ()
-    {}
+  virtual void initEnvironment ();
   virtual void initVar ()
     {}
   string getInstruction (bool screen) const;
@@ -4773,9 +4782,6 @@ protected:
     // Temporary directory: ($TMPDIR or "/tmp") + "/" + programName + "XXXXXX"
     // If log is used then tmp is printed in the log file and the temporary files are not deleted 
     // !empty() => useTmp
-  string execDir;
-    // Ends with '/'
-    // Physically real directory of the software
   mutable KeyValue prog2dir;
   mutable Stderr stderr;
   time_t startTime {0};

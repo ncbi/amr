@@ -153,7 +153,7 @@ void Curl::process (const string &url,
     const SoftwareVersion ver (CURL_sp::getLibVersion ());
     throw runtime_error ("CURL: Cannot " + error_msg_action
                          + "\n  from " + url 
-                         + "\n  code=" + to_string (cc) 
+                         + "\n  code=" + to_string ((int) cc) 
                          + "\n  error: " + err
                          + "\n  version: " + ver. str ()
                          );
