@@ -700,9 +700,9 @@ struct ThisApplication final : ShellApplication
         throw runtime_error ("Software requires database version at least " + dataVersion_min. str () + downloadLatestInstr);
       if (database_version)
       {
-        if (! prot. empty ())
+        if (! emptyArg (prot))
           throw runtime_error ("No processing of " + prot + " is done");
-        if (! dna. empty ())
+        if (! emptyArg (dna))
           throw runtime_error ("No processing of " + dna + " is done");
         return;
       }
