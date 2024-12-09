@@ -418,9 +418,9 @@ template <typename To, typename From>
   inline void insertAll (To &to,
                          const From &from)
     { 
-      #pragma GCC diagnostic ignored "-Waggressive-loop-optimizations"
+    #pragma GCC diagnostic ignored "-Waggressive-loop-optimizations"
       to. insert (to. begin (), from. begin (), from. end ()); 
-      #pragma GCC diagnostic warning "-Waggressive-loop-optimizations"
+    #pragma GCC diagnostic warning "-Waggressive-loop-optimizations"
     }
 
 template <typename To, typename From>
@@ -649,6 +649,10 @@ inline string unQuote (const string &s)
 
 bool strBlank (const string &s);
 
+bool getScientific (string numberS,
+                    bool &hasPoint,
+                    streamsize &decimals);
+
 template <typename T>
   string toString (const T &t)
     { ostringstream oss;
@@ -676,28 +680,6 @@ template <typename T>
     { try { t = str2<T> (s); return true; } 
         catch (...) { return false; } 
     }
-
-inline bool isLeft (const string &s,
-                    const string &left)
-  { return s. substr (0, left. size ()) == left; }
-
-bool isRight (const string &s,
-              const string &right);
-
-bool trimPrefix (string &s,
-                 const string &prefix);
-  // Return: success
-
-bool trimSuffix (string &s,
-                 const string &suffix);
-  // Return: success
-
-void trimSuffixNonAlphaNum (string &s);
-
-bool trimTailAt (string &s,
-                 const string &tailStart);
-  // Return: trimmed
-  // Update: s
 
 void commaize (string &s);
   // ' ' --> ','
@@ -742,15 +724,38 @@ inline bool charInSet (char c,
 		                   const string &charSet)
   { return charSet. find (c) != string::npos; }
 
-string::const_iterator stringInSet (const string &s,
-                    	           	  const string &charSet);
-  // Return: != s.end() => *Return is not in charSet
+size_t stringNotInSet (const string &s,
+                   	   const string &charSet,
+                   	   ebool uppercase);
+  // Return: index in s which is not in charSet; may be no_index
 
 size_t strCountSet (const string &s,
 		                const string &charSet);
 
 void strDeleteSet (string &s,
 		               const string &charSet);
+
+inline bool isLeft (const string &s,
+                    const string &left)
+  { return s. substr (0, left. size ()) == left; }
+
+bool isRight (const string &s,
+              const string &right);
+
+bool trimPrefix (string &s,
+                 const string &prefix);
+  // Return: success
+
+bool trimSuffix (string &s,
+                 const string &suffix);
+  // Return: success
+
+void trimSuffixNonAlphaNum (string &s);
+
+bool trimTailAt (string &s,
+                 const string &tailStart);
+  // Return: trimmed
+  // Update: s
 
 void trimLeading (string &s);
 
@@ -773,6 +778,17 @@ inline void trim (string &s,
                   char c)
   { trimTrailing (s, c);
     trimLeading  (s, c); 
+  }
+
+inline bool strNull (const string &s)
+  { if (strBlank (s))
+      return true;
+    string s1 (s);
+    trim (s1);
+    strUpper (s1);
+    return    s1 == "NULL"
+           || s1 == "NA"
+           || s1 == "N/A";
   }
 
 inline bool contains (const string &hay,
@@ -1117,15 +1133,15 @@ template <typename T>
         { *this << other; }
     bool empty () const
       {
-        #pragma GCC diagnostic ignored "-Wnull-dereference"
+      #pragma GCC diagnostic ignored "-Wnull-dereference"
         return P::empty ();
-        #pragma GCC diagnostic warning "-Wnull-dereference"
+      #pragma GCC diagnostic warning "-Wnull-dereference"
       }
     size_t size () const
       {
-        #pragma GCC diagnostic ignored "-Wnull-dereference"
+      #pragma GCC diagnostic ignored "-Wnull-dereference"
         return P::size ();
-        #pragma GCC diagnostic warning "-Wnull-dereference"
+      #pragma GCC diagnostic warning "-Wnull-dereference"
       }
 
   	  
@@ -2806,7 +2822,7 @@ template <typename T /* : Root */>
         }
   	void deleteData ()
   	  {	for (const T* t : *this)
-  			  delete t;
+			    delete t;
   			P::clear ();
   	  }
     void erasePtr (size_t index)
@@ -2920,7 +2936,11 @@ template <typename T /* : Root */>
   	    return *this;
   	  }
    ~VectorOwn ()
-      { P::deleteData (); }
+      { 
+      #pragma GCC diagnostic ignored "-Wnull-dereference"
+        P::deleteData (); 
+      #pragma GCC diagnostic warning "-Wnull-dereference"
+      }
 
 
     VectorOwn<T>& operator<< (const T* value)
@@ -3221,9 +3241,7 @@ public:
     {}
 
 
-  string toString (const string& sep) const;
-  string toString () const
-    { return toString (noString); }
+  string toString (const string& sep = noString) const;
   bool same (const StringVector &vec,
              const Vector<size_t> &indexes) const;
   void to_xml (Xml::File &f,

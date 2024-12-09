@@ -194,9 +194,9 @@ void Seq::qcName () const
 
 void Seq::qcAlphabet () const
 {
-  const string::const_iterator it = stringInSet (seq, getSeqAlphabet ());
-  if (it != seq. end ())	
-    throw runtime_error ("Bad sequence character in " + strQuote (getId ()) + ": " + to_string (int (*it)) + " " + seq. substr ((size_t) (it - seq. begin ())));
+  const size_t i = stringNotInSet (seq, getSeqAlphabet (), etrue);
+  if (i != no_index)	
+    throw runtime_error ("Bad sequence character in " + strQuote (getId ()) + ": ASCII=" + to_string (int (seq [i])) + " pos=" + to_string (i + 1) /*+ "\n" + seq*/);
 }
 
 
@@ -3291,6 +3291,11 @@ AlignScore SubstMat::char2score (char c1,
 { 
   QC_ASSERT (c1 >= '\0');
   QC_ASSERT (c2 >= '\0');
+  
+  if (strchr (peptideWildcards, c1))
+    c1 = 'X';
+  if (strchr (peptideWildcards, c2))
+    c2 = 'X';
 
   const size_t i1 = (size_t) c1;
   const size_t i2 = (size_t) c2;
@@ -3304,9 +3309,9 @@ AlignScore SubstMat::char2score (char c1,
     
     
   if (! goodIndex (i1))
-    throw runtime_error ("Bad amino acid: " + string (1, c1) + " (" + to_string (i1));
+    throw runtime_error ("Bad amino acid: " + string (1, c1) + " (" + to_string (i1) + ")");
   if (! goodIndex (i2))
-    throw runtime_error ("Bad amino acid: " + string (1, c2) + " (" + to_string (i2));
+    throw runtime_error ("Bad amino acid: " + string (1, c2) + " (" + to_string (i2) + ")");
     
   const AlignScore s = sim [i1] [i2]; 
   ASSERT (s == s);

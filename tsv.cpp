@@ -132,11 +132,12 @@ void TextTable::Header::qc () const
 
 
 TextTable::TextTable (const string &tableFName,
-                      const string &columnSynonymsFName)
+                      const string &columnSynonymsFName,
+                      uint displayPeriod)
 : Named (tableFName)
 {  
   {
-    LineInput f (tableFName);
+    LineInput f (tableFName, displayPeriod);
     bool dataExists = true;
     // header
     while (f. nextLine ())
@@ -244,6 +245,8 @@ void TextTable::setHeader ()
       maximize (h. len_max, field. size ());
       if (h. choices. size () <= Header::choices_max)
         h. choices << field;
+      if (strNull (field))
+        continue;
       if (! h. numeric)
         continue;
       {
@@ -260,7 +263,7 @@ void TextTable::setHeader ()
       {
         bool hasPoint = false;
         streamsize decimals = 0;
-        if (getDecimals (field, hasPoint, decimals))
+        if (getScientific (field, hasPoint, decimals))
           h. scientific = true;
         maximize<streamsize> (h. decimals, decimals);
       }
@@ -271,17 +274,17 @@ void TextTable::setHeader ()
   for (const StringVector& row : rows)
     FFOR (RowNum, i, row. size ())
     {
-      const string& field = row [i];
-      if (field. empty ())
-        continue;
       Header& h = header [i];
-      if (h. numeric)
-      {
-        bool hasPoint = false;
-        streamsize decimals = 0;
-        getDecimals (field, hasPoint, decimals);
-        maximize (h. len_max, field. size () + (size_t) (h. decimals - decimals) + (! hasPoint));
-      }
+      string field (row [i]);
+      trim (field);
+      if (strNull (field))
+        continue;
+      if (! h. numeric)
+        continue;
+      bool hasPoint = false;
+      streamsize decimals = 0;
+      getScientific (field, hasPoint, decimals);
+      maximize (h. len_max, field. size () + (size_t) (h. decimals - decimals) + (! hasPoint));
     }
 }
 
@@ -354,33 +357,6 @@ void TextTable::saveText (ostream &os) const
 
     
     
-bool TextTable::getDecimals (string s,
-                             bool &hasPoint,
-                             streamsize &decimals)
-{
-  strUpper (s);
-  const size_t ePos     = s. find ('E');
-  const size_t pointPos = s. find ('.');
-  
-  hasPoint = pointPos != string::npos;
-  
-  decimals = 0;
-  if (ePos == string::npos)
-  {
-    if (hasPoint)
-      decimals = (streamoff) (s. size () - (pointPos + 1));
-  }
-  else
-  {
-    if (hasPoint && ePos > pointPos)
-      decimals = (streamoff) (ePos - (pointPos + 1));
-  }
-  
-  return ePos != string::npos;
-}
-
-    
-  
 void TextTable::printHeader (ostream &os) const
 {
   FFOR (size_t, i, header. size ())
@@ -484,8 +460,8 @@ int TextTable::compare (const StringVector& row1,
 
   if (header [column]. numeric)
   {
-    const double a = s1. empty () ? 0.0 : stod (s1);
-    const double b = s2. empty () ? 0.0 : stod (s2);
+    const double a = strNull (s1) ? 0.0 : stod (s1);
+    const double b = strNull (s2) ? 0.0 : stod (s2);
     if (a < b)
       return -1;
     if (a > b)
@@ -642,8 +618,8 @@ void TextTable::merge (RowNum toRowNum,
     ONumber on (oss, h. decimals, h. scientific);
     const string& s1 = to   [i];
     const string& s2 = from [i];
-    const double d1 = s1. empty () ? 0.0 : stod (s1);
-    const double d2 = s2. empty () ? 0.0 : stod (s2);
+    const double d1 = strNull (s1) ? 0.0 : stod (s1);
+    const double d2 = strNull (s2) ? 0.0 : stod (s2);
     oss << (d1 + d2);
     to [i] = oss. str ();
   }

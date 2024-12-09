@@ -253,7 +253,7 @@ protected:
 public:
   virtual Seq* copy () const override = 0;
   void qc () const override
-    { if (qc_on)
+    { if (! qc_on)
         return;
       qcName ();
     	qcAlphabet ();

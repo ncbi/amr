@@ -724,6 +724,35 @@ bool strBlank (const string &s)
 
 
 
+bool getScientific (string numberS,
+                    bool &hasPoint,
+                    streamsize &decimals)
+{
+  strUpper (numberS);
+  const size_t ePos     = numberS. find ('E');
+  const size_t pointPos = numberS. find ('.');
+  
+  hasPoint = (pointPos != string::npos);  
+  decimals = 0;
+  if (ePos == string::npos)
+  {
+    if (hasPoint)
+      decimals = (streamoff) (numberS. size () - (pointPos + 1));
+  }
+  else
+  {
+    ASSERT (ePos != pointPos);
+    if (hasPoint && ePos < pointPos)
+      hasPoint = false;
+    if (hasPoint)
+      decimals = (streamoff) (ePos - (pointPos + 1));
+  }
+  
+  return ePos != string::npos;
+}
+
+
+
 void strUpper (string &s)
 {
   for (char& c : s)
@@ -760,14 +789,23 @@ bool isLower (const string &s)
 
 
 
-string::const_iterator stringInSet (const string &s,
-                    	           	  const string &charSet)
+size_t stringNotInSet (const string &s,
+                   	   const string &charSet,
+                   	   ebool uppercase)
 {
-  CONST_ITER (string, it, s)
-    if (! charInSet (*it, charSet))
-      return it;
-
-  return s. end ();
+  FFOR (size_t, i, s. size ())
+  {
+    char c = s [i];
+    switch (uppercase)
+    {
+      case efalse: c = toLower (c); break;
+      case etrue:  c = toUpper (c); break;
+      case enull: break;
+    }
+    if (! charInSet (c, charSet))
+      return i;
+  }
+  return no_index;
 }
 
 
@@ -4093,7 +4131,12 @@ int Application::run (int argc,
       string logFName (getArg ("log"));
     	ASSERT (! logPtr);
       if (! logFName. empty ())
-    		logPtr = new ofstream (logFName, ios_base::app);
+      {
+    		logPtr = new ofstream (logFName, ios_base::app);    		  
+        time_t rawtime;
+        time (& rawtime);
+    		*logPtr << endl << ctime (& rawtime) << "$ " << getCommandLine () << endl;
+      }
     }
 
     string jsonFName;

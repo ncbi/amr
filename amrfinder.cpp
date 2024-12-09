@@ -33,6 +33,7 @@
 * Dependencies: NCBI BLAST, HMMer, libcurl, gunzip (optional)
 *
 * Release changes:
+*   4.0.6   12/09/2024 PD-5181  StxTyper ver. 1.0.28
 *   4.0.5   11/13/2024 PD-5175  prohibit --database_version and -p or -n
 *   4.0.4   10/29/2024          colorizeDir()
 *                               stxtyper/ -> stx/
@@ -338,7 +339,7 @@ using namespace GFF_sp;
 const string dataVer_min ("2024-08-14.2");
   // 3.12: "2023-12-15.2"
   // 3.11: "2021-02-18.1"  
-const string stxTyperVersion ("1.0.27");  
+const string stxTyperVersion ("1.0.28");  
 
 
 

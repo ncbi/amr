@@ -117,15 +117,18 @@ struct Date : Root
   
 
 struct TextTable : Named
-// Tab-delimited (tsv) table with a header
+// Tab-separated value (tsv) table with a header
 // name: file name or empty()
 {
   bool pound {false};
     // '#' in the beginning of header
   bool saveHeader {true};
+  
+  
   struct Header : Named
   { 
     size_t len_max {0};
+      // For trim()'ed fields
     // Type
     bool numeric {true};
     // Valid if numeric
@@ -136,6 +139,7 @@ struct TextTable : Named
     static constexpr size_t choices_max {7};  // PAR
     Set<string> choices;
       // size() <= choices_max + 1
+      
     Header () = default;
     explicit Header (const string &name_arg)
       : Named (name_arg)
@@ -147,6 +151,7 @@ struct TextTable : Named
            << '\t' << (numeric ? ((scientific ? "float" : "int") + string ("(") + to_string (decimals) + ")") : "char") 
            << '\t' << (null ? "null" : "not null"); 
       }
+      
     void saveSql (ostream& os) const 
       { os << name << ' ';
         if (numeric)
@@ -165,6 +170,8 @@ struct TextTable : Named
   Vector<Header> header;
     // Header::name's are unique
     // size() = number of columns
+    
+    
   Vector<StringVector> rows;
     // StringVector::size() = header.size()
     // Values are trim()'ed
@@ -185,7 +192,8 @@ struct TextTable : Named
     
 
   explicit TextTable (const string &tableFName,
-                      const string &columnSynonymsFName = noString);
+                      const string &columnSynonymsFName = noString,
+                      uint displayPeriod = 0);
     // Input: tableFName: format: [{'#' <comment> <EOL>}* '#'] <header> <EOL> {<row> <EOL>>}*
     //                    empty lines are skipped
     //        columnSynonymsFName: <syn_format>
@@ -204,13 +212,9 @@ public:
   void saveText (ostream &os) const override;    
         
   
-  static bool getDecimals (string s,
-                           bool &hasPoint,
-                           streamsize &decimals);
-    // Return: true => scientific number
   void printHeader (ostream &os) const;
   ColNum col2num_ (const string &columnName) const;
-    // Retuirn: no_index <=> no columnName
+    // Return: no_index <=> no columnName
   ColNum col2num (const string &columnName) const
     { const ColNum i = col2num_ (columnName);
       if (i == no_index)
