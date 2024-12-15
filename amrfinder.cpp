@@ -33,6 +33,8 @@
 * Dependencies: NCBI BLAST, HMMer, libcurl, gunzip (optional)
 *
 * Release changes:
+*                               stxtyper --threads
+*   4.0.7   12/12/2024 PD-5192  StxTyper ver. 1.0.30
 *   4.0.6   12/09/2024 PD-5181  StxTyper ver. 1.0.28
 *   4.0.5   11/13/2024 PD-5175  prohibit --database_version and -p or -n
 *   4.0.4   10/29/2024          colorizeDir()
@@ -339,7 +341,7 @@ using namespace GFF_sp;
 const string dataVer_min ("2024-08-14.2");
   // 3.12: "2023-12-15.2"
   // 3.11: "2021-02-18.1"  
-const string stxTyperVersion ("1.0.28");  
+const string stxTyperVersion ("1.0.30");  
 
 
 
@@ -1182,6 +1184,7 @@ struct ThisApplication final : ShellApplication
 	  {
   		stderr. section ("Running stxtyper");
  			const Chronometer_OnePass_cerr cop ("stxtyper");
+ 			ASSERT (threads_max >= 1);
 			exec (  fullProg ("stxtyper") 
 			      + "  -n " + dna_flat 
 			      + prependS (blast_bin, "  --blast_bin ") 
@@ -1191,6 +1194,7 @@ struct ThisApplication final : ShellApplication
 			      + ifS (print_node, "  --print_node")
 			      + "  -q "  // ifS (getVerbosity () == -1, "  -q")
 			      + ifS (qc_on, "  --debug")
+			      + "  --threads " + to_string (threads_max )
 			      + " > " + logFName
 			      , logFName
 			      );

@@ -297,7 +297,7 @@ string getStack ()
   char** strings = backtrace_symbols (buffer, nptrs);
   if (strings /*&& ! which ("addr2line"). empty ()*/) 
   {
-    FOR_REV_END (int, i, 1, nptrs)
+    FOR_START /*FOR_REV_END*/ (int, i, 1, nptrs)  // From top to bottom of the stack
       s += string (strings [i]) + "\n";  
     s += "Use: addr2line -f -C -e " + programArgs [0] + "  -a <address>";
   //free (strings);
@@ -1918,6 +1918,7 @@ void Root::saveFile (const string &fName) const
 
 
 
+#if 0
 void Root::trace (ostream& os,
                   const string& title) const
 { 
@@ -1927,6 +1928,7 @@ void Root::trace (ostream& os,
   os << title << ": ";
   saveText (os);
 }
+#endif
 
 
 

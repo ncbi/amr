@@ -116,7 +116,7 @@ constexpr size_t no_index = numeric_limits<size_t>::max ();
 static_assert ((size_t) 0 - 1 == no_index);
 
 constexpr double NaN = numeric_limits<double>::quiet_NaN ();  
-
+  
 
 
 // Global variables
@@ -163,6 +163,11 @@ void beep ();
   // Requires: !isRedirected()
   //           SHLVL = 1 ??
     
+
+
+template <typename T> 
+  inline bool isNan (T x)
+    { return x != x; }
 
 
 // Comparison templates
@@ -465,10 +470,14 @@ template <typename T /*container*/>
 typedef  map<string/*key*/,string/*value*/>  KeyValue;
 
 inline string find (const KeyValue& kv,
-                    const string& key)
+                    const string& key,
+                    bool force)
   { const auto& it = kv. find (key);
     if (it == kv. end ())
+    { if (force)
+        return key;
       throw runtime_error ("Key \"" + key + "\" is not found");
+    }
     return it->second;
   }
 
@@ -2087,15 +2096,17 @@ public:
       saveText (oss);
       return oss. str ();
     }
+#if 0
   void trace (ostream& os,
               const string& title) const;
+#endif
   virtual void saveXml (Xml::File& /*f*/) const 
     { throwf ("Root::saveXml() is not implemented"); }
   virtual Json* toJson (JsonContainer* /*parent_arg*/,
                         const string& /*name_arg*/) const
     { throwf ("Root::toJson() is not implemented"); }
 	virtual bool empty () const
-	  { return true; }
+	  { throwf ("Root::empty() is not implemented"); }
   virtual void clear ()
     { throwf ("Root::clear() is not implemented"); }
     // Postcondition: empty()
