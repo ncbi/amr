@@ -108,7 +108,7 @@ struct BlastnAlignment final : Alignment
     }
   void report (TsvOut& td,
                bool mutationAll) const 
-    { const string na ("NA");
+    { //const string na ("NA");
       for (const SeqChange& seqChange : seqChanges)
       {
         VectorPtr<AmrMutation> mutations (seqChange. mutations);

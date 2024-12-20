@@ -58,7 +58,6 @@ namespace
 constexpr bool useCrossOrigin = false;  // GPipe: true
 constexpr double frac_delta = 1e-5;  
 constexpr size_t domain_min = 20;  // aa
-const string na ("NA");
   
 bool ident_min_user = false;
 bool equidistant = false;
@@ -656,7 +655,7 @@ struct BlastAlignment final : Alignment
       	      td << input_name;;
             td << (targetProt ? nvl(targetName, na) : na);  // PD-2534
   	        if (cdsExist)
-  	          td << (empty () ? na : (cds. contig. empty () ? nvl (targetName,na)  : cds. contig))
+  	          td << (empty () ? na : (cds. contig. empty () ? nvl (targetName, na)  : cds. contig))
   	             << (empty () ? 0  : (cds. contig. empty () ? targetStart : cds. start) + 1)
   	             << (empty () ? 0  : (cds. contig. empty () ? targetEnd  : cds. stop))
   	             << (empty () ? na : (cds. contig. empty () ? (targetStrand ? "+" : "-") : (cds. strand ? "+" : "-")));

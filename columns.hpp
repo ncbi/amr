@@ -67,3 +67,4 @@ constexpr const char* hierarchyNode_colName = "Hierarchy node";
 // PD-5155
 constexpr const char* fusion_infix = "::";  // was: "/"
   
+constexpr const char* na ("NA");
