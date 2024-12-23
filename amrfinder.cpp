@@ -33,7 +33,8 @@
 * Dependencies: NCBI BLAST, HMMer, libcurl, gunzip (optional)
 *
 * Release changes:
-*   4.0.9   12/20/2024 PD-5201  SrxTyper ver. 1.0.32
+*   4.0.10  12/23/2024 PD-5205  StxTyper ver. 1.0.33
+*   4.0.9   12/20/2024 PD-5201  StxTyper ver. 1.0.32
 *   4.0.8   12/18/2024 PD-5181  StxTyper ver. 1.0.31
 *           12/14/2024 PD-5191  stxtyper --threads
 *   4.0.7   12/12/2024 PD-5192  StxTyper ver. 1.0.30
@@ -343,7 +344,7 @@ using namespace GFF_sp;
 const string dataVer_min ("2024-08-14.2");
   // 3.12: "2023-12-15.2"
   // 3.11: "2021-02-18.1"  
-const string stxTyperVersion ("1.0.32");  
+const string stxTyperVersion ("1.0.33");  
 
 
 
