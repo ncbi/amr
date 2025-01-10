@@ -154,7 +154,7 @@ bool process (const string &id,
 
 
 
-struct ThisApplication : Application
+struct ThisApplication final : Application
 {
   ThisApplication ()
     : Application ("Extract sequences out of a FASTA file")

@@ -197,7 +197,7 @@ void fetchAMRFile (Curl &curl,
 	
 // ThisApplication
 
-struct ThisApplication : ShellApplication
+struct ThisApplication final : ShellApplication
 {
   string curMinor;
 

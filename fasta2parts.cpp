@@ -46,7 +46,7 @@ namespace
 
 
 
-struct ThisApplication : Application
+struct ThisApplication final : Application
 {
   ThisApplication ()
     : Application ("Split the sequences a FASTA file into parts without breaking sequences")

@@ -703,8 +703,14 @@ inline bool isLeftBlank (const string &s,
 
 string pad (const string &s,
             size_t size,
-            ebool right);
+            ebool right,
+            char space = ' ');
   // right: enull - center
+  
+template <typename T>
+  string padNatural (T natural,
+                     size_t size)
+    { return pad (to_string (natural), size, etrue, '0'); }
 
 bool goodName (const string &name);
 
@@ -927,6 +933,13 @@ size_t powInt (size_t a,
                size_t b);
   // Return: a^b
   // Time: O(log(b))
+
+
+
+// Time
+
+string getNow ();
+  // Return: YYYY-MM-DD HH:mm:SS
 
 
 
@@ -4811,6 +4824,7 @@ protected:
     // Temporary directory: ($TMPDIR or "/tmp") + "/" + programName + "XXXXXX"
     // If log is used then tmp is printed in the log file and the temporary files are not deleted 
     // !empty() => useTmp
+    // See https://systemd.io/TEMPORARY_DIRECTORIES/
   mutable KeyValue prog2dir;
   mutable Stderr stderr;
   time_t startTime {0};

@@ -50,7 +50,7 @@ namespace
 
 
 
-struct ThisApplication : Application
+struct ThisApplication final : Application
 {
   ThisApplication ()
     : Application ("Mutate a FASTA file")

@@ -33,6 +33,8 @@
 * Dependencies: NCBI BLAST, HMMer, libcurl, gunzip (optional)
 *
 * Release changes:
+*   4.0.13  01/10/2025 PD-5215  StxTyper ver. 1.0.29 of branch "gpipe_compat"
+*   4.0.12  01/07/2025          tblastn: -db --> -subject
 *   4.0.11  12/23/2024 PD-5205  StxTyper ver. 1.0.34
 *   4.0.10  12/23/2024 PD-5205  StxTyper ver. 1.0.33
 *   4.0.9   12/20/2024 PD-5201  StxTyper ver. 1.0.32
@@ -345,7 +347,7 @@ using namespace GFF_sp;
 const string dataVer_min ("2024-08-14.2");
   // 3.12: "2023-12-15.2"
   // 3.11: "2021-02-18.1"  
-const string stxTyperVersion ("1.0.34");  
+const string stxTyperVersion ("1.0.29");  
 
 
 
@@ -1111,8 +1113,8 @@ struct ThisApplication final : ShellApplication
             else
             {
               ASSERT (blastx == "tblastn");
-        			findProg ("makeblastdb");
-           	  exec (fullProg ("makeblastdb") + " -in " + dna_flat + " -out " + tmp + "/nucl" + "  -dbtype nucl  -logfile " + tmp + "/makeblastdb.log", tmp + "/makeblastdb.log");  
+        	  //findProg ("makeblastdb");
+           	//exec (fullProg ("makeblastdb") + " -in " + dna_flat + " -out " + tmp + "/nucl" + "  -dbtype nucl  -logfile " + tmp + "/makeblastdb.log", tmp + "/makeblastdb.log");  
         			if (threads_max > 1)
         			{
           		  createDirectory (tmp + "/AMRProt_chunk");
@@ -1123,12 +1125,12 @@ struct ThisApplication final : ShellApplication
           		  DirItemGenerator dig (0, tmp + "/AMRProt_chunk", false);
           		  string item;
           		  while (dig. next (item))
-            			th. exec (fullProg ("tblastn") + "  -db " + tmp + "/nucl  -query " + tmp + "/AMRProt_chunk/" + item + "  "
+            			th. exec (fullProg ("tblastn") + /*"  -db " + tmp + "/nucl"*/ "  -subject " + dna_flat + "  -query " + tmp + "/AMRProt_chunk/" + item + "  "
               			        + tblastn_par + " " TBLASTN_FMT "  -out " + tmp + "/tblastn_dir/" + item + " > /dev/null 2> " + tmp + "/tblastn_dir.err/" + item);
           		  tblastnChunks = true;
           	  }
           	  else
-          			exec (fullProg ("tblastn") + "  -db " + tmp + "/nucl  -query " + tmp + "/db/AMRProt.fa  "
+          			exec (fullProg ("tblastn") + /*"  -db " + tmp + "/nucl"*/ "  -subject " + dna_flat + "  -query " + tmp + "/db/AMRProt.fa  "
               			  + tblastn_par + " " TBLASTN_FMT "  -out " + tmp + "/blastx > /dev/null 2> " + tmp + "/tblastn-err", tmp + "/tblastn-err");
             }
           }
@@ -1198,7 +1200,7 @@ struct ThisApplication final : ShellApplication
 			      + ifS (print_node, "  --print_node")
 			      + "  -q "  // ifS (getVerbosity () == -1, "  -q")
 			      + ifS (qc_on, "  --debug")
-			      + "  --threads " + to_string (threads_max )
+			    //+ "  --threads " + to_string (threads_max )  ??
 			      + " > " + logFName
 			      , logFName
 			      );

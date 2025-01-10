@@ -58,7 +58,7 @@ namespace
 	
 // ThisApplication
 
-struct ThisApplication : ShellApplication
+struct ThisApplication final : ShellApplication
 {
   ThisApplication ()
     : ShellApplication ("Index the database for AMRFinder", true, false, true, true)

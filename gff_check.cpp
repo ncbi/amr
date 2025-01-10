@@ -53,7 +53,7 @@ const string noFile ("emptystring");
 
 
 
-struct ThisApplication : Application
+struct ThisApplication final : Application
 {
   ThisApplication ()
     : Application ("Check the correctness of a GFF file. Exit with an error if it is incorrect.")

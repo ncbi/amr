@@ -520,6 +520,24 @@ size_t powInt (size_t a,
 
 
 
+// Time
+
+string getNow ()
+{
+  time_t rawtime;
+  time (& rawtime);
+  const tm* x = localtime (& rawtime);
+  return         padNatural (x->tm_year + 1900, 4) 
+         + "-" + padNatural (x->tm_mon + 1, 2) 
+         + "-" + padNatural (x->tm_mday, 2) 
+         + " " + padNatural (x->tm_hour, 2) 
+         + ":" + padNatural (x->tm_min, 2) 
+         + ":" + padNatural (x->tm_sec, 2);
+}
+
+
+
+
 // string
 
 const string noString;
@@ -638,14 +656,15 @@ void commaize (string &s)
 
 string pad (const string &s,
             size_t size,
-            ebool right)
+            ebool right,
+            char space)
 {
   if (s. size () >= size)
     return s. substr (0, size);
   
   string sp;
   while (sp. size () + s. size () < size)
-    sp += ' ';
+    sp += space;
     
   switch (right)
   {
@@ -4135,9 +4154,7 @@ int Application::run (int argc,
       if (! logFName. empty ())
       {
     		logPtr = new ofstream (logFName, ios_base::app);    		  
-        time_t rawtime;
-        time (& rawtime);
-    		*logPtr << endl << ctime (& rawtime) << "$ " << getCommandLine () << endl;
+    		*logPtr << endl << getNow () << endl << "$ " << getCommandLine () << endl;
       }
     }
 

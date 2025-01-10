@@ -46,7 +46,7 @@ namespace
 
 
 
-struct ThisApplication : Application
+struct ThisApplication final : Application
 {
   ThisApplication ()
     : Application ("Check the correctness of a FASTA file. Exit with an error if it is incorrect. Print the number of sequences, max. sequence length and total sequence length")
