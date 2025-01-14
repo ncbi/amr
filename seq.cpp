@@ -1494,11 +1494,8 @@ PROBABILITY Nucleotide_MonoErrorProb2WildNucleotide (uint        ACGTBNum,
 
 
 
+
 // Dna
-
-//const double Dna::stdMinComplexity = 2.0;  // PAR
-
-
 
 Dna::Dna (Multifasta &fasta,
           size_t reserveLen,
