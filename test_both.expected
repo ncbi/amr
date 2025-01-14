@@ -21,6 +21,6 @@ NA	contig16	1	720	+	nfsA_K141STOP	Escherichia nitrofurantoin resistant NfsA	core
 NA	contig16	1	720	+	nfsA_R15C	Escherichia nitrofurantoin resistant NfsA	core	AMR	POINT	NITROFURAN	NITROFURANTOIN	POINTX	240	240	100.00	99.17	240	WP_089631889.1	nitroreductase NfsA	NA	NA	nfsA
 NA	contig17	1	247	+	ampC_T-14TGT	Escherichia cephalosporin resistant ampC	core	AMR	POINT	BETA-LACTAM	CEPHALOSPORIN	POINTN	247	245	100.00	99.19	247	NZ_CP041538.1:1149245-1149489	ampC/blaEC promoter region	NA	NA	NA
 stxA2a_prot	contig18	279	1238	+	stxA2	Shiga toxin Stx2 subunit A	plus	VIRULENCE	VIRULENCE	STX2	stxA2	EXACTP	319	319	100.00	100.00	319	TJA36680.1	Shiga toxin Stx2 subunit A	NF041702.1	Shiga toxin Stx2 subunit A	stxA2_acd
-NA	contig18	279	1519	+	stx2a_operon	stx2a operon	plus	VIRULENCE	STX_TYPE	STX2	STX2A	COMPLETE	1241			100.00	410	AAS07600.1, AAM90978.1	Shiga toxin stx2a	NA	NA	stxA2a::stxB2a
+NA	contig18	279	1519	+	stx2a_operon	stx2a operon	plus	VIRULENCE	STX_TYPE	STX2	STX2A	COMPLETE	1241	NA	NA	100.00	410	AAS07600.1,AAM90978.1	Shiga toxin stx2a	NA	NA	stxA2a::stxB2a
 stxB2a_prot	contig18	1250	1519	+	stxB2	Shiga toxin Stx2a subunit B	plus	VIRULENCE	VIRULENCE	STX2	stxB2a	EXACTP	89	89	100.00	100.00	89	AAM90978.1	Shiga toxin Stx2a subunit B	NF033660.0	Shiga toxin Stx2 subunit B	stxB2a
 nimIJ_hmm	contigX	1	501	+	nimIJ	NimIJ family 5-nitroimidazole reductase	core	AMR	AMR	NITROIMIDAZOLE	NITROIMIDAZOLE	HMM	166	165	98.18	76.54	162	WP_005812825.1	NimIJ family 5-nitroimidazole reductase	NF000262.1	NimIJ family 5-nitroimidazole reductase	nimIJ
