@@ -1,0 +1,1 @@
+Please see our [wiki instructions on citing AMRFinderPlus](https://github.com/ncbi/amr/wiki#citation) for more information on how to cite AMRFinderPlus. Importantly we ask that you include both the software version and database version in your methods so people can reproduce your results.
