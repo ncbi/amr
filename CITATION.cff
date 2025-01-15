@@ -2,7 +2,7 @@ cff-version: 1.2.0
 title: >-
   AMRFinderPlus identifies antimicrobial resistance genes and point mutations
   plus virulence and stress-resistance genes
-message: 'If you use this software, please see https://github.com/ncbi/amr/wiki#citation for instructions on how to cite this software.
+message: 'If you use this software, please see https://github.com/ncbi/amr/wiki#citation for instructions on how to cite this software.'
 type: software
 authors:
   - family-names: Brover
