@@ -199,4 +199,5 @@ github_binaries:
 
 test: $(DISTFILES) Makefile *.cpp *.hpp *.inc test_dna.fa test_prot.fa test_prot.gff test_dna.fa test_dna.expected test_prot.expected test_both.expected
 	make -C stx test
-	./test_amrfinder.sh
+	./test_amrfinder.sh -n # test the amrfinder in the current directory
+						   # with the test data in the current directory
