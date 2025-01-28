@@ -18,7 +18,7 @@ jobs:
     - name: submodule checkout
       run: git submodule update --init --recursive
     - name: make
-      run: cat version.txt; make
+      run: cat version.txt; make -j -O
     - name: download db
       run: ./amrfinder -u
     - name: Software and DB version
@@ -44,7 +44,7 @@ jobs:
     - name: submodule checkout
       run: git submodule update --init --recursive
     - name: make
-      run: cat version.txt; make
+      run: cat version.txt; make -j -O
     - name: download db
       run: ./amrfinder -u
     - name: Software and DB version
