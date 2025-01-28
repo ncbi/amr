@@ -39,7 +39,7 @@ jobs:
       with:
           name: release-binary
           path: amrfinder_binaries_macos_aarch64_v*.tar.gz
-  macos_x86:
+  macos_x86_64:
     runs-on: macos-13
     steps:
     - uses: actions/checkout@v4
