@@ -7,8 +7,50 @@ on:
     repository_dispatch:
         types: [linux-bioconda-test, install-test]
 jobs:
-  install_and_test:
+  conda_linux_x86_64:
     runs-on: ubuntu-latest
+    steps:
+    - name: When was this run
+      run: date
+    - name: configure conda
+      run: |
+          . $CONDA/bin/activate
+          conda config --add channels defaults
+          conda config --add channels bioconda
+          conda config --add channels conda-forge
+    - name: install AMRFinderPlus
+      run: |
+          . $CONDA/bin/activate
+          conda install --update-deps -c conda-forge -c bioconda -y ncbi-amrfinderplus
+          amrfinder --version
+    - name: download latest AMRFinderPlus database
+      run: |
+          source /usr/share/miniconda/bin/activate
+          echo CONDA_PREFIX = ${CONDA_PREFIX}
+          /usr/share/miniconda/bin/amrfinder --force_update
+    - name: Software and DB version
+      run: |
+          source /usr/share/miniconda/bin/activate
+          amrfinder --database_version
+    - name: download tests
+      run: |
+          BASE_URL=https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/master
+          curl --silent -L \
+             -O ${BASE_URL}/test_dna.fa \
+             -O ${BASE_URL}/test_prot.fa \
+             -O ${BASE_URL}/test_prot.gff \
+             -O ${BASE_URL}/test_both.expected \
+             -O ${BASE_URL}/test_dna.expected \
+             -O ${BASE_URL}/test_dna_mut_all.expected \
+             -O ${BASE_URL}/test_prot.expected \
+             -O ${BASE_URL}/test_amrfinder.sh
+    - name: run tests
+      run: |
+          source /usr/share/miniconda/bin/activate
+          echo CONDA_PREFIX = $CONDA_PREFIX
+          bash ./test_amrfinder.sh path
+  conda_linux_aarch64:
+    runs-on: ubuntu-24.04-arm
     steps:
     - name: When was this run
       run: date

@@ -6,8 +6,57 @@ on:
     repository_dispatch:
         types: [mac-bioconda-test, install-test]
 jobs:
-  build:
+  conda_macos_aarch64:
     runs-on: macos-latest
+    steps:
+    - name: Install conda because built-in conda is borked
+      run: |
+          curl -O https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh
+          bash ./Miniconda3-latest-MacOSX-x86_64.sh -b -p /Users/runner/miniconda3
+    - name: Configure conda
+      run: |
+          source /Users/runner/miniconda3/bin/activate
+          conda init
+          # THIS DOESN"T WORK! Just install miniconda myself
+          # . $CONDA/bin/activate
+          conda config --add channels defaults
+          conda config --add channels bioconda
+          conda config --add channels conda-forge
+          # permissions are messed up on the mac runner
+          # Is this faster than installing miniconda myself?
+          # sudo chown -R 501:20 $CONDA
+          conda update conda
+    - name: Install AMRFinderPlus
+      run: |
+          source /Users/runner/miniconda3/bin/activate
+          conda install --update-deps -c bioconda -c conda-forge -y ncbi-amrfinderplus
+    - name: Download AMRFinderPlus database
+      run: |
+          source /Users/runner/miniconda3/bin/activate
+          /Users/runner/miniconda3/bin/amrfinder -u
+    - name: Software and DB version
+      run: |
+          source /Users/runner/miniconda3/bin/activate
+          amrfinder --database_version
+    - name: Download tests
+      run: |
+          BASE_URL=https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/master
+          curl --silent -L \
+             -O ${BASE_URL}/test_dna.fa \
+             -O ${BASE_URL}/test_prot.fa \
+             -O ${BASE_URL}/test_prot.gff \
+             -O ${BASE_URL}/test_both.expected \
+             -O ${BASE_URL}/test_dna.expected \
+             -O ${BASE_URL}/test_dna_mut_all.expected \
+             -O ${BASE_URL}/test_prot.expected \
+             -O ${BASE_URL}/test_amrfinder.sh
+    - name: Run tests
+      run: |
+          source /Users/runner/miniconda3/bin/activate
+          echo CONDA_PREFIX = $CONDA_PREFIX
+          bash ./test_amrfinder.sh path
+  conda_macos_x86_64:
+    runs-on: macos-13
     steps:
     - name: Install conda because built-in conda is borked
       run: |

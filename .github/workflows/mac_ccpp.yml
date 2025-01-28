@@ -7,12 +7,10 @@ on:
     repository_dispatch:
         types: [mac-compile-test, install-test]
 jobs:
-  build:
-
+  macos_arm:
     runs-on: macos-latest
-    
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: submodule checkout
       run: git submodule update --init --recursive
     - name: prerequisites
@@ -36,8 +34,40 @@ jobs:
       run: |
           make github_binaries
           version=`cat version.txt`
-          mv amrfinder_binaries_v$version.tar.gz amrfinder_binaries_osx_v$version.txt
+          mv amrfinder_binaries_v$version.tar.gz amrfinder_binaries_macos_aarch64_v$version.txt
     - uses: actions/upload-artifact@v3
       with:
           name: release-binary
-          path: amrfinder_binaries_osx_v*.tar.gz
+          path: amrfinder_binaries_macos_aarch64_v*.tar.gz
+  macos_x86:
+    runs-on: macos-13
+    steps:
+    - uses: actions/checkout@v4
+    - name: submodule checkout
+      run: git submodule update --init --recursive
+    - name: prerequisites
+      run: |
+          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
+          brew install blast
+          brew install hmmer
+    - name: make
+      run: make
+    - name: download db
+      run: ./amrfinder -u
+    - name: Software and DB versions
+      run: |
+          cat version.txt
+          ./amrfinder --database_version
+    - name: make test
+      run: make test
+    - name: test for no-overwrite database update (PD-3469 / https://github.com/ncbi/amr/issues/16)
+      run: ./amrfinder -u 2>&1 | fgrep 'Skipping update'
+    - name: make github_binaries
+      run: |
+          make github_binaries
+          version=`cat version.txt`
+          mv amrfinder_binaries_v$version.tar.gz amrfinder_binaries_macos_x86_64_v$version.txt
+    - uses: actions/upload-artifact@v3
+      with:
+          name: release-binary
+          path: amrfinder_binaries_macos_x86_64_v*.tar.gz

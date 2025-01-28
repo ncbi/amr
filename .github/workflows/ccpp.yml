@@ -7,10 +7,8 @@ on:
     repository_dispatch:
         types: [linux-compile-test, install-test]
 jobs:
-  build:
-
+  linux_x86:
     runs-on: ubuntu-latest
-    
     steps:
     - uses: actions/checkout@v3
     - name: prerequisites
@@ -35,4 +33,32 @@ jobs:
       with:
           name: release-binary
           path: amrfinder_binaries_v*.tar.gz
+  arm_x86:
+    runs-on: ubuntu-24.04-arm
+    steps:
+    - uses: actions/checkout@v3
+    - name: prerequisites
+      run: |
+          sudo apt-get update
+          sudo apt-get install -y hmmer ncbi-blast+ git libcurl4-openssl-dev build-essential curl
+    - name: submodule checkout
+      run: git submodule update --init --recursive
+    - name: make
+      run: cat version.txt; make
+    - name: download db
+      run: ./amrfinder -u
+    - name: Software and DB version
+      run: ./amrfinder --database_version
+    - name: make test
+      run: make test
+    - name: test for no-overwrite database update (PD-3469 / https://github.com/ncbi/amr/issues/16)
+      run: ./amrfinder -u 2>&1 | fgrep 'Skipping update'
+    - name: make github_binaries
+      run: |
+        make github_binaries
+        mv amrfinder_binaries_v$version.tar.gz amrfinder_binaries_linux_aarch64_v$version.tar.gz
+    - uses: actions/upload-artifact@v3
+      with:
+          name: release-binary
+          path: amrfinder_binaries_linux_aarch64_v*.tar.gz
 
