@@ -52,28 +52,28 @@ jobs:
   conda_linux_aarch64:
     runs-on: ubuntu-24.04-arm
     steps:
+    - uses: conda-incubator/setup-miniconda@v3
+      with:
+        auto-update-conda: true
     - name: When was this run
       run: date
     - name: configure conda
+      shell: bash -el {0}
       run: |
-          . $CONDA/bin/activate
           conda config --add channels defaults
           conda config --add channels bioconda
           conda config --add channels conda-forge
     - name: install AMRFinderPlus
+      shell: bash -el {0}
       run: |
-          . $CONDA/bin/activate
           conda install --update-deps -c conda-forge -c bioconda -y ncbi-amrfinderplus
           amrfinder --version
     - name: download latest AMRFinderPlus database
-      run: |
-          source /usr/share/miniconda/bin/activate
-          echo CONDA_PREFIX = ${CONDA_PREFIX}
-          /usr/share/miniconda/bin/amrfinder --force_update
+      shell: bash -el {0}
+      run: amrfinder --force_update
     - name: Software and DB version
-      run: |
-          source /usr/share/miniconda/bin/activate
-          amrfinder --database_version
+      shell: bash -el {0}
+      run: amrfinder --database_version
     - name: download tests
       run: |
           BASE_URL=https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/master
@@ -87,7 +87,5 @@ jobs:
              -O ${BASE_URL}/test_prot.expected \
              -O ${BASE_URL}/test_amrfinder.sh
     - name: run tests
-      run: |
-          source /usr/share/miniconda/bin/activate
-          echo CONDA_PREFIX = $CONDA_PREFIX
-          bash ./test_amrfinder.sh path
+      shell: bash -el {0}
+      run: bash ./test_amrfinder.sh path
