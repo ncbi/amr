@@ -56,6 +56,7 @@ jobs:
     - name: make github_binaries
       run: |
         make github_binaries
+        version=`cat version.txt`
         mv amrfinder_binaries_v$version.tar.gz amrfinder_binaries_linux_aarch64_v$version.tar.gz
     - uses: actions/upload-artifact@v3
       with:
