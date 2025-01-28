@@ -19,7 +19,7 @@ jobs:
           brew install blast
           brew install hmmer
     - name: make
-      run: make -j -O
+      run: make -j
     - name: download db
       run: ./amrfinder -u
     - name: Software and DB versions
@@ -51,7 +51,7 @@ jobs:
           brew install blast
           brew install hmmer
     - name: make
-      run: make -j -O
+      run: make -j
     - name: download db
       run: ./amrfinder -u
     - name: Software and DB versions
