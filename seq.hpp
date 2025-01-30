@@ -284,6 +284,8 @@ public:
     { return name. substr (0, getIdSize ()); }
   long /*CSeq_id::TGi*/ getGi () const;
     // If there is no gi then throw
+  void appendId (const string& suffix)
+    { name. insert (getIdSize (), prependS (suffix, "-")); }
   string getDescription (bool trimTaxon) const;
     // Return: between Id and taxon
   size_t getXs () const;

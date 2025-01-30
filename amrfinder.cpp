@@ -33,7 +33,8 @@
 * Dependencies: NCBI BLAST, HMMer, libcurl, gunzip (optional)
 *
 * Release changes:
-*   4.0.15  01/14/2025 PD-5215  StxTu[er ver. 1.0.31 of branch "gpipe_compat"
+*   4.0.16  01/30/2025 PD-5231  StxTyper ver. 1.0.38 of branch "dev"
+*   4.0.15  01/14/2025 PD-5215  StxTyper ver. 1.0.31 of branch "gpipe_compat"
 *   4.0.14  01/14/2025 PD-5215  StxTyper ver. 1.0.30 of branch "gpipe_compat"
 *   4.0.13  01/10/2025 PD-5215  StxTyper ver. 1.0.29 of branch "gpipe_compat"
 *   4.0.12  01/07/2025          tblastn: -db --> -subject
@@ -47,13 +48,13 @@
 *   4.0.5   11/13/2024 PD-5175  prohibit --database_version and -p or -n
 *   4.0.4   10/29/2024          colorizeDir()
 *                               stxtyper/ -> stx/
-*   4.0.3   10/29/2024 PD-5167  Allow AMRFinderPlus to work with older versions of blast
+*   4.0.3   10/29/2024 PD-5167  allow AMRFinderPlus to work with older versions of blast
 *   4.0.2   10/23/2024 PD-5155  StxTyper version 1.0.27
 *   4.0.1   10/22/2024 PD-5155  "::" is a fusion infix for the column "Hierarchy node"
-*                      PD-5085  Change column "Element length" to "Target length"
+*                      PD-5085  change column "Element length" to "Target length"
 *                      PD-5085  StxTyper version 1.0.26
 *   4.0.0   10/22/2024 PD-5156  StxTyper etc.
-*   3.13.3  09/11/2024          Instruction for -gff: "Locations are in the --nucleotide file."
+*   3.13.3  09/11/2024          instruction for -gff: "Locations are in the --nucleotide file."
 *                               StxTyper version 1.0.25
 *   3.13.2  08/16/2024 PD-5085  column names to match MicroBIGG-E
 *   3.13.1  08/14/2024 PD-5084  AmrMutation(geneMutation_std,geneMutation_reported)
@@ -349,7 +350,7 @@ using namespace GFF_sp;
 const string dataVer_min ("2024-08-14.2");
   // 3.12: "2023-12-15.2"
   // 3.11: "2021-02-18.1"  
-const string stxTyperVersion ("1.0.31");  
+const string stxTyperVersion ("1.0.38");  
 
 
 

@@ -1259,7 +1259,7 @@ string list2str (const List<string> &strList,
     ...
 */
 template <typename T>
-  struct Iter : Nocopy
+  struct Iter final : Nocopy
   {
   private:
     T& t;
