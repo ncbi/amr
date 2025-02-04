@@ -500,7 +500,7 @@ size_t nuc2num (char wildNucleotide)
   }  
   if (isAmbigNucl (c))
     return 4;
-  NEVER_CALL;
+  throw runtime_error (strQuote (string (1, wildNucleotide)) + " is not a nucleotide");
 }
 
 
