@@ -36,7 +36,7 @@ jobs:
   linux-arm64:
     runs-on: ubuntu-24.04-arm
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: prerequisites
       run: |
           sudo apt-get update
