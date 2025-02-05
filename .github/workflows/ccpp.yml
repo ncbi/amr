@@ -10,7 +10,7 @@ jobs:
   linux_x86:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: prerequisites
       run: |
           sudo apt-get update
@@ -29,7 +29,7 @@ jobs:
       run: ./amrfinder -u 2>&1 | fgrep 'Skipping update'
     - name: make github_binaries
       run: make github_binaries
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
           name: release-binary
           path: amrfinder_binaries_v*.tar.gz
