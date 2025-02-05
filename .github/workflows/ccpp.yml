@@ -58,7 +58,7 @@ jobs:
         make github_binaries
         version=`cat version.txt`
         mv amrfinder_binaries_v$version.tar.gz amrfinder_binaries_linux_aarch64_v$version.tar.gz
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
           name: release-binary
           path: amrfinder_binaries_linux_aarch64_v*.tar.gz
