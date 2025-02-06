@@ -116,4 +116,5 @@ then
     exit 1
 else
     echo "${green}ok: all $TESTS amrfinder tests passed ${reset}"
+    echo "Success!"
 fi
