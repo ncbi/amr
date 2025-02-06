@@ -60,6 +60,6 @@ jobs:
         mv amrfinder_binaries_v$version.tar.gz amrfinder_binaries_linux_aarch64_v$version.tar.gz
     - uses: actions/upload-artifact@v4
       with:
-          name: release-binary
+          name: release-binary-arm
           path: amrfinder_binaries_linux_aarch64_v*.tar.gz
 
