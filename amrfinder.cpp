@@ -33,6 +33,7 @@
 * Dependencies: NCBI BLAST, HMMer, libcurl, gunzip (optional)
 *
 * Release changes:
+*   4.0.19  02/06/2025 PD-5238  "stxtyper --threads" is re-enabled
 *   4.0.18  02/04/2025 PD-5231  StxTyper ver. 1.0.40 of branch "dev"
 *   4.0.17  01/31/2025 PD-5231  StxTyper ver. 1.0.39 of branch "dev"
 *   4.0.16  01/30/2025 PD-5231  StxTyper ver. 1.0.38 of branch "dev"
@@ -1205,7 +1206,7 @@ struct ThisApplication final : ShellApplication
 			      + ifS (print_node, "  --print_node")
 			      + "  -q "  // ifS (getVerbosity () == -1, "  -q")
 			      + ifS (qc_on, "  --debug")
-			    //+ "  --threads " + to_string (threads_max )  ??
+			      + "  --threads " + to_string (threads_max )  
 			      + " > " + logFName
 			      , logFName
 			      );
