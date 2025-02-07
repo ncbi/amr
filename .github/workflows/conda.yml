@@ -48,7 +48,7 @@ jobs:
       run: |
           source /usr/share/miniconda/bin/activate
           echo CONDA_PREFIX = $CONDA_PREFIX
-          bash ./test_amrfinder.sh path
+          bash ./test_amrfinder.sh -p
   conda_linux_aarch64:
     runs-on: ubuntu-24.04-arm
     steps:
@@ -88,4 +88,4 @@ jobs:
              -O ${BASE_URL}/test_amrfinder.sh
     - name: run tests
       shell: bash -el {0}
-      run: bash ./test_amrfinder.sh path
+      run: bash ./test_amrfinder.sh -p
