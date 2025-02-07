@@ -54,7 +54,7 @@ jobs:
       run: |
           source /Users/runner/miniconda3/bin/activate
           echo CONDA_PREFIX = $CONDA_PREFIX
-          bash ./test_amrfinder.sh path
+          bash ./test_amrfinder.sh -p 
   conda_macos_x86_64:
     runs-on: macos-13
     steps:
@@ -103,4 +103,4 @@ jobs:
       run: |
           source /Users/runner/miniconda3/bin/activate
           echo CONDA_PREFIX = $CONDA_PREFIX
-          bash ./test_amrfinder.sh path
+          bash ./test_amrfinder.sh -p
