@@ -27,10 +27,12 @@ if [ "$TERM" == "" ] || [ "$TERM" == "dumb" ] || [ ! -t 1 ]
 then
     green='' # no colors
     red=''
+    bold=''
     reset=''
 else
     green=`tput setaf 2`  # Set green foreground color (code 2)
     red=`tput setaf 1`    # Set red foreground color (code 1)
+    bold=`tput bold`
     reset=`tput sgr0`     # Reset color to default
 fi
 
@@ -116,5 +118,5 @@ then
     exit 1
 else
     echo "${green}ok: all $TESTS amrfinder tests passed ${reset}"
-    echo "Success!"
+    echo "${green}${bold}Success!${reset}"
 fi
