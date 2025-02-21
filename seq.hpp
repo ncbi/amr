@@ -388,7 +388,7 @@ uchar wild2nucleotides (char wildNucleotide,
   // Output: acgtb []
   // Return: Number of 1's in acgtb []; 0..5
   //         |WildNucleotide|, "Degree of ambiguity"
-  // Requires: WildNucleotide in extDnaAlphabet + '-' + ' '
+  // Requires: wildNucleotide in extDnaAlphabet + '-' + ' '
 
 char nucleotides2wild (const bool acgtb [5]);
   // Return: in extDnaAlphabet + '-'; if empty set then ' '
@@ -515,6 +515,9 @@ struct Dna : Seq
     { return ! strchr (dnaAlphabet, c); }
   double getComplexityInt (size_t start, 
                            size_t end) const final;
+    // Return: entropy of dinucleotides
+  size_t monoNuc2n (size_t repeat_min);
+    // Return: number of nucleotides converted to 'n'
 #if 0
   void PrintHTML (bool        UpperCase,
                   PHRED_SCORE MinGoodQual) const;

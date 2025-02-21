@@ -893,22 +893,19 @@ uchar wild2nucleotides (char wildNucleotide,
   g = false;
   t = false;
 
-
+  // acgtb[4]
   if (wildNucleotide == ' ')
   {
     acgtb [4] = false;
     return 0;
   }
-
-
   if (wildNucleotide == '-')
   {
     acgtb [4] = true;
     return 1;
   }
-
-
   acgtb [4] = isUpper (wildNucleotide);
+  
   switch (toLower (wildNucleotide))
     {
       case 'a': a = true;
@@ -1547,6 +1544,52 @@ double Dna::getComplexityInt (size_t start,
   ASSERT (s >= 0);
 
   return s;
+}
+
+
+
+size_t Dna::monoNuc2n (size_t repeat_min)
+{
+  size_t n = 0;
+  
+  size_t acgt_size [4] = {0, 0, 0, 0};
+  {
+    bool acgtb [5];
+    FFOR (size_t, i, seq. size ())
+    {
+      wild2nucleotides (seq [i], acgtb);
+      FOR (size_t, j, 4)
+      {
+        size_t& len = acgt_size [j];
+        if (acgtb [j])
+          len++;
+        else
+        {
+          if (len >= repeat_min)
+          {
+            ASSERT (i >= len);
+            FOR_START (size_t, k, i - len, i)
+              seq [k] = 'n';
+            n += len;
+          }
+          len = 0;
+        }
+      }
+    }
+  }
+  FOR (size_t, j, 4)
+  {
+    size_t& len = acgt_size [j];
+    if (len >= repeat_min)
+    {
+      ASSERT (seq. size () >= len);
+      FOR_START (size_t, k, seq. size () - len, seq. size ())
+        seq [k] = 'n';
+      n += len;
+    }
+  }
+  
+  return n;
 }
 
 

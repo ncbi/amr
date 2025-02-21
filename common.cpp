@@ -1316,6 +1316,7 @@ void createDirectory (const string &dirName)
 
 
 
+#if 0
 void removeDirectory (const string &dirName)
 {
   RawDirItemGenerator dig (0, dirName, false);
@@ -1343,6 +1344,7 @@ void removeDirectory (const string &dirName)
   if (rmdir (dirName. c_str ()))
     throw runtime_error (FUNC "Cannot remove directory " + strQuote (dirName));
 }
+#endif
 
 
 
@@ -2703,8 +2705,12 @@ Token TokenInput::getXmlText ()
           n = '<';
         else if (ampToken. isName ("gt"))
           n = '>';
+        else if (ampToken. isName ("apos"))
+          n = '\''; 
+        else if (ampToken. isName ("quot"))
+          n = '\"'; 
         else
-          ci. error ("Unknown XML &-symbol: " + strQuote (ampToken. name));
+          ci. error ("Unknown XML &-symbol: " + strQuote (ampToken. name), false);
       }
       get (';');
   	}
@@ -4285,7 +4291,7 @@ void ShellApplication::initVar ()
   stderr. quiet = getQuiet ();
 
   startTime = time (NULL);
-  stderr << "Running: " << getCommandLine () << '\n';
+  stderr << "Running: " << colorize_raw (getCommandLine (), Color::yellow, false, ! isRedirected (cerr)) << '\n';  
 
   // threads_max
   if (threadsUsed)
