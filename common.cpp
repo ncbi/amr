@@ -2632,110 +2632,124 @@ Token TokenInput::getXmlText ()
 
 
   Token t;
-  t. tp = ci. tp;
-  size_t htmlTags = 0;
-  bool prevSlash = false;
-	for (;;)
-	{ 
-    // break
-	  char c = ci. get (); 
-		if (ci. eof)
-	    ci. error ("XML text is not finished: end of file\n" + t. name, false);
-	  if (c == '<')
-	  {
-	    const char nextChar = getNextChar (true);
-	    if (nextChar == '/')
-	    {
-	      if (htmlTags)
-	        htmlTags--;
-	      else
-	        break;
-	    }
-	    else if (   nextChar != '?' 
-	             && nextChar != '!' 
-	            )
-	      htmlTags++;
-	  }
-	  else if (c == '>')
-	    if (prevSlash && htmlTags)
-	      htmlTags--;
+  try
+  {
+    t. tp = ci. tp;
+    size_t htmlTags = 0;
+    bool prevSlash = false;
+  	for (;;)
+  	{ 
+      // break
+  	  char c = ci. get (); 
+  		if (ci. eof)
+  	    ci. error ("XML text is not finished: end of file\n" + t. name, false);
+  	  if (c == '<')
+  	  {
+  	    const char nextChar = getNextChar (true);
+  	    if (nextChar == '/')
+  	    {
+  	      if (htmlTags)
+  	        htmlTags--;
+  	      else
+  	        break;
+  	    }
+  	    else if (   nextChar != '?' 
+  	             && nextChar != '!' 
+  	            )
+  	      htmlTags++;
+  	  }
+  	  else if (c == '>')
+  	    if (prevSlash && htmlTags)
+  	      htmlTags--;
 
-    // Escaped character
-    int n = c;
-    if (n < 0)
-      n += 256;
-  	if (c == '&')
-  	{
-      if (ci. get () == '#')  // Number
-      {
-        if (ci. get () == 'x')
+      // Escaped character
+      int n = c;
+      if (n < 0)
+        n += 256;
+    	if (c == '&')
+    	{
+        if (ci. get () == '#')  // Number
         {
-          static const string err (" of an escaped hexadecimal of XML text"); 
-          c = ci. get ();
-          if (ci. eof)
-            ci. error ("First digit" + err + ": end of file", false);
-          if (! isHex (c))
-            ci. error ("Digit" + err);
-          const uchar uc = uchar (hex2uchar (c) * 16);
-          c = ci. get ();
-          if (ci. eof)
-            ci. error ("Second digit" + err + ": end of file", false);
-          if (! isHex (c))
-            ci. error ("Second digit" + err);
-          n = uc + hex2uchar (c);
+          if (ci. get () == 'x')
+          {
+            static const string err (" of an escaped hexadecimal of XML text"); 
+            n = 0;
+            size_t i = 0;
+            for (;;)
+            {
+              c = ci. get ();
+              i++;
+              if (ci. eof)
+                ci. error ("Digit #" + to_string (i) + err + ": end of file", false);
+              if (c == ';')
+              {
+                ci. unget ();
+                break;
+              }
+              if (! isHex (c))
+                ci. error ("Digit" + err);
+              if (i > 4)  // PAR
+                ci. error ("Too long character" + err);  // Unicode ??!
+              n = n * 16 + hex2uchar (c);
+            }
+          }
+          else
+          {
+            ci. unget ();
+            const Token ampToken (get ());
+            if (ampToken. type != Token::eInteger)
+              ci. error ("Number after XML &");
+            if (ampToken. n < 0)
+              ci. error ("Character number after XML &");
+            n = (int) ampToken. n;
+          }
         }
         else
         {
           ci. unget ();
           const Token ampToken (get ());
-          if (ampToken. type != Token::eInteger)
-            ci. error ("Number after XML &");
-          if (ampToken. n < 0)
-            ci. error ("Character number after XML &");
-          n = (int) ampToken. n;
+          if (ampToken. isName ("amp"))
+            n = '&';
+          else if (ampToken. isName ("lt"))
+            n = '<';
+          else if (ampToken. isName ("gt"))
+            n = '>';
+          else if (ampToken. isName ("apos"))
+            n = '\''; 
+          else if (ampToken. isName ("quot"))
+            n = '\"'; 
+          else
+            ci. error ("Unknown XML &-symbol: " + strQuote (ampToken. name), false);
         }
-      }
+        get (';');
+    	}
+
+      // t.name
+      QC_ASSERT (n > 0);
+  	  if (nonPrintable (n))
+  			t. name += nonPrintable2str ((char) n);
       else
       {
-        ci. unget ();
-        const Token ampToken (get ());
-        if (ampToken. isName ("amp"))
-          n = '&';
-        else if (ampToken. isName ("lt"))
-          n = '<';
-        else if (ampToken. isName ("gt"))
-          n = '>';
-        else if (ampToken. isName ("apos"))
-          n = '\''; 
-        else if (ampToken. isName ("quot"))
-          n = '\"'; 
+        if (isChar (n))
+  		    t. name += char (n);
         else
-          ci. error ("Unknown XML &-symbol: " + strQuote (ampToken. name), false);
+          t. name += "&#" + to_string (n) + ";";
       }
-      get (';');
+
+  		prevSlash = (c == '/');		  
   	}
+  	
 
-    // t.name
-    QC_ASSERT (n > 0);
-	  if (nonPrintable (n))
-			t. name += nonPrintable2str ((char) n);
+  	trim (t. name);
+  	if (! t. name. empty ())
+      t. type = Token::eText;  
     else
-    {
-      if (isChar (n))
-		    t. name += char (n);
-      else
-        t. name += "&#" + to_string (n) + ";";
-    }
-
-		prevSlash = (c == '/');		  
-	}
-	
-
-	trim (t. name);
-	if (! t. name. empty ())
-    t. type = Token::eText;  
-  else
-    { ASSERT (t. empty ()); }
+      { ASSERT (t. empty ()); }
+  }
+  catch (const exception &e)
+  {
+    throw runtime_error ("Previous text:\n" + t. name + "\n" + e. what ());
+  }
 	
 
   return t;
@@ -4063,21 +4077,31 @@ int Application::run (int argc,
           	else
           	{
           		if (s1. size () != 1) 
-                throw runtime_error ("Single character expected: " + strQuote (s1) + "\n\n" + getInstruction (false));
+                throw runtime_error ("Single character is expected: " + strQuote (s1) + "\n\n" + getInstruction (false));
             }
           else
           	name = s1;
 
           if (name == helpS || (name. empty () && c == helpS [0] && gnu))
           {
-	          const bool screen = ! isRedirected (cout);
-            cout << getHelp (screen) << getDocumentation (screen) << getUpdates (screen) << endl;
-            return 0;
+            if (programArgs. size () > 2) 
+              throw runtime_error ("Single keyword " + strQuote (helpS) + " is expected\n\n" + getInstruction (false));
+            else
+            {
+  	          const bool screen = ! isRedirected (cout);
+              cout << getHelp (screen) << getDocumentation (screen) << getUpdates (screen) << endl;
+              return 0;
+            }
           }
           if (name == versionS || (name. empty () && c == versionS [0] && gnu))
           {
-            cout << version << endl;
-            return 0;
+            if (programArgs. size () > 2) 
+              throw runtime_error ("Single keyword " + strQuote (versionS) + " is expected\n\n" + getInstruction (false));
+            else
+            {
+              cout << version << endl;
+              return 0;
+            }
           }
           
           // key

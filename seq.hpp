@@ -580,11 +580,11 @@ struct Dna : Seq
 	                  bool allowExtraStopCodon) const;
 	  // Return: if !trunc3 && hasStopCodon then no '*'
 	  // Invokes: makePeptide(1,gencode,true,true)
-  Vector<Peptide> getOrfs (Frame frame,
-                           Gencode gencode,
-                           size_t len_min) const;
-    // Input: len_min: min. Peptide length without 'X'
-    // Return: Peptide: from '*' to '*'
+  Vector<Peptide> getPeptides (Frame frame,
+                               Gencode gencode,
+                               size_t len_min) const;
+    // Input: len_min: min. Peptide::seq.size()
+    // Return: Peptide: from start codon to '*'
 #if 0
   bool ExistsPeptide () const;
     // Return: true if there is peptide w/o an internal stop codon in some frame
