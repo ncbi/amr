@@ -27,12 +27,10 @@ if [ "$TERM" == "" ] || [ "$TERM" == "dumb" ] || [ ! -t 1 ]
 then
     green='' # no colors
     red=''
-    bold=''
     reset=''
 else
     green=`tput setaf 2`  # Set green foreground color (code 2)
     red=`tput setaf 1`    # Set red foreground color (code 1)
-    bold=`tput bold`
     reset=`tput sgr0`     # Reset color to default
 fi
 
@@ -108,6 +106,12 @@ FAILURES=$(( $? + $FAILURES ))
 test_input_file "test_both" "-n test_dna.fa -g test_prot.gff -p test_prot.fa -O Escherichia"
 FAILURES=$(( $? + $FAILURES ))
 
+# gzipped input
+# gzip -c test_prot.fa > test_prot.fa.gz 
+# gzip -c test_dna.fa > test_dna.fa.gz
+# gzip -c test_prot.gff > test_prot.gff.gz
+# test_input_file "test_prot" "-n test_dna.fa.gz -p test_prot.fa.gz -g test_prot.gff.gz --protein_output test_prot.gz.fa --nucleotide_output test_dna.gz.out"
+
 echo "Done."
 echo "$TEST_TEXT"
 echo ""
@@ -118,5 +122,5 @@ then
     exit 1
 else
     echo "${green}ok: all $TESTS amrfinder tests passed ${reset}"
-    echo "${green}${bold}Success!${reset}"
+    echo "Success!"
 fi
