@@ -78,6 +78,7 @@
 #include <iomanip>
 #include <memory>
 #include <algorithm>
+#include <filesystem>
 
 #include <thread>
 #ifdef _MSC_VER
@@ -153,6 +154,16 @@ void errorExitStr (const string &msg);
 [[noreturn]] void throwf (const string &s); 
   // For debugger: should not be inline
   // Invokes: throw logic_error
+
+inline void reportException (const string &msg,
+                             const exception &e,
+                             bool force)
+  { const string s (msg + ": " + e. what ());
+    if (force)
+      cerr << s << endl;
+    else
+      throw runtime_error (s);
+  }    	    	
 
 
 void sleepNano (long nanoSec);
@@ -1408,7 +1419,8 @@ void copyText (const string &inFName,
   
   void createDirectory (const string &dirName);
 
-  void removeDirectory (const string &dirName);
+  inline void removeDirectory (const string &dirName)
+    { std::filesystem::remove_all (dirName); }
     // With its contents
                         
   string makeTempDir ();
@@ -3296,6 +3308,17 @@ template <typename Key /*VirtNamed*/>
 	    }
 	    return vec;
     }
+
+
+inline void aggregate (string& aggregation,
+                       const string &addition,
+                       char aggr_sep)
+  { StringVector vec (aggregation, aggr_sep, true);
+    vec << addition;
+    vec. sort ();
+    vec. uniq ();
+    aggregation = vec. toString (string (1, aggr_sep));
+  }
 
 
 

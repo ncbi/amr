@@ -133,6 +133,7 @@ void TextTable::Header::qc () const
 
 TextTable::TextTable (const string &tableFName,
                       const string &columnSynonymsFName,
+                      bool headerP,
                       uint displayPeriod)
 : Named (tableFName)
 {  
@@ -163,10 +164,21 @@ TextTable::TextTable (const string &tableFName,
           header << std::move (Header (std::move (s)));
       }
       ASSERT (! header. empty ());
-      if (! thisPound)
+      if (headerP)
       {
-        if (! pound)
-          dataExists = f. nextLine ();
+        if (! thisPound)
+        {
+          if (! pound)
+            dataExists = f. nextLine ();
+          break;
+        }
+      }
+      else
+      {
+        FFOR (size_t, i, header. size ())
+          header [i]. name = to_string (i + 1);
+        dataExists = true;
+        pound = true;
         break;
       }
     }
@@ -649,13 +661,7 @@ void TextTable::merge (RowNum toRowNum,
     if (to [i]. empty ())
       to [i] = from [i];
     else
-    {
-      StringVector vec (to [i], aggr_sep, true);
-      vec << from [i];
-      vec. sort ();
-      vec. uniq ();
-      to [i] = vec. toString (string (1, aggr_sep));
-    }
+      aggregate (to [i], from [i], aggr_sep);
   }
 }
 

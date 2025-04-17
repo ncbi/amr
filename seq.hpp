@@ -388,7 +388,7 @@ uchar wild2nucleotides (char wildNucleotide,
   // Output: acgtb []
   // Return: Number of 1's in acgtb []; 0..5
   //         |WildNucleotide|, "Degree of ambiguity"
-  // Requires: WildNucleotide in extDnaAlphabet + '-' + ' '
+  // Requires: wildNucleotide in extDnaAlphabet + '-' + ' '
 
 char nucleotides2wild (const bool acgtb [5]);
   // Return: in extDnaAlphabet + '-'; if empty set then ' '
@@ -515,6 +515,9 @@ struct Dna : Seq
     { return ! strchr (dnaAlphabet, c); }
   double getComplexityInt (size_t start, 
                            size_t end) const final;
+    // Return: entropy of dinucleotides
+  size_t monoNuc2n (size_t repeat_min);
+    // Return: number of nucleotides converted to 'n'
 #if 0
   void PrintHTML (bool        UpperCase,
                   PHRED_SCORE MinGoodQual) const;
@@ -577,11 +580,11 @@ struct Dna : Seq
 	                  bool allowExtraStopCodon) const;
 	  // Return: if !trunc3 && hasStopCodon then no '*'
 	  // Invokes: makePeptide(1,gencode,true,true)
-  Vector<Peptide> getOrfs (Frame frame,
-                           Gencode gencode,
-                           size_t len_min) const;
-    // Input: len_min: min. Peptide length without 'X'
-    // Return: Peptide: from '*' to '*'
+  Vector<Peptide> getPeptides (Frame frame,
+                               Gencode gencode,
+                               size_t len_min) const;
+    // Input: len_min: min. Peptide::seq.size()
+    // Return: Peptide: from start codon to '*'
 #if 0
   bool ExistsPeptide () const;
     // Return: true if there is peptide w/o an internal stop codon in some frame

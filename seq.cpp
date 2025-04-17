@@ -893,22 +893,19 @@ uchar wild2nucleotides (char wildNucleotide,
   g = false;
   t = false;
 
-
+  // acgtb[4]
   if (wildNucleotide == ' ')
   {
     acgtb [4] = false;
     return 0;
   }
-
-
   if (wildNucleotide == '-')
   {
     acgtb [4] = true;
     return 1;
   }
-
-
   acgtb [4] = isUpper (wildNucleotide);
+  
   switch (toLower (wildNucleotide))
     {
       case 'a': a = true;
@@ -1551,6 +1548,52 @@ double Dna::getComplexityInt (size_t start,
 
 
 
+size_t Dna::monoNuc2n (size_t repeat_min)
+{
+  size_t n = 0;
+  
+  size_t acgt_size [4] = {0, 0, 0, 0};
+  {
+    bool acgtb [5];
+    FFOR (size_t, i, seq. size ())
+    {
+      wild2nucleotides (seq [i], acgtb);
+      FOR (size_t, j, 4)
+      {
+        size_t& len = acgt_size [j];
+        if (acgtb [j])
+          len++;
+        else
+        {
+          if (len >= repeat_min)
+          {
+            ASSERT (i >= len);
+            FOR_START (size_t, k, i - len, i)
+              seq [k] = 'n';
+            n += len;
+          }
+          len = 0;
+        }
+      }
+    }
+  }
+  FOR (size_t, j, 4)
+  {
+    size_t& len = acgt_size [j];
+    if (len >= repeat_min)
+    {
+      ASSERT (seq. size () >= len);
+      FOR_START (size_t, k, seq. size () - len, seq. size ())
+        seq [k] = 'n';
+      n += len;
+    }
+  }
+  
+  return n;
+}
+
+
+
 #if 0
 Dna::Dna (const Dna &dna)
 : Seq (dna)
@@ -1985,7 +2028,10 @@ Peptide Dna::makePeptide (Frame frame,
   }
   ASSERT (peptide. seq [aaSeqLen] == '\0');
   
-  if (! peptide. seq. empty () && firstStartCodon2M && isLower (peptide. seq [0]))
+  if (   ! peptide. seq. empty () 
+      && firstStartCodon2M 
+      && isLower (peptide. seq [0])
+     )
   	peptide. seq [0] = 'm';
 
   return peptide;
@@ -2043,9 +2089,9 @@ Peptide Dna::cds2prot (Gencode gencode,
 
 
 
-Vector<Peptide> Dna::getOrfs (Frame frame,
-                              Gencode gencode,
-                              size_t len_min) const
+Vector<Peptide> Dna::getPeptides (Frame frame,
+                                  Gencode gencode,
+                                  size_t len_min) const
 {
   ASSERT (isFrame (frame));
   ASSERT (len_min);
@@ -2059,44 +2105,41 @@ Vector<Peptide> Dna::getOrfs (Frame frame,
   size_t start = (size_t) abs (frame) - 1;
   size_t stop = 0;
   string pepSeq;
-  size_t len = 0;
+  
+  const auto proc = [&] () 
+    {
+      if (pepSeq. size () < len_min)
+        return;
+      if (frame < 0)
+      {
+        const size_t start_ = start;
+        start = seq. size () - stop;
+        stop  = seq. size () - start_;
+      }
+      // ";partial=11" (Prodigal notation)
+      peps << std::move (Peptide (getId () + ":" + to_string (start + 1) + ".." + to_string (stop), pepSeq, false));      
+    };
+  
   for (size_t i = start; i + 2 < dnaSeq. size (); i += 3)
   {
-    const char aa = codon2aa (& dnaSeq [i], gencode, false);
+    const char aa = codon2aa (& dnaSeq [i], gencode, true);
     stop = i;
     if (aa == *terminator)
     {
-      if (len >= len_min)
-      {
-        if (frame < 0)
-        {
-          const size_t start_ = start;
-          start = seq. size () - stop;
-          stop  = seq. size () - start_;
-        }
-        peps << std::move (Peptide (getId () + ":" + to_string (start + 1) + ".." + to_string (stop), pepSeq, false));
-      }
-      start = i + 3;
+    //pepSeq += string (1, *terminator);  // Like in GeneMark etc.  // PAR  
+      proc ();
       pepSeq. clear ();
-      len = 0;
     }
-    else
+    else if (! pepSeq. empty ())
+      pepSeq += toUpper (aa);
+    else if (Peptide::isStartAa (aa))
     {
-      pepSeq += aa;
-      if (aa != 'X')
-        len ++;
+      ASSERT (pepSeq. empty ());
+      pepSeq = "M";
+      start = i;
     }
   }
-  if (len >= len_min)
-  {
-    if (frame < 0)
-    {
-      const size_t start_ = start;
-      start = seq. size () - stop;
-      stop  = seq. size () - start_;
-    }
-    peps << std::move (Peptide (getId () + ":" + to_string (start + 1) + ".." + to_string (stop), pepSeq, false));
-  }
+//proc ();  // Trunc3  // PAR
   
   return peps;
 }

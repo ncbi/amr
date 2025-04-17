@@ -193,6 +193,7 @@ struct TextTable : Named
 
   explicit TextTable (const string &tableFName,
                       const string &columnSynonymsFName = noString,
+                      bool headerP = true,
                       uint displayPeriod = 0);
     // Input: tableFName: format: [{'#' <comment> <EOL>}* '#'] <header> <EOL> {<row> <EOL>>}*
     //                    empty lines are skipped

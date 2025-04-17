@@ -172,7 +172,7 @@ struct Fam
     //IMPLY (! hmm. empty (), tc2 > 0);
       if (familyName == "NULL")
         familyName. clear ();
-      QC_ASSERT (tc2 >= 0);        
+      QC_ASSERT (tc2 >= 0.0);        
       QC_ASSERT (tc2 <= tc1);
       QC_ASSERT (! completeBR. empty ())
       QC_ASSERT (! partialBR. empty ());
