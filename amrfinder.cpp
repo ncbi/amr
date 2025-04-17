@@ -33,6 +33,9 @@
 * Dependencies: NCBI BLAST, HMMer, libcurl, gunzip (optional)
 *
 * Release changes:
+*   4.0.22  04/14/2025 PD-5299  --protein_output works with protein gzipped files
+*           04/04/2025          colorize() for "include" messages
+*           03/25/2025          -help or -version with other parameters is an error
 *   4.0.21  02/20/2025 PD-5246  StxTyper ver. 1.0.42 of branch "dev"
 *           02/13/2025          "Running: <yellow color>"
 *   4.0.20  02/04/2025 PD-5240  StxTyper ver. 1.0.41 of branch "dev"
@@ -786,7 +789,7 @@ struct ThisApplication final : ShellApplication
       stderr << "AMRFinder " << searchMode << " search\n";
 
       for (const string& include : includes)
-        stderr << "  - include " << include << '\n';
+        stderr << colorize ("  - include " + include, screen) << '\n';
     }
     
     
@@ -1299,7 +1302,7 @@ struct ThisApplication final : ShellApplication
     if (! emptyArg (prot_out))
     {
       prepare_fasta_extract (StringVector {prot_colName, genesymbol_colName, elemName_colName}, "prot_out", false);
-      exec (fullProg ("fasta_extract") + prot + " " + tmp + "/prot_out -aa" + qcS + " -log " + logFName + " > " + prot_out, logFName);  
+      exec (fullProg ("fasta_extract") + prot_flat + " " + tmp + "/prot_out -aa" + qcS + " -log " + logFName + " > " + prot_out, logFName);  
     }
     if (! emptyArg (dna_out))
     {

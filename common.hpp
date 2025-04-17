@@ -155,6 +155,16 @@ void errorExitStr (const string &msg);
   // For debugger: should not be inline
   // Invokes: throw logic_error
 
+inline void reportException (const string &msg,
+                             const exception &e,
+                             bool force)
+  { const string s (msg + ": " + e. what ());
+    if (force)
+      cerr << s << endl;
+    else
+      throw runtime_error (s);
+  }    	    	
+
 
 void sleepNano (long nanoSec);
 
