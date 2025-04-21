@@ -183,12 +183,14 @@ github_binaries:
 #   first recompile amrfinder.o to pick up the new version info
 #	and remove leaky NCBI paths
 	make clean
-	make all CXX=/usr/bin/g++ LD_RUN_PATH= 
+#	make all CXX=/usr/bin/g++ LD_RUN_PATH= 
+	make all LD_RUN_PATH= 
 	mkdir $(GITHUB_FILE)
 	echo $(VERSION_STRING) > $(GITHUB_FILE)/version.txt
 	cp $(GITHUB_FILES) $(GITHUB_FILE)
-	make -C stx
-	make -C stx install INSTALL_DIR=../$(GITHUB_FILE)/stx CXX=/usr/bin/g++ LD_RUN_PATH=
+#	make -C stx
+#	make -C stx install INSTALL_DIR=../$(GITHUB_FILE)/stx CXX=/usr/bin/g++ LD_RUN_PATH=
+	make -C stx install INSTALL_DIR=../$(GITHUB_FILE)/stx LD_RUN_PATH=
 	cp stx/test_stxtyper.sh stx/version.txt $(GITHUB_FILE)/stx
 	mkdir $(GITHUB_FILE)/stx/test
 	cp -R stx/test/*.fa stx/test/*.expected $(GITHUB_FILE)/stx/test
