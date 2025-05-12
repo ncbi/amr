@@ -33,6 +33,7 @@
 * Dependencies: NCBI BLAST, HMMer, libcurl, gunzip (optional)
 *
 * Release changes:
+*   4.0.23  05/12/2025 PD-5318  --pgap: new GFF format (standard)
 *   4.0.22  04/14/2025 PD-5299  --protein_output works with protein gzipped files
 *           04/04/2025          colorize() for "include" messages
 *           03/25/2025          -help or -version with other parameters is an error
@@ -936,7 +937,7 @@ struct ThisApplication final : ShellApplication
  		string amr_report_blastx;
  		bool hmmChunks = false;
  		bool tblastnChunks = false;
-	  const string annotS (" -gfftype " + Gff::names [(size_t) gffType] + ifS (lcl, " -lcl"));
+	  string annotS (" -gfftype " + Gff::names [(size_t) gffType] + ifS (lcl, " -lcl"));
     {
       //                               target ref    
   		#define BLAST_FMT    "-outfmt '6 qseqid sseqid qstart qend qlen sstart send slen qseq sseq'"
@@ -1006,6 +1007,18 @@ struct ThisApplication final : ShellApplication
    			  // gff_check
     			if (! emptyArg (gff) && ! contains (parm, "-bed"))
     			{
+    			  prog2dir ["gff_check"] = execDir;		
+    			  string dnaPar;
+    			  if (! emptyArg (dna))
+    			    dnaPar = " -dna " + dna_flat;
+    			  if (gffType == Gff::pgap)
+      			  try 
+      			  {
+      			    exec (fullProg ("gff_check") + gff_flat + "  -gfftype " + Gff::names [(size_t) Gff::standard] + "  -prot " + prot1 + dnaPar + qcS + " -log " + logFName, logFName);
+      			    gffType = Gff::standard;
+      			    annotS = " -gfftype " + Gff::names [(size_t) Gff::standard];
+      			  }
+      			  catch (...) {}
     			  {
       			  bool gffProtMatchP = false;
       			  switch (gffType)
@@ -1030,14 +1043,8 @@ struct ThisApplication final : ShellApplication
       			  if (gffProtMatchP)
       			    gff_prot_match = " -gff_prot_match " + tmp + "/prot_match";
       			}
-    			  prog2dir ["gff_check"] = execDir;		
-    			  string dnaPar;
-    			  if (! emptyArg (dna))
-    			  {
-    			    dnaPar = " -dna " + dna_flat;
-    			    if (gffType == Gff::pseudomonasdb)
-    			      gff_dna_match = " -gff_dna_match " + tmp + "/dna_match";
-    			  }
+    			  if (! emptyArg (dna) && gffType == Gff::pseudomonasdb)
+    			    gff_dna_match = " -gff_dna_match " + tmp + "/dna_match";
     			  try 
     			  {
     			    exec (fullProg ("gff_check") + gff_flat + annotS + " -prot " + prot1 + dnaPar + gff_prot_match + gff_dna_match + qcS + " -log " + logFName, logFName);
