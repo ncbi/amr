@@ -1720,7 +1720,7 @@ public:
  	  
  	  
  	#if 0
-    // Declarative frameshifts for mutation proteins  // Process as susceptible 
+    // Declarative frameshifts for mutation proteins  // Processed as susceptible 
     for (auto& it : target2blastAls)
     {
       VectorPtr<BlastAlignment>& als = it. second;

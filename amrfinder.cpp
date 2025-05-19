@@ -33,6 +33,7 @@
 * Dependencies: NCBI BLAST, HMMer, libcurl, gunzip (optional)
 *
 * Release changes:
+*   4.1.1   05/19/2025 PD-5322  Taxgroup can have no GPipe organism
 *                               StxTyper ver. 1.0.44 of branch "dev"
 *   4.1.0   05/14/2025 PD-5329  broken genes 
 *                               -evalue 1 (was: 1e-10) -dbsize 10000 for susceptible proteins
@@ -922,7 +923,7 @@ struct ThisApplication final : ShellApplication
         {
           QC_ASSERT (! row [taxgroup_col]. empty ());
           const StringVector gpipeOrgVec (row [gpipeTaxgroup_col], ',', true);
-          QC_ASSERT (gpipeOrgVec. size () >= 1);
+        //QC_ASSERT (gpipeOrgVec. size () >= 1);
           if (gpipeOrgVec. contains (organism1))
           {
             organism1 = row [taxgroup_col];
