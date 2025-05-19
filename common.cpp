@@ -291,8 +291,8 @@ string getStack ()
   string s;
   constexpr size_t size = 100;  // PAR
   void* buffer [size];
-  const int nptrs = backtrace (buffer, size);
-  if (nptrs <= 1)  // *this function must be the first one
+  const int nptrs = backtrace (buffer, size);  // This function must be the first one
+  if (nptrs <= 1)  
     errorExit (("backtrace size is " + to_string (nptrs)). c_str ());
   char** strings = backtrace_symbols (buffer, nptrs);
   if (strings /*&& ! which ("addr2line"). empty ()*/) 
@@ -1939,21 +1939,6 @@ void Root::saveFile (const string &fName) const
 
 
 
-#if 0
-void Root::trace (ostream& os,
-                  const string& title) const
-{ 
-  if (! verbose ())
-    return;
-  Offset::newLn (os);
-  os << title << ": ";
-  saveText (os);
-}
-#endif
-
-
-
-
 // Named
 
 void Named::qc () const
@@ -1975,7 +1960,7 @@ StringVector::StringVector (const string &fName,
                             size_t reserve_size,
                             bool trimP)
 {
-	searchSorted = true;
+	ascending = etrue;
 	
 	reserve (reserve_size);
   try
@@ -1987,8 +1972,8 @@ StringVector::StringVector (const string &fName,
       if (trimP)
         trim (f. line);
       *this << f. line;
-  	  if (f. line < prev)
-  	  	searchSorted = false;
+  	  if (lt (f. line, prev))
+  	  	ascending = enull;
       prev = std::move (f. line);
     }
   }
@@ -4269,10 +4254,7 @@ int Application::run (int argc,
       *os << endl << e. what () << endl;
       exit (1);
     }
-	catch (const std::exception &e) 
-	{ 
-	  errorExitStr (ifS (errno, strerror (errno) + string ("\n")) + e. what ());
-  }
+	catch (const std::exception &e)        { errorExitStr (ifS (errno, strerror (errno) + string ("\n")) + e. what ()); }
 
 
   return 0;
