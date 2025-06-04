@@ -33,6 +33,7 @@
 * Dependencies: NCBI BLAST, HMMer, libcurl, gunzip (optional)
 *
 * Release changes:
+*   4.1.2   06/04/2025 PD-5358  amrfinder_index allows empty gpipe_taxgroup in taxgroup.tsv
 *   4.1.1   05/19/2025 PD-5322  Taxgroup can have no GPipe organism
 *                               StxTyper ver. 1.0.44 of branch "dev"
 *   4.1.0   05/14/2025 PD-5329  broken genes 

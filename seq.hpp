@@ -1308,6 +1308,7 @@ struct Disruption : Root
     // In prev->qseq/sseq
   size_t next_stop {no_index};
     // In next->qseq/sseq
+  bool intron {false};
   enum Type {eNone, eSmooth, eFrameshift, eDeletion/*or replacement*/, eInsertion};
   static const StringVector typeNames;
   static constexpr const char* stopSuf {"_STOP"};
@@ -1316,11 +1317,13 @@ struct Disruption : Root
   Disruption (const Hsp& prev_arg,
               const Hsp& next_arg,
               size_t prev_start_arg,
-              size_t next_stop_arg)
+              size_t next_stop_arg,
+              bool intron_arg)
     : prev (& prev_arg)
     , next (& next_arg)
     , prev_start (prev_start_arg)
     , next_stop  (next_stop_arg)
+    , intron (intron_arg)
     {}
   Disruption () = default;
   bool empty () const override
@@ -1563,6 +1566,17 @@ public:
              && c_complete != efalse; 
     }
     
+  string cleanQseq () const
+    { string s (qseq);
+      replaceStr (s, "-", noString);
+      return s;
+    }
+  string cleanSseq () const
+    { string s (sseq);
+      replaceStr (s, "-", noString);
+      return s;
+    }
+    
   // For blastx()
   bool sTruncated () const
     { return    (sInt. start       < a2s && ((sInt. strand == 1 && qInt. start)       || (sInt. strand == -1 && qInt. stop < qlen)))
@@ -1616,7 +1630,7 @@ public:
 
     
   struct Merge : Root
-  // Usage: Merge m; for(;;) { pair<Hsp,const Hsp*> p (m.get()); if (m.first.empty()) break; ... }
+  // Usage: Merge m; for(;;) { Hsp hsp (m.get()); if (hsp.empty()) break; ... }
   {
     const VectorPtr<Hsp>& origHsps;
       // unique, !merged
@@ -1624,15 +1638,19 @@ public:
   private:
     DiGraph graph;  // of Exon, Intron
   public:
-    
+        
     Merge (const VectorPtr<Hsp> &origHsps_arg,
            const SubstMat* sm,
            AlignScore intronScore_arg,
            bool bacteria);
+      // Input: intronScore_arg >= 0
       // Time: n^2, where n = origHsps.size()
                             
-    pair<Hsp/*merged*/,const Hsp* /*first merged, in origHsps*/> get ();
-      // Returns are ordered by score descending
+    Hsp get (const Hsp* &origHsp,
+             AlignScore &score);
+      // Return: merged
+      // Output: origHsp: in origHsps, first merged Hsp
+      // Invocation returns: ordered by score descending
       // Number of invocations <= origHsps.size()
   };
 };

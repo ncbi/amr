@@ -209,6 +209,14 @@ struct TextTable : Named
 private:
   void setHeader ();
 public:
+  static Vector<Header> str2header (const string &s,
+                                    char sep = ',')
+    { const StringVector vec (s, sep, true);
+      Vector<Header> header;  header. reserve (vec. size ());
+      for (const string& name : vec)
+        header << std::move (Header (name));
+      return header;
+    }
   void qc () const override;
   void saveText (ostream &os) const override;    
         

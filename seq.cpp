@@ -3192,10 +3192,14 @@ AlignScore SubstMat::char2score (char c1,
   QC_ASSERT (i1 < sim_size);
   QC_ASSERT (i2 < sim_size);
 
+  if (   c1 == '*' 
+      || c2 == '*'
+     )
+    return -10;  // PAR
   if (   c1 == '-' 
       || c2 == '-'
      )
-    return 0;    
+    return -1;  // PAR
     
   if (! goodIndex (i1))
     throw runtime_error ("Bad amino acid: " + string (1, c1) + " (" + to_string (i1) + ")");
@@ -4467,6 +4471,7 @@ void Disruption::qc () const
     QC_ASSERT (! next);
     QC_ASSERT (prev_start == no_index);
     QC_ASSERT (next_stop  == no_index);
+    QC_ASSERT (! intron);
     return;
   }
     
@@ -4501,6 +4506,7 @@ void Disruption::qc () const
   {
     case eFrameshift: 
       QC_ASSERT (! sameHsp ()); 
+      QC_ASSERT (intron);
       break;
     case eInsertion:  
       QC_ASSERT (prev_start); 
@@ -4524,6 +4530,8 @@ void Disruption::saveText (ostream &os) const
     os << qInt () << ':' << sInt ();
     if (sStopCodon ())
       os << "/*";
+    if (intron)
+      os << "/intron";
   }
 }
 
@@ -4546,6 +4554,7 @@ bool Disruption::sStopCodon () const
 { 
   ASSERT (! empty ());
   return    sameHsp () 
+         && ! intron
          && contains (prev->sseq. substr (prev_start, next_stop - prev_start), '*'); 
 }
 
@@ -4712,14 +4721,10 @@ void Hsp::finishHsp (bool qStopCodon,
         if (qseq. back () != '*')
           throw logic_error ("Ending stop codon is expected");
         c_complete = toEbool (sseq. back () == '*');
-      //do  // To match trailing-'*'-less aligment  ??
-        {
-          ASSERT (! sseq. empty ());
-          eraseQseqBack ();
-          eraseSseqBack ();
-          QC_ASSERT (! sseq. empty ());
-        }
-      //while (sseq. back () != qseq. back ());  ??
+        ASSERT (! sseq. empty ());
+        eraseQseqBack ();
+        eraseSseqBack ();
+        QC_ASSERT (! sseq. empty ());
       }
       else if (   qInt. stop == qlen - 1 
                && sTail (false) >= a2s
@@ -5258,14 +5263,14 @@ struct Exon final : DiGraph::Node
   friend Intron;
   
   // Input
-  bool isInsertion;
+  const bool isInsertion;
   const Hsp& hsp;
     // qseqid: reference protein
     // sseqid: contig 
     // disrs.empty()
   // In hsp.{qseq,sseq}
-  size_t start {0};
-  size_t len {0};
+  const size_t start {0};
+  const size_t len {0};
   const SubstMat* sm {nullptr};  
     // nullptr <=> match = 1, mismatch = 0
 	
@@ -5286,6 +5291,11 @@ public:
         size_t start_arg,
         size_t len_arg,
       	const SubstMat* sm_arg);
+  Exon (DiGraph &graph_arg,    
+        const Hsp &hsp_arg,
+        const SubstMat* sm_arg)
+    : Exon (graph_arg, false, hsp_arg, 0, hsp_arg. length, sm_arg)
+    {}
   void saveText (ostream &os) const final;
   void qc () const final;
       
@@ -5412,7 +5422,7 @@ Exon::Exon (DiGraph &graph_arg,
       #endif
       }
 
-      Disruption disr (hsp, hsp, i_prev, i_next);      
+      Disruption disr (hsp, hsp, i_prev, i_next, false);      
         /* Interval ( prev->pos2q/s (prev_start, true)
                     , next->pos2q/s (next_stop,  true)
         */
@@ -5513,8 +5523,11 @@ bool Exon::arcable (const Exon &next,
   if (this == & next)
     return false;    
   if (& hsp == & next. hsp)
-    return getStop () == next. start;
-  if (next. isInsertion)
+  {
+    if (bacteria)
+      return getStop () == next. start;
+  }
+  else if (next. isInsertion)
     return false;
     
   // PAR
@@ -5798,7 +5811,7 @@ Intron::Intron (Exon* prev,
       score = score_inf;
       return;
     }
-    disr = Disruption (prev->hsp, next->hsp, prev_start, next_stop);
+    disr = Disruption (prev->hsp, next->hsp, prev_start, next_stop, true);
     ASSERT (disr. qInt (). valid ());
     if (disr. sInt (). valid ())
       break;
@@ -5845,7 +5858,8 @@ void Intron::qc () const
   disr. qc ();
   QC_ASSERT (disr. type () != Disruption::eNone);
   QC_ASSERT (disr. sInt (). strand == next->hsp. sInt. strand);
-  QC_ASSERT (! disr. sStopCodon ());
+  QC_ASSERT (! disr. sStopCodon ()); 
+  QC_ASSERT (disr. intron);
 #if 0
   QC_IMPLY (score != score_inf, disr. prev_qend <= disr. next_qstart);
   QC_ASSERT (                         betweenEqual (disr. prev_qend,   prev->qStart (), prev->qStop ()));
@@ -5881,7 +5895,7 @@ void Intron::saveText (ostream &os) const
 
 AlignScore Intron::getTotalScore (AlignScore intronScore)
 {
-  ASSERT (intronScore > 0);
+  ASSERT (intronScore >= 0);
   
   if (score == score_inf)
     return - score_inf;
@@ -5933,6 +5947,11 @@ struct DensityState
 };
 
 
+
+//OFStream f1 ("aa.exon");
+
+
+
 void hsp2exons (const Hsp& hsp,
                 DiGraph &graph,        
               	const SubstMat* sm)
@@ -5979,6 +5998,15 @@ void hsp2exons (const Hsp& hsp,
     auto exon = new Exon (graph, ! hiDens, hsp, start, stop - start, sm);
     exon->qc ();
   // !hiDens => add Disruption to exon->disrs ??
+  #if 0  
+    if (   hsp. qseqid == "4471-IDAU" 
+        && hsp. sseqid == "NEEC01000009.1"
+       )
+    {
+      exon->saveText (f1);
+      f1 << endl;
+    }
+  #endif
     stop = start;
     toggle (hiDens);
   }
@@ -6027,8 +6055,10 @@ Hsp::Merge::Merge (const VectorPtr<Hsp> &origHsps_arg,
 	
 	  	
 	
-pair<Hsp/*merged*/,const Hsp* /*first merged, in origHsps*/> Hsp::Merge::get ()
+Hsp Hsp::Merge::get (const Hsp* &origHsp,
+                     AlignScore &score)
 {
+  origHsp = nullptr;
 	for (;;)
 	{
     for (DiGraph::Node* node : graph. nodes)
@@ -6038,8 +6068,8 @@ pair<Hsp/*merged*/,const Hsp* /*first merged, in origHsps*/> Hsp::Merge::get ()
       exon->bestIntronSet = false;
     }
 
+  	score = - score_inf;
   	const Exon* bestExon = nullptr;
-  	AlignScore totalScore_max = - score_inf;
   	if (verbose ())
 	    cout << endl << "Graph:" << endl;
     for (DiGraph::Node* node : graph. nodes)
@@ -6052,18 +6082,18 @@ pair<Hsp/*merged*/,const Hsp* /*first merged, in origHsps*/> Hsp::Merge::get ()
         exon->saveText (cout);
         cout << endl;
       }
-      if (maximize (totalScore_max, exon->totalScore))
+      if (maximize (score, exon->totalScore))
         bestExon = exon;
     }
     if (! bestExon)
       break;
-    ASSERT (totalScore_max > - score_inf);
+    ASSERT (score > - score_inf);
 
-    const Hsp* firstOrigHsp = nullptr;
-    Hsp hsp_new (var_cast (bestExon) -> mergeTail (firstOrigHsp));
-    ASSERT (firstOrigHsp);
-    ASSERT (! firstOrigHsp->merged);
-    ASSERT (origHsps. contains (firstOrigHsp));
+    origHsp = nullptr;
+    Hsp hsp_new (var_cast (bestExon) -> mergeTail (origHsp));
+    ASSERT (origHsp);
+    ASSERT (! origHsp->merged);
+    ASSERT (origHsps. contains (origHsp));
 
     delete bestExon; 
 
@@ -6073,13 +6103,15 @@ pair<Hsp/*merged*/,const Hsp* /*first merged, in origHsps*/> Hsp::Merge::get ()
       hsp_new. disrs. sort ();
       hsp_new. qc ();
       ASSERT (hsp_new. merged);
-      return pair<Hsp,const Hsp*> (std::move (hsp_new), firstOrigHsp);
+      return std::move (hsp_new);
     } 
   }
   
   
+  origHsp = nullptr;
+  score = - score_inf;
   Hsp hsp;
-  return pair<Hsp,const Hsp*> (hsp, nullptr);
+  return hsp;
 }
 
 

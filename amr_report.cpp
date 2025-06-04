@@ -597,7 +597,7 @@ struct BlastAlignment final : Alignment
   	        if (cdsExist)
   	          td << (empty () ? na : (cds. contig. empty () ? nvl (sseqid, na)  : cds. contig))
   	             << (empty () ? 0  : (cds. contig. empty () ? sInt. start : cds. start) + 1)
-  	             << (empty () ? 0  : (cds. contig. empty () ? sInt. stop   : cds. stop))
+  	             << (empty () ? 0  : (cds. contig. empty () ? sInt. stop  : cds. stop))
   	             << (empty () ? na : string (1, cds. contig. empty () ? strand2char (sInt. strand) : (cds. strand ? '+' : '-')));
   	        td << (isMutationProt ()
   			             ? mut 
@@ -1625,18 +1625,17 @@ private:
     Hsp::Merge merge (origHsps, nullptr/*sm*/, 20, true/*bacteria*/);  // PAR
     for (;;)
     { 
-      pair <Hsp, const Hsp*> p (merge. get ()); 
-      Hsp& hsp = p. first;
+      const Hsp* origHsp = nullptr;
+      AlignScore score = - score_inf;
+      Hsp hsp (merge. get (origHsp, score)); 
       if (hsp. empty ()) 
         break; 
-      ASSERT (hsp. merged);
-      const Hsp* origHsp = p. second; 
       ASSERT (origHsp);
       auto al = new BlastAlignment (* static_cast <const BlastAlignment*> (origHsp));
       ASSERT (al->refMutation. empty ());
       ASSERT (al->seqChanges. empty ());
       blastAls << al;
-      * static_cast <Hsp*> (al) = std::move (hsp /*mergedHsps [i]*/);
+      * static_cast <Hsp*> (al) = std::move (hsp);
       al->qc ();
       als << al;
     }

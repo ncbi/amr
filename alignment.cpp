@@ -329,13 +329,14 @@ void SeqChange::setSeq ()
 { 
   ASSERT (al);
   ASSERT (al->sseq. size () == al->qseq. size ());
-  ASSERT (start + len <= al->sseq. size ());
+  ASSERT (start <= al->sseq. size ());
+  ASSERT (len <= al->sseq. size () - start);
   
   reference = al->qseq. substr (start, len);
   allele    = al->sseq. substr (start, len);
   
-  replaceStr (reference, "-", "");
-  replaceStr (allele,    "-", "");
+  replaceStr (reference, "-", noString);
+  replaceStr (allele,    "-", noString);
   
   QC_ASSERT (reference != allele);
   strUpper (reference);
@@ -496,7 +497,7 @@ void Alignment::setSeqChanges (const Vector<AmrMutation> &refMutations,
     if (start != no_index)
     {
       SeqChange seqChange (this/*, true*/);
-      seqChange. start = start;
+      seqChange. start     = start;
       seqChange. len       = refMutation. allele. size ();
       seqChange. reference = refMutation. reference;
       seqChange. allele    = refMutation. allele;
