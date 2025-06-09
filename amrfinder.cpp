@@ -33,6 +33,8 @@
 * Dependencies: NCBI BLAST, HMMer, libcurl, gunzip (optional)
 *
 * Release changes:
+*   4.1.4   06/09/2025 PD-5364  remove parallism in blastn due to SB-4472
+*   4.1.3   06/08/2025 PD-5363  bug in long insertions in broken genes: undetected stop codon
 *   4.1.2   06/04/2025 PD-5358  amrfinder_index allows empty gpipe_taxgroup in taxgroup.tsv
 *   4.1.1   05/19/2025 PD-5322  Taxgroup can have no GPipe organism
 *                               StxTyper ver. 1.0.44 of branch "dev"
@@ -605,6 +607,20 @@ struct ThisApplication final : ShellApplication
   }
 
 
+#if 0
+  void execSpeed (const string &cmd,
+                  const string &speedParam,
+                  const string &coutFile,
+                  const string &cerrFile,
+                  const string &logFile) const
+  {
+    try { exec (cmd + "  " + speedParam + " > " + coutFile + " 2> " + cerrFile, logFile); }
+      catch (...)
+        { exec (cmd  + " > " + coutFile + " 2> " + cerrFile, logFile); }
+  }
+#endif
+ 
+
 
   void shellBody () const final
   {
@@ -733,7 +749,7 @@ struct ThisApplication final : ShellApplication
 	    prog2dir ["blastx"]      = blast_bin;
 	    prog2dir ["tblastn"]     = blast_bin;
 	    prog2dir ["blastn"]      = blast_bin;
-      prog2dir ["makeblastdb"] = blast_bin;
+    //prog2dir ["makeblastdb"] = blast_bin;
 	  }
 
     if (! hmmer_bin. empty ())
@@ -828,7 +844,7 @@ struct ThisApplication final : ShellApplication
       const StringVector organisms (db2organisms ());
       cout << endl << "Available --organism options: " + organisms. toString (", ") << endl;
       return;
-    }    		  
+    }    		
 
 		  
     {
@@ -1267,8 +1283,19 @@ struct ThisApplication final : ShellApplication
       			findProg ("blastn");
       			stderr. section ("Running blastn");
        			const Chronometer_OnePass_cerr cop ("blastn");
+       	  #if 1
       			exec (fullProg ("blastn") + " -query " + dna_flat + " -db " + tmp + "/db/AMR_DNA-" + organism1 + ".fa  -evalue 1e-20  -dust no  -max_target_seqs 10000  " 
-      			      + getBlastThreadsParam ("blastn", min (nDna, dnaLen_total / 2500000)) + Seq_sp::Hsp::format_par (false) + " -out " + tmp + "/blastn > " + logFName + " 2> " + tmp + "/blastn-err", tmp + "/blastn-err");
+      			      + /*getBlastThreadsParam ("blastn", min (nDna, dnaLen_total / 2500000)) +*/ Seq_sp::Hsp::format_par (false) + " -out " + tmp + "/blastn > " + logFName + " 2> " + tmp + "/blastn-err", tmp + "/blastn-log");
+      			        // SB-4472
+      		#else
+      		  execSpeed (  fullProg ("blastn") + " -query " + dna_flat + " -db " + tmp + "/db/AMR_DNA-" + organism1 + ".fa  -evalue 1e-20  -dust no  -max_target_seqs 10000  "
+      		               + Seq_sp::Hsp::format_par (false) + " -out " + tmp + "/blastn"
+      		             , getBlastThreadsParam ("blastn", min (nDna, dnaLen_total / 2500000))
+      		             , logFName
+      		             , tmp + "/blastn-err"
+      		             , tmp + "/blastn-log"
+      		             );
+      		#endif
       		}
     		}
     		else

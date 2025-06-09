@@ -849,8 +849,8 @@ void replace (string &s,
 void replaceStr (string &s,
                  const string &from,
                  const string &to);
-  // Replaces "from" by "to" in s from left to right
-  // The replacing "to" is skipped if it contains "from"
+  // Replaces <from> by <to> in s from left to right
+  // If <to> contains <from> then the replacing <to> is skipped else postcondtion is that s does not contain <from>
   // Requires: !from.empty()
 
 string to_c (const string &s);

@@ -124,12 +124,24 @@ struct SymbolRaw final : Root
       os         << contig 
          << '\t' << prot         
          << '\t';
+      if (verbose ())
+        os << '\t' << Disruption::typeNames [type]
+           << '\t' << qstart
+           << '\t' << qend
+           << '\t' << sstart
+           << '\t' << send
+           << '\t' << (int) strand
+           << '\t' << stop
+           << '\t' << ref
+           << '\t' << allele
+           << '\t';           
       ASSERT (! contains (ref, '*'));
       size_t termLen = no_index;
         // Distance to a stop codon
       string allele_ (allele);
       const bool alleleStop = trimSuffix (allele_, "*");
-      QC_IMPLY (type != Disruption::eFrameshift, alleleStop == stop);
+    //QC_IMPLY (type != Disruption::eFrameshift, alleleStop == stop);
+      QC_IMPLY (stop, alleleStop);
       if (alleleStop)
       {
         termLen = allele_. size ();
@@ -167,7 +179,7 @@ struct SymbolRaw final : Root
       }
       //
       os << '\t' 
-         // <Disruption::genesymbol_raw()>
+         // = <Disruption::genesymbol_raw()>
          // Opposite to SymbolRaw::SymbolRaw(line)
          << Disruption::typeNames [type] << '_' << qstart << '_' << qend << '_' << sstart << '_' << send << '_' << (strand == 1 ? 1 : 0);
       if (stop)
