@@ -33,7 +33,8 @@
 * Dependencies: NCBI BLAST, HMMer, libcurl, gunzip (optional)
 *
 * Release changes:
-*   4.1.4   06/09/2025 PD-5364  remove parallism in blastn due to SB-4472
+*   4.1.5   06/11/2025 PD-5365  bug in reporting broken genes without stop codons in negative strand
+*   4.1.4   06/09/2025 PD-5364  remove parallelism in blastn due to SB-4472
 *   4.1.3   06/08/2025 PD-5363  bug in long insertions in broken genes: undetected stop codon
 *   4.1.2   06/04/2025 PD-5358  amrfinder_index allows empty gpipe_taxgroup in taxgroup.tsv
 *   4.1.1   05/19/2025 PD-5322  Taxgroup can have no GPipe organism

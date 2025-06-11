@@ -215,6 +215,8 @@ struct SymbolRaw final : Root
         return no_aa;
       const size_t i = send - (offset + 1) * 3;
       ASSERT (i + 3 <= dna. seq. size ());
+      if (i < sstart)
+        return no_aa;
       string s (dna. seq. substr (i, 3));
       reverseDna (s);
       return codon2aa (s. c_str (), gencode, false);
