@@ -513,7 +513,9 @@ void TextTable::filterColumns (const StringVector &newColumnNames)
 
 
 
-void TextTable::sort (const StringVector &by)
+void TextTable::sort (const StringVector &by,
+                      bool uniq,
+                      const CompareInt& equivBetter)
 {
   const Vector<ColNum> byIndex (columns2nums (by));
   
@@ -523,15 +525,65 @@ void TextTable::sort (const StringVector &by)
                         { case -1: return true;
                           case  1: return false;
                         }
-                      // Tie resolution
-                      FFOR (size_t, i, a. size ())
-                        switch (this->compare (a, b, i))
-                        { case -1: return true;
-                          case  1: return false;
-                        }
                       return false;
                     };
+                    
   Common_sp::sort (rows, lt);
+    
+  if (uniq || equivBetter)
+  {
+    Vector<RowNum> toDelete;    
+    {
+      RowNum i = 0;
+      while (i < rows. size ())
+      {
+        const StringVector& row1 = rows [i];
+        FFOR_START (RowNum, j, i + 1, rows. size () + 1)  
+        {
+          if (j == rows. size ())
+          {
+            i = rows. size ();
+            break;
+          }
+          const StringVector& row2 = rows [j];
+          ASSERT (! lt (row2, row1));
+          if (lt (row1, row2))
+          {
+            i = j;
+            break;
+          }
+          // i and j are in the same equivalence class
+          FOR_START (RowNum, k, i, j)
+            // Compare rows[k] and rows[j]
+            if (uniq && rows [k] == row2)
+              toDelete << k;
+            else if (equivBetter)
+            { 
+              if (equivBetter (& rows [k], & row2) == 1)
+              {
+                toDelete << j;
+                break;
+              }
+              else if (equivBetter (& row2, & rows [k]) == 1)
+                toDelete << k;
+            }
+        }
+      }
+    }
+    if (! toDelete. empty ())
+    {
+      toDelete. sort ();
+      toDelete. uniq ();  
+      Vector<StringVector> rows_new;  rows_new. reserve (rows. size ());
+      RowNum j = 0;
+      FFOR (RowNum, i, rows. size ())
+        if (j < toDelete. size () && i == toDelete [j])
+          j++;
+        else
+          rows_new << std::move (rows [i]);    
+      rows = std::move (rows_new);
+    }
+  }
 }
 
 

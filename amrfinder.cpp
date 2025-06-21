@@ -33,7 +33,8 @@
 * Dependencies: NCBI BLAST, HMMer, libcurl, gunzip (optional)
 *
 * Release changes:
-*   4.1.5   06/11/2025 PD-5365  bug in reporting broken genes without stop codons in negative strand
+*   4.1.6   06/20/2025 PD-5379  set subtype to POINT_DISRUPT for broken genes
+*   4.1.5   06/11/2025 PD-5370  bug in reporting broken genes without stop codons in negative strand
 *   4.1.4   06/09/2025 PD-5364  remove parallelism in blastn due to SB-4472
 *   4.1.3   06/08/2025 PD-5363  bug in long insertions in broken genes: undetected stop codon
 *   4.1.2   06/04/2025 PD-5358  amrfinder_index allows empty gpipe_taxgroup in taxgroup.tsv
@@ -391,6 +392,27 @@ const string ambigS ("20");
 
 
 
+TextTable::ColNum subtype_col = no_index;
+           
+
+int amrTab_equivBetter (const void* rowBetter,
+                        const void* rowWorse) 
+{ 
+  ASSERT (subtype_col != no_index);
+  ASSERT (rowBetter);
+  ASSERT (rowWorse);
+  ASSERT (rowBetter != rowWorse);
+  const StringVector& rowBetter_ = * static_cast <const StringVector*> (rowBetter);
+  const StringVector& rowWorse_  = * static_cast <const StringVector*> (rowWorse);
+  if (   rowBetter_ [subtype_col] == "POINT"
+      && rowWorse_  [subtype_col] == "POINT_DISRUPT"
+     )
+    return 1;
+  return 0;
+}
+
+
+
 struct ThisApplication final : ShellApplication
 {
   ThisApplication ()
@@ -621,8 +643,8 @@ struct ThisApplication final : ShellApplication
   }
 #endif
  
-
-
+ 
+ 
   void shellBody () const final
   {
     const bool    force_update    =             getFlag ("force_update");
@@ -1426,8 +1448,9 @@ struct ThisApplication final : ShellApplication
         TextTable amrTab (tmp + "/amr");
         if (! emptyArg (dna))
    		    amrTab_disruptions (amrTab, db, dna_flat, gencode, qcS);
-        amrTab. sort (amrSortColumns);
-        amrTab. rows. uniq ();  // PD-4297
+        subtype_col = amrTab. col2num (subtype_colName);
+        amrTab. sort (amrSortColumns, true/*PD-4297*/, amrTab_equivBetter);
+      //amrTab. rows. uniq ();  // PD-4297
         amrTab. qc ();
         Cout out (output);
    		  amrTab. saveText (*out);

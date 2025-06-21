@@ -259,7 +259,11 @@ public:
     // Input: newColumnNames: in header::name's
     //          can be repeated
     //          ordered
-  void sort (const StringVector &by);
+  void sort (const StringVector &by,
+             bool uniq = false,
+             const CompareInt& equivBetter = nullptr);
+    // Input: equivBetter(row1,row2) = 1 <=> row1 is better than row2
+    //          Requires: row1 and row2 are in the class of equivalent rows
   void group (const StringVector &by,
               const StringVector &sum,
               const StringVector &minV,

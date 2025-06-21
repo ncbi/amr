@@ -626,7 +626,7 @@ struct BlastAlignment final : Alignment
   	             << (mut ? nvl (mut->subclass, na) : na);
   	        else
   	          td << nvl (fusion2type (), na)  
-    	           << (isStrongSusceptibleProt () ? "POINT" : nvl (fusion2subtype (), na))
+    	           << (isStrongSusceptibleProt () ? "POINT_DISRUPT" : nvl (fusion2subtype (), na))
     	           << nvl (fusion2class (), na)
     	           << nvl (fusion2subclass (), na);
   	        td << method

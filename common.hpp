@@ -780,7 +780,7 @@ void trimSuffixNonAlphaNum (string &s);
 
 bool trimTailAt (string &s,
                  const string &tailStart);
-  // Return: trimmed
+  // Return: trimmed; tailStart.empty() => false
   // Update: s
 
 void trimLeading (string &s);
