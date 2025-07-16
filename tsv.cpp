@@ -513,11 +513,34 @@ void TextTable::filterColumns (const StringVector &newColumnNames)
 
 
 
-void TextTable::sort (const StringVector &by,
-                      bool uniq,
-                      const CompareInt& equivBetter)
+void TextTable::sort (const StringVector &by)
 {
   const Vector<ColNum> byIndex (columns2nums (by));
+  
+  const auto lt = [&byIndex,this] (const StringVector &a, const StringVector &b) 
+                    { for (const ColNum i : byIndex) 
+                        switch (this->compare (a, b, i))
+                        { case -1: return true;
+                          case  1: return false;
+                        }
+                      // Tie resolution 
+                      FFOR (ColNum, i, header. size ()) 
+                        switch (this->compare (a, b, i))
+                        { case -1: return true;
+                          case  1: return false;
+                        }
+                      return false;
+                    };
+                    
+  Common_sp::sort (rows, lt);
+}
+
+
+
+void TextTable::deredundify (const StringVector &equivCols,
+                             const CompareInt& equivBetter)
+{
+  const Vector<ColNum> byIndex (columns2nums (equivCols));
   
   const auto lt = [&byIndex,this] (const StringVector &a, const StringVector &b) 
                     { for (const ColNum i : byIndex) 
@@ -530,59 +553,59 @@ void TextTable::sort (const StringVector &by,
                     
   Common_sp::sort (rows, lt);
     
-  if (uniq || equivBetter)
+  Vector<bool> toDelete (rows. size (), false);
   {
-    Vector<RowNum> toDelete;    
+    RowNum i = 0;
+    while (i < rows. size ())
     {
-      RowNum i = 0;
-      while (i < rows. size ())
+      const StringVector& row1 = rows [i];
+      FFOR_START (RowNum, j, i + 1, rows. size () + 1)  
       {
-        const StringVector& row1 = rows [i];
-        FFOR_START (RowNum, j, i + 1, rows. size () + 1)  
+        if (j == rows. size ())
         {
-          if (j == rows. size ())
-          {
-            i = rows. size ();
-            break;
-          }
-          const StringVector& row2 = rows [j];
-          ASSERT (! lt (row2, row1));
-          if (lt (row1, row2))
-          {
-            i = j;
-            break;
-          }
-          // i and j are in the same equivalence class
-          FOR_START (RowNum, k, i, j)
-            // Compare rows[k] and rows[j]
-            if (uniq && rows [k] == row2)
-              toDelete << k;
-            else if (equivBetter)
-            { 
-              if (equivBetter (& rows [k], & row2) == 1)
-              {
-                toDelete << j;
-                break;
-              }
-              else if (equivBetter (& row2, & rows [k]) == 1)
-                toDelete << k;
-            }
+          i = rows. size ();
+          break;
         }
+        const StringVector& row2 = rows [j];
+        ASSERT (! lt (row2, row1));
+        if (lt (row1, row2))
+        {
+          i = j;
+          break;
+        }
+        ASSERT (i < j);
+        // i and j are in the same equivalence class
+        FOR_START (RowNum, k, i, j)
+          if (! toDelete [k])
+          {
+            bool stop = false;
+            FOR_START (RowNum, l, k + 1, j + 1)
+              if (! toDelete [l])
+              {
+                // Compare rows[k] and rows[l]
+                if (equivBetter (& rows [k], & rows [l]) == 1)
+                  toDelete [l] = true;
+                else if (equivBetter (& rows [l], & rows [k]) == 1)
+                {
+                  toDelete [k] = true;
+                  stop = true;
+                  break;
+                }
+              }
+            if (stop)
+              break;
+          }
       }
     }
-    if (! toDelete. empty ())
-    {
-      toDelete. sort ();
-      toDelete. uniq ();  
-      Vector<StringVector> rows_new;  rows_new. reserve (rows. size ());
-      RowNum j = 0;
-      FFOR (RowNum, i, rows. size ())
-        if (j < toDelete. size () && i == toDelete [j])
-          j++;
-        else
-          rows_new << std::move (rows [i]);    
-      rows = std::move (rows_new);
-    }
+  }
+  
+  if (exists (toDelete))
+  {
+    Vector<StringVector> rows_new;  rows_new. reserve (rows. size ());
+    FFOR (RowNum, i, rows. size ())
+      if (! toDelete [i])
+        rows_new << std::move (rows [i]);    
+    rows = std::move (rows_new);
   }
 }
 

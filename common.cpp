@@ -1364,6 +1364,12 @@ string makeTempDir ()
 		throw runtime_error ("Cannot create a temporary directory in " + tmpDir);
 
   {
+  #if 0
+  //#include <sys/statvfs.h>
+    struct statvfs vfs;
+    if (statvfs("/tmp", &vfs) == 0) 
+      vfs.f_bsize * vfs.f_bavail  // contains the free space availab
+  #else
   	const string testFName (tmp + "/test");
     {
       ofstream f (testFName);
@@ -1372,6 +1378,7 @@ string makeTempDir ()
 		    throw runtime_error (tmpDir + " is full, make space there or use environment variable TMPDIR to change location for temporary files");
     }
     removeFile (testFName);
+  #endif
   }
 
   return tmp;  
@@ -2327,7 +2334,8 @@ string CharInput::getLine ()
 
 void Token::readInput (CharInput &in,
                        bool dashInName_arg,
-                       bool consecutiveQuotesInText)
+                       bool consecutiveQuotesInText,
+                       bool negativeInteger)
 {
 	ASSERT (empty ());
 
@@ -2341,9 +2349,9 @@ void Token::readInput (CharInput &in,
 		
 	tp = in. tp;
 
-	if (   c == '\'' 
-	    || c == '\"'
-	   )
+  if (   c == '\'' 
+      || c == '\"'
+     )
 	{
 		type = eText;
 		quote = c;
@@ -2379,7 +2387,7 @@ void Token::readInput (CharInput &in,
 			name += c;
 		}
 	}
-	else if (isDigit (c) || c == '-')
+	else if (isDigit (c) || (negativeInteger && c == '-'))
 	{
 	  bool minusPossible = true;
 		while (   ! in. eof 
@@ -2595,7 +2603,7 @@ Token TokenInput::get ()
     
   for (;;)  
   { 
-    Token t (ci, dashInName, consecutiveQuotesInText);
+    Token t (ci, dashInName, consecutiveQuotesInText, negativeInteger);
     if (t. empty ())
       break;
     tp = t. tp;
@@ -3087,9 +3095,9 @@ void Json::parse (CharInput& in,
           new JsonString (firstToken. name, parent, name);
       }
       break;
-    case Token::eText: new JsonString (firstToken. name, parent, name); break;
-    case Token::eInteger: new JsonInt (firstToken. n, parent, name); break;
-    case Token::eDouble: new JsonDouble (firstToken. d, firstToken. decimals, parent, name); break;
+    case Token::eText:    new JsonString (firstToken. name, parent, name); break;
+    case Token::eInteger: new JsonInt    (firstToken. n, parent, name); break;
+    case Token::eDouble:  new JsonDouble (firstToken. d, firstToken. decimals, parent, name); break;
     case Token::eDelimiter:
       switch (firstToken. name [0])
       {
@@ -3212,14 +3220,14 @@ JsonArray::JsonArray (CharInput& in,
   bool first = true;
   for (;;)
   {
-    Token token (in, false, false);
+    Token token (in, false, false, true);
     if (token. isDelimiter (']'))
       break;
     if (! first)
     {
       if (! token. isDelimiter (','))
         in. error ("\',\'");
-      token = Token (in, false, false);
+      token = Token (in, false, false, true);
     }
     parse (in, token, this, noString);
     first = false;
@@ -3258,7 +3266,7 @@ JsonMap::JsonMap ()
 JsonMap::JsonMap (const string &fName)
 {
   CharInput in (fName);
-  const Token token (in, false, false);
+  const Token token (in, false, false, true);
   if (! token. isDelimiter ('{'))
     in. error ("Json file " + shellQuote (fName) + ": text should start with '{'", false);
   parse (in);
@@ -3273,24 +3281,24 @@ void JsonMap::parse (CharInput& in)
   bool first = true;
   for (;;)
   {
-    Token token (in, false, false);
+    Token token (in, false, false, true);
     if (token. isDelimiter ('}'))
       break;
     if (! first)
     {
       if (! token. isDelimiter (','))
         in. error ("\',\'");
-      token = Token (in, false, false);
+      token = Token (in, false, false, true);
     }
     if (   token. type != Token::eName
         && token. type != Token::eText
        )
       in. error ("name or text");
     string name (token. name);
-    const Token colon (in, false, false);
+    const Token colon (in, false, false, true);
     if (! colon. isDelimiter (':'))
       in. error ("\':\'");
-    token = Token (in, false, false);
+    token = Token (in, false, false, true);
     Json::parse (in, token, this, name);
     first = false;
   }

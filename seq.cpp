@@ -5920,9 +5920,10 @@ struct DensityState
   static constexpr double densChangeProb = 0.005;  
   static_assert (densChangeProb < 0.5);
   // > 0
-  static constexpr array<double,2/*bool match*/> loDensWeight {{-log (1.0 - loDensProb), -log (loDensProb)}};
-  static constexpr array<double,2/*bool match*/> hiDensWeight {{-log (1.0 - hiDensProb), -log (hiDensProb)}};
-  static constexpr array<double, 2/*bool densityChanged*/> densChangeWeight {{-log (1.0 - densChangeProb), -log (densChangeProb)}};
+  // MacOS cannot run log() in constexpr
+  static const array<double,2/*bool match*/> loDensWeight;
+  static const array<double,2/*bool match*/> hiDensWeight;
+  static const array<double,2/*bool densityChanged*/> densChangeWeight;
 
   // To minimize
   array<double,2/*bool highDensity*/> weightLocal;
@@ -5947,8 +5948,9 @@ struct DensityState
 };
 
 
-
-//OFStream f1 ("aa.exon");
+const array<double,2> DensityState::loDensWeight {{-log (1.0 - loDensProb), -log (loDensProb)}};
+const array<double,2> DensityState::hiDensWeight {{-log (1.0 - hiDensProb), -log (hiDensProb)}};
+const array<double,2> DensityState::densChangeWeight {{-log (1.0 - densChangeProb), -log (densChangeProb)}};
 
 
 
