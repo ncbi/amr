@@ -1697,7 +1697,10 @@ public:
       for (const BlastAlignment* al : als)
         if (al->isStrongSusceptibleProt ())  
           for (const Disruption& disr : al->disrs)
+          {
             var_cast (al) -> seqChanges << std::move (SeqChange (al, disr));
+            break;  // PD-5394
+          }
     }
  	  reportDebug ("Unframeshifted Blasts");
  	  

@@ -2081,7 +2081,10 @@ void DisjointCluster::merge (DisjointCluster &other)
 	{
 		root1->parentDC = root2;
 		if (root1->rankDC == root2->rankDC)
-			root2->rankDC ++;
+		{
+			root2->rankDC++;
+			QC_ASSERT (root2->rankDC);
+	  }
 	}
 }
 

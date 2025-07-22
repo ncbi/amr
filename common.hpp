@@ -545,12 +545,16 @@ inline bool operator<= (ebool a, ebool b)
   	return rank [a] <= rank [b];
   }
 
-inline void toggle (ebool &b)
-  { if (b == etrue)
-      b = efalse;
-    else if (b == efalse)
-      b = etrue;
+inline ebool negate (ebool b)
+  { switch (b)
+    { case efalse: return etrue;
+      case etrue:  return efalse;
+      default:     return b;
+    }
   }
+
+inline void toggle (ebool &b)
+  { b = negate (b); }
   
 inline string ebool2txt (ebool choice,
                          const string &yes,
