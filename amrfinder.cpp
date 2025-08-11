@@ -373,7 +373,7 @@ using namespace GFF_sp;
 
 // PAR!
 // PD-3051
-const string dataVer_min ("2025-05-14.1");
+const string dataVer_min ("2025-08-01.1");
   // 4.1:  "2025-05-14.1"
   // 3.13: "2024-08-14.2"
   // 3.12: "2023-12-15.2"
