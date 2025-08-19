@@ -779,6 +779,11 @@ struct BlastAlignment final : Alignment
         maximize (reportable_max, fusion->getReportable ());
       return reportable_max;
     }
+  bool fusionOverrides (const BlastAlignment &other) const
+    { return    parts > 1
+  	         && other. parts == 1
+  	         && other. insideEq (*this);
+    }
 private:
   string getGeneSymbol () const
     { return susceptible
@@ -1108,6 +1113,39 @@ private:
       {
 	    	if (sseqid != other. sseqid)
 	        return false;
+	    #if 0
+	      if (sseqid == "WP_063839878.1.last91" && qseqid == "WP_063839878.1")
+	      {
+	        PRINT (other. insideEq (*this));
+        	PRINT (insideEq (other));
+        	PRINT (sProt);
+        	PRINT (inFam ());
+        	PRINT (other. inFam ());
+        	PRINT (fusion2geneSymbols ());
+        	PRINT (other. fusion2geneSymbols ());
+        	PRINT (refAccession);
+        	PRINT (other. refAccession);
+        	//
+        	PRINT (nident);
+        	PRINT (sInt. start);
+        	PRINT (sInt. stop);
+        	PRINT (qInt. start);
+        	PRINT (qInt. stop);
+        	PRINT (hasMutation ());
+        	PRINT (refProtExactlyMatched (false)); 
+  	      PRINT (refEffectiveLen ());
+	        //
+        	PRINT (other. nident);
+        	PRINT (other. sInt. start);
+        	PRINT (other. sInt. stop);
+        	PRINT (other. qInt. start);
+        	PRINT (other. qInt. stop);
+        	PRINT (other. hasMutation ());
+        	PRINT (other. refProtExactlyMatched (false)); 
+  	      PRINT (other. refEffectiveLen ());
+  	      cout << endl;
+	      }
+	    #endif
         // PD-807, PD-4277
         if (   ! other. insideEq (*this)
         	  && !        insideEq (other)
@@ -1133,6 +1171,12 @@ private:
         else
         {
   	      LESS_PART (other, *this, /*notInFam ()*/ hasMutation ());
+  	      // PD-5427
+  	      if (fusionOverrides (other))
+  	        return true;
+  	      if (other. fusionOverrides (*this))
+  	        return false;
+  	      //
   	      LESS_PART (other, *this, refProtExactlyMatched (false));  // PD-1261, PD-1678
   	      LESS_PART (other, *this, nident);
   	      LESS_PART (*this, other, refEffectiveLen ());  
@@ -1722,7 +1766,7 @@ public:
  	  
  	  
  	#if 0
-    // Declarative frameshifts for mutation proteins  // Processed as susceptible 
+    // Declarative frameshifts for mutation proteins  // --> processed as susceptible 
     for (auto& it : target2blastAls)
     {
       VectorPtr<BlastAlignment>& als = it. second;

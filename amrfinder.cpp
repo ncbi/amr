@@ -33,7 +33,8 @@
 * Dependencies: NCBI BLAST, HMMer, libcurl, gunzip (optional)
 *
 * Release changes:
-*   4.1.9   08/18/2025 PD-5426  DNA mutation strand is reported incorrectly
+*   4.1.10  08/19/2025 PD-5427  Partial bifunctional hits were reported by 2 hits
+*   4.1.9   08/18/2025 PD-5426  DNA mutation strand is reported incorrectly in dna_mutation.cpp
 *   4.1.8   07/22/2025 PD-5394  only first gene disruption mutation is reported
 *   4.1.7   07/16/2025 PD-5393  subtype POINT should be preferred over POINT_DISRUPT
 *                      PD-5392  compilation (including stxtyper) on MacOS
