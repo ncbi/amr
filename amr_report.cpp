@@ -27,7 +27,7 @@
 * Author: Vyacheslav Brover
 *
 * File Description:
-*   Identification of AMR genes using BLAST and HMM search results vs. the NCBI virulence database
+*   Identification of AMR genes using BLAST and HMM search results vs. the AMRFinderPlus database
 *
 */
    
@@ -475,7 +475,7 @@ struct BlastAlignment final : Alignment
 		    // PD-4856
 		    ASSERT (! brFam);
 		    // brFam
-        EXEC_ASSERT (brFam = getFam ());          
+        EXEC_ASSERT (brFam = getFam ()); 
         while (brFam)
         {
           if (partial ())
@@ -1557,7 +1557,7 @@ private:
         vec << blastAl;
       }
     }
-    reportDebug ("Best Blasts");
+    reportDebug ("Pareto-better");
   }
 
 
@@ -1837,7 +1837,6 @@ public:
         target2goodBlastAls [it. first] = it. second;
     else
       blastParetoBetter ();
-    reportDebug ("Pareto-better");
 
 
     // Cf. dna_mutation.cpp

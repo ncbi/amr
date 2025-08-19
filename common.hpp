@@ -765,12 +765,24 @@ size_t strCountSet (const string &s,
 void strDeleteSet (string &s,
 		               const string &charSet);
 
+inline string getLeft (const string &s,
+                       size_t size)
+  { return s. substr (0, size); }
+
+inline string getRight (const string &s,
+                        size_t size)
+  { if (size >= s. size ())
+      return s;
+    return s. substr (s. size () - size);
+  }
+
 inline bool isLeft (const string &s,
                     const string &left)
-  { return s. substr (0, left. size ()) == left; }
+  { return getLeft (s, left. size ()) /*s. substr (0, left. size ())*/ == left; }
 
-bool isRight (const string &s,
-              const string &right);
+inline bool isRight (const string &s,
+                     const string &right)
+  { return getRight (s, right. size ()) == right; }
 
 bool trimPrefix (string &s,
                  const string &prefix);
@@ -2488,7 +2500,7 @@ template <typename T>
             toDelete--;
           }
         }
-    template <typename Condition /*on index*/>
+    template <typename Condition /*on value*/>
       void filterValue (const Condition cond)
         { size_t toDelete = 0;
           for (size_t i = 0, end_ = P::size (); i < end_; i++)

@@ -33,6 +33,7 @@
 * Dependencies: NCBI BLAST, HMMer, libcurl, gunzip (optional)
 *
 * Release changes:
+*   4.1.9   08/18/2025 PD-5426  DNA mutation strand is reported incorrectly
 *   4.1.8   07/22/2025 PD-5394  only first gene disruption mutation is reported
 *   4.1.7   07/16/2025 PD-5393  subtype POINT should be preferred over POINT_DISRUPT
 *                      PD-5392  compilation (including stxtyper) on MacOS
@@ -373,7 +374,7 @@ using namespace GFF_sp;
 
 // PAR!
 // PD-3051
-const string dataVer_min ("2025-08-01.1");
+const string dataVer_min ("2025-08-01.1");  // PD-5415 ??
   // 4.1:  "2025-05-14.1"
   // 3.13: "2024-08-14.2"
   // 3.12: "2023-12-15.2"

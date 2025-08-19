@@ -134,7 +134,7 @@ struct BlastnAlignment final : Alignment
              << nvl (sseqid, na)
              << (empty () ? 0 : sInt. start + 1)
              << (empty () ? 0 : sInt. stop)
-             << (empty () ? na : (sInt. strand ? "+" : "-"))
+             << (empty () ? string (na) : string (1, strand2char (sInt. strand)))
              << (mutation
                    ? seqChange. empty ()
                      ? mutation->wildtype ()

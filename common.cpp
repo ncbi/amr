@@ -581,16 +581,6 @@ string to_url (const string &s)
 
 
 
-bool isRight (const string &s,
-              const string &right)
-{
-  if (s. size () < right. size ())
-    return false;
-  return s. substr (s. size () - right. size ()) == right;
-}
-
-
-
 bool trimPrefix (string &s,
                  const string &prefix)
 {
