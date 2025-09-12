@@ -1164,6 +1164,22 @@ string unpercent (const string &s)
 
 
 
+
+// int_dist
+
+int_dist add1 (int_dist d)
+{ 
+  if (d == int_dist_inf)
+    return int_dist_inf;
+    
+  const int_dist d1 = d + 1; 
+  QC_ASSERT (d1 < int_dist_inf);
+  return d1;
+}
+
+
+
+
 List<string> str2list (const string &s,
                        char c) 
 {

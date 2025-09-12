@@ -152,20 +152,7 @@ struct TextTable : Named
            << '\t' << (null ? "null" : "not null"); 
       }
       
-    void saveSql (ostream& os) const 
-      { os << name << ' ';
-        if (numeric)
-        { if (scientific)
-            os << "float";
-          else
-            os << "numeric(" << len_max << ',' << decimals << ")";
-        }
-        else
-          os << "varchar(" << len_max << ")";
-        if (! null)
-          os << " not null"; 
-        os << endl;
-      }
+    void saveSql (ostream& os) const;
   };
   Vector<Header> header;
     // Header::name's are unique

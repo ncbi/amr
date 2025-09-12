@@ -963,6 +963,40 @@ size_t powInt (size_t a,
 
 
 
+// Hexadecimal
+
+inline bool isHex (char c)
+  { return isDigit (c) || strchr ("ABCDEF", toUpper (c)); }
+
+inline uchar hex2uchar (char c)
+  { return uchar (isDigit (c) ? (c - '0') : (toUpper (c) - 'A' + 10)); }
+
+inline string uchar2hex (uchar c)
+  { constexpr char hex [16] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
+    string res ("  ");
+    res [0] = hex [c / 16];
+    res [1] = hex [c % 16];
+    return res;
+  }
+ 
+string unpercent (const string &s);
+  // '%HH' -> char
+
+
+
+// int_dist
+
+typedef size_t int_dist;  
+constexpr int_dist int_dist_inf {numeric_limits<int_dist>::max ()};  
+inline string int_dist2name (int_dist dist)
+  { if (dist == int_dist_inf)
+      return "INF";
+    return to_string (dist);
+  }
+int_dist add1 (int_dist d);
+
+
+
 // Time
 
 string getNow ();
@@ -1001,27 +1035,6 @@ private:
 	void qc () const;
 	void run ();	
 };
-
-
-
-// Hexadecimal
-
-inline bool isHex (char c)
-  { return isDigit (c) || strchr ("ABCDEF", toUpper (c)); }
-
-inline uchar hex2uchar (char c)
-  { return uchar (isDigit (c) ? (c - '0') : (toUpper (c) - 'A' + 10)); }
-
-inline string uchar2hex (uchar c)
-  { constexpr char hex [16] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
-    string res ("  ");
-    res [0] = hex [c / 16];
-    res [1] = hex [c % 16];
-    return res;
-  }
- 
-string unpercent (const string &s);
-  // '%HH' -> char
 
 
 

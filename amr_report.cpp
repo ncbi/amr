@@ -246,6 +246,7 @@ private:
   bool betterEq (const HmmAlignment &other,
                  unsigned char criterion) const
     // Reflexive
+    // Must: transitive
     // For one sseqid: one HmmAlignment is better than all others
     { ASSERT (good ());
       ASSERT (other. good ());
@@ -359,6 +360,7 @@ struct BlastAlignment final : Alignment
     // <= parts
   size_t parts {1};  
     // >= 1
+    // > 1 <=> fusion protein
   VectorPtr<BlastAlignment> fusions;
   bool fusionRedundant {false};
   // Table FAM
@@ -630,7 +632,7 @@ struct BlastAlignment final : Alignment
     	           << nvl (fusion2class (), na)
     	           << nvl (fusion2subclass (), na);
   	        td << method
-  	           << (sProt ? slen : sAbsCoverage () / 3);  // Approximate for disrupted genes
+  	           << (sProt ? slen : (sAbsCoverage () / 3));  // Approximate for disrupted genes
   	        if (refAccession. empty ())
   	          td << na 
   	             << na
@@ -780,9 +782,13 @@ struct BlastAlignment final : Alignment
       return reportable_max;
     }
   bool fusionOverrides (const BlastAlignment &other) const
-    { return    parts > 1
+    { ASSERT (sProt == other. sProt);
+      return    parts > 1
   	         && other. parts == 1
-  	         && other. insideEq (*this);
+  	         && other. insideEq (*this)
+  	         && (   sInt. start + Cds::peptideSize_min * a2s <= other. sInt. start 
+                 || sInt. stop                               >= other. sInt. stop + Cds::peptideSize_min * a2s
+                );
     }
 private:
   string getGeneSymbol () const
@@ -1031,15 +1037,15 @@ public:
       return passBlastRule (completeBR);
     }
 private:
-  size_t mismatchTailTarget () const
-    { return mismatchTail_aa * (sProt ? 1 : 3); }
+//size_t mismatchTailTarget () const
+  //{ return mismatchTail_aa * (sProt ? 1 : 3); }
   bool insideEq (const BlastAlignment &other) const
     { ASSERT (sProt  == other. sProt);
       ASSERT (sseqid == other. sseqid);
     	if (sInt. strand != other. sInt. strand)
     	  return false;
-    	if (   sInt. start + mismatchTailTarget () >= other. sInt. start 
-          && sInt. stop                          <= other. sInt. stop + mismatchTailTarget ()
+    	if (   sInt. start + mismatchTail_aa * a2s >= other. sInt. start 
+          && sInt. stop                          <= other. sInt. stop + mismatchTail_aa * a2s
          )
         return true;
       if (   ! partialPseudo ()
@@ -1050,7 +1056,7 @@ private:
         return false;
       // PD-4698
       // Most probably a repeat protein
-      const size_t pseudoOverlap = mismatchTailTarget () * 2;  // PAR
+      const size_t pseudoOverlap = mismatchTail_aa * a2s * 2;  // PAR
       return    (sInt. start < other. sInt. start && sInt. stop                  >= other. sInt. start + pseudoOverlap)
              || (sInt. stop  > other. sInt. stop  && sInt. start + pseudoOverlap <= other. sInt. stop);
     }
@@ -1099,6 +1105,7 @@ private:
     }
   bool betterEq (const BlastAlignment &other) const
     // Reflexive
+    // Must: transitive
     { if (this == & other)
         return true;
       // PD-4981
@@ -1229,7 +1236,6 @@ public:
       return brFam;
     }
   bool better (const BlastAlignment &other) const
-    // Requires: all SCCs of betterEq() are complete subgraphs ??
     { return    betterEq (other) 
     	       && (   ! other. betterEq (*this)
     	           || (! isMutationProt () /*inFam () --PD-5014*/ && ! equidistant && refAccession < other. refAccession)  // Tie resolution: PD-1245

@@ -131,6 +131,27 @@ void TextTable::Header::qc () const
 
 
 
+void TextTable::Header::saveSql (ostream& os) const 
+{ 
+  string name_ (name);
+  replace (name_, ' ' ,'_');
+  replaceStr (name_, "%", "Percent");
+  os << name_ << ' ';
+  if (numeric)
+  { 
+    if (scientific)
+      os << "float";
+    else
+      os << "numeric(" << max<size_t> (1, len_max) << ',' << decimals << ")";
+  }
+  else
+    os << "varchar(" << max<size_t> (1, len_max) << ")";
+  if (! null)
+    os << " not null"; 
+  os << '\n';
+}
+
+
 TextTable::TextTable (const string &tableFName,
                       const string &columnSynonymsFName,
                       bool headerP,
@@ -249,7 +270,7 @@ void TextTable::setHeader ()
       string field (row [i]);
       trim (field);
       Header& h = header [i];
-      if (field. empty ())
+      if (strNull (field))
       {
         h. null = true;
         continue;
@@ -257,8 +278,6 @@ void TextTable::setHeader ()
       maximize (h. len_max, field. size ());
       if (h. choices. size () <= Header::choices_max)
         h. choices << field;
-      if (strNull (field))
-        continue;
       if (! h. numeric)
         continue;
       {
