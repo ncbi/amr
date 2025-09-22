@@ -1037,8 +1037,6 @@ public:
       return passBlastRule (completeBR);
     }
 private:
-//size_t mismatchTailTarget () const
-  //{ return mismatchTail_aa * (sProt ? 1 : 3); }
   bool insideEq (const BlastAlignment &other) const
     { ASSERT (sProt  == other. sProt);
       ASSERT (sseqid == other. sseqid);

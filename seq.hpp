@@ -156,6 +156,8 @@ extern const char* extTermPeptideAlphabet;
 extern const char* extSparseTermPeptideAlphabet;
   // = extPeptideAlphabet + gap
 
+constexpr const char* terminatorWord {"Ter" /*"STOP"*/};  // PD-5423
+
 
 size_t alphabet2Pos (const char* alphabet,
                      char        c);

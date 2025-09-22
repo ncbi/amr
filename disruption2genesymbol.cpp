@@ -69,7 +69,6 @@ struct SymbolRaw final : Root
   //
   Strand strand {0};
   bool stop {false};
-  static constexpr const char* stopS {"STOP"};
   string rest;
   
   // Output
@@ -145,7 +144,7 @@ struct SymbolRaw final : Root
       if (alleleStop)
       {
         termLen = allele_. size ();
-        allele_ += stopS;
+        allele_ += terminatorWord;
       }
       ASSERT (! contains (allele_, '*'));
       // Standard gene symbol
@@ -156,7 +155,7 @@ struct SymbolRaw final : Root
           ASSERT (ref. size () == 1)
           ASSERT (! allele_. empty ());
           if (termLen == 0)            
-            os << stopS;
+            os << terminatorWord;
           else
             os << allele_ [0];
           os << Disruption::typeNames [type];
@@ -232,7 +231,7 @@ struct ThisApplication final : Application
   
   ThisApplication ()
     : Application ("Convert Disruption::genesymbol_raw() to standard gene symbols according to https://hgvs-nomenclature.org/stable/recommendations/protein/frameshift/.\n\
-A stop codon is '" + string (SymbolRaw::stopS) + "'.\n\
+A stop codon is '" + string (terminatorWord) + "'.\n\
 Print: <tab row> where <genesymbol> is inserted before <Disruption::genesymbol_raw()>"
 )
 	  {

@@ -70,7 +70,7 @@ AmrMutation::AmrMutation (size_t pos_real_arg,
   
   // reference, allele
 	parse (geneMutation_std, reference, allele, gene, pos_std, frameshift, frameshift_insertion);
-	if (allele == "STOP")
+	if (allele == terminatorWord)
 	  allele = "*";
 	else if (allele == "del")
 	  allele. clear ();
@@ -268,7 +268,7 @@ string SeqChange::getMutationStr () const
   const string allele_ (allele. empty () 
                           ? "DEL" 
                           : allele == "*"
-                              ? "STOP"
+                              ? terminatorWord
                               : allele
                        );
   return reference + to_string ((int) start_ref + 1) + allele_; 

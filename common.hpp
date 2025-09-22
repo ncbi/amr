@@ -2063,7 +2063,9 @@ struct Xml
     TextFile (const string &pathName,
 		          const string &rootTagName)
       : os (pathName)
-      { rootTag. reset (new Tag (*this, rootTagName)); }
+      { if (! rootTagName. empty ())
+          rootTag. reset (new Tag (*this, rootTagName)); 
+      }
    ~TextFile ()
       { rootTag. reset (); }
 
@@ -4288,6 +4290,10 @@ public:
     // Requires: JsonArray
   size_t getSize () const;
     // Requires: JsonArray
+  virtual Token toToken () const 
+    { const Token t;
+      return t; 
+    }
 };
 
 
@@ -4325,6 +4331,10 @@ struct JsonString final : Json
 
   const JsonString* asJsonString () const final
     { return this; }  
+  Token toToken () const final
+    { const Token t (s, '\"');
+      return t;
+    }
 };
 
 
@@ -4345,6 +4355,10 @@ struct JsonInt final : Json
 
   const JsonInt* asJsonInt () const final
     { return this; }  
+  Token toToken () const final
+    { const Token t (n);
+      return t;
+    }
 };
 
 
@@ -4376,6 +4390,10 @@ struct JsonDouble final : Json
 
   const JsonDouble* asJsonDouble () const final
     { return this; }  
+  Token toToken () const final
+    { const Token t (n);
+      return t;
+    }
 };
 
 
@@ -4397,6 +4415,10 @@ struct JsonBoolean final : Json
 
   const JsonBoolean* asJsonBoolean () const final
     { return this; }  
+  Token toToken () const final
+    { const Token t ((long long) b);
+      return t;
+    }
 };
 
 
@@ -4410,6 +4432,10 @@ protected:
     {}
   JsonContainer () = default;
 public:  
+
+
+  Token toToken () const final
+    { throw logic_error ("toToken is not implemented for containers"); }
 };
 
 
@@ -4493,6 +4519,7 @@ template <typename T>
         t. toJson (j);
       return j;
     }
+
 
 
 

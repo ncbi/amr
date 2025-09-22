@@ -33,6 +33,7 @@
 * Dependencies: NCBI BLAST, HMMer, libcurl, gunzip (optional)
 *
 * Release changes:
+*   4.2.0   09/22/2025 PD-5423  Stop codon is changed from "STOP" to "Ter" in point mutations
 *   4.1.11  09/12/2025 PD-5427  [partial] fusion protein BLAST hit should be extended by >= 20 aa over a non-fusion protein hit to override it
 *   4.1.10  08/19/2025 PD-5427  bug: partial fusion hits were reported by 2 hits
 *   4.1.9   08/18/2025 PD-5426  DNA mutation strand is reported incorrectly in dna_mutation.cpp
@@ -376,8 +377,9 @@ using namespace GFF_sp;
 
 // PAR!
 // PD-3051
-const string dataVer_min ("2025-08-01.1");  // PD-5415 ??
-  // 4.1:  "2025-05-14.1"
+const string dataVer_min ("2025-09-22.2");  
+  // 4.2:  "2025-09-22.2"
+  // 4.1:  "2025-05-14.1"  ("2025-08-01.1")  // PD-5415 ??
   // 3.13: "2024-08-14.2"
   // 3.12: "2023-12-15.2"
   // 3.11: "2021-02-18.1"  
