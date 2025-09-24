@@ -555,9 +555,10 @@ struct BlastAlignment final : Alignment
                                     ? product 
                                     : refProtExactlyMatched (true) || parts >= 2 || refAccession. empty ()   // PD-3187, PD-3192
                                       ? product 
-                                      : nvl (getMatchFam () -> familyName, na)
-                               );
+                                      : nvl (checkPtr (getMatchFam ()) -> familyName, na)
+                               );      
       ASSERT (! contains (proteinName, '\t'));
+    //QC_ASSERT (proteinName != na);
       Vector<Locus> cdss_ (cdss);
       if (cdss_. empty ())
         cdss_ << Locus ();
@@ -594,8 +595,8 @@ struct BlastAlignment final : Alignment
   	        else if (isMutationProt () && ! isMutation)
   	          continue;
       	    if (! input_name. empty ())
-      	      td << input_name;;
-            td << (sProt ? nvl(sseqid, na) : na);  // PD-2534
+      	      td << input_name;
+            td << (sProt ? nvl (sseqid, na) : na);  // PD-2534
   	        if (cdsExist)
   	          td << (empty () ? na : (cds. contig. empty () ? nvl (sseqid, na)  : cds. contig))
   	             << (empty () ? 0  : (cds. contig. empty () ? sInt. start : cds. start) + 1)
@@ -792,11 +793,14 @@ struct BlastAlignment final : Alignment
     }
 private:
   string getGeneSymbol () const
-    { return susceptible
-               ? susceptible->genesymbol
-               : alleleMatch () 
-                 ? famId 
-                 : nvl (getMatchFam () -> genesymbol, na); 
+    { const string s (susceptible
+                        ? susceptible->genesymbol
+                        : alleleMatch () 
+                          ? famId 
+                          : nvl (checkPtr (getMatchFam ()) -> genesymbol, na)
+                     ); 
+    //QC_ASSERT (s != na);
+      return s;
     }
 public:
   string fusion2geneSymbols () const
@@ -831,7 +835,7 @@ public:
     }
 private:
   string getType () const
-    { return susceptible ? "AMR" : getMatchFam () -> type; }
+    { return susceptible ? "AMR" : checkPtr (getMatchFam ()) -> type; }
 public:
   string fusion2type () const
     { ASSERT (! isMutationProt ());
@@ -846,7 +850,7 @@ public:
     }    
 private:
   string getSubtype () const
-    { return susceptible ? "AMR" : getMatchFam () -> subtype; }
+    { return susceptible ? "AMR" : checkPtr (getMatchFam ()) -> subtype; }
 public:
   string fusion2subtype () const
     { ASSERT (! isMutationProt ());
@@ -863,7 +867,7 @@ private:
 	string getClass () const
 	  { if (alleleMatch () && ! subclass. empty ())  // class may be empty()
 	      return classS;
-	    return susceptible ? susceptible->classS : getMatchFam () -> classS;
+	    return susceptible ? susceptible->classS : checkPtr (getMatchFam ()) -> classS;
 	  }
 public:
   string fusion2class () const
@@ -881,7 +885,7 @@ private:
 	string getSubclass () const
 	  { if (alleleMatch () && ! subclass. empty ())
 	      return subclass;
-	    return susceptible ? susceptible->subclass : getMatchFam () -> subclass;
+	    return susceptible ? susceptible->subclass : checkPtr (getMatchFam ()) -> subclass;
 	  }
 public:
   string fusion2subclass () const
@@ -1223,7 +1227,7 @@ private:
       if (! fam)
         fam = famId2fam [gene];
       if (! fam)
-      	throw runtime_error ("Cannot find hierarchy for: " + famId + " / " + gene);
+      	throw runtime_error ("Cannot find hierarchy for: " + famId + " (genesymbol: " + gene + ")");
       return fam;
     }
 public:
@@ -1251,7 +1255,7 @@ public:
 	    	if (! other. blastAl->matchesCds (*this))  // ??
 	    		return false;
       return    refProtExactlyMatched (true) 
-             || (getMatchFam () -> descendantOf (other. fam))  
+             || (checkPtr (getMatchFam ()) -> descendantOf (other. fam))  
              ;
     }
   size_t getCdsStart () const
@@ -1963,7 +1967,7 @@ public:
               && ! (*iter) -> partial ()
           	  && (*iter) -> relIdentity () < 0.98 - frac_delta  // PAR  // PD-1673  
              )
-  	        if (const Fam* fam = (*iter) -> getMatchFam () -> getHmmFam ())    
+  	        if (const Fam* fam = checkPtr ((*iter) -> getMatchFam ()) -> getHmmFam ())    
   	        {
   	          bool found = false;
   	      	  for (const HmmAlignment* hmmAl : target2goodHmmAls [it. first])

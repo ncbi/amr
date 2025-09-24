@@ -3471,14 +3471,14 @@ template <typename T>
   // Heap property: comp(arr[parent(index)],arr[index]) >= 0
   // More operations than in std::priority_queue
   {
-  private:
-    Vector<T*> arr;
+    const Vector<T*> arr;
       // Elements are not owned by arr
-    CompareInt comp {nullptr};
+  private:
+    const CompareInt comp {nullptr};
       // !nullptr
     typedef void (*SetHeapIndex) (T &item, size_t index);
       // Example: item.heapIndex = index
-    SetHeapIndex setHeapIndex {nullptr};
+    const SetHeapIndex setHeapIndex {nullptr};
       // Needed to invoke increaseKey()
   public:
 
@@ -3488,7 +3488,7 @@ template <typename T>
   					       size_t toReserve = 0)
       : comp (comp_arg)
       , setHeapIndex (setHeapIndex_arg)
-      { arr. reserve (toReserve); }
+      { var_cast (arr). reserve (toReserve); }
   private:
     static void throwError (const string &str) 
       { throw runtime_error ("Heap: " + str); }
@@ -3502,7 +3502,7 @@ template <typename T>
     Heap& operator<< (T* item)
       { if (! item)
           throwError ("null item");
-        arr << item;
+        var_cast (arr) << item;
         increaseKey (arr. size () - 1);
         return *this;
       }
@@ -3527,7 +3527,7 @@ template <typename T>
       { if (arr. empty ()) 
       	  throwError ("deleteMaximum");
         T* item = arr. back ();
-        arr. pop_back ();
+        var_cast (arr). pop_back ();
         if (arr. empty ())
           return;
         assign (item, 0);
@@ -3555,7 +3555,7 @@ template <typename T>
       { return left (index) + 1; }
     void assign (T* item,
                  size_t index)
-      { arr [index] = item;
+      { var_cast (arr) [index] = item;
         if (setHeapIndex)
           setHeapIndex (*item, index);
       }

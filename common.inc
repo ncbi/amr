@@ -128,6 +128,8 @@ namespace
 #define LESS_PART(x,y,part)  { if ((x).part < (y).part)  return true; \
                                if ((y).part < (x).part)  return false; }
 #define LESS_COMP(comp)  { const ebool c = comp; if (c == etrue) return true; if (c == efalse) return false; }
+#define COMP_PART(x,y,part)  { if ((x).part < (y).part)  return -1; \
+                               if ((y).part < (x).part)  return  1; }
 
 
 

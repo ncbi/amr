@@ -246,7 +246,7 @@ struct Alignment : Hsp
   Alignment (const string &line,
              bool qProt_arg,  
              bool sProt_arg)
-    : Hsp (line, qProt_arg, sProt_arg, qProt_arg || sProt_arg /*aProt*/, qProt_arg/*qStopCodon*/, true/*bacterialStartCodon*/)
+    : Hsp (line, qProt_arg, sProt_arg, qProt_arg || sProt_arg /*aProt*/, /*false*/ qProt_arg /*qStopCodon*/, true/*bacterialStartCodon*/)
     {}
   Alignment () = default;  
 protected:
