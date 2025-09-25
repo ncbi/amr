@@ -558,7 +558,6 @@ struct BlastAlignment final : Alignment
                                       : nvl (checkPtr (getMatchFam ()) -> familyName, na)
                                );      
       ASSERT (! contains (proteinName, '\t'));
-    //QC_ASSERT (proteinName != na);
       Vector<Locus> cdss_ (cdss);
       if (cdss_. empty ())
         cdss_ << Locus ();
@@ -793,14 +792,11 @@ struct BlastAlignment final : Alignment
     }
 private:
   string getGeneSymbol () const
-    { const string s (susceptible
-                        ? susceptible->genesymbol
-                        : alleleMatch () 
-                          ? famId 
-                          : nvl (checkPtr (getMatchFam ()) -> genesymbol, na)
-                     ); 
-    //QC_ASSERT (s != na);
-      return s;
+    { return susceptible
+               ? susceptible->genesymbol
+               : alleleMatch () 
+                 ? famId 
+                 : nvl (checkPtr (getMatchFam ()) -> genesymbol, na);
     }
 public:
   string fusion2geneSymbols () const

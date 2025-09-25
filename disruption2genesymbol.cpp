@@ -120,8 +120,8 @@ struct SymbolRaw final : Root
   void saveText (ostream &os) const final
     { 
       ASSERT (! ref. empty ());
-      os         << contig 
-         << '\t' << prot         
+      os         << contig  // 0
+         << '\t' << prot    // 1 
          << '\t';
       if (verbose ())
         os << '\t' << Disruption::typeNames [type]
@@ -135,48 +135,58 @@ struct SymbolRaw final : Root
            << '\t' << allele
            << '\t';           
       ASSERT (! contains (ref, '*'));
-      size_t termLen = no_index;
-        // Distance to a stop codon
       string allele_ (allele);
       const bool alleleStop = trimSuffix (allele_, "*");
+      const size_t allele_size = allele_. size ();  // Without stop codon
     //QC_IMPLY (type != Disruption::eFrameshift, alleleStop == stop);
       QC_IMPLY (stop, alleleStop);
+      constexpr size_t display_max = 1/*reference aa*/ + 5;  // PAR  // PD-5395
+      if (allele_size > display_max)
+        allele_ = "ins";
       if (alleleStop)
-      {
-        termLen = allele_. size ();
         allele_ += terminatorWord;
-      }
       ASSERT (! contains (allele_, '*'));
-      // Standard gene symbol
-      os << ref << qstart + 1;
+      // Standard gene symbol        
+      // 2      
+      if (ref. size () > display_max)
+        os        << ref. front () << qstart + 1 
+           << '_' << ref. back ()  << qstart + ref. size ();
+      else
+        os << ref << qstart + 1;  
       switch (type)
       {
         case Disruption::eFrameshift:
           ASSERT (ref. size () == 1)
-          ASSERT (! allele_. empty ());
-          if (termLen == 0)            
+          ASSERT (! allele. empty ());
+          if (alleleStop && allele_size == 0)            
             os << terminatorWord;
           else
-            os << allele_ [0];
+            os << allele [0];
           os << Disruption::typeNames [type];
-          if (termLen != no_index)
-            os << "Ter" << termLen;
+          if (alleleStop)
+            os << terminatorWord << allele_size;
           break;
-        case Disruption::eDeletion:
+        case Disruption::eDeletion:  // Or replacement
           if (allele_. empty ())
             os << Disruption::typeNames [type];
           else
+          {
             os << allele_;
+            if (allele_size > display_max)
+              os << allele_size - 1/*reference aa*/;
+          }
           break;
         case Disruption::eInsertion:
           ASSERT (ref. size () == 1);
           ASSERT (! allele_. empty ());
           os << allele_;
+          if (allele_size > display_max)
+            os << allele_size - 1/*reference aa*/;
           break;
         default:
           break;
       }
-      //
+      // 3
       os << '\t' 
          // = <Disruption::genesymbol_raw()>
          // Opposite to SymbolRaw::SymbolRaw(line)
@@ -184,13 +194,9 @@ struct SymbolRaw final : Root
       if (stop)
         os << Disruption::stopSuf;
          //
-      os << '\t' << rest
+      os << '\t' << rest  // 4
          << '\n';
     }
-/*bool smallDel () const
-    { return    type == "del" 
-             && pos2 - protPos + 1 <= del_size; 
-    }*/
     
     
   char contig2aa (const Dna &dna,
