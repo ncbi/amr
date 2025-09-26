@@ -17,7 +17,7 @@ NA	contig13	1	1137	+	emrD3	multidrug efflux MFS transporter EmrD-3	plus	AMR	AMR	
 NA	contig14	1	1089	+	pmrB_C84R	Escherichia colistin resistant PmrB	core	AMR	POINT	COLISTIN	COLISTIN	POINTX	363	363	100.00	99.72	363	WP_001300761.1	two-component system sensor histidine kinase PmrB	NA	NA	pmrB
 NA	contig14	1093	2181	+	pmrB_C84R	Escherichia colistin resistant PmrB	core	AMR	POINT	COLISTIN	COLISTIN	POINTX	363	363	100.00	99.72	363	WP_001300761.1	two-component system sensor histidine kinase PmrB	NA	NA	pmrB
 NA	contig15	1	2905	+	23S_A2058T	Escherichia azithromycin/erythromycin/telithromycin resistant 23S	core	AMR	POINT	MACROLIDE	AZITHROMYCIN/ERYTHROMYCIN/TELITHROMYCIN	POINTN	2905	2905	100.00	99.97	2905	NC_004431.1:237160-240064	23S ribosomal RNA	NA	NA	NA
-NA	contig16	1	720	+	nfsA_K141STOP	Escherichia nitrofurantoin resistant NfsA	core	AMR	POINT	NITROFURAN	NITROFURANTOIN	POINTX	240	240	100.00	99.17	240	WP_089631889.1	nitroreductase NfsA	NA	NA	nfsA
+NA	contig16	1	720	+	nfsA_K141Ter	Escherichia nitrofurantoin resistant NfsA	core	AMR	POINT	NITROFURAN	NITROFURANTOIN	POINTX	240	240	100.00	99.17	240	WP_089631889.1	nitroreductase NfsA	NA	NA	nfsA
 NA	contig16	1	720	+	nfsA_R15C	Escherichia nitrofurantoin resistant NfsA	core	AMR	POINT	NITROFURAN	NITROFURANTOIN	POINTX	240	240	100.00	99.17	240	WP_089631889.1	nitroreductase NfsA	NA	NA	nfsA
 NA	contig17	1	247	+	ampC_T-14TGT	Escherichia cephalosporin resistant ampC promoter	core	AMR	POINT	BETA-LACTAM	CEPHALOSPORIN	POINTN	247	245	100.00	99.19	247	NZ_CP041538.1:1149245-1149489	ampC/blaEC promoter region	NA	NA	NA
 NA	contig18	279	1235	+	stxA2	Shiga toxin Stx2 subunit A	plus	VIRULENCE	VIRULENCE	STX2	stxA2	EXACTX	319	319	100.00	100.00	319	TJA36680.1	Shiga toxin Stx2 subunit A	NA	NA	stxA2_acd
