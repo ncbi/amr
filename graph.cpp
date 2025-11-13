@@ -2114,55 +2114,6 @@ bool Tree::strictlyLess_std (const DiGraph::Node* a,
 
 
 
-
-// TopologicalSort
-
-TopologicalSort::TopologicalSort (DiGraph &graph_arg,
-                                  bool out_arg)
-: graph (graph_arg)
-, out (out_arg)
-{ 
-	order. reserve (graph. nodes. size ());
-	for (DiGraph::Node* node : graph. nodes)
-	{
-	  for (Iter<List<DiGraph::Arc*>> iter (node->arcs [! out]); iter. next (); )
-	    if ((*iter) -> selfLoop ())
-	      delete *iter;  		
-    if (node->arcs [! out]. empty ())
-    	order << node;
-  }
-}
-
-
-
-const DiGraph::Node* TopologicalSort::getFront ()
-{	
-	ASSERT (index <= order. size ());	
-	if (index == order. size ())
-		return nullptr;
-		
-	const DiGraph::Node* n = order [index];
-	ASSERT (n);
-	ASSERT (n->arcs [! out]. empty ());
-	VectorPtr<DiGraph::Node> add;
-  for (const DiGraph::Arc* arc : n->arcs [out])
-  {
-  	const DiGraph::Node* next = arc->node [out];
-  	ASSERT (next);
-  	ASSERT (! next->arcs [! out]. empty ());
-  	if (! next->isIncidentExcept (n, ! out))
-  		if (! add. contains (next))
-  		  add << next;
-  }
-  order << add;
-  add. clear ();
-	var_cast (n) -> isolate ();
-	index++;
-	
-	return n;
-}
-
-
 }
 
 

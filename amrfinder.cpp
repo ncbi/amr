@@ -33,9 +33,10 @@
 * Dependencies: NCBI BLAST, HMMer, libcurl, gunzip (optional)
 *
 * Release changes:
+*   4.2.3   10/16/2025 PD-5469  QC_ASSERT error messages of amrfinder_update.cpp are made human readable
 *   4.2.2   09/25/2025 PD-5395  cirA_A169AERSPHNFPKATer becomes cirA_A169insTer10, ompK35_N...Y82del becomes ompK35_N82_Y310del
-*   4.2.1   09/24/2025 PD-5445  Element symbols and element names are checked not to be "NA" in the report file
-*   4.2.0   09/22/2025 PD-5423  Stop codon is changed from "STOP" to "Ter" in point mutations
+*   4.2.1   09/24/2025 PD-5445  element symbols and element names are checked not to be "NA" in the report file
+*   4.2.0   09/22/2025 PD-5423  stop codon is changed from "STOP" to "Ter" in point mutations
 *   4.1.11  09/12/2025 PD-5427  [partial] fusion protein BLAST hit should be extended by >= 20 aa over a non-fusion protein hit to override it
 *   4.1.10  08/19/2025 PD-5427  bug: partial fusion hits were reported by 2 hits
 *   4.1.9   08/18/2025 PD-5426  DNA mutation strand is reported incorrectly in dna_mutation.cpp

@@ -87,11 +87,13 @@ string getLatestMinor (Curl &curl)
   	  try 
   	  {
         const size_t pos1 = line. find ('>');
-        QC_ASSERT (pos1 != string::npos);
+        if (pos1 == string::npos)
+          throw runtime_error ("Cannot find '>' after '<a href=' in " + string (URL));
         line. erase (0, pos1 + 1);
 
         const size_t pos2 = line. find ("/<");
-        QC_ASSERT (pos2 != string::npos);
+        if (pos2 == string::npos)
+          throw runtime_error ("Cannot find '/<' after '>' in " + string (URL));
         line. erase (pos2);
         
     	  istringstream iss (line);
@@ -129,7 +131,8 @@ string getLatestDataVersion (Curl &curl,
                              const string &minor)
 // Return: empty() <=> failure
 {
-  StringVector dir (curl. read (URL + minor + "/"), '\n', true);
+  const string url (URL + minor + "/");
+  StringVector dir (curl. read (url), '\n', true);
   if (verbose ())
   {
     save (cout, dir, '\n');
@@ -143,11 +146,13 @@ string getLatestDataVersion (Curl &curl,
       try
       {
         const size_t pos1 = line. find ('>');
-        QC_ASSERT (pos1 != string::npos);
+        if (pos1 == string::npos)
+          throw runtime_error ("Cannot find '>' after '<a href=' in " + url);
         line. erase (0, pos1 + 1);
 
         const size_t pos2 = line. find ("/<");
-        QC_ASSERT (pos2 != string::npos);
+        if (pos2 == string::npos)
+          throw runtime_error ("Cannot find '/<' after '>' in " + url);
         line. erase (pos2);
         
     	  istringstream iss (line);
@@ -356,7 +361,8 @@ Requirement: the database directory contains subdirectories named by database ve
         int n = -1;
         istringstream iss (f. line);
         iss >> taxgroup >> gpipe >> n;
-        QC_ASSERT (n >= 0);
+        if (n < 0)
+          throw runtime_error ("Bad " + latestDir + "taxgroup.tsv");
         if (n)
           dnaPointMuts << taxgroup;
       }

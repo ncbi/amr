@@ -721,29 +721,60 @@ public:
 
 
 
-struct TopologicalSort : Root
-// Usage: 
-//   while (Node* n = ts.getFront ())  ...
-// Time: O(graph.n + graph.m)
-{
-	DiGraph &graph;
-	const bool out;
-private:
-	VectorPtr<DiGraph::Node> order;
-	size_t index {0};
-	  // <= order.size()
-public:
-	
-	
-	TopologicalSort (DiGraph &graph_arg,
-	                 bool out_arg);
-	  
-	  
-	const DiGraph::Node* getFront ();
-		// delete Arc's of graph
-		// graph is DAG <=> all Arc's are delete'd, all Node's are returned
-};
+template <typename T> 
+  struct TypeNode : DiGraph::Node
+  {
+    const T* t {nullptr};
 
+    
+    TypeNode (DiGraph &graph_arg,
+              const T* t_arg)
+      : Node (graph_arg)
+      , t (t_arg)
+			{}
+    TypeNode (const TypeNode &other)
+      : Node (other)
+      , t (other. t)
+      {}
+  };
+
+
+
+template <typename T> 
+  VectorPtr<T> topologicalSort (const VectorPtr<T> &vec)
+    // Return: ascending ordering
+    // Invokes: T::operator<()
+    // Time: O(n^2)
+    {
+      DiGraph gr;
+      VectorPtr<TypeNode<T>> nodes;  nodes. reserve (vec. size ());
+      for (const T* t : vec)
+      {
+        assert (t);
+        auto n = new TypeNode<T> (gr, t);
+        for (const TypeNode<T>* prev : nodes)
+          if (* prev->t < *t)
+            new DiGraph::Arc (var_cast (prev), n);
+          else if (*t < * prev->t)
+            new DiGraph::Arc (n, var_cast (prev));
+        nodes << n;
+      }
+            
+      // DFS
+      VectorPtr<T> res;  res. reserve (vec. size ());
+      const function<void(TypeNode<T>* n)> process = [&] (TypeNode<T>* n) 
+        { assert (n);
+          if (n->reachable)
+            return;
+          n->reachable = true;
+          for (const DiGraph::Arc* arc : n->arcs [false])
+            process (static_cast <TypeNode<T>*> (arc->node [false]));
+          res << n->t;
+        };      
+      for (const TypeNode<T>* n : nodes)
+        process (var_cast (n));        
+      return res;
+    }
 
 
 }

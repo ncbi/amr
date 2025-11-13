@@ -78,6 +78,7 @@
 #include <iomanip>
 #include <memory>
 #include <algorithm>
+#include <functional>
 #include <filesystem>
 
 #include <thread>
@@ -734,7 +735,7 @@ bool isIdentifier (const string& name,
   // Return: true. !empty(), !dashInName => (c \in mame => isLetter(c))
 
 bool isNatural (const string& name,
-                bool leadingZeroAllowed);
+                bool leadingZeroAllowed = true);
 
 void strUpper (string &s);
 
@@ -2380,6 +2381,11 @@ template <typename T>
         return P::size ();
       }
       // a = v.overlapStart_min(v,1), a < v.size(), v.size() % a == 0 => a is the period of v
+    bool contains (const vector<T> &other) const
+      { const size_t start = overlapStart_min (other, 0);
+        assert (P::size () >= start);
+        return P::size () - start >= other. size ();
+      }
     void checkSorted () const
       { if (ascending == enull)
       	  throw runtime_error ("Vector is not sorted for search");
@@ -3466,18 +3472,107 @@ template <typename T>
 
 
 template <typename T>
+  struct PriorityStack
+  {
+    const VectorPtr<T> vec;
+  private:
+    typedef size_t& (*GetIndex) (T &item);
+    const GetIndex getIndex {nullptr};
+      // QC: vec[getIndex(*item)] = item
+  public:
+
+
+    explicit PriorityStack (const GetIndex &getIndex_arg,
+    			         		      size_t toReserve = 0)
+      : getIndex (getIndex_arg)
+      { var_cast (vec). reserve (toReserve); }
+      
+      
+    // Time: O(1)
+    bool empty () const
+      { return vec. empty (); }
+    void push (T* item)
+      { assert (item);
+        size_t& i = getIndex (*item);
+        if (i != no_index)
+        { assert (vec [i] == item);
+          if (i + 1 == vec. size ())
+            return;
+          var_cast (vec) [i] = var_cast (vec). pop ();
+          assert (vec [i] != item);
+          getIndex (var_cast (* vec [i])) = i;
+        }
+        i = vec. size ();
+        var_cast (vec) << item;
+      }
+      // Push or repush
+      // Update: vec: back() = item
+    const T* pop ()
+      { const T* item = var_cast (vec). pop (); 
+        assert (item);
+        assert (getIndex (* var_cast (item)) == vec. size ());
+        getIndex (* var_cast (item)) = no_index;
+        return item;
+      }
+};
+
+
+
+template <typename T>
+  struct Queue
+  {
+    const List<const T*> q;
+  private:
+    typedef bool& (*GetFlag) (T &item);
+      // Return: <=> in q
+    const GetFlag getFlag {nullptr};
+  public:
+
+
+    explicit Queue (const GetFlag &getFlag_arg)
+      : getFlag (getFlag_arg)
+      {}
+      
+      
+    // Time: O(1)
+    bool empty () const
+      { return q. empty (); }
+    bool push (T* item)
+      { assert (item);
+        bool& f = getFlag (*item);
+        if (f)
+          return false;
+        f = true;
+        var_cast (q) << item;
+        return true;
+      }
+    const T* pop ()
+      { assert (! q. empty ());
+        const T* item = var_cast (q). popFront (); 
+        assert (item);
+        bool& f = getFlag (* var_cast (item));
+        assert (f);
+        f = false;
+        return item;
+      }
+};
+
+
+
+template <typename T>
   struct Heap 
   // Priority queue
   // Heap property: comp(arr[parent(index)],arr[index]) >= 0
   // More operations than in std::priority_queue
   {
-    const Vector<T*> arr;
+    const VectorPtr<T> arr;
       // Elements are not owned by arr
   private:
     const CompareInt comp {nullptr};
       // !nullptr
     typedef void (*SetHeapIndex) (T &item, size_t index);
       // Example: item.heapIndex = index
+      //          item.heapIndex = no_index <=> item is not in Heap
     const SetHeapIndex setHeapIndex {nullptr};
       // Needed to invoke increaseKey()
   public:
@@ -3507,17 +3602,17 @@ template <typename T>
         return *this;
       }
     void increaseKey (size_t index)
-      { T* item = arr [index];
+      { const T* item = arr [index];
         size_t p = no_index;
         while (index && comp (arr [p = parent (index)], item) < 0)
-        { assign (arr [p], index);
+        { assign (var_cast (arr [p]), index);
           index = p;
         }
-        assign (item, index);
+        assign (var_cast (item), index);
       }
     void decreaseKey (size_t index)
       { heapify (index, arr. size ()); }
-    T* getMaximum () const
+    const T* getMaximum () const
       { if (arr. empty ()) 
       	  throwError ("getMaximum");
         return arr [0];
@@ -3526,11 +3621,13 @@ template <typename T>
       // Time: O(1) amortized
       { if (arr. empty ()) 
       	  throwError ("deleteMaximum");
-        T* item = arr. back ();
+        if (setHeapIndex)
+          setHeapIndex (* var_cast (arr [0]), no_index);      	
+        const T* item = arr. back ();
         var_cast (arr). pop_back ();
         if (arr. empty ())
           return;
-        assign (item, 0);
+        assign (var_cast (item), 0);
         reinsertMaximum ();
       }
     void reinsertMaximum ()
@@ -3555,7 +3652,8 @@ template <typename T>
       { return left (index) + 1; }
     void assign (T* item,
                  size_t index)
-      { var_cast (arr) [index] = item;
+      { if (index == no_index)  throwError ("bad index");
+        var_cast (arr) [index] = item;
         if (setHeapIndex)
           setHeapIndex (*item, index);
       }
@@ -3563,9 +3661,9 @@ template <typename T>
                size_t j)
       { if (i == j)
           return;
-        T* item = arr [i];
-        assign (arr [j], i);
-        assign (item, j);
+        const T* item = arr [i];
+        assign (var_cast (arr [j]), i);
+        assign (var_cast (item), j);
       }
     void heapify (size_t index,
                   size_t maxIndex)
@@ -4244,7 +4342,7 @@ extern unique_ptr<JsonMap> jRoot;
 
 
 
-struct Json : Root, Nocopy  // Heaponly
+struct Json : Root, Nocopy  // Heap only
 {
 protected:
   Json (JsonContainer* parent,
