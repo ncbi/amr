@@ -33,6 +33,7 @@
 * Dependencies: NCBI BLAST, HMMer, libcurl, gunzip (optional)
 *
 * Release changes:
+*   4.2.4   12/02/2025 PD-5495  If set use CURL_CA_BUNDLE environment variable for certificate authorities
 *   4.2.3   10/16/2025 PD-5469  QC_ASSERT error messages of amrfinder_update.cpp are made human readable
 *   4.2.2   09/25/2025 PD-5395  cirA_A169AERSPHNFPKATer becomes cirA_A169insTer10, ompK35_N...Y82del becomes ompK35_N82_Y310del
 *   4.2.1   09/24/2025 PD-5445  element symbols and element names are checked not to be "NA" in the report file
