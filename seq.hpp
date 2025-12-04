@@ -37,8 +37,8 @@
 
 
 #include "common.hpp"
+#include "graph.hpp"
 using namespace Common_sp;
-
 
 
 
@@ -51,6 +51,7 @@ namespace Seq_sp
 typedef char Frame;
   // -3, -2, -1, 1, 2, 3
   // If > 0 then strand = 1 else strand = -1
+  // 0 - unknown
 
 inline bool isFrame (char frame)
   { return
@@ -72,6 +73,13 @@ inline bool isStrand (char strand)
            || strand ==  1;
   }
 
+inline char strand2char (Strand strand)
+  { switch (strand)
+    { case -1: return '-';
+      case  1: return '+';
+    }
+    return '?';
+  }
 
 
 // Alphabets
@@ -148,6 +156,8 @@ extern const char* extTermPeptideAlphabet;
 extern const char* extSparseTermPeptideAlphabet;
   // = extPeptideAlphabet + gap
 
+constexpr const char* terminatorWord {"Ter" /*"STOP"*/};  // PD-5423
+
 
 size_t alphabet2Pos (const char* alphabet,
                      char        c);
@@ -175,16 +185,6 @@ inline size_t countInsertions (const string &seq)
   
 inline size_t sparseSeqLen (const string &seq)
   { return seq. size () - countInsertions (seq); }
-
-#if 0
-int SparseSeq2SeqPos (const char* SparseSeq,
-             		       int         SparseSeqPos);
-
-int Seq2SparseSeqPos (const char* SparseSeq,
-		                    int         SeqPos);
-  // Return: SparseSeq [Result] != '-'
-#endif
-
 
 
 extern const size_t fastaLineLen;
@@ -299,11 +299,6 @@ public:
     //         If > stdMinComplexity then no repeats
   double getComplexity () const 
     { return getComplexityInt (0, seq. size ()); }
-#if 0
-  size_t* GetAlphabetCount () const;
-    // Return: length = strlen (SeqAlphabet)
-    // Invokes: NewUintArray ()
-#endif
   void unSparse ()
     { strDeleteSet (seq, "-"); 
       sparse = false;
@@ -360,29 +355,6 @@ size_t nuc2num (char wildNucleotide);
   //         else error
   // Case-insensitive
 
-#if 0
-typedef PROBABILITY NT_PROBABILITY [5];
-
-
-void PrintNTProb (const NT_PROBABILITY Prob);
-
-
-void CompressDna (const char* seq,
-                  char*       CompressedSeq,
-                  size_t        &CompressedSeqLen);
-  // Input: seq in extDnaAlphabet + '-' + uppercase
-  // Output: CompressedSeq []
-  //         CompressedSeqLen
-  // Requires: CompressedSeq [] must have enough space (<= strlen (seq) + 1)
-
-void UncompressDna (size_t        SeqLen,
-                    const char* CompressedSeq,
-                    char*       &seq,
-                    size_t        &CompressedSeqLen);
-  // Output: *seq, malloc (), length = SeqLen + 1
-  //         CompressedSeqLen
-#endif
-
 uchar wild2nucleotides (char wildNucleotide,
  		                    bool acgtb [5]);
   // Output: acgtb []
@@ -392,13 +364,6 @@ uchar wild2nucleotides (char wildNucleotide,
 
 char nucleotides2wild (const bool acgtb [5]);
   // Return: in extDnaAlphabet + '-'; if empty set then ' '
-
-#if 0
-void Wild2NucleotideFreq (char           WildNucleotide,
-                          NT_PROBABILITY acgtb);
-  // Output: acgtb []
-  //         Sum_i acgtb [i] = 1
-#endif
 
 char complementaryNucleotide (char wildNucleotide);
   // Return: in extDnaAlphabet
@@ -417,30 +382,6 @@ bool nucleotideMatch (char wildNucleotide1,
                       char wildNucleotide2);
   // Return: true if the nucleotides of wildNucleotide1 and wildNucleotide2 intersect
 
-#if 0
-bool NucleotideSeqMatch (const char* Seq1,
-                         const char* Seq2);
-  // Requires: Seq1|2 [] - in extDnaAlphabet
-
-bool MoreGeneralNucleotide (char WildNucleotide1,
-                            char WildNucleotide2);
-  // Return: true if the nucleotides of WildNucleotide1 are a superset
-  //           of those of WildNucleotide2 (i.e., WildNucleotide1 is
-  //           more general than or equal to WildNucleotide2)
-
-void SelectSpecificNucleotides (char* CharSet);
-  // Delete more general nucleotides
-  // Update: CharSet []
-  // Requires: CharSet is in extDnaAlphabet + '-'
-
-size_t CountAmbiguousNucleotides (const char* seq);
-  // Input: seq - sparse sequence
-
-char* getReverseDna (const char* Source);
-  // Return: malloc ()
-  // Requires: source is in extDnaAlphabet + '-'
-#endif
-
 string& reverseDna (string &seq);
   // Requires: seq is in extDnaAlphabet + '-'
 
@@ -452,27 +393,6 @@ char codon2aa (const char codon [3],
 
 inline size_t dna2codons_len (size_t dna_len)
   { return dna_len ? (dna_len - 1) / 3 + 1 : 0; }
-
-#if 0
-inline bool CodonMatch (const char Codon1 [3],
-           		           const char Codon2 [3])
-  { return NucleotideSeqMatch (Codon1, Codon2); }
-  // Requires: Codon1|2 [] - in extDnaAlphabet
-
-inline bool TerminatorCodon (const char Codon [3])
-  { return Codon2AA (Codon) == '*'; }
-
-bool MayBeTerminatorCodon (const char Codon [3]);
-
-
-size_t Dna2PeptidePos (size_t  DnaPos,
-              		     Frame frame,
-              		     size_t  DnaLen);
-
-size_t Peptide2DnaPos (size_t  PeptidePos,
-              		     Frame frame,
-              		     size_t  DnaLen);
-#endif
 
 
 
@@ -518,49 +438,6 @@ struct Dna : Seq
     // Return: entropy of dinucleotides
   size_t monoNuc2n (size_t repeat_min);
     // Return: number of nucleotides converted to 'n'
-#if 0
-  void PrintHTML (bool        UpperCase,
-                  PHRED_SCORE MinGoodQual) const;
-  SEQ_ANNOT_LIST* GetAnnotList (int GoodStart = 0) const;
-    // List: "seq", "Score 10", "Score  1"
-
-  // Qual
-  void CreateQual ();
-    // Requires: Qual == nullptr
-    // Postcondition: Qual != nullptr
-  bool GoodQual () const;
-    // Return: false if there are wrong values in Qual []
-  void CopyQual (const PHRED_SCORE* SourceQual);
-    // Invokes: CreateQual (), GoodQual ()
-  void ReadQual (const char* FName);
-    // Input: FName: FASTA-file with phred quality scores
-    // Output: Qual
-    // Invokes: CreateQual (), GoodQual ()
-  // Requires: Qual != nullptr
-  void SetQual (PHRED_SCORE DefaultScore);
-  PHRED_SCORE GetMinQual () const;
-  PHRED_SCORE GetMaxQual () const;
-  void Qual2MeanVar (size_t  Start,
-                     size_t  End,
-                     double &Mean,
-                     double &Var) const;
-    // Output: Mean, Var (unbiased)
-  void Qual2N (PHRED_SCORE MinQual,
-               bool        GapCoded);
-    // If Qual [i] < MinQual then seq [i] := 'N'|'n'
-    // Delete Qual
-  void MinScore2Pos (PHRED_SCORE MinScore,
-                     size_t        &Start,
-                     size_t        &End) const;
-    // Output: Start, End; valid if Start < End
-  void QualSaveFile (FILE*       F,
-                  		 PHRED_SCORE DefaultScore) const;
-  char* Qual2String () const;
-    // Return: new [], May be nullptr
-
-  void DeleteStart (size_t NewStart);
-#endif
-
   Dna* makeComplementary () const;
     // Return: Reverse and complementary Dna; !nullptr
   void reverse ();
@@ -854,6 +731,10 @@ struct SubstMat final : Root
     { return sim [row] [row] - 2 * gap_sim; }
   AlignScore char2score (char c1,
                          char c2) const;
+  static AlignScore char2score (const SubstMat* sm,
+                                char c1,
+                                char c2) 
+    { return sm ? sm->char2score (c1, c2) : aaMatch (c1, c2); }
 };
 
 	
@@ -1007,12 +888,6 @@ struct Peptide : Seq
                         double gapOpenCost,
                         double gapCost) const;
     // Requires: *this and other are aligned
-#if 0
-  size_t GetLeftMPos (size_t Start) const;
-    // Return: may be no_index
-  size_t GetClosestMPos (size_t Start) const;
-    // Return: may be no_index
-#endif
   size_t ambig2X ();
     // Return: # ambiguous characters converted to 'X'
   void toGBMR4 ();
@@ -1169,80 +1044,6 @@ struct DnaAnnot final : Root
 
 
 
-
-// Align
-
-struct Align final : Root
-// Needleman-Wunsch algorithm 
-{
-	// Output:
-	AlignScore score {0.0};
-	  // To be maximized
-	string transformations;
-	  // Of sequence 1
-	  // '-': insertion
-	  // '_': deletion
-	  // '|': match
-	  // ' ': substitution
-	size_t matches {0};
-	  // = identities
-	  // Not ambiguities
-	size_t substitutions {0};
-	size_t insertions {0};
-		// In seq1
-	size_t deletions {0};
-		// = insertions in seq2
-	
-	size_t start1 {0};
-	size_t start2 {0};
-  size_t stop1 {0};
-	size_t stop2 {0};
-	
-	AlignScore self_score1 {0.0};
-	AlignScore self_score2 {0.0};
-	
-	
-  // Default NCBI alignment parameters
-  // Input: match_len_min: valid if semiglobal, otherwise 0
-  // !semiglobal = global
-	Align (const Peptide &pep1,
-         const Peptide &pep2,
-         const SubstMat &substMat,
-         AlignScore gapOpenCost,
-         AlignScore gapCost,
-         size_t semiglobalMatchLen_min);
-    // Global alignment <=> !semiglobalMatchLen_min
-#if 0
-  ??
-	Align (const Dna &dna1,
-	       const Dna &dna2,
-	       bool semiglobal,
-	       size_t match_len_min);
-private:
-	void finish (const Seq &seq1,
-	             const Seq &seq2,
-	             bool semiglobal,
-	             size_t match_len_min);
-public:
-#endif
-  void qc () const override;
-	
-	
-	// Sizes of the input sequences
-  size_t size1 () const
-    { return transformations. size () - insertions; }
-  size_t size2 () const
-    { return transformations. size () - deletions; }
-  //
-	AlignScore getMinEditDistance () const;
-    // Return: >= 0
-  void printAlignment (const string &seq1,
-	                     const string &seq2,
-	                     size_t line_len) const;
-};
-
-
-
 struct Mutation final : Root
 {
   bool prot {false};
@@ -1326,6 +1127,540 @@ public:
 };
 
     
+
+#if 0
+struct Align final : Root
+// Needleman-Wunsch algorithm 
+{
+	// Output:
+	AlignScore score {0.0};
+	  // To be maximized
+	string transformations;
+	  // Of sequence 1
+	  // '-': insertion
+	  // '_': deletion
+	  // '|': match
+	  // ' ': substitution
+	size_t matches {0};
+	  // = identities
+	  // Not ambiguities
+	size_t substitutions {0};
+	size_t insertions {0};
+		// In seq1
+	size_t deletions {0};
+		// = insertions in seq2
+	
+	size_t start1 {0};
+	size_t start2 {0};
+  size_t stop1 {0};
+	size_t stop2 {0};
+	
+	AlignScore self_score1 {0.0};
+	AlignScore self_score2 {0.0};
+	
+	
+  // Default NCBI alignment parameters
+  // Input: match_len_min: valid if semiglobal, otherwise 0
+  // !semiglobal = global
+	Align (const Peptide &pep1,
+         const Peptide &pep2,
+         const SubstMat &substMat,
+         AlignScore gapOpenCost,
+         AlignScore gapCost,
+         size_t semiglobalMatchLen_min);
+    // Global alignment <=> !semiglobalMatchLen_min
+#if 0
+  ??
+	Align (const Dna &dna1,
+	       const Dna &dna2,
+	       bool semiglobal,
+	       size_t match_len_min);
+private:
+	void finish (const Seq &seq1,
+	             const Seq &seq2,
+	             bool semiglobal,
+	             size_t match_len_min);
+public:
+#endif
+  void qc () const override;
+	
+	
+	// Sizes of the input sequences
+  size_t size1 () const
+    { return transformations. size () - insertions; }
+  size_t size2 () const
+    { return transformations. size () - deletions; }
+  //
+	AlignScore getMinEditDistance () const;
+    // Return: >= 0
+  void printAlignment (const string &seq1,
+	                     const string &seq2,
+	                     size_t line_len) const;
+};
+#endif
+
+
+
+
+// Local alignments
+
+struct Interval : Root
+{
+  // 0-based
+  size_t start {no_index};
+  size_t stop  {no_index};
+    // Position after segment
+  // start <= stop
+  Strand strand {0};
+  
+  
+  Interval (size_t start_arg,
+            size_t stop_arg,
+            Strand strand_arg)
+    : start (start_arg)
+    , stop  (stop_arg)
+    , strand (strand_arg)
+    {}
+  Interval () = default;
+  void qc () const override;
+  void saveText (ostream &os) const override
+    { if (strand == -1)
+        os << stop << '-' << start + 1;
+      else
+        os << start + 1 << '-' << stop;
+      if (strand)
+        os << '/' << strand2char (strand);
+    }
+    // 1-based
+  bool empty () const override
+    { return start == no_index; }
+  bool operator< (const Interval& other) const;
+  bool operator== (const Interval& other) const 
+    { return    start  == other. start
+             && stop   == other. stop
+             && strand == other. strand;
+    }  
+    
+  
+  // Requires: !empty()
+  bool valid () const
+    { return start <= stop; }
+  bool follow (size_t a,
+               size_t b) const
+    { if (strand == -1)
+        return b <= a;
+      return a <= b;
+    }
+  size_t len () const
+    { return stop - start; }
+  Frame frame () const
+    { return Frame (strand * int ((start % 3) + 1)); }
+  bool insideEq (const Interval& other,
+                 size_t slack) const
+    { return    strand        == other. strand
+             && start + slack >= other. start
+             && stop          <= other. stop + slack;
+    }
+  bool contains (const Interval& other) const
+    { return other. insideEq (*this, 0); }
+  bool overlaps (const Interval& other) const
+    { return    strand == other. strand
+             && stop   >  other. start
+             && start  <  other. stop;
+    }
+    // Symmetric
+    // len() => reflexive
+  bool containsStrongly (const Interval& other) const
+    { return    contains (other) 
+             && overlaps (other); 
+    }
+  size_t& realStart ()
+    { return strand == -1 ? stop : start; }
+  size_t& realStop ()
+    { return strand == -1 ? start : stop; }
+  size_t realStart () const
+    { return var_cast (this) -> realStart (); }
+  size_t realStop () const
+    { return var_cast (this) -> realStop (); }
+  size_t rest (size_t seqLen,
+               bool upstream) const
+    { return (strand == -1) == ! upstream 
+               ? start 
+               : (seqLen - stop); 
+    }
+    
+  // Update: logical start/stop
+  // Requires: room for extension
+  void extendStart (size_t offset);
+  void extendStop  (size_t offset);
+};
+
+
+
+struct Hsp;
+
+
+
+struct Disruption : Root
+// For Hsp::blastx()
+{
+  const Hsp* prev {nullptr};
+  const Hsp* next {nullptr};
+  size_t prev_start {no_index};
+    // In prev->qseq/sseq
+  size_t next_stop {no_index};
+    // In next->qseq/sseq
+  bool intron {false};
+  enum Type {eNone, eSmooth, eFrameshift, eDeletion/*or replacement*/, eInsertion};
+  static const StringVector typeNames;
+  static constexpr const char* stopSuf {"_STOP"};
+
+
+  Disruption (const Hsp& prev_arg,
+              const Hsp& next_arg,
+              size_t prev_start_arg,
+              size_t next_stop_arg,
+              bool intron_arg)
+    : prev (& prev_arg)
+    , next (& next_arg)
+    , prev_start (prev_start_arg)
+    , next_stop  (next_stop_arg)
+    , intron (intron_arg)
+    {}
+  Disruption () = default;
+  bool empty () const override
+    { return ! prev; }
+  void qc () const override;
+  void saveText (ostream &os) const override;
+  bool operator< (const Disruption &other) const;
+
+
+  Type type () const
+    { if (empty ())
+        return eNone;
+      if (   ! qInt (). len ()
+          && ! sInt (). len ()
+         )
+        return eSmooth;
+      if (sInt (). len () % 3)
+        return eFrameshift;
+      if (qInt (). len ())
+        return eDeletion;
+      return eInsertion;
+    }
+  static Type name2type (const string &name)
+    { for (size_t i = 0; i < typeNames. size (); i++)
+        if (name == typeNames [i])
+          return Type (i);
+      throw runtime_error ("Unkown Disruption::Type: " + strQuote (name)); 
+    }
+  // Requires: !empty()
+  bool sameHsp () const
+    { return prev == next; }
+  bool sStopCodon () const;
+  Interval qInt () const;
+  Interval sInt () const;
+  size_t getLen () const
+    { return max ( qInt (). len ()
+                 , sInt (). len () / 3
+                 ); 
+    }
+  string genesymbol_raw () const;
+    // disruption2genesymbol.cpp
+};
+
+
+
+struct Hsp : Root
+// BLAST "High Scoring Pair"
+// q - query, reference
+// s - subject, target
+// End of a segment = position after the segment
+{
+  bool merged {false};
+  
+  // --> array<Data:Interval,2/*qs bool*/> data; ??
+  bool qProt {false};  // query
+  bool sProt {false};  // subject
+    // sProt => qProt
+  bool aProt {false};  // alignment
+  
+  // Unit conversion: 1 or 3
+  // Function of qProt, sProt, aProt
+  size_t a2q {1};
+  size_t a2s {1};
+  
+  // BLAST fields
+	string qseqid;   
+	string sseqid;   
+  // start < end <= len
+  Interval qInt;
+  Interval sInt;
+	size_t qlen {no_index};  
+	size_t slen {no_index};  
+	// Alignment
+	string qseq;
+	string sseq;  
+	  // Uppercase
+	  // Same size()
+	  // disrs.empty() => match the sequence between qInt.start(sInt.start) and qInt.stop(sInt.stop)  
+	
+	// Result of finishHsp()
+  // Alignment units
+  size_t length {no_index};
+    // = qseq.size() = sseq.size()
+  size_t nident {no_index};
+    // Matching ambiguities are counted
+  size_t qgap {no_index}, sgap {no_index};
+  size_t qx {no_index}, sx {no_index};  
+    // 
+private:
+  // size() = length + 1
+  // [0] = start, [length] = end
+  // strand = 1 <=> [i] <= [i+1]
+  // Require: disrs.empty()
+  Vector<size_t> pos2q_;
+  Vector<size_t> pos2s_;
+public:
+  //
+  Frame sframe {0};
+    // For aProt and !sProt
+  // For aProt
+  ebool c_complete {enull}; 
+    // etrue: detected 
+    // efalse: missing
+  bool sInternalStop {false};
+  	
+  Vector<Disruption> disrs;
+    // !empty() <=> *this is in merge()
+    // type() != eNone,eSmooth
+    // Ordered by qInt().start
+
+
+  // Input: qStopCodon: qProt, query ends with a stop codon, trim qseq/sseq, qlen--, set c_complete
+  //        bacterialStartCodon: blastx(), LIV --> M
+  // To invoke: finishHsp()
+  Hsp (bool merged_arg,
+       bool qProt_arg,
+       bool sProt_arg,
+       bool aProt_arg,
+       bool qStopCodon,
+       bool bacterialStartCodon,
+       const string &qseqid_arg,
+       const string &sseqid_arg,
+       size_t qstart,
+       size_t qend,
+       size_t qlen_arg,
+       size_t sstart,
+       size_t send,
+       size_t slen_arg,
+       const string &qseq_arg,
+       const string &sseq_arg,
+       Strand sstrand)
+    : merged (merged_arg)
+    , qProt (qProt_arg)
+    , sProt (sProt_arg)
+    , aProt (aProt_arg)
+    , qseqid (qseqid_arg)
+    , sseqid (sseqid_arg)
+    , qInt (qstart, qend, 0)
+    , sInt (sstart, send, sstrand)  
+    , qlen (qlen_arg)
+    , slen (slen_arg)
+    , qseq (qseq_arg)
+    , sseq (sseq_arg)
+    { finishHsp (qStopCodon, bacterialStartCodon); }	
+  Hsp (const string &blastLine,
+       bool qProt_arg,
+       bool sProt_arg,
+       bool aProt_arg,
+       bool qStopCodon,
+       bool bacterialStartCodon);
+	  // Input: blastLine: format
+  static constexpr array<const char*,2/*forward*/> format {{ "sseqid qseqid sstart send slen qstart qend qlen sseq qseq"
+                                                           , "qseqid sseqid qstart qend qlen sstart send slen qseq sseq"
+                                                           }
+                                                          };
+  static string format_par (bool forward)
+    { return string ("  -outfmt '6 ") + format [forward] + "'"; }
+  static constexpr const char* blastp_fast {"  -comp_based_stats 0  -seg no  -max_target_seqs 10000  -dbsize 10000  -evalue 1e-10  -word_size 5"};
+	  // "-culling_limit 20": PD-2967
+    // "-threshold 100 -window_size 15" are faster, but may miss hits, see SB-3643
+  static constexpr const char* blastp_slow {"  -comp_based_stats 0  -seg no  -max_target_seqs 10000  -dbsize 10000  -evalue 1      -word_size 3"};
+    // To get short frame shifts
+    // -word_size 4  -matrix IDENTITY: does not allow flipping frameshifts, e.g., CAA46767.1 in JAOQKQ010000001.1
+			// -word_size 5: SB-4418 
+  Hsp () = default;
+  void finishHsp (bool qStopCodon,
+                  bool bacterialStartCodon);
+    // Update: if qStopCodon then qseq etc., sseq etc., c_complete
+private:
+  void moveDashesRight ();
+  static bool moveDashesRight_ (const string &seq1,
+                                string &seq2);
+    // -AAA --> AAA-
+    // Return: seq2 is changed
+  void eraseQseqFront ();
+  void eraseSseqFront ();
+  void eraseQseqBack ();
+  void eraseSseqBack ();
+public:
+  bool empty () const override
+    { return sseqid. empty (); }
+  void qc () const override;
+  void saveText (ostream &os) const override;
+  static bool less (const Hsp* a,
+                    const Hsp* b);
+    // Sorting order: sseqid, sInt. strand, qseqid, sInt.start, sInt. stop
+
+  
+  bool blastx () const
+    { return qProt && ! sProt; }
+  
+  size_t qAbsCoverage () const 
+    { return qInt. len (); }
+  size_t sAbsCoverage () const 
+    { return sInt. len (); }
+
+  // Return: alignment units
+  // Requires: disrs.empty()
+  size_t qLen () const;
+  size_t sLen () const;
+    
+  size_t qLenReal () const
+    { return length - qgap; }
+  size_t sLenReal () const
+    { return length - sgap; }
+    
+  // Return: 0..length; {qseq|sseq}[Return] != '-'
+  size_t pos2real_q (size_t pos,
+                     bool forward) const;
+  size_t pos2real_s (size_t pos,
+                     bool forward) const;
+                     
+  // Requires: disrs.empty()
+  // Input: pos: position in alignment
+  // sInt.strand = -1 => s-position is the end of alignment segment 
+  size_t pos2q (size_t pos,
+                bool forward) const;
+  size_t pos2s (size_t pos,
+                bool forward) const;
+  size_t q2pos (size_t qPos,
+                bool forward) const;
+  size_t s2pos (size_t sPos,
+                bool forward) const;
+    
+  bool charMatch (size_t pos) const
+    { return aProt
+               ? aaMatch         (qseq [pos], sseq [pos])
+               : nucleotideMatch (qseq [pos], sseq [pos]);
+    }
+    
+  double relIdentity () const 
+    { return (double) nident / (double) (length); }
+    
+  double qRelCoverage () const 
+    { return (double) qAbsCoverage () / (double) qlen; }
+  double sRelCoverage () const
+    { return (double) sAbsCoverage () / (double) slen; }
+  bool qComplete () const
+    { return    qAbsCoverage () == qlen
+             && c_complete != efalse; 
+    }
+    
+  string cleanQseq () const
+    { string s (qseq);
+      replaceStr (s, "-", noString);
+      return s;
+    }
+  string cleanSseq () const
+    { string s (sseq);
+      replaceStr (s, "-", noString);
+      return s;
+    }
+    
+  // For blastx()
+  bool sTruncated () const
+    { return    (sInt. start       < a2s && ((sInt. strand == 1 && qInt. start)       || (sInt. strand == -1 && qInt. stop < qlen)))
+             || (slen - sInt. stop < a2s && ((sInt. strand == 1 && qInt. stop < qlen) || (sInt. strand == -1 && qInt. start)));
+    }
+  size_t sTail (bool upstream) const
+    { return sInt. rest (slen, upstream); }
+  bool perfect () const
+    { return    qComplete ()
+             && disrs. empty ()
+           //&& ! sInternalStop
+             ;
+    }
+  bool sInsideEq (const Hsp &other,
+                 size_t slack) const
+    { return sInt. insideEq (other. sInt, slack); }
+  bool qBetterEq (const Hsp &other) const;
+    // Requires: same aProt, sseqid, sInt.strand
+  string qMap (size_t len) const;     
+    // Return: size() = len, characters of sseq  
+    // Input: len >= qlen
+  long sStartGlobal () const
+    { return sInt. strand == 1
+               ? (long) sInt. start - 3 * (long) qInt. start
+               : (long) sInt. stop   + 3 * (long) qInt. start; 
+    }
+    
+  bool containsHsp (const Hsp& other) const
+    { return    qProt   == other. qProt
+             && sProt   == other. sProt
+             && aProt   == other. aProt
+             && qseqid  == other. qseqid
+             && sseqid  == other. sseqid
+             && qInt. contains (other. qInt)
+             && sInt. contains (other. sInt);
+    }
+
+  // Disruption
+  const Disruption* findDisruption (Disruption::Type type) const
+    { for (const Disruption& disr : disrs)
+        if (disr. type () == type)
+          return & disr;
+      return nullptr;
+    }
+  bool hasLongDisruption (size_t len_min) const
+    { for (const Disruption& disr : disrs)
+        if (disr. getLen () >= len_min)
+          return true;
+      return false;
+    }    
+
+    
+  struct Merge : Root
+  // Usage: Merge m; for(;;) { Hsp hsp (m.get()); if (hsp.empty()) break; ... }
+  {
+    const VectorPtr<Hsp>& origHsps;
+      // unique, !merged
+    const AlignScore intronScore;
+  private:
+    DiGraph graph;  // of Exon, Intron
+  public:
+        
+    Merge (const VectorPtr<Hsp> &origHsps_arg,
+           const SubstMat* sm,
+           AlignScore intronScore_arg,
+           bool bacteria);
+      // Input: intronScore_arg >= 0
+      // Time: n^2, where n = origHsps.size()
+                            
+    Hsp get (const Hsp* &origHsp,
+             AlignScore &score);
+      // Return: merged
+      // Output: origHsp: in origHsps, first merged Hsp
+      // Invocation returns: ordered by score descending
+      // Number of invocations <= origHsps.size()
+  };
+};
+
+
+
+
+//
 
 struct KmerIndex final : Named, Singleton<KmerIndex>
 // DNA k-mer index

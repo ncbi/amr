@@ -100,21 +100,20 @@ struct ThisApplication final : ShellApplication
     // Cf. amrfinder_update.cpp
     StringVector dnaPointMuts;
     {
-      LineInput f (dbDir + "taxgroup.tsv");
+      LineInput f (dbDir + "taxgroup.tsv", verbose () ? 1 : 0);
       while (f. nextLine ())
       {
    	    if (isLeft (f. line, "#"))
 	 	      continue;
-        string taxgroup, gpipe;
-        int n = -1;
-        istringstream iss (f. line);
-        iss >> taxgroup >> gpipe >> n;
+        string taxgroup = f. line;
+        const int n        = str2<int> (rfindSplit (taxgroup, '\t'));
+        const string gpipe =            rfindSplit (taxgroup, '\t');
         QC_ASSERT (n >= 0);
+        QC_ASSERT (! contains (taxgroup, ' '));
         if (n)
           dnaPointMuts << taxgroup;
       }
-    }
-    
+    }    
     
     stderr. section ("Indexing");
     exec (fullProg ("hmmpress") + " -f " + shellQuote (dbDir + "AMR.LIB") + " > /dev/null 2> " + tmp + "/hmmpress.err", tmp + "/hmmpress.err");

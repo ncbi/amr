@@ -34,6 +34,8 @@
    
 #include "common.hpp"
 using namespace Common_sp;
+#include "seq.hpp"
+using namespace Seq_sp;
 
 
    
@@ -86,9 +88,6 @@ struct AmrMutation final : Root
     : AmrMutation (pos_arg, geneMutation_std_arg, geneMutation_std_arg, "X", "X", "X")
     {}
 	AmrMutation () = default;
-	AmrMutation (AmrMutation &&other) = default;
-	AmrMutation& operator= (const AmrMutation &other) = default;
-	AmrMutation& operator= (AmrMutation &&other) = default;
 private:
 	static void parse (const string &geneMutation_std,
 	                   string &reference,
@@ -103,7 +102,10 @@ public:
     { if (empty ())
         os << "empty";
       else
-        os << pos_real + 1 << ' ' << geneMutation << ' ' << frameshift_insertion << ' ' << name; 
+        os        << pos_real + 1 
+           << ' ' << geneMutation 
+           << ' ' << frameshift_insertion 
+           << ' ' << name; 
     }
   bool empty () const override
     { return geneMutation_std. empty (); }
@@ -141,7 +143,7 @@ struct SeqChange final : Root
 {
   const Alignment* al {nullptr};
     // !nullptr    
-  bool fromAllele {false};
+//bool fromAllele {false};
   
   // In alignment
   size_t start {0};
@@ -149,8 +151,9 @@ struct SeqChange final : Root
   
   // No '-'
   string reference;
-    // Insertion => !empty() by artifically decrementing start and incrementing len
+    // Insertion => start is artifically decremented and len is incremented => !empty()
   string allele;
+  // empty() <=> frame shift
 
   size_t start_ref {0};
   size_t stop_ref {0};
@@ -161,21 +164,28 @@ struct SeqChange final : Root
 	VectorPtr<AmrMutation> mutations;
 	  // !nullptr
 	  // Matching AmrMutation's
-	
-	const SeqChange* replacement {nullptr};
+    		  
+	Disruption disr;
+
+	const SeqChange* replacement {nullptr}; 
 	  // !nullptr => *this is replaced by *replacement
   
   
   SeqChange () = default;
-  SeqChange (const Alignment* al_arg,
-             bool fromAllele_arg)
+  explicit SeqChange (const Alignment* al_arg/*,
+             bool fromAllele_arg*/)
     : al (al_arg)
-    , fromAllele (fromAllele_arg)
+  //, fromAllele (fromAllele_arg)
     {}
   SeqChange (const Alignment* al_arg,
              const AmrMutation* mutation_arg)
     : al (al_arg)
     { mutations << checkPtr (mutation_arg); }
+  SeqChange (const Alignment* al_arg,
+             const Disruption &disr_arg)
+    : al (al_arg)
+    , disr (disr_arg)
+    {}
   void qc () const override;
   void saveText (ostream &os) const override
     { os        << start + 1 
@@ -184,6 +194,8 @@ struct SeqChange final : Root
          << ' ' << start_ref + 1 << ".." << stop_ref
          << ' ' << start_target + 1 
          << ' ' << neighborhoodMismatch;
+      if (! disr. empty ())
+        disr. saveText (os);
       for (const AmrMutation* mutation : mutations)
       { os << ' ' ;
         mutation->saveText (os);
@@ -191,13 +203,15 @@ struct SeqChange final : Root
       os << endl; 
     }
   bool empty () const override
-    { return ! len; }
+    { return ! len && disr. empty (); }
     
     
   bool hasMutation () const
     { return ! empty () && ! mutations. empty () && ! replacement; }
   bool hasFrameshift () const
     { return hasMutation () && mutations [0] -> frameshift != no_index; }
+  bool isFrameshift () const
+    { return reference. empty (); }
   string getMutationStr () const;
   size_t getStop () const
     { return start + len; }
@@ -220,67 +234,21 @@ public:
 
 
 
-void normalizeSeqs (string &seq1,
-                    string &seq2);
-
-
-
-struct Alignment : Root
-// No TBLASTX
+struct Alignment : Hsp
 {
-  // Positions are 0-based
-  // start < end <= len
-  
-  // Target
-  bool targetProt {false};
-    // false <=> DNA
-  string targetName; 
-  string targetSeq;
-    // Uppercase
-  size_t targetStart {0};
-  size_t targetEnd {0};
-  size_t targetLen {0};
-  bool targetStrand {true}; 
-    // false <=> negative 
-  ebool targetStopCodon {enull}; 
-    // !enull => refProt
-    // etrue: detected and trimmed
-    // efalse: missing
-  
-  // Reference
-  bool refProt {false};
-    // false <=> DNA
-    // true => whole sequence ends with '*'
-  string refName; 
-  string refSeq;
-    // Uppercase
-  size_t refStart {0};
-  size_t refEnd {0};
-  size_t refLen {0};  
   AmrMutation refMutation;
-    // !empty() => refSeq contains AmrMutation::allele
+    // !empty() => qseq contains AmrMutation::allele
 //int ref_offset {0};
-
-  // targetSeq.size () = refSeq.size()
-  
-  // Alignment
-  bool alProt {false};
-  size_t nident {0};
-  size_t al2ref_len {1};
-  size_t al2target_len {1};
 
   Vector<SeqChange> seqChanges;
 
   
   Alignment (const string &line,
-             bool targetProt_arg,
-             bool refProt_arg);
-  static constexpr const char* format {"qseqid sseqid qstart qend qlen sstart send slen sseq"};
-    // 1-based
-  Alignment () = default;
-private:
-  void set_nident ();
-    // Output: nident
+             bool qProt_arg,  
+             bool sProt_arg)
+    : Hsp (line, qProt_arg, sProt_arg, qProt_arg || sProt_arg /*aProt*/, /*false*/ qProt_arg /*qStopCodon*/, true/*bacterialStartCodon*/)
+    {}
+  Alignment () = default;  
 protected:
   void setSeqChanges (const Vector<AmrMutation> &refMutations,
                       size_t flankingLen/*,
@@ -290,27 +258,12 @@ private:
   size_t refMutation2refSeq_pos ();
     // Return: no_index <=> refMutation is not detected
 public:
-  bool empty () const override
-    { return targetName. empty (); }
   void qc () const override;
   void saveText (ostream &os) const override
-    { os         << targetProt
-         << '\t' << targetName 
-         << '\t' << targetStart
-         << '\t' << targetEnd 
-         << '\t' << targetLen
-         << '\t' << targetStrand
-         << '\t' << refName
-         << '\t' << refStart
-         << '\t' << refEnd
-         << '\t' << refLen
-         << '\t' << nident
-         << '\t' << targetSeq
-         << '\t' << refSeq
-         << endl;
+    { Hsp::saveText (os);
       if (! refMutation. empty ())
-        os << refMutation << endl;
-	    os << "# Mutations: " << seqChanges. size () << endl;
+        os << ' ' << refMutation;
+	    os << " #seqChanges:" << seqChanges. size ();
     }
 
 
@@ -320,26 +273,8 @@ public:
           return true;
       return false;
     }
-  bool hasFrameshift () const
+  bool hasDeclarativeFrameshift () const
     { return seqChanges. size () == 1 && seqChanges [0]. hasFrameshift (); }
-  double pIdentity () const
-    { return (double) nident / (double) targetSeq. size (); }
-  double refCoverage () const
-    { return (double) (refEnd - refStart) / (double) refLen; }
-  double targetCoverage () const
-    { return targetProt ? (double) (targetEnd - targetStart) / (double) targetLen : NaN; }
-  size_t targetTail (bool upstream) const
-    { return targetStrand == upstream ? targetStart : (targetLen - targetEnd); }
-  bool refProtExactlyMatched (bool targetComplete) const
-    { return    refProt
-             && refLen   
-             && nident == refLen 
-             && nident == targetSeq. size ()
-             && targetStopCodon != efalse
-             && (! targetProt || ! targetComplete || refLen + (targetStopCodon == etrue ? 1 : 0) == targetLen); 
-	  }
-  long getGlobalTargetStart () const;
-    // Requires: !targetProt, refProt
 };
 
 

@@ -78,64 +78,6 @@ size_t alphabet2Pos (const char* alphabet,
 
 //////////////////////////////// Seq ////////////////////////////////////
 
-#if 0
-int SparseSeq2SeqPos (const char* SparseSeq,
-              		      int         SparseSeqPos)
-{
-  ASSERT (SparseSeq != nullptr);
-
-
-  if (SparseSeqPos < 0)
-    return SparseSeqPos;
-
-
-  if (SparseSeqPos <= (int) strlen (SparseSeq))
-    while (SparseSeq [SparseSeqPos] == '-')
-      SparseSeqPos++;
-
-  size_t N = SparseSeqPos;
-  For (i, (size_t) SparseSeqPos)
-    {
-      if (SparseSeq [i] == '\0')
-        break;
-      if (SparseSeq [i] == '-')
-        N--;
-    }
-
-
-  return N;
-}
-
-
-
-int Seq2SparseSeqPos (const char* SparseSeq,
-             		       int         SeqPos)
-{
-  ASSERT (SparseSeq != nullptr);
-
-
-  if (SeqPos < 0)
-    return SeqPos;
-
-
-  size_t N = SeqPos;
-  For (i, N + 1)
-    {
-      if (SparseSeq [i] == '\0')
-        break;
-      if (SparseSeq [i] == '-')
-        N++;
-    }
-  ASSERT (N > strlen (SparseSeq) || SparseSeq [N] != '-');
-
-
-  return N;
-}
-#endif
-
-
-
-
 constexpr size_t fastaLineLen = 80;
 
 
@@ -206,12 +148,12 @@ void Seq::printCase (ostream &os,
 {
   os << ">" << name;
 
-  CONST_ITER (string, it, seq)
+  FFOR (size_t, i, seq. size ())
   {
-    if ((size_t) (it - seq. begin ()) % fastaLineLen == 0)
+    if (i % fastaLineLen == 0)
     	os << endl;
 
-    char c = *it;
+    char c = seq [i];
     if (makeUpper)
      	c = toUpper (c);
     os << c;
@@ -428,43 +370,6 @@ void _SEQ_COLLECTION::SaveDir (const char* DirName) const
 {
   ForCollection (i, *this)
     SaveSeq (GetSeq (i), DirName);
-}
-
-
-
-byte* String2Qual (char* S,
-                   size_t  Len)
-{
-  ASSERT (S != nullptr);
-
-
-  if (StrIsEmpty (S))
-    return nullptr;
-
-
-  byte* Qual = NewByteArray (Len);
-  ASSERT (Qual != nullptr);
-
-
-  char* S1 = S;
-  For (i, Len)
-    if (StrIsBlank (S1))
-      Qual [i] = 0;  // ??
-    else
-      {
-        const char* S2 = StrChop (S1, " ");
-        uint Score;
-        if (sscanf (S2, "%u", & Score) != 1 ||
-            Score > 99)
-          {
-            printf ("%s\n", S2);
-            ERROR;
-          }
-        Qual [i] = Score;
-      }
-
-
-  return Qual;
 }
 #endif
 
@@ -923,8 +828,7 @@ uchar wild2nucleotides (char wildNucleotide,
       Case 'd': a = true;           g = true; t = true;
       Case 'b':           c = true; g = true; t = true;
       Case 'n': a = true; c = true; g = true; t = true;
-      Default: printf ("!%c! %d\n", wildNucleotide, wildNucleotide);
-               ERROR;
+      Default: throw runtime_error ("Bad wildNucleotide: " + to_string ((int) wildNucleotide));
     }
 
 
@@ -1101,7 +1005,6 @@ bool nucleotideMatch (char wildNucleotide1,
 {
   ASSERT (wildNucleotide1 != '\0');
   ASSERT (wildNucleotide2 != '\0');
-
 
   if (wildNucleotide1 == wildNucleotide2)
     return true;
@@ -1711,59 +1614,6 @@ bool Dna::GoodQual () const
 
 
   return true;
-}
-
-
-
-void Dna::CopyQual (const PHRED_SCORE* SourceQual)
-{
-  ASSERT (SourceQual != nullptr);
-
-
-  CreateQual ();
-  ForString (i, seq)
-    Qual [i] = SourceQual [i];
-  if (! GoodQual ())
-    {          
-      printf ("%s\n", Name);
-      ERROR;
-    }
-}
-
-
-
-void Dna::ReadQual (const char* FName)
-{
-  ASSERT (Qual == nullptr);
-  ASSERT (! StrIsEmpty (FName));
-
-
-  // F
-  FILE* F = fopen (FName, "r");
-  ASSERT (F != nullptr);
-
-  char C;
-  if (fscanf (F, "%c", & C) != 1)
-    ERROR;
-  if (C != '>')
-    ERROR
-  SkipLine (F);
-
-
-  // Qual
-  CreateQual ();
-
-  uint Score;
-  ForString (i, seq)
-    if (fscanf (F, "%u", & Score) == 1)
-      Qual [i] = Score;
-    else
-      ERROR;
-
-  ASSERT (GoodQual ());
-
-
-  fclose (F);
 }
 
 
@@ -3342,11 +3192,14 @@ AlignScore SubstMat::char2score (char c1,
   QC_ASSERT (i1 < sim_size);
   QC_ASSERT (i2 < sim_size);
 
+  if (   c1 == '*' 
+      || c2 == '*'
+     )
+    return -10;  // PAR
   if (   c1 == '-' 
       || c2 == '-'
      )
-    return 0;
-    
+    return -1;  // PAR
     
   if (! goodIndex (i1))
     throw runtime_error ("Bad amino acid: " + string (1, c1) + " (" + to_string (i1) + ")");
@@ -3460,7 +3313,6 @@ bool moreGeneralAminoacid (char wildAminoacid1,
   if (wildAminoacid1 == wildAminoacid2)
     return true;
 
-
   switch (wildAminoacid1)
   {
     case 'x': return true;
@@ -3471,7 +3323,6 @@ bool moreGeneralAminoacid (char wildAminoacid1,
     case 'o': return wildAminoacid2 == '*'; 
     case '*': return charInSet (wildAminoacid2, "uo");
   }
-
   return false;
 }
 
@@ -3780,121 +3631,6 @@ PEPTIDE_COLLECTION::PEPTIDE_COLLECTION (const char* FName):
       Append (peptide);
     }
 }
-
-
-
-
-///////////////////////////// SEQ_CLUSTER_FILE ////////////////////////////////
-
-// SEQ_CLUSTER_ITEM
-
-SEQ_CLUSTER_ITEM::SEQ_CLUSTER_ITEM (const char* initName,
-                        		    		    int         initLeftOffset,
-                        		    		    size_t        initLen,
-                        		    		    size_t        initMatchNum):
-  inherited  (initName),
-
-  LeftOffset (initLeftOffset),
-  Len        (initLen),
-  MatchNum   (initMatchNum)
-{
-  ASSERT (! StrIsEmpty (Name));
-  ASSERT (Len > 0);
-  ASSERT ((int) MatchNum >= 0);
-}
-
-
-
-void SEQ_CLUSTER_ITEM::Print () const
-{
-  printf ("%s %d %u %u\n", Name, LeftOffset, Len, MatchNum);
-}
-
-
-
-
-// SEQ_CLUSTER_FILE
-
-SEQ_CLUSTER_FILE::SEQ_CLUSTER_FILE (const char* FName):
-  inherited  (),
-
-  F          (512, FName),
-  ClusterNum (0),
-  ItemNum    (0)
-{
-  ASSERT (F. ErrorNum == 0);
-}
-
-
-
-void SEQ_CLUSTER_FILE::FirstCluster ()
-{
-  while (F. NextLine () &&
-  	      StrIsLeft (F. Line, "#"));
-
-  ASSERT (! F. Eof);
-  ASSERT (F. BlankLine ());
-}
-
-
-
-bool SEQ_CLUSTER_FILE::NextCluster ()
-{
-  if (! F. NextLine ())
-    {
-      fprintf (stderr, "\n");
-      return false;
-    }
-
-
-  uint N;
-  if (sscanf (F. Line, "Cluster %u", & N) != 1)
-    ERROR;
-
-  ClusterNum++;
-//ASSERT (N == ClusterNum);
-  fprintf (stderr, "\r# Clusters = %u", ClusterNum);
-  ItemNum = 0;
-
-
-  return true;
-}
-
-
-
-SEQ_CLUSTER_ITEM* SEQ_CLUSTER_FILE::NextItem ()
-{
-  ASSERT (F. NextLine ());
-
-
-  if (StrIsLeft (F. Line, "total = "))
-    {
-      ASSERT (ItemNum >= 1);
-
-      uint M;
-      if (sscanf (F. Line, "total = %u", & M) != 1)
-       	ERROR;
-      ASSERT (M == ItemNum);
-
-      return nullptr;
-    }
-
-
-  ItemNum++;
-
-  char Name [255];
-  int  LeftOffset;
-  size_t Len, MatchNum;
-  if (sscanf (F. Line, "%s %d %u %u",
-      	       Name, & LeftOffset, & Len, & MatchNum) != 4)
-    ERROR;
-
-  SEQ_CLUSTER_ITEM* Item = new SEQ_CLUSTER_ITEM (Name, LeftOffset, Len, MatchNum);
-  ASSERT (GoodObject (Item));
-
-
-  return Item;
-}
 #endif
 
 
@@ -4039,7 +3775,174 @@ const Cds* DnaAnnot::run ()
 
 
 
+// Mutation
 
+Mutation::Mutation (bool prot_arg,
+                    const string& line)
+: prot (prot_arg)
+{ 
+  string s (line);
+  trim (s);
+  
+  const size_t dash_pos = s. find ('-');
+  
+  // geneName
+  if (dash_pos != string::npos)
+  {
+    geneName = s. substr (0, dash_pos);
+    QC_ASSERT (! geneName. empty ());
+  }
+
+  // ref, pos, allele
+  const size_t refStart = dash_pos == string::npos ? 0 : (dash_pos + 1);
+  size_t posStart = no_index;
+  size_t alleleStart = no_index;
+  FFOR_START (size_t, i, refStart, s. size ())
+    if (isDigit (s [i]))
+    {
+      if (posStart == no_index)
+        posStart = i;
+    }
+    else
+    {
+      if (posStart != no_index)
+        if (alleleStart == no_index)
+        {
+          alleleStart = i;
+          break;
+        }
+    }
+  QC_ASSERT (refStart < posStart);
+  QC_ASSERT (posStart < alleleStart);
+  QC_ASSERT (alleleStart < s. size ());
+  ref    =                s. substr (refStart, posStart - refStart);
+  pos    = (size_t) stoi (s. substr (posStart, alleleStart - posStart));
+  allele =                s. substr (alleleStart);
+  QC_ASSERT (pos);
+  pos--;
+
+  // frameshift, ambig 
+  if (prot)
+  {
+    if (ref == "ins")
+      ref. clear ();
+    if (allele == "del")
+      allele. clear ();
+    if (allele == "fs")
+    {
+      frameshift = true;
+      allele. clear ();
+    }
+  #if 0
+    for (const char c : allele)
+      if (isAmbigAa (c))
+        ambig = true;
+  #endif
+  }
+  else
+  {
+    if (ref == "INS")
+      ref. clear ();
+    if (allele == "DEL")
+      allele. clear ();
+  #if 0
+    for (const char c : allele)
+      if (isAmbigNucl (c))
+        ambig = true;
+  #endif
+  }
+  
+  setAmbig ();
+}
+
+
+
+Mutation::Mutation (string geneName_arg,
+                    size_t pos_arg,
+                    string ref_arg,
+                    string allele_arg,
+                    bool frameshift_arg)
+: prot (true)
+, geneName (geneName_arg)
+, pos (pos_arg)
+, ref (ref_arg)
+, allele (allele_arg)
+, frameshift (frameshift_arg)
+{
+  ASSERT (! geneName. empty ());
+  setAmbig ();
+}
+
+
+
+void Mutation::setAmbig ()
+{
+  for (const char c : allele)
+    if (isAmbig (c, prot))
+    {
+      ambig = true;
+      return;
+    }
+}
+
+
+
+void Mutation::qc () const
+{
+  if (! qc_on)
+    return;
+    
+  QC_IMPLY (! geneName. empty (), isIdentifier (geneName, false));
+  QC_ASSERT (pos != no_index);
+  
+  if (prot)
+  {
+    for (const char c : ref)
+      if (c != *terminator && ! strchr (peptideAlphabet, c))
+        throw runtime_error ("Protein mutation cannot have ambiguities in the reference sequence");
+    for (const char c : allele)
+      QC_ASSERT (strchr (extTermPeptideAlphabet, c));
+  }
+  else
+  {
+    for (const char c : ref)
+      if (! strchr (dnaAlphabet, c))
+        throw runtime_error ("DNA mutation cannot have ambiguities in the reference sequence");
+    for (const char c : allele)
+      QC_ASSERT (strchr (extDnaAlphabet, c));
+  }
+
+  QC_IMPLY (! frameshift, ref != allele);
+  QC_IMPLY (frameshift, prot && allele. empty ());
+}
+
+
+
+bool Mutation::operator< (const Mutation& other) const
+{ 
+  LESS_PART (*this, other, prot);
+  LESS_PART (*this, other, geneName);
+  LESS_PART (*this, other, pos);
+  LESS_PART (*this, other, ref);
+  LESS_PART (*this, other, allele);
+  LESS_PART (*this, other, frameshift);
+  return false;
+}
+
+
+
+void Mutation::replace (Dna &refDna) const
+{
+  ASSERT (! prot);
+  ASSERT (stop () <= refDna. seq. size ());
+  ASSERT (refDna. seq. substr (pos, ref. size ()) == ref);
+  refDna. seq. replace (pos, ref. size (), allele);
+}
+
+
+
+
+#if 0
 // Align
 
 namespace 
@@ -4133,8 +4036,8 @@ Align::Align (const Peptide &pep1,
       Cell::Dir_best& dirs_cur    = cells [row] [col]. dirs; 
       if (col)
       {
-        AlignScore&    score_cur = scores_cur [Cell::dirLeft];
-        Cell::Dir& dir_cur   = dirs_cur   [Cell::dirLeft];
+        AlignScore& score_cur = scores_cur [Cell::dirLeft];
+        Cell::Dir&  dir_cur   = dirs_cur   [Cell::dirLeft];
         const Cell::Score& prev = cells [row] [col - 1]. scores;
         if (semiglobalMatchLen_min && (! row || row == seq1. size () - 1))
         {
@@ -4491,172 +4394,1726 @@ void Align::printAlignment (const string &seq1,
     cout << endl;
   }
 }
+#endif
 
 
 
 
-// Mutation
+// Interval
 
-Mutation::Mutation (bool prot_arg,
-                    const string& line)
-: prot (prot_arg)
-{ 
-  string s (line);
-  trim (s);
-  
-  const size_t dash_pos = s. find ('-');
-  
-  // geneName
-  if (dash_pos != string::npos)
-  {
-    geneName = s. substr (0, dash_pos);
-    QC_ASSERT (! geneName. empty ());
-  }
-
-  // ref, pos, allele
-  const size_t refStart = dash_pos == string::npos ? 0 : (dash_pos + 1);
-  size_t posStart = no_index;
-  size_t alleleStart = no_index;
-  FFOR_START (size_t, i, refStart, s. size ())
-    if (isDigit (s [i]))
-    {
-      if (posStart == no_index)
-        posStart = i;
-    }
-    else
-    {
-      if (posStart != no_index)
-        if (alleleStart == no_index)
-        {
-          alleleStart = i;
-          break;
-        }
-    }
-  QC_ASSERT (refStart < posStart);
-  QC_ASSERT (posStart < alleleStart);
-  QC_ASSERT (alleleStart < s. size ());
-  ref    =                s. substr (refStart, posStart - refStart);
-  pos    = (size_t) stoi (s. substr (posStart, alleleStart - posStart));
-  allele =                s. substr (alleleStart);
-  QC_ASSERT (pos);
-  pos--;
-
-  // frameshift, ambig 
-  if (prot)
-  {
-    if (ref == "ins")
-      ref. clear ();
-    if (allele == "del")
-      allele. clear ();
-    if (allele == "fs")
-    {
-      frameshift = true;
-      allele. clear ();
-    }
-  #if 0
-    for (const char c : allele)
-      if (isAmbigAa (c))
-        ambig = true;
-  #endif
-  }
-  else
-  {
-    if (ref == "INS")
-      ref. clear ();
-    if (allele == "DEL")
-      allele. clear ();
-  #if 0
-    for (const char c : allele)
-      if (isAmbigNucl (c))
-        ambig = true;
-  #endif
-  }
-  
-  setAmbig ();
-}
-
-
-
-Mutation::Mutation (string geneName_arg,
-                    size_t pos_arg,
-                    string ref_arg,
-                    string allele_arg,
-                    bool frameshift_arg)
-: prot (true)
-, geneName (geneName_arg)
-, pos (pos_arg)
-, ref (ref_arg)
-, allele (allele_arg)
-, frameshift (frameshift_arg)
-{
-  ASSERT (! geneName. empty ());
-  setAmbig ();
-}
-
-
-
-void Mutation::setAmbig ()
-{
-  for (const char c : allele)
-    if (isAmbig (c, prot))
-    {
-      ambig = true;
-      return;
-    }
-}
-
-
-
-void Mutation::qc () const
+void Interval::qc () const 
 {
   if (! qc_on)
     return;
+  Root::qc ();
     
-  QC_IMPLY (! geneName. empty (), isIdentifier (geneName, false));
-  QC_ASSERT (pos != no_index);
+  QC_ASSERT ((start == no_index) == (stop == no_index));
+  if (empty ())
+    return;
   
-  if (prot)
-  {
-    for (const char c : ref)
-      if (c != *terminator && ! strchr (peptideAlphabet, c))
-        throw runtime_error ("Protein mutation cannot have ambiguities in the reference sequence");
-    for (const char c : allele)
-      QC_ASSERT (strchr (extTermPeptideAlphabet, c));
-  }
-  else
-  {
-    for (const char c : ref)
-      if (! strchr (dnaAlphabet, c))
-        throw runtime_error ("DNA mutation cannot have ambiguities in the reference sequence");
-    for (const char c : allele)
-      QC_ASSERT (strchr (extDnaAlphabet, c));
-  }
-
-  QC_IMPLY (! frameshift, ref != allele);
-  QC_IMPLY (frameshift, prot && allele. empty ());
+  QC_ASSERT (valid ());
 }
 
 
 
-bool Mutation::operator< (const Mutation& other) const
+bool Interval::operator< (const Interval& other) const
 { 
-  LESS_PART (*this, other, prot);
-  LESS_PART (*this, other, geneName);
-  LESS_PART (*this, other, pos);
-  LESS_PART (*this, other, ref);
-  LESS_PART (*this, other, allele);
-  LESS_PART (*this, other, frameshift);
+  LESS_PART (*this, other, strand);
+  LESS_PART (*this, other, start);
+  LESS_PART (*this, other, stop);
   return false;
 }
 
 
 
-void Mutation::replace (Dna &refDna) const
+void Interval::extendStart (size_t offset)
 {
-  ASSERT (! prot);
-  ASSERT (stop () <= refDna. seq. size ());
-  ASSERT (refDna. seq. substr (pos, ref. size ()) == ref);
-  refDna. seq. replace (pos, ref. size (), allele);
+  if (strand == -1)
+    stop += offset;
+  else
+  {
+    ASSERT (start >= offset);
+    start -= offset;
+  }
+}
+
+
+
+void Interval::extendStop (size_t offset)
+{
+  if (strand == -1)
+  {
+    ASSERT (start >= offset);
+    start -= offset;
+  }
+  else
+    stop += offset;
+}
+
+
+
+
+// Disruption
+
+const StringVector Disruption::typeNames {"none", "smooth", "fs", "del", "ins"};
+
+
+
+void Disruption::qc () const 
+{
+  if (! qc_on)
+    return;
+  Root::qc ();
+    
+  if (empty ())
+  {    
+    QC_ASSERT (! prev);
+    QC_ASSERT (! next);
+    QC_ASSERT (prev_start == no_index);
+    QC_ASSERT (next_stop  == no_index);
+    QC_ASSERT (! intron);
+    return;
+  }
+    
+  QC_ASSERT (prev);
+  QC_ASSERT (next);
+  QC_ASSERT (! prev->merged);
+  QC_ASSERT (! next->merged);
+  QC_ASSERT (prev_start <= prev->length);
+  QC_ASSERT (next_stop  <= next->length);
+  QC_IMPLY (sameHsp (), prev_start <= next_stop);
+  QC_ASSERT (prev->blastx ());
+  QC_ASSERT (next->blastx ());
+  QC_ASSERT (prev->qseqid == next->qseqid);
+  QC_ASSERT (prev->sseqid == next->sseqid);
+  QC_ASSERT (prev->qlen == next->qlen);
+  QC_ASSERT (prev->slen == next->slen);
+  QC_ASSERT (prev->sInt. strand == next->sInt. strand);
+  
+  {
+    const Interval qInt_ (qInt ());
+    QC_ASSERT (! qInt_. empty ());
+    qInt_. qc ();
+  }
+  
+  {
+    const Interval sInt_ (sInt ());
+    QC_ASSERT (! sInt_. empty ());
+    sInt_. qc ();
+  }
+
+  switch (type ())
+  {
+    case eFrameshift: 
+      QC_ASSERT (! sameHsp ()); 
+      QC_ASSERT (intron);
+      break;
+    case eInsertion:  
+      QC_ASSERT (prev_start); 
+      QC_ASSERT (qInt (). start);
+      break;
+    default: 
+      break;
+  }
+  QC_IMPLY (sameHsp () && prev_start == next_stop, type () == eSmooth);
+}
+
+
+
+void Disruption::saveText (ostream &os) const 
+{ 
+  os << "Disruption:";
+  if (empty ())
+    os << "empty";
+  else
+  { 
+    os << qInt () << ':' << sInt ();
+    if (sStopCodon ())
+      os << "/*";
+    if (intron)
+      os << "/intron";
+  }
+}
+
+
+
+bool Disruption::operator< (const Disruption &other) const
+{
+  ASSERT (! empty ());
+  ASSERT (! other. empty ());
+  
+  ASSERT (sInt (). strand == other. sInt (). strand);
+  LESS_PART (*this, other, qInt ());
+  LESS_PART (*this, other, sInt ());
+  return false;
+}
+
+
+
+bool Disruption::sStopCodon () const
+{ 
+  ASSERT (! empty ());
+  return    sameHsp () 
+         && ! intron
+         && contains (prev->sseq. substr (prev_start, next_stop - prev_start), '*'); 
+}
+
+
+
+Interval Disruption::qInt () const
+{ 
+  ASSERT (! empty ());
+  return Interval ( prev->pos2q (prev_start, true)
+                  , next->pos2q (next_stop,  true)
+                  , 0
+                  );
+}
+
+
+
+Interval Disruption::sInt () const
+{ 
+  ASSERT (! empty ());
+  Interval in ( prev->pos2s (prev_start, true)
+              , next->pos2s (next_stop,  true)
+              , prev->sInt. strand
+              );
+  if (in. strand == -1)
+    swap (in. start, in. stop);
+  return in;
+}
+
+
+
+string Disruption::genesymbol_raw () const
+{
+  ASSERT (! empty ());
+  
+  const Type t = type ();
+  ASSERT (t != eSmooth);
+  
+  Interval qInt_ (qInt ());
+  Interval sInt_ (sInt ());
+  switch (t)
+  {
+    case eFrameshift:
+      qInt_. stop = qInt_. start;
+      qInt_. extendStop (1);
+      if (sInt_. strand == 1)
+        sInt_. stop = prev->slen;
+      else
+        sInt_. start = 0;
+      break;
+    case eInsertion:
+      ASSERT (! qInt_. len ());
+      qInt_. extendStart (1);
+      sInt_. extendStart (3);
+      break;
+    default:
+      break;
+  }
+  
+  string s (        typeNames [t]
+            + "_" + to_string (qInt_. start) + "_" + to_string (qInt_. stop)
+            + "_" + to_string (sInt_. start) + "_" + to_string (sInt_. stop)
+            + "_" + to_string (sInt_. strand == 1 ? 1 : 0)
+           );
+  if (sStopCodon ())
+    s += stopSuf;
+    
+  return s;
+}
+
+
+
+
+// Hsp
+
+Hsp::Hsp (const string &blastLine,
+          bool qProt_arg,
+          bool sProt_arg,
+          bool aProt_arg,
+          bool qStopCodon,
+          bool bacterialStartCodon)
+: qProt (qProt_arg)
+, sProt (sProt_arg)
+, aProt (aProt_arg)
+{
+  try
+  {
+    {
+      istringstream iss (blastLine);
+      iss >> qseqid >> sseqid >> qInt. start >> qInt. stop >> qlen >> sInt. start >> sInt. stop >> slen >> qseq >> sseq;
+    }
+    QC_ASSERT (! sseq. empty ());	
+
+    if (aProt)
+    {
+      strUpper (qseq);
+      strUpper (sseq);
+    }
+    else
+    {
+      strLower (qseq);
+      strLower (sseq);
+    }
+
+    if (! sProt)
+    {
+      sInt. strand = 1;
+      if (qProt)
+      {
+        QC_ASSERT (sInt. start != sInt. stop);
+        if (sInt. start > sInt. stop)
+        {
+          sInt. strand = -1;
+          swap (sInt. start, sInt. stop);
+        }
+      }
+      else
+      {
+        QC_ASSERT (qInt. start != qInt. stop);
+        if (qInt. start > qInt. stop)
+        {
+          swap (qInt. start, qInt. stop);
+          if (! aProt)
+          {
+          	reverseDna (sseq);
+          	reverseDna (qseq);
+          }
+        	sInt. strand = -1;
+        }
+      }
+    }
+    	      
+    QC_ASSERT (qInt. start >= 1);
+    QC_ASSERT (sInt. start >= 1);
+    qInt. start--;
+    sInt. start--;
+    
+    finishHsp (qStopCodon, bacterialStartCodon);
+  }
+  catch (const exception &e)
+  {
+  	throw runtime_error (blastLine + "\n" + e. what ());;
+  }  
+}
+
+
+
+void Hsp::finishHsp (bool qStopCodon,
+                     bool bacterialStartCodon)
+{
+  a2q = (aProt && ! qProt ? 3 : 1);
+  a2s = (aProt && ! sProt ? 3 : 1);
+
+
+  if (! merged)
+  {  
+    moveDashesRight ();    
+
+    c_complete = enull;
+    if (qStopCodon)
+    {
+      QC_ASSERT (qProt);
+      if (qInt. stop == qlen)
+      {
+        if (qseq. back () != '*')
+          throw logic_error ("Ending stop codon is expected");
+        c_complete = toEbool (sseq. back () == '*');
+        ASSERT (! sseq. empty ());
+        eraseQseqBack ();
+        eraseSseqBack ();
+        QC_ASSERT (! sseq. empty ());
+      }
+      else if (   qInt. stop == qlen - 1 
+               && sTail (false) >= a2s
+              )
+        c_complete = efalse;
+      qlen--;
+    }
+    else 
+    {
+      QC_IMPLY (qProt && qInt. stop == qlen, qseq. back () != '*');
+    }
+      
+    QC_ASSERT (! sseq. empty ());
+    if (   bacterialStartCodon
+        && qProt  // sProt => sseq can be found incorrectly
+        && qInt. start == 0 
+        && qseq [0] == 'M'
+        && charInSet (sseq [0], "LIV")  
+       )
+      sseq [0] = 'M';
+  }
+  
+
+  length = qseq. size ();
+  nident = 0;
+  qgap = 0;
+  sgap = 0;
+  qx = 0;
+  sx = 0;
+  QC_ASSERT (sseq. size () == length);
+  FOR (size_t, i, length)
+  {
+    if (isAmbig (qseq [i], aProt))
+      qx++;
+    if (isAmbig (sseq [i], aProt))
+      sx++;
+    if (qseq [i] == '-')
+    {
+      qgap++;
+      QC_ASSERT (sseq [i] != '-');
+    }
+    else if (sseq [i] == '-')
+      sgap++;
+    else if (charMatch (i))
+      nident++;
+  }  
+
+  sframe = 0;
+  if (aProt && ! sProt)
+    sframe = sInt. frame ();
+
+  sInternalStop = aProt && contains (sseq, '*');
+
+  pos2q_. clear ();
+  pos2s_. clear ();
+
+  if (! disrs. empty ())
+    return;
+    
+  
+  pos2q_. reserve (length + 1);
+  {
+    size_t j = qInt. start;
+    FFOR (size_t, i, length + 1)
+    {
+      ASSERT (j >= qInt. start);
+      ASSERT (j <= qInt. stop);
+      pos2q_ << j;
+      if (qseq [i] != '-')
+        j += a2q;
+    }
+  }
+  pos2q_. ascending = etrue;
+
+  pos2s_. reserve (length + 1);
+  {
+    ASSERT (sInt. stop);
+    size_t j = (sInt. strand == -1 ? sInt. stop : sInt. start);
+    FFOR (size_t, i, length + 1)
+    {
+      ASSERT (j >= sInt. start);
+      ASSERT (j <= sInt. stop);
+      pos2s_ << j;
+      if (sseq [i] != '-')
+      {
+        if (sInt. strand == -1)  // sInt.strand*a2s: needs int
+          j -= a2s;
+        else
+          j += a2s;
+      }
+    }
+  }
+  pos2s_. ascending = (sInt. strand == -1 ? efalse : etrue);  
+}
+
+
+
+void Hsp::moveDashesRight ()
+{
+  ASSERT (! merged);
+  
+  for (;;)
+  {
+    const bool b1 = moveDashesRight_ (qseq, sseq);
+    const bool b2 = moveDashesRight_ (sseq, qseq);
+    if (   ! b1 
+        && ! b2
+       )
+      break;
+  }
+  ASSERT (qseq. size () == sseq. size ());
+  ASSERT (! qseq. empty ());
+  
+  while (   qseq. front () == '-'
+         || sseq. front () == '-'
+        )
+  {
+    eraseQseqFront ();
+    eraseSseqFront ();
+    ASSERT (qseq. size () == qseq. size ());
+    ASSERT (! qseq. empty ());
+  }
+  
+  while (   qseq. back () == '-'
+         || sseq. back () == '-'
+        )
+  {
+    eraseQseqBack ();
+    eraseSseqBack ();
+    ASSERT (qseq. size () == qseq. size ());
+    ASSERT (! qseq. empty ());
+  }
+}
+
+
+
+bool Hsp::moveDashesRight_ (const string &seq1,
+                            string &seq2)
+{
+  ASSERT (seq1. size () == seq2. size ());
+  
+  bool changed = false;
+  size_t start = no_index;
+  FFOR (size_t, i, seq1. size ())
+    if (start == no_index)
+    {
+      if (seq2 [i] == '-')
+        start = i;
+    }
+    else
+      if (seq2 [i] != '-')
+      {
+        if (   seq1 [i] == seq2 [i]
+            && seq2 [i] == seq1 [start]
+           )
+        {
+          swap (seq2 [i], seq2 [start]);
+          changed = true;
+        }
+        else
+          start = no_index;
+      }
+  ASSERT (seq1. size () == seq2. size ());
+  
+  return changed;
+}
+
+
+
+void Hsp::eraseQseqFront ()
+{
+  ASSERT (! qseq. empty ());
+
+  if (qseq. front () != '-')
+    qInt. start += a2q;
+
+  qseq. erase (0, 1);
+}
+
+
+
+void Hsp::eraseSseqFront ()
+{
+  ASSERT (! sseq. empty ());
+
+  if (sseq. front () != '-')
+  {
+    if (sInt. strand == -1)
+    {
+      ASSERT (sInt. stop > a2s);
+      sInt. stop -= a2s;
+    }
+    else
+      sInt. start += a2s;
+  }
+
+  sseq. erase (0, 1);
+}
+
+
+
+void Hsp::eraseQseqBack ()
+{
+  ASSERT (! qseq. empty ());
+
+  if (qseq. back () != '-')
+  {
+    ASSERT (qInt. stop > a2q);
+    qInt. stop -= a2q;
+  }
+
+  qseq. erase (qseq. size () - 1);
+}
+
+
+
+void Hsp::eraseSseqBack ()
+{
+  ASSERT (! sseq. empty ());
+
+  if (sseq. back () != '-')
+  {
+    if (sInt. strand == -1)
+      sInt. start += a2s;
+    else
+    {
+      ASSERT (sInt. stop > a2s);
+      sInt. stop -= a2s;
+    }
+  }
+
+  sseq. erase (sseq. size () - 1);
+}
+
+
+
+void Hsp::qc () const 
+{
+  if (! qc_on)
+    return;
+    
+  Root::qc ();
+
+
+  QC_IMPLY (merged, blastx ());
+
+  QC_IMPLY (qProt || sProt, aProt);
+  QC_IMPLY (sProt, qProt);
+    
+  if (empty ())
+  {
+    QC_ASSERT (qseqid. empty ());
+    QC_ASSERT (qseq. empty ());
+    QC_ASSERT (qInt. empty ());
+    QC_ASSERT (qlen == no_index);  
+    QC_ASSERT (sseqid. empty ());    
+    QC_ASSERT (sseq. empty ());
+    QC_ASSERT (sInt. empty ());
+    QC_ASSERT (slen == no_index);
+    QC_ASSERT (nident == no_index);
+    QC_ASSERT (qgap == no_index);
+    QC_ASSERT (sgap == no_index);
+    QC_ASSERT (qx == no_index);
+    QC_ASSERT (sx == no_index);
+    return;
+  }
+  
+  QC_ASSERT (! qseqid. empty ());	    
+  QC_ASSERT (! sseqid. empty ());	    
+
+  qInt. qc ();
+  sInt. qc ();
+  QC_ASSERT (sInt. stop <= slen);
+  QC_ASSERT (qInt. stop <= qlen);
+  QC_ASSERT (qseq. size () == sseq. size ());		  
+	QC_ASSERT (! qseq. empty ()); 
+	QC_ASSERT ((bool) sInt. strand == ! sProt);	
+  if (disrs. empty ())
+  {
+    QC_ASSERT (divisible (qInt. len (), a2q));	  
+    QC_ASSERT (divisible (sInt. len (), a2s));	  
+  }
+  
+  FFOR (size_t, i, qseq. size ())
+    QC_ASSERT (   qseq [i] != '-' 
+               || sseq [i] != '-'
+              );
+  
+  QC_IMPLY (sTruncated (), ! qComplete ());
+
+
+  // finishHsp()
+  QC_ASSERT (length);
+  QC_IMPLY (! merged, nident);
+  QC_ASSERT (qx <= length);
+  QC_ASSERT (sx <= length);
+  QC_ASSERT (nident + qgap <= length);
+  QC_ASSERT (nident + sgap <= length);
+  QC_ASSERT (length == qseq. size ());  
+  if (disrs. empty ())
+  {
+    if (! merged)
+    {
+      QC_ASSERT (qseq. front () != '-');
+      QC_ASSERT (sseq. front () != '-');
+      QC_ASSERT (qseq. back  () != '-');
+      QC_ASSERT (sseq. back  () != '-');
+    }
+    QC_ASSERT (nident <= qLen ());
+    QC_ASSERT (nident <= sLen ());
+    QC_ASSERT (qLen () <= length);	    
+    QC_ASSERT (sLen () <= length);	    
+		QC_IMPLY (aProt && ! qProt, qAbsCoverage () % 3 == 0); 
+		QC_IMPLY (aProt && ! sProt, sAbsCoverage () % 3 == 0); 
+    QC_ASSERT (pos2q_. size () == length + 1);
+    QC_ASSERT (pos2s_. size () == length + 1);
+    QC_ASSERT (pos2q_ [0]      == qInt. start);
+    QC_ASSERT (pos2q_ [length] == qInt. stop);
+    QC_ASSERT (pos2s_ [0]      == sInt. realStart ());
+    QC_ASSERT (pos2s_ [length] == sInt. realStop ());
+    QC_ASSERT (pos2q_. ascending == etrue);
+    QC_ASSERT (pos2s_. ascending != enull);
+    FOR (size_t, i, length)
+    {
+      QC_ASSERT                             (pos2q_ [i] <= pos2q_ [i + 1]);
+      QC_IMPLY (pos2s_. ascending == etrue,  pos2s_ [i] <= pos2s_ [i + 1]);
+      QC_IMPLY (pos2s_. ascending == efalse, pos2s_ [i] >= pos2s_ [i + 1]);
+    }
+  }
+  else
+  {
+    QC_ASSERT (merged);
+    QC_ASSERT (pos2q_. empty ());
+    QC_ASSERT (pos2s_. empty ());
+  //const Disruption* prev = nullptr;
+    for (const Disruption& disr : disrs)
+    {
+      disr. qc ();
+      QC_ASSERT (disr. type () != Disruption::eNone);
+      QC_ASSERT (disr. type () != Disruption::eSmooth);
+      QC_ASSERT (disr. prev->qseqid == qseqid);
+      QC_ASSERT (disr. next->qseqid == qseqid);
+      QC_ASSERT (disr. sInt (). strand == sInt. strand);
+      QC_IMPLY (disr. sStopCodon (), qInt. contains (disr. qInt ()));
+      QC_IMPLY (disr. sStopCodon (), sInt. contains (disr. sInt ()));
+      QC_ASSERT (blastx ());      
+    //QC_IMPLY (prev, ! (disr < *prev));
+    //prev = & disr;
+    }
+  }
+	QC_ASSERT ((bool) sframe  == (aProt && ! sProt));
+	QC_IMPLY (aProt && ! sProt, (sInt. strand == -1) == (sframe < 0));
+	QC_IMPLY (c_complete != enull, aProt);
+  QC_IMPLY (aProt && ! sProt, isFrame (sframe));
+  
+  QC_IMPLY (sInternalStop, aProt);
+  if (merged)
+  {
+    const Disruption* found = nullptr;
+    for (const Disruption& disr : disrs)
+      if (disr. sStopCodon ())
+      {
+        found = & disr;
+        break;
+      }
+    QC_ASSERT ((bool) found == sInternalStop);
+  }
+}
+
+
+
+void Hsp::saveText (ostream &os) const 
+{
+  os        << "Hsp:"
+     << ' ' << "merged=" << (int) merged
+     << ' ' << qseqid << '(' << qlen << ") " << qInt
+     << ' ' << sseqid << '(' << slen << ") " << sInt;
+  if (disrs. empty ())
+    os << " qLen=" << qLen ()
+       << " sLen=" << sLen ();
+  os << " length=" << length
+     << " nident=" << nident
+     << " qgap=" << qgap
+     << " sgap=" << sgap
+     << " qx=" << qx
+     << " sx=" << sx     
+     << " sframe=" << (int) sframe
+     << " sInternalStop=" << (int) sInternalStop
+     << " #disrs=" << disrs. size ();
+  for (const Disruption& disr : disrs)
+    os << ' ' << disr;
+}
+
+
+
+bool Hsp::less (const Hsp* a,
+                const Hsp* b)
+{ 
+  ASSERT (a);
+  ASSERT (b);
+  
+  LESS_PART (*a, *b, sseqid);
+  LESS_PART (*a, *b, sInt. strand);
+  LESS_PART (*a, *b, qseqid);
+  return a->sInt < b->sInt;
+}
+
+
+
+size_t Hsp::qLen () const
+{ 
+  ASSERT (disrs. empty ());
+  return qAbsCoverage () / a2q; 
+}
+
+
+
+size_t Hsp::sLen () const
+{ 
+  ASSERT (disrs. empty ());
+  return sAbsCoverage () / a2s; 
+}
+
+
+
+size_t Hsp::pos2real_q (size_t pos,
+                        bool forward) const
+{
+  while (qseq [pos] == '-')
+    if (forward)
+      pos++;
+    else
+    {
+      ASSERT (pos);
+      pos--;
+    }
+  return pos;
+}
+
+
+
+size_t Hsp::pos2real_s (size_t pos,
+                        bool forward) const
+{
+  while (sseq [pos] == '-')
+    if (forward)
+      pos++;
+    else
+    {
+      ASSERT (pos);
+      pos--;
+    }
+  return pos;
+}
+
+
+
+size_t Hsp::pos2q (size_t pos,
+                   bool forward) const
+{ 
+  ASSERT (disrs. empty ());
+  return pos2q_ [pos2real_q (pos, forward)]; 
+}
+
+
+
+size_t Hsp::pos2s (size_t pos,
+                   bool forward) const
+{ 
+  ASSERT (disrs. empty ());
+  return pos2s_ [pos2real_s (pos, forward)]; 
+}
+
+
+
+size_t Hsp::q2pos (size_t qPos,
+                   bool forward) const
+{ 
+  ASSERT (disrs. empty ());
+  return pos2real_q (pos2q_. binSearch (qPos), forward); 
+}
+
+
+
+size_t Hsp::s2pos (size_t sPos,
+                   bool forward) const
+{ 
+  ASSERT (disrs. empty ());
+  return pos2real_s (pos2s_. binSearch (sPos), forward); 
+}
+
+
+
+bool Hsp::qBetterEq (const Hsp &other) const
+{
+  ASSERT (aProt        == other. aProt);
+  ASSERT (sseqid       == other. sseqid);
+  ASSERT (sInt. strand == other. sInt. strand);
+
+  if (! other. sInsideEq (*this, 0))
+    return false;
+  LESS_PART (other, *this, relIdentity ());
+  LESS_PART (other, *this, nident);
+  // Tie
+  LESS_PART (*this, other, qseqid);
+  return true;
+}    
+
+
+
+string Hsp::qMap (size_t len) const
+{ 
+  ASSERT (qlen <= len);
+  
+  string s = string (qInt. start, '-'); 
+  FFOR (size_t, i, length)
+    if (qseq [i] != '-')
+      s += sseq [i];
+  s += string (len - qInt. stop, '-'); 
+  
+  return s;
+}
+
+
+
+namespace
+{
+  
+struct Intron;
+  
+
+  
+struct Exon final : DiGraph::Node
+{
+  friend Hsp;
+  friend Intron;
+  
+  // Input
+  const bool isInsertion;
+  const Hsp& hsp;
+    // qseqid: reference protein
+    // sseqid: contig 
+    // disrs.empty()
+  // In hsp.{qseq,sseq}
+  const size_t start {0};
+  const size_t len {0};
+  const SubstMat* sm {nullptr};  
+    // nullptr <=> match = 1, mismatch = 0
+	
+	// Output
+	AlignScore score {0};
+  Vector<Disruption> disrs;
+    // type() != eNone,eSmooth
+private:
+	bool bestIntronSet {false};
+public:
+	const Intron* bestIntron {nullptr};
+	AlignScore totalScore {- score_inf};
+
+
+  Exon (DiGraph &graph_arg,    
+        bool isInsertion_arg,    
+        const Hsp &hsp_arg,
+        size_t start_arg,
+        size_t len_arg,
+      	const SubstMat* sm_arg);
+  Exon (DiGraph &graph_arg,    
+        const Hsp &hsp_arg,
+        const SubstMat* sm_arg)
+    : Exon (graph_arg, false, hsp_arg, 0, hsp_arg. length, sm_arg)
+    {}
+  void saveText (ostream &os) const final;
+  void qc () const final;
+      
+  
+  size_t getStop () const
+    { return start + len; }  
+
+  // Logical start/end  
+  size_t qStart () const
+    { return hsp. pos2q (start, true); }
+  size_t qStop () const
+    { return hsp. pos2q (getStop (), true); }
+  size_t sStart () const
+    { return hsp. pos2s (start, true); }
+  size_t sStop () const
+    { return hsp. pos2s (getStop (), true); }
+  Interval qInt () const
+    { return Interval (qStart (), qStop (), 0); }
+  Interval sInt () const
+    { if (hsp. sInt. strand == -1)
+        return Interval (sStop (), sStart (), -1); 
+      return Interval (sStart (), sStop (), 1); 
+    }
+
+  size_t qCenter () const  
+    { return (qStart () + qStop ()) / 2; }
+  size_t sCenter () const  
+    { return (sStart () + sStop ()) / 2; }
+
+  bool arcable (const Exon &next,
+                bool bacteria) const;
+    // Return: true => same sInt.strand
+private:
+  void setBestIntron (AlignScore intronScore);
+    // Update: bestIntronSet, totalScore, bestIntron
+  Hsp mergeTail (const Hsp* &firstOrigHsp) const;
+    // Output: firstOrigHsp: !nullptr, !merged
+    // Invokes: delete bestIntron->next
+};
+
+
+
+struct Intron final : DiGraph::Arc
+// Intron in Hsp::sseqid
+// DAG
+{
+  friend Exon;
+  AlignScore score {score_inf};
+    // Score lost by merging *prev and *next
+    // Minimized
+  size_t prev_start {no_index};
+    // In prev->hsp.{qseq,sseq}
+  size_t next_stop {no_index};
+    // In next->hsp.{qseq,sseq}
+  Disruption disr;
+    // !empty()
+  
+  
+  Intron (Exon* prev,
+          Exon* next);
+  void qc () const final;
+  void saveText (ostream &os) const final;
+    
+
+private:    
+  AlignScore getTotalScore (AlignScore intronScore);
+    // Invokes: next->setBestIntron()
+};
+
+
+
+
+// Exon
+
+Exon::Exon (DiGraph &graph_arg,    
+            bool isInsertion_arg,    
+            const Hsp &hsp_arg,
+            size_t start_arg,
+            size_t len_arg,
+          	const SubstMat* sm_arg)
+: DiGraph::Node (graph_arg)
+, isInsertion (isInsertion_arg)
+, hsp (hsp_arg)
+, start (start_arg)
+, len (len_arg)
+, sm (sm_arg)
+{
+  ASSERT (graph);
+  ASSERT (len);
+  ASSERT (! bestIntron);
+  ASSERT (! hsp. merged);
+
+    
+  ASSERT (score == 0);
+  ASSERT (disrs. empty ());
+  FFOR_START (size_t, i, start, getStop ())
+  {
+    score += SubstMat::char2score (sm, hsp. qseq [i], hsp. sseq [i]);
+
+    if (hsp. sseq [i] == '*')
+    {
+      size_t i_prev = hsp. pos2real_q (i, false);
+      size_t i_next = hsp. pos2real_q (i, true);
+    #ifndef NDEBUG
+      bool replacement = true;
+    #endif
+      if (i_prev == i_next)  // Replacement
+      {
+        ASSERT (i_prev == i);
+        ASSERT (hsp. qseq [i] != '-');
+        i_next++;
+      }
+      else  // Deletion
+      {
+        QC_ASSERT (i_prev < getStop ());
+        ASSERT (i_prev < i);
+        ASSERT (i < i_next);
+        ASSERT (hsp. qseq [i_prev] != '-');
+        ASSERT (hsp. qseq [i_next] != '-');
+        i_prev++;
+        ASSERT (hsp. qseq [i_prev] == '-');
+      #ifndef NDEBUG
+        replacement = false;  
+      #endif
+      }
+
+      Disruption disr (hsp, hsp, i_prev, i_next, false);      
+        /* Interval ( prev->pos2q/s (prev_start, true)
+                    , next->pos2q/s (next_stop,  true)
+        */
+      disr. qc (); 
+      IMPLY (replacement, disr. qInt (). len () == 1);
+      IMPLY (replacement, disr. sInt (). len () == 3);
+      IMPLY (  replacement, disr. type () == Disruption::eDeletion);
+      IMPLY (! replacement, disr. type () == Disruption::eInsertion);      
+      ASSERT (qInt (). contains (disr. qInt ()));
+      ASSERT (sInt (). contains (disr. sInt ()));
+      ASSERT (disr. sStopCodon ());
+      
+      disrs << std::move (disr);
+    }
+  }
+}
+
+
+
+void Exon::qc () const 
+{
+  if (! qc_on)
+    return;
+    
+  DiGraph::Node::qc ();    
+  QC_IMPLY (bestIntron, arcs [true]. find (var_cast (bestIntron)) != no_index);
+
+  hsp. qc ();
+  QC_ASSERT (! hsp. merged);
+  QC_ASSERT (hsp. blastx ());
+  QC_ASSERT (hsp. disrs. empty ());
+  QC_ASSERT (getStop () <= hsp. length);
+  QC_IMPLY (sStart () != sStop (), (sStart () >= sStop ()) == (hsp. sInt. strand == -1));    
+  QC_ASSERT (len);
+  qInt (). qc ();
+  sInt (). qc ();
+  QC_ASSERT (hsp. qInt. contains (qInt ()));
+  QC_ASSERT (hsp. sInt. contains (sInt ()));
+  if (sm)
+    sm->qc ();
+    
+  for (const Disruption& disr : disrs)
+  {
+    disr. qc ();
+    QC_ASSERT (disr. type () != Disruption::eNone);
+    QC_ASSERT (disr. type () != Disruption::eSmooth);
+    QC_ASSERT (disr. type () != Disruption::eFrameshift);
+    QC_ASSERT (disr. sameHsp ());
+    QC_ASSERT (disr. prev == & hsp);
+    QC_ASSERT (disr. sStopCodon ());
+    QC_ASSERT (qInt (). contains (disr. qInt ()));
+    QC_ASSERT (sInt (). contains (disr. sInt ()));
+  }    
+  QC_ASSERT ((! disrs. empty ()) == contains (hsp. sseq. substr (start, len), '*'));
+    
+//QC_ASSERT (score >= 0);
+//QC_ASSERT (totalScore >= 0);
+}
+
+
+
+void Exon::saveText (ostream &os) const 
+{
+  os << "Exon:"
+     << " insertion:" << (int) isInsertion
+     << " start=" << start
+     << " len=" << len
+     << ' ' << qInt () 
+     << ' ' << sInt ()
+     << " score:" << score 
+     << " #disrs:" << disrs. size ()
+     << " totalScore:" << totalScore
+     << "  ";
+  hsp. saveText (os);
+  
+  for (const DiGraph::Arc* arc : arcs [true])
+  {
+    ASSERT (arc);
+    ASSERT (arc->node [false] == this);
+    const Intron* intron = static_cast <const Intron*> (arc);
+    if (intron != bestIntron)
+      continue;
+    Offset ofs;
+    Offset::newLn (os);
+    os << "BEST! ";
+    intron->saveText (os);
+  }
+}
+
+
+
+bool Exon::arcable (const Exon &next,
+                    bool bacteria) const   
+{
+  ASSERT (hsp. qseqid == next. hsp. qseqid);
+  ASSERT (hsp. sseqid == next. hsp. sseqid);
+  
+  if (this == & next)
+    return false;    
+  if (& hsp == & next. hsp)
+  {
+    if (bacteria)
+      return getStop () == next. start;
+  }
+  else if (next. isInsertion)
+    return false;
+    
+  // PAR
+  const size_t intron_max = bacteria ? 5000/*transposon length*/ : 30000;  // nt 
+  
+  if (hsp. sInt. strand != next. hsp. sInt. strand)
+    return false;
+
+  // => DAG
+  if (qCenter () >= next. qCenter ())
+    return false;  
+  if (hsp. sInt. strand == 1)
+  {
+    if (sCenter () >= next. sCenter ())
+      return false;  
+  }
+  else
+    if (next. sCenter () >= sCenter ())
+      return false;  
+
+  if (bacteria)
+  {
+  #if 0
+    if (qStop () + 20 < next. qStart ())  // PAR  // Not only frame shifts
+      return false;
+  #endif
+    if (qStop () >= next. qStart () + 50)  // PAR
+      return false;
+  }
+
+  if (   hsp. sInt. strand == 1 
+      && sStop () + intron_max < next. sStart ()
+     )
+    return false;
+  if (   hsp. sInt. strand == -1 
+      && next. sStart () + intron_max < sStop ()
+     )
+    return false;
+     
+  return true;
+}
+
+    
+
+void Exon::setBestIntron (AlignScore intronScore)
+{
+  if (bestIntronSet)
+    return;    
+  bestIntronSet = true;
+
+  bestIntron = nullptr;
+  totalScore = score;    
+  for (const DiGraph::Arc* arc : arcs [true])
+  {
+    ASSERT (arc);
+    ASSERT (arc->node [false] == this);
+    const Intron* intron = static_cast <const Intron*> (arc);
+    if (maximize (totalScore, score + var_cast (intron) -> getTotalScore (intronScore)))
+      bestIntron = intron;
+  }
+}
+
+
+
+Hsp Exon::mergeTail (const Hsp* &firstOrigHsp) const
+{
+  ASSERT (! hsp. merged);
+  ASSERT (hsp. disrs. empty ());
+  
+  Hsp hsp_new;
+  if (bestIntron)
+  {
+    ASSERT (bestIntron->node [false] == this);
+    const Exon* next = static_cast <Exon*> (bestIntron->node [true]);
+    ASSERT (next);    
+    
+    hsp_new = next->mergeTail (firstOrigHsp);  
+  //const Hsp hsp_new_orig = hsp_new;  
+    hsp_new. qInt. start        = qStart ();
+    hsp_new. sInt. realStart () = sStart ();
+    
+    ASSERT (bestIntron->prev_start >= start);
+    const size_t prev_len = bestIntron->prev_start - start; 
+    ASSERT (bestIntron->next_stop >= next->start);
+    const size_t next_start = bestIntron->next_stop - next->start;
+    hsp_new. qseq = hsp. qseq. substr (start, prev_len) + hsp_new. qseq. substr (next_start);
+    hsp_new. sseq = hsp. sseq. substr (start, prev_len) + hsp_new. sseq. substr (next_start);
+    ASSERT (hsp_new. qseq. size () == hsp_new. sseq. size ());
+    ASSERT (hsp_new. qseq. size () <= hsp_new. length + hsp. length);    
+
+    const Vector<Disruption> disrs_new (std::move (hsp_new. disrs));
+    ASSERT (hsp_new. disrs. empty ());
+    for (Disruption disr : disrs_new)
+    {
+      if (   disr. sameHsp ()
+          && disr. prev == & next->hsp  // disr.prev = disr.next
+         )
+      {
+        maximize (disr. prev_start, bestIntron->next_stop);
+        minimize (disr. prev_start, disr. next_stop);
+        disr. qc ();
+      }
+      if (disr. type () == Disruption::eSmooth)
+        continue;
+      hsp_new. disrs << std::move (disr);
+    }
+  /*ASSERT (hsp_new. containsHsp (hsp_old));   
+      Counter-example: 
+        Query  94     PPPPSTTTPPPPPPPPPPPPST  115              hsp_old
+                      PP  + T   PPP  PPP  +T
+        Sbjct  98761  PPLQAVT*AIPPPIRPPPSTTT  98826
+
+        Query  110    PPPPSTT----    117   PPPPPPPSTT  126     tailHsp (split RHS)
+                      PP  + T              PP  PPPSTT
+        Sbjct  98761  PPLQAVT*AIP    98794 PPIRPPPSTT  98823
+    */
+    for (Disruption disr : disrs)
+    {
+      ASSERT (disr. sameHsp ());
+      ASSERT (disr. prev == & hsp);  // disr.prev = disr.next
+      minimize (disr. next_stop, bestIntron->prev_start);
+      maximize (disr. next_stop, disr. prev_start);
+      disr. qc ();
+      if (disr. type () == Disruption::eSmooth)
+        continue;
+      hsp_new. disrs << disr;
+    }
+    if (bestIntron->disr. type () != Disruption::eSmooth)
+      hsp_new. disrs << bestIntron->disr;
+      
+    delete next;  
+  }
+  else
+  {
+    hsp_new = hsp;
+    hsp_new. qInt. start = qStart ();
+    hsp_new. qInt. stop  = qStop ();
+    hsp_new. sInt. start = sStart ();
+    hsp_new. sInt. stop  = sStop ();
+    if (hsp_new. sInt. strand == -1)
+      swap ( hsp_new. sInt. start
+           , hsp_new. sInt. stop
+           );
+    hsp_new. qseq = hsp_new. qseq. substr (start, len);
+    hsp_new. sseq = hsp_new. sseq. substr (start, len);
+    hsp_new. disrs = disrs;
+    hsp_new. merged = true;
+  }      
+  ASSERT (hsp_new. merged);
+  
+  hsp_new. finishHsp (false, false);
+  hsp_new. qc ();  
+  
+  firstOrigHsp = & hsp;
+  
+  return hsp_new;
+}
+
+
+
+
+// Intron
+
+Intron::Intron (Exon* prev,
+                Exon* next)
+: DiGraph::Arc (prev, next)
+{
+  ASSERT (prev);
+  ASSERT (next);
+  
+
+  // score, prev_start, next_stop
+  const size_t qStart = next->qStart ();
+  const size_t qStop  = prev->qStop ();
+  if (qStop <= qStart)
+  {
+    score = 0;
+    prev_start = prev->getStop ();
+    next_stop  = next->start;
+  }
+  else
+  {
+    // [qStart, qStop) = overlap of prev->qseq and next->qseq  
+    const size_t qLen = qStop - qStart;  
+    ASSERT (qLen);
+          
+    Vector<AlignScore> prevScores;  prevScores. reserve (qLen + 1);
+    {
+      FFOR_START (size_t, i, qStart, prev->qStart ())
+        prevScores << 0;
+      size_t qPos = prev->qStart ();
+      FFOR_START (size_t, i, prev->start, prev->getStop ())
+        if (prev->hsp. qseq [i] != '-')
+        {
+          if (between (qPos, qStart, qStop))
+            prevScores << SubstMat::char2score ( prev->sm
+                                               , prev->hsp. qseq [i]
+                                               , prev->hsp. sseq [i]
+                                               );
+          qPos++;
+        }
+    }
+    prevScores << 0;
+    ASSERT (prevScores. size () == qLen + 1);
+    
+    Vector<AlignScore> nextScores;  nextScores. reserve (qLen + 1);
+    nextScores << 0;
+    {
+      size_t qPos = next->qStart ();
+      FFOR_START (size_t, i, next->start, next->getStop ())
+        if (next->hsp. qseq [i] != '-')
+        {
+          if (between (qPos, qStart, qStop))
+            nextScores << SubstMat::char2score ( next->sm
+                                               , next->hsp. qseq [i]
+                                               , next->hsp. sseq [i]
+                                               );
+          qPos++;
+        }
+      FFOR_START (size_t, i, next->qStop (), qStop)
+        nextScores << 0;
+    }
+    ASSERT (nextScores. size () == qLen + 1);
+    
+    FOR_REV (size_t, i, qLen)
+      prevScores [i] += prevScores [i + 1];  // Suffixes
+    FOR_START (size_t, i, 1, qLen + 1)
+      nextScores [i] += nextScores [i - 1];  // Prefixes
+      
+    // score
+    size_t bestSplit = no_index;
+    ASSERT (score == score_inf);
+    FOR_REV (size_t, i, qLen + 1)  // Frame shift position is rightmost
+      if (minimize (score, prevScores [i] + nextScores [i]))
+        bestSplit = i;
+    ASSERT (bestSplit != no_index);
+    ASSERT (bestSplit <= qLen);
+    ASSERT (score != score_inf);
+    
+    const size_t qSplit = qStart + bestSplit;  
+    ASSERT (betweenEqual (qSplit, qStart, qStop));
+    
+    if (   qSplit <  prev->qCenter ()
+        || qSplit >= next->qCenter ()
+       )  // Otherwise trimmed prev->len or next->len can be <= 0
+    {
+      score = score_inf;
+      return;
+    }
+
+    ASSERT (qSplit);
+    prev_start = prev->hsp. q2pos (qSplit - 1, false) + 1;  // To remove trailing '-'
+    ASSERT (prev_start);
+    ASSERT (prev->hsp. qseq [prev_start - 1] != '-');
+    ASSERT (betweenEqual (prev_start, prev->start, prev->getStop ()));
+    
+    next_stop = next->hsp. q2pos (qSplit, true);
+    ASSERT (next->hsp. qseq [next_stop] != '-');
+    ASSERT (betweenEqual (next_stop, next->start, next->getStop ()));
+  }
+
+
+  // Empty Exon's
+  if (   prev_start <= prev->start
+      || next_stop  >= next->getStop ()
+     )
+  {
+    score = score_inf;
+    return;
+  }
+  
+
+  // prev_start, next_stop, disr
+  // Eliminating overlapping Exon's 
+  for (;;)
+  {
+    ASSERT (next_stop <= next->getStop ());
+    if (next_stop == next->getStop ())
+    {
+      disr = Disruption ();
+      score = score_inf;
+      return;
+    }
+    disr = Disruption (prev->hsp, next->hsp, prev_start, next_stop, true);
+    ASSERT (disr. qInt (). valid ());
+    if (disr. sInt (). valid ())
+      break;
+    next_stop++;
+  }    
+  disr. qc ();   
+}
+
+
+
+void Intron::qc () const 
+{
+  if (! qc_on)
+    return;
+  DiGraph::Arc::qc ();
+
+  const Exon* prev = static_cast <const Exon*> (node [false]);
+  const Exon* next = static_cast <const Exon*> (node [true]);
+  ASSERT (prev);
+  ASSERT (next);
+  QC_ASSERT (prev != next);
+  QC_ASSERT (prev->hsp. qProt   == next->hsp. qProt);
+  QC_ASSERT (prev->hsp. sProt   == next->hsp. sProt);
+  QC_ASSERT (prev->hsp. aProt   == next->hsp. aProt);
+  QC_ASSERT (prev->hsp. qseqid  == next->hsp. qseqid);
+  QC_ASSERT (prev->hsp. sseqid  == next->hsp. sseqid);
+  QC_ASSERT (prev->hsp. qlen    == next->hsp. qlen);
+  QC_ASSERT (prev->hsp. slen    == next->hsp. slen);
+  QC_ASSERT (prev->hsp. sInt. strand);
+  QC_ASSERT (prev->hsp. sInt. strand == next->hsp. sInt. strand);
+  QC_ASSERT (prev->qStart () < next->qStop ());  // <= arcable()  
+//QC_ASSERT (prev->arcable (*next));
+  QC_ASSERT (prev->sm == next->sm);
+
+  if (score == score_inf)
+    return;
+
+  QC_ASSERT (betweenEqual (prev_start, prev->start + 1, prev->getStop ()));
+  QC_ASSERT (betweenEqual (next_stop,  next->start,     next->getStop () - 1));
+  ASSERT (prev_start);
+//QC_ASSERT (prev->hsp. qseq [prev_start - 1] != '-');
+//QC_ASSERT (next->hsp. qseq [next_stop]      != '-');
+
+  disr. qc ();
+  QC_ASSERT (disr. type () != Disruption::eNone);
+  QC_ASSERT (disr. sInt (). strand == next->hsp. sInt. strand);
+  QC_ASSERT (! disr. sStopCodon ()); 
+  QC_ASSERT (disr. intron);
+#if 0
+  QC_IMPLY (score != score_inf, disr. prev_qend <= disr. next_qstart);
+  QC_ASSERT (                         betweenEqual (disr. prev_qend,   prev->qStart (), prev->qStop ()));
+  QC_IMPLY (prev->hsp. sInt. strand ==  1, betweenEqual (disr. prev_send,   prev->sStart (), prev->sStop ()));
+  QC_IMPLY (prev->hsp. sInt. strand == -1, betweenEqual (disr. prev_send,   prev->sStop (),  prev->sStart ()));
+  QC_ASSERT (                         betweenEqual (disr. next_qstart, next->qStart (), next->qStop ()));
+  QC_IMPLY (prev->hsp. sInt. strand ==  1, betweenEqual (disr. next_sstart, next->sStart (), next->sStop ()));
+  QC_IMPLY (prev->hsp. sInt. strand == -1, betweenEqual (disr. next_sstart, next->sStop (),  next->sStart ()));
+#endif
+}
+
+
+
+void Intron::saveText (ostream &os) const 
+{
+  ASSERT (node [true]);
+  const Exon* next = static_cast <const Exon*> (node [true]);
+  ASSERT (next);
+
+  os << "Intron:"
+     << " score=-" << score
+     << " prev_start=" << prev_start
+     << " next_stop=" << next_stop
+     << " disr:";
+  disr. saveText (os);
+
+  Offset ofs;
+  Offset::newLn (os);
+  next->saveText (os);
+}
+
+
+
+AlignScore Intron::getTotalScore (AlignScore intronScore)
+{
+  ASSERT (intronScore >= 0);
+  
+  if (score == score_inf)
+    return - score_inf;
+  
+  const Exon* next = static_cast <const Exon*> (node [true]);
+  ASSERT (next);
+  var_cast (next) -> setBestIntron (intronScore);  // DAG => no loop 
+
+  return next->totalScore - score - min ((AlignScore) disr. getLen (), intronScore);
+}
+
+
+
+//
+
+struct DensityState
+{
+  // PAR  // optimize iteratively ??
+  static constexpr double loDensProb = 0.10;
+  static constexpr double hiDensProb = 0.90;  
+  static_assert (loDensProb < hiDensProb);
+  static constexpr double densChangeProb = 0.005;  
+  static_assert (densChangeProb < 0.5);
+  // > 0
+  // MacOS cannot run log() in constexpr
+  static const array<double,2/*bool match*/> loDensWeight;
+  static const array<double,2/*bool match*/> hiDensWeight;
+  static const array<double,2/*bool densityChanged*/> densChangeWeight;
+
+  // To minimize
+  array<double,2/*bool highDensity*/> weightLocal;
+  array<double,2/*bool highDensity*/> weightGlobal {{0.0, 0.0}};
+  //
+  array<bool, 2/*bool highDensity*/> prevGlobalHiDens {{false, true}};
+
+  
+  explicit DensityState (bool match)
+    { weightLocal [false] = loDensWeight [match];
+      weightLocal [true]  = hiDensWeight [match];
+    }
+  void saveText (ostream &os) const
+    { const ONumber on (os, 2, false);
+      os         << weightLocal [false] 
+         << '\t' << weightLocal [true] 
+         << '\t' << weightGlobal [false] 
+         << '\t' << weightGlobal [true] 
+         << '\t' << (int) prevGlobalHiDens [false] 
+         << '\t' << (int) prevGlobalHiDens [true];
+    }
+};
+
+
+const array<double,2> DensityState::loDensWeight {{-log (1.0 - loDensProb), -log (loDensProb)}};
+const array<double,2> DensityState::hiDensWeight {{-log (1.0 - hiDensProb), -log (hiDensProb)}};
+const array<double,2> DensityState::densChangeWeight {{-log (1.0 - densChangeProb), -log (densChangeProb)}};
+
+
+
+void hsp2exons (const Hsp& hsp,
+                DiGraph &graph,        
+              	const SubstMat* sm)
+{               
+  ASSERT (hsp. length);
+
+  // Dynamic programming
+  // hsp.c_complete == etrue ??
+  Vector<DensityState> dss;  dss. reserve (hsp. length);
+  FOR (size_t, i, hsp. length)
+  {
+    DensityState ds (hsp. charMatch (i));
+    // dc.{weightGlobal[],prevGlobalHiDens[]}
+    if (i)
+      for (const bool hiDens : {false, true})
+      {
+        ds. weightGlobal [hiDens] = numeric_limits<double>::infinity ();
+        for (const bool prevHiDens : {false, true})
+          if (minimize (ds. weightGlobal [hiDens], ds. weightLocal [hiDens] + dss. back (). weightGlobal [prevHiDens] + DensityState::densChangeWeight [hiDens != prevHiDens]))
+            ds. prevGlobalHiDens [hiDens] = prevHiDens;
+      }
+    else
+      ds. weightGlobal = ds. weightLocal;
+  #if 0
+    // Test: 
+    //   tblastn2disruption test.blast -noprogress -bacteria -qc -verbose 1
+    //     test.blast: CAA46767.1      JAOQKQ010000001.1       24      243     319     4725551 4726207 5298558 EFMIDFSTQQSYVSSLNSIRTEISTPL-EHISQGTTSVSVINHTPPGSYFAVDIRGLDVYQARFDHLRLIIEQNNLYVAGFVNTATNTFYRFSDFTHISVPGVTTVSMTTDSSYTTLQRVAALERSGMQISRHSLVSSYLALMEFSGNTMTRDASRAVLRFVTVTAEALRFRQIQREFRQALSETAPVYTMTPEEVDLTLNWGRISNVLPEFRGEGGVRVG EFMIDFSTQQSYVSSLNSIRTEISTPS*TYISGDHIGVCY*PH-PTGQLFCCGYTRA*CLSGAF*PSSSDY*AK*FICGWFVNTATNTFYRFSDFTHISVPGVTTVSMTTDSSYTTLQRVAALERSGMQISRHSLVSSYLALMELSGNTMTRDASRAVLRFVTVTAEALRFRQIQREFRQALSETAPVYTMTPEEVDLTLNWGESAMCFRSF-GERGCQSG
+    cout << i << '\t';
+    ds. saveText (cout);
+    cout << endl;
+  #endif
+    dss << std::move (ds);
+  }
+      
+  bool hiDens = (   dss. back (). weightGlobal [true] 
+                 <= dss. back (). weightGlobal [false]
+                );
+  size_t stop  = hsp. length;
+  size_t start = hsp. length - 1;
+  while (start)
+  {
+    while (start && dss [start]. prevGlobalHiDens [hiDens] == hiDens)
+      start--;  
+    auto exon = new Exon (graph, ! hiDens, hsp, start, stop - start, sm);
+    exon->qc ();
+  // !hiDens => add Disruption to exon->disrs ??
+  #if 0  
+    if (   hsp. qseqid == "4471-IDAU" 
+        && hsp. sseqid == "NEEC01000009.1"
+       )
+    {
+      exon->saveText (f1);
+      f1 << endl;
+    }
+  #endif
+    stop = start;
+    toggle (hiDens);
+  }
+}
+
+
+}  // namespace
+
+
+
+
+Hsp::Merge::Merge (const VectorPtr<Hsp> &origHsps_arg,
+                   const SubstMat* sm,
+                   AlignScore intronScore_arg,
+                   bool bacteria)
+: origHsps (origHsps_arg)
+, intronScore (intronScore_arg)
+{
+  Set<const Hsp*> s;
+  for (const Hsp* hsp : origHsps)
+  {
+    ASSERT (hsp);
+    ASSERT (! hsp->merged);
+    if (qc_on)
+    {
+      if (s. contains (hsp))
+        throw runtime_error ("Duplicate HSP: " + hsp->str ());
+      s << hsp;
+    }
+    hsp2exons (*hsp, graph, sm); 
+  }	
+  for (DiGraph::Node* node1 : graph. nodes)
+  {
+    Exon* next = static_cast <Exon*> (node1);
+    ASSERT (next);
+    for (DiGraph::Node* node2 : graph. nodes)
+	  {
+      Exon* prev = static_cast <Exon*> (node2);
+      ASSERT (prev);
+      if (prev->arcable (*next, bacteria))
+        new Intron (var_cast (prev), var_cast (next));
+    }
+	}
+	graph. qc ();
+}
+	
+	  	
+	
+Hsp Hsp::Merge::get (const Hsp* &origHsp,
+                     AlignScore &score)
+{
+  origHsp = nullptr;
+	for (;;)
+	{
+    for (DiGraph::Node* node : graph. nodes)
+    {
+      Exon* exon = static_cast <Exon*> (node);
+      ASSERT (exon);
+      exon->bestIntronSet = false;
+    }
+
+  	score = - score_inf;
+  	const Exon* bestExon = nullptr;
+  	if (verbose ())
+	    cout << endl << "Graph:" << endl;
+    for (DiGraph::Node* node : graph. nodes)
+    {
+      Exon* exon = static_cast <Exon*> (node);
+      ASSERT (exon);
+      exon->setBestIntron (intronScore);
+      if (verbose ())
+      {
+        exon->saveText (cout);
+        cout << endl;
+      }
+      if (maximize (score, exon->totalScore))
+        bestExon = exon;
+    }
+    if (! bestExon)
+      break;
+    ASSERT (score > - score_inf);
+
+    origHsp = nullptr;
+    Hsp hsp_new (var_cast (bestExon) -> mergeTail (origHsp));
+    ASSERT (origHsp);
+    ASSERT (! origHsp->merged);
+    ASSERT (origHsps. contains (origHsp));
+
+    delete bestExon; 
+
+    if (hsp_new. nident)
+    {
+      // N/C-terminus deletion: add Disruption ??
+      hsp_new. disrs. sort ();
+      hsp_new. qc ();
+      ASSERT (hsp_new. merged);
+      return std::move (hsp_new);
+    } 
+  }
+  
+  
+  origHsp = nullptr;
+  score = - score_inf;
+  Hsp hsp;
+  return hsp;
 }
 
 

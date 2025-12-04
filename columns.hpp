@@ -33,8 +33,8 @@
 
 
 
+// Columns
 // PD-5085
-
 constexpr const char* prot_colName = "Protein id";   // PD-2534  
 constexpr const char* contig_colName = "Contig id";
 // Target 
@@ -67,4 +67,14 @@ constexpr const char* hierarchyNode_colName = "Hierarchy node";
 // PD-5155
 constexpr const char* fusion_infix = "::";  // was: "/"
   
-constexpr const char* na ("NA");
+constexpr const char* na = "NA";
+
+constexpr const char* disruption_delim = "_@";
+
+
+// Methods
+constexpr const char* frameshift_Name       = "FRAMESHIFT";
+constexpr const char* internalStop_Name     = "INTERNAL_STOP";
+constexpr const char* partial_Name          = "PARTIAL";
+constexpr const char* partialContigEnd_Name = "PARTIAL_CONTIG_END";
+

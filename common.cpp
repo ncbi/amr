@@ -2,25 +2,25 @@
 
 /*===========================================================================
 *
-*                            PUBLIC DOMAIN NOTICE                          
+*                            PUBLIC DOMAIN NOTICE
 *               National Center for Biotechnology Information
-*                                                                          
-*  This software/database is a "United States Government Work" under the   
-*  terms of the United States Copyright Act.  It was written as part of    
-*  the author's official duties as a United States Government employee and 
-*  thus cannot be copyrighted.  This software/database is freely available 
-*  to the public for use. The National Library of Medicine and the U.S.    
-*  Government have not placed any restriction on its use or reproduction.  
-*                                                                          
-*  Although all reasonable efforts have been taken to ensure the accuracy  
-*  and reliability of the software and data, the NLM and the U.S.          
-*  Government do not and cannot warrant the performance or results that    
-*  may be obtained by using this software or data. The NLM and the U.S.    
-*  Government disclaim all warranties, express or implied, including       
+*
+*  This software/database is a "United States Government Work" under the
+*  terms of the United States Copyright Act.  It was written as part of
+*  the author's official duties as a United States Government employee and
+*  thus cannot be copyrighted.  This software/database is freely available
+*  to the public for use. The National Library of Medicine and the U.S.
+*  Government have not placed any restriction on its use or reproduction.
+*
+*  Although all reasonable efforts have been taken to ensure the accuracy
+*  and reliability of the software and data, the NLM and the U.S.
+*  Government do not and cannot warrant the performance or results that
+*  may be obtained by using this software or data. The NLM and the U.S.
+*  Government disclaim all warranties, express or implied, including
 *  warranties of performance, merchantability or fitness for any particular
-*  purpose.                                                                
-*                                                                          
-*  Please cite the author in any work or product based on this material.   
+*  purpose.
+*
+*  Please cite the author in any work or product based on this material.
 *
 * ===========================================================================
 *
@@ -39,7 +39,7 @@
 #include <sstream>
 #include <cstring>
 #include <regex>
-#include <csignal>  
+#include <csignal>
 #ifndef _MSC_VER
   extern "C"
   {
@@ -60,7 +60,7 @@
 
 namespace Common_sp
 {
- 
+
 
 
 vector<string> programArgs;
@@ -73,7 +73,7 @@ string getCommandLine ()
   string commandLine;
   for (const string& s : programArgs)
   {
-    const bool bad =    s. empty () 
+    const bool bad =    s. empty ()
                      || contains (s, ' ')
                      || contains (s, '|')
                      || contains (s, ';')
@@ -113,9 +113,9 @@ bool sigpipe = false;
 // COutErr
 
 #ifndef _MSC_VER
-bool COutErr::sameFiles (int fd1, 
+bool COutErr::sameFiles (int fd1,
                          int fd2)
-{ 
+{
   struct stat stat1;
   struct stat stat2;
   fstat (fd1, & stat1);
@@ -134,14 +134,14 @@ inline thread::id get_thread_id ()
   { return this_thread::get_id (); }
 
 thread::id main_thread_id = get_thread_id ();
-  
+
 bool isMainThread ()
   { return threads_max == 1 || get_thread_id () == main_thread_id; }
 
 
 
 #ifndef _MSC_VER
-size_t get_threads_max_max () 
+size_t get_threads_max_max ()
 {
 #ifdef __APPLE__
 //stderr << "Compiled for MacOS" << "\n";
@@ -166,17 +166,17 @@ size_t get_threads_max_max ()
 
 
 #ifndef _MSC_VER
-namespace 
+namespace
 {
 
 void segmFaultHandler (int /*sig_num*/)
 {
-  signal (SIGSEGV, SIG_DFL); 
-  errorExit ("Segmentation fault", true); 
+  signal (SIGSEGV, SIG_DFL);
+  errorExit ("Segmentation fault", true);
 }
 
 
-[[noreturn]] void sigpipe_handler (int /*sig_num*/) 
+[[noreturn]] void sigpipe_handler (int /*sig_num*/)
 {
   signal (SIGPIPE, SIG_DFL);
   if (sigpipe)
@@ -194,10 +194,10 @@ bool initCommon ()
   MODULE_INIT
 
 #ifndef _MSC_VER
-  signal (SIGSEGV, segmFaultHandler);  
+  signal (SIGSEGV, segmFaultHandler);
   signal (SIGPIPE, sigpipe_handler);
 #endif
-        
+
 #ifdef _MSC_VER
   #pragma warning (disable : 4127)
 #endif
@@ -210,7 +210,7 @@ bool initCommon ()
   static_assert (SIZE_MAX == std::numeric_limits<size_t>::max ());
 
   static_assert (sizeof (size_t) == 8);
-    
+
   return true;
 }
 
@@ -225,15 +225,15 @@ namespace
 [[noreturn]] void errorExit (const char* msg,
                              bool segmFault)
 // alloc() may not work
-{ 
+{
 	beep ();
-	
-	ostream* os = logPtr ? logPtr : & cerr; 
-	
+
+	ostream* os = logPtr ? logPtr : & cerr;
+
 	// time ??
 #ifndef _MSC_VER
 	const string hostname (getEnv ("HOSTNAME"));
-	const string shell    (getEnv ("SHELL"));	
+	const string shell    (getEnv ("SHELL"));
 	const string pwd      (getEnv ("PWD"));
 	const string path     (getEnv ("PATH"));
 #endif
@@ -259,22 +259,22 @@ namespace
   }
   //system (("env >> " + logFName). c_str ());
 
-  os->flush ();           
+  os->flush ();
 
   if (cxml)
     cxml->print (string (error_caption) + ": " + msg);
 
   if (segmFault)
-    abort ();    
+    abort ();
   exit (1);
 }
 
 
 
 void errorExitStr (const string &msg)
-{ 
+{
   if (! uncaught_exceptions ())
-    errorExit (msg. c_str ()); 
+    errorExit (msg. c_str ());
 }
 
 
@@ -291,14 +291,14 @@ string getStack ()
   string s;
   constexpr size_t size = 100;  // PAR
   void* buffer [size];
-  const int nptrs = backtrace (buffer, size);
-  if (nptrs <= 1)  // *this function must be the first one
+  const int nptrs = backtrace (buffer, size);  // This function must be the first one
+  if (nptrs <= 1)
     errorExit (("backtrace size is " + to_string (nptrs)). c_str ());
   char** strings = backtrace_symbols (buffer, nptrs);
-  if (strings /*&& ! which ("addr2line"). empty ()*/) 
+  if (strings /*&& ! which ("addr2line"). empty ()*/)
   {
     FOR_START /*FOR_REV_END*/ (int, i, 1, nptrs)  // From top to bottom of the stack
-      s += string (strings [i]) + "\n";  
+      s += string (strings [i]) + "\n";
     s += "Use: addr2line -f -C -e " + programArgs [0] + "  -a <address>";
   //free (strings);
   }
@@ -313,9 +313,9 @@ string getStack ()
 
 
 
-[[noreturn]] void throwf (const string &s)  
-{ 
-  throw logic_error (s + "\nStack:\n" + getStack ()); 
+[[noreturn]] void throwf (const string &s)
+{
+  throw logic_error (s + "\nStack:\n" + getStack ());
 }
 
 
@@ -328,7 +328,7 @@ string getStack ()
 //
 
 bool isRedirected (const ostream &os)
-{ 
+{
 #ifdef _MSC_VER
   return false;
 #else
@@ -346,15 +346,15 @@ bool isRedirected (const ostream &os)
 
 void sleepNano (long nanoSec)
 {
-  const timespec request = {0, nanoSec}; 
-  timespec remaining; 
-  EXEC_ASSERT (! nanosleep (& request, & remaining));  
+  const timespec request = {0, nanoSec};
+  timespec remaining;
+  EXEC_ASSERT (! nanosleep (& request, & remaining));
 }
 
 
 
 void beep ()
-{ 
+{
   if (getEnv ("SHLVL") != "1")
     return;
 	constexpr char c = '\x07';
@@ -370,41 +370,41 @@ void beep ()
 // Chronometer
 
 bool Chronometer::enabled = false;
-  
+
 
 
 void Chronometer::start ()
-{ 
+{
   if (! on ())
     return;
   if (started ())
     throw runtime_error (FUNC "Chronometer \""  + name + "\" is not stopped");
-  startTime = clock (); 
-}  
+  startTime = clock ();
+}
 
 
 
-void Chronometer::stop () 
-{ 
+void Chronometer::stop ()
+{
   if (! on ())
     return;
   if (! started ())
     throw runtime_error (FUNC "Chronometer \"" + name + "\" is not started");
-  time += clock () - startTime; 
+  time += clock () - startTime;
   startTime = noclock;
 }
 
 
 void Chronometer::print (ostream &os) const
-{ 
+{
   if (! on ())
-    return;       
+    return;
   os << "CHRON: " << name << ": ";
   const ONumber onm (os, 2, false);
   os << (double) time / CLOCKS_PER_SEC << " sec." << endl;
 }
 
- 
+
 
 
 // Chronometer_OnePass
@@ -423,21 +423,21 @@ Chronometer_OnePass::Chronometer_OnePass (const string &name_arg,
 
 
 Chronometer_OnePass::~Chronometer_OnePass ()
-{ 
+{
   if (! active)
     return;
   if (uncaught_exceptions ())
     return;
-    
+
   const time_t stop = time (nullptr);
-  
+
   {
-    const OColor oc (os, color, false, true);  
+    const OColor oc (os, color, false, true);
     os << "CHRON: " << name << ": ";
     const ONumber on (os, 0, false);
     os << difftime (stop, start) << " sec.";
   }
-  os << endl;  
+  os << endl;
 
   if (addNewLine)
     os << endl;
@@ -449,7 +449,7 @@ Chronometer_OnePass::~Chronometer_OnePass ()
 // uchar
 
 size_t byte2first (uchar b)
-{ 
+{
   if (! b)
     return sizeof (uchar);
 	const uint u = b;
@@ -485,7 +485,7 @@ size_t utf8_len (char first)
 
 namespace
 {
-	
+
 size_t powInt_ (size_t a,
                 size_t b)
 // Input: a: !0, != 1
@@ -498,7 +498,7 @@ size_t powInt_ (size_t a,
 	const size_t res = powInt_ (a, half);
 	return res * res * (divisible (b, 2) ? 1 : a);
 }
-	
+
 }
 
 
@@ -527,11 +527,11 @@ string getNow ()
   time_t rawtime;
   time (& rawtime);
   const tm* x = localtime (& rawtime);
-  return         padNatural (x->tm_year + 1900, 4) 
-         + "-" + padNatural (x->tm_mon + 1, 2) 
-         + "-" + padNatural (x->tm_mday, 2) 
-         + " " + padNatural (x->tm_hour, 2) 
-         + ":" + padNatural (x->tm_min, 2) 
+  return         padNatural (x->tm_year + 1900, 4)
+         + "-" + padNatural (x->tm_mon + 1, 2)
+         + "-" + padNatural (x->tm_mday, 2)
+         + " " + padNatural (x->tm_hour, 2)
+         + ":" + padNatural (x->tm_min, 2)
          + ":" + padNatural (x->tm_sec, 2);
 }
 
@@ -558,7 +558,7 @@ string nonPrintable2str (char c)
 		case 27: s = "ESC"; break;
 		case 32: s = "SPACE"; break;
 		default: s = "x" + uchar2hex ((uchar) c);
-	}	  	
+	}
 	return "<" + s + ">";
 }
 
@@ -575,18 +575,8 @@ string to_url (const string &s)
       url += c;
     else
       url += "%" + uchar2hex ((uchar) c);
-      
+
   return url;
-}
-
-
-
-bool isRight (const string &s,
-              const string &right)
-{
-  if (s. size () < right. size ())
-    return false;
-  return s. substr (s. size () - right. size ()) == right;
 }
 
 
@@ -634,8 +624,11 @@ void trimSuffixNonAlphaNum (string &s)
 bool trimTailAt (string &s,
                  const string &tailStart)
 {
+  if (tailStart. empty ())
+    return false;
+
   const size_t pos = s. find (tailStart);
-  const bool trimmed = pos != string::npos;
+  const bool trimmed = (pos != string::npos);
   if (trimmed)
     s. erase (pos);
   return trimmed;
@@ -661,16 +654,16 @@ string pad (const string &s,
 {
   if (s. size () >= size)
     return s. substr (0, size);
-  
+
   string sp;
   while (sp. size () + s. size () < size)
     sp += space;
-    
+
   switch (right)
   {
-    case efalse: return s + sp; 
-    case etrue:  return sp + s; 
-    case enull:  
+    case efalse: return s + sp;
+    case etrue:  return sp + s;
+    case enull:
       {
         const size_t half = sp. size () / 2;
         return sp. substr (0, half) + s + sp. substr (0, sp. size () - half);
@@ -690,10 +683,10 @@ bool goodName (const string &name)
   if (name. back () == ' ')
     return false;
 
-  for (const char c : name)  
+  for (const char c : name)
     if (! printable (c))
       return false;
-      
+
   return true;
 }
 
@@ -750,8 +743,8 @@ bool getScientific (string numberS,
   strUpper (numberS);
   const size_t ePos     = numberS. find ('E');
   const size_t pointPos = numberS. find ('.');
-  
-  hasPoint = (pointPos != string::npos);  
+
+  hasPoint = (pointPos != string::npos);
   decimals = 0;
   if (ePos == string::npos)
   {
@@ -766,7 +759,7 @@ bool getScientific (string numberS,
     if (hasPoint)
       decimals = (streamoff) (ePos - (pointPos + 1));
   }
-  
+
   return ePos != string::npos;
 }
 
@@ -834,7 +827,7 @@ size_t strCountSet (const string &s,
 {
   size_t n = 0;
   for (const char c : s)
-	  if (charInSet (c, charSet))		
+	  if (charInSet (c, charSet))
 	    n++;
   return n;
 }
@@ -914,7 +907,7 @@ size_t containsWord (const string& hay,
        )
       break;
   }
-  return pos;  
+  return pos;
 }
 
 
@@ -922,10 +915,10 @@ size_t containsWord (const string& hay,
 bool matches (const string &hay,
               const string &needle,
               StringMatch::Type type)
-{ 
+{
 	switch (type)
-	{ 
-		case StringMatch::part:  return contains (hay, needle);   
+	{
+		case StringMatch::part:  return contains (hay, needle);
 		case StringMatch::word:  return containsWord (hay, needle) != string::npos;
 		case StringMatch::whole: return hay == needle;
 	}
@@ -937,7 +930,7 @@ bool matches (const string &hay,
 void replace (string &s,
               char from,
               char to)
-{ 
+{
   for (char& c : s)
 	  if (c == from)
 	  	c = to;
@@ -961,13 +954,13 @@ void replaceStr (string &s,
                  const string &to)
 {
   ASSERT (! from. empty ());
-  
+
   if (from == to)
     return;
-  
+
   const bool inside = contains (to, from);
 
-  size_t start = 0;    
+  size_t start = 0;
   for (;;)
   {
     const size_t pos = s. find (from, start);
@@ -977,17 +970,17 @@ void replaceStr (string &s,
     start = pos + (inside ? to. size () : 0);
   }
 }
-  
-  
-  
+
+
+
 string strQuote (const string &s,
                  char quote)
-{ 
+{
 	string s1 (s);
 	replaceStr (s1, "\\", "\\\\");
 	const char slashQuote [] = {'\\', quote, '\0'};
 	replaceStr (s1, string (1, quote), slashQuote);
-	return quote + s1 + quote; 
+	return quote + s1 + quote;
 }
 
 
@@ -1003,7 +996,7 @@ string to_c (const string &s)
       if (charInSet (c, "\"\'\\"))
         r += '\\';
       r += c;
-    }   
+    }
   return r;
 }
 
@@ -1012,14 +1005,14 @@ string to_c (const string &s)
 void collapseSpace (string &s)
 {
   string s1;
-  do 
+  do
   {
     s1 = s;
     replaceStr (s, "  ", " ");
   }
   while (s1 != s);
 }
-               
+
 
 
 void visualizeTrailingSpaces (string &s)
@@ -1037,7 +1030,7 @@ void visualizeTrailingSpaces (string &s)
 }
 
 
-  
+
 string str2streamWord (const string &s,
                        size_t wordNum)
 {
@@ -1050,7 +1043,7 @@ string str2streamWord (const string &s,
       iss >> word;
   return word;
 }
-                
+
 
 
 string str2sql (const string &s)
@@ -1063,7 +1056,7 @@ string str2sql (const string &s)
 	  r += c;
 	}
 	r += "'";
-	
+
 	return r;
 }
 
@@ -1079,7 +1072,7 @@ string sql2escaped (const string &s)
       s1 += '\\';
     s1 += c;
   }
-  
+
   return s1;
 }
 #endif
@@ -1165,14 +1158,30 @@ string unpercent (const string &s)
         hex = 0;
       }
     }
-      
+
   return r;
 }
 
 
 
+
+// int_dist
+
+int_dist add1 (int_dist d)
+{
+  if (d == int_dist_inf)
+    return int_dist_inf;
+
+  const int_dist d1 = d + 1;
+  QC_ASSERT (d1 < int_dist_inf);
+  return d1;
+}
+
+
+
+
 List<string> str2list (const string &s,
-                       char c) 
+                       char c)
 {
 	List<string> res;
 	string s1 (s);
@@ -1184,7 +1193,7 @@ List<string> str2list (const string &s,
 
 
 string list2str (const List<string> &strList,
-                 const string &sep) 
+                 const string &sep)
 {
 	string s;
 	bool first = true;
@@ -1201,7 +1210,7 @@ string list2str (const List<string> &strList,
 
 
 bool fileExists (const string &fName)
-{ 
+{
 #ifdef _MSC_VER
   const IFStream f (fName. c_str ());
   bool ok = f. good ();
@@ -1224,22 +1233,22 @@ streamsize getFileSize (const string &fName)
     throw runtime_error ("Cannot open file " + shellQuote (fName) + " to get file size");
 
   const streampos start = f. tellg ();
-  QC_ASSERT (start >= 0); 
+  QC_ASSERT (start >= 0);
 
   f. seekg (0, ios_base::end);
   if (! f. good ())
     throw runtime_error ("Cannot go to the beginning of the file " + shellQuote (fName));
 
   const streampos end = f. tellg ();
-  QC_ASSERT (end >= 0); 
+  QC_ASSERT (end >= 0);
 
   if (end < start)
-    throw runtime_error ("Bad file " + shellQuote (fName));    
+    throw runtime_error ("Bad file " + shellQuote (fName));
   const streampos len = end - start;
   ASSERT (len >= 0);
   QC_ASSERT (len <= (streampos) numeric_limits<streamsize>::max());
-  
-  return (streamsize) len; 
+
+  return (streamsize) len;
 }
 
 
@@ -1265,7 +1274,7 @@ string filetype2name (Filetype t)
     case Filetype::none:     return "none";
     case Filetype::dir:      return "dir";
     case Filetype::terminal: return "terminal";
-    case Filetype::disk:     return "disk";      
+    case Filetype::disk:     return "disk";
     case Filetype::file:     return "file";
     case Filetype::pipe:     return "pipe";
     case Filetype::link:     return "link";
@@ -1291,7 +1300,7 @@ Filetype getFiletype (const string &path,
     if (lstat (path. c_str (), & buf))
       return Filetype::none;
   }
-    
+
   if (S_ISDIR  (buf. st_mode))  return Filetype::dir;
   if (S_ISCHR  (buf. st_mode))  return Filetype::terminal;
   if (S_ISBLK  (buf. st_mode))  return Filetype::disk;
@@ -1302,7 +1311,7 @@ Filetype getFiletype (const string &path,
     if (S_ISLNK  (buf. st_mode))  return Filetype::link;
   }
   if (S_ISSOCK (buf. st_mode))  return Filetype::socket;
-    
+
   NEVER_CALL;
 }
 
@@ -1327,7 +1336,7 @@ void removeDirectory (const string &dirName)
     const Filetype t = getFiletype (name, false);
     switch (t)
     {
-      case Filetype::link: 
+      case Filetype::link:
         if (unlink (name. c_str ()))
           throw runtime_error (FUNC "cannot unlink " + strQuote (name));
         break;
@@ -1361,6 +1370,12 @@ string makeTempDir ()
 		throw runtime_error ("Cannot create a temporary directory in " + tmpDir);
 
   {
+  #if 0
+  //#include <sys/statvfs.h>
+    struct statvfs vfs;
+    if (statvfs("/tmp", &vfs) == 0)
+      vfs.f_bsize * vfs.f_bavail  // contains the free space availab
+  #else
   	const string testFName (tmp + "/test");
     {
       ofstream f (testFName);
@@ -1369,9 +1384,10 @@ string makeTempDir ()
 		    throw runtime_error (tmpDir + " is full, make space there or use environment variable TMPDIR to change location for temporary files");
     }
     removeFile (testFName);
+  #endif
   }
 
-  return tmp;  
+  return tmp;
 }
 
 
@@ -1395,30 +1411,30 @@ void concatTextDir (const string &inDirName,
 Dir::Dir (const string &dirName)
 {
   ASSERT (! dirName. empty ());
-  
+
   items = str2list (dirName, fileSlash);
 
-  auto it = items. begin (); 
+  auto it = items. begin ();
   while (it != items. end ())
     if (it->empty () && it != items. begin ())
     {
       auto it1 = items. erase (it);
       it = it1;
     }
-    else 
+    else
       it++;
-      
-  it = items. begin (); 
+
+  it = items. begin ();
   while (it != items. end ())
     if (*it == ".")
     {
       auto it1 = items. erase (it);
       it = it1;
     }
-    else 
+    else
       it++;
-      
-  it = items. begin (); 
+
+  it = items. begin ();
   while (it != items. end ())
     if (*it == ".." && it != items. begin ())
     {
@@ -1481,14 +1497,14 @@ size_t Dir::create ()
 void setSymlink (string fromFName,
                  const string &toFName,
                  bool fromPathIsAbsolute)
-{ 
+{
   ASSERT (! fromFName. empty ());
   ASSERT (! toFName. empty ());
   const string err (string ("Cannot make ") + (fromPathIsAbsolute ? "an absolute" : "a relative") + " symlink for " + strQuote (fromFName) + " as " + strQuote (toFName));
   if (fromPathIsAbsolute)
     fromFName = path2canonical (fromFName);
   else
-  { 
+  {
     if (fromFName [0] == '/')
       throw runtime_error (err + " because " + strQuote (fromFName) + " is absolute");
     const Dir dir (toFName);
@@ -1511,7 +1527,7 @@ size_t strMonth2num (const string& month)
     ASSERT (m <= 12);
     return (size_t) (m - 1);
   }
-  
+
 	size_t i = no_index;
 	     if (month == "Jan")  i = 0;
   else if (month == "Feb")  i = 1;
@@ -1525,9 +1541,9 @@ size_t strMonth2num (const string& month)
   else if (month == "Oct")  i = 9;
   else if (month == "Nov")  i = 10;
   else if (month == "Dec")  i = 11;
-  else 
+  else
   	ERROR;
-  	
+
   return i;
 }
 
@@ -1571,7 +1587,7 @@ void readLine (istream &is,
 {
   s. clear ();
   for (;;)
-  {	
+  {
     char c;
     if (! getChar (is, c))
       break;
@@ -1600,7 +1616,7 @@ ulong Rand::get (ulong max)
 {
   ASSERT (max > 0);
   ASSERT (max <= (ulong) max_);
-  
+
   const long up = max_ - (max_ % (long) max);  // Multiple of max
   do run ();
     while (seed >= up);  // P(stay in cycle) < 0.5
@@ -1622,7 +1638,7 @@ void Rand::qc () const
 void Rand::run ()
 {
 	qc ();
-  
+
   const long ia = 16807;
   const long iq = 127773;
   const long ir = 2836;
@@ -1640,8 +1656,8 @@ void Rand::run ()
 
 size_t Threads::threadsToStart = 0;
 bool Threads::quiet = false;
-	
-	
+
+
 
 
 // verbose
@@ -1659,7 +1675,7 @@ int getVerbosity ()
 
 
 bool verbose (int inc)
-{ 
+{
   if (! Verbose::enabled ())
     return false;
 	return verbose_ + inc > 0;
@@ -1711,12 +1727,12 @@ void exec (const string &cmd,
            const string &logFName)
 {
   ASSERT (! cmd. empty ());
-  
-//Chronometer_OnePass cop (cmd);  
+
+//Chronometer_OnePass cop (cmd);
   if (verbose ())
   	cout << cmd << endl;
   LOG (cmd);
-  	
+
 	const int status = system (cmd. c_str ());  // pipefail's are not caught
 	LOG ("status = " + to_string (status));
 	if (status)
@@ -1727,7 +1743,7 @@ void exec (const string &cmd,
 	    const StringVector vec (logFName, (size_t) 10, false);  // PAR
 	    err += "\n" + vec. toString ("\n");
 	  }
-		throw runtime_error (err);		
+		throw runtime_error (err);
 	}
 }
 
@@ -1740,7 +1756,7 @@ string which (const string &progName)
 
   const List<string> paths (str2list (getEnv ("PATH"), ':'));
   for (const string& path : paths)
-    if (   ! path. empty () 
+    if (   ! path. empty ()
         && fileExists (path + "/" + progName)
        )
       return path + "/";
@@ -1754,9 +1770,9 @@ string which (const string &progName)
 
 // Threads
 
-Threads::Threads (size_t threadsToStart_arg, 
+Threads::Threads (size_t threadsToStart_arg,
                   bool quiet_arg)
-{ 
+{
   if (! isMainThread ())
 	  throw logic_error ("Threads are started not from the main thread");
   if (! empty ())
@@ -1765,33 +1781,33 @@ Threads::Threads (size_t threadsToStart_arg,
 	threadsToStart = threadsToStart_arg;
 	if (threadsToStart >= threads_max)
 		throw logic_error ("Too many threads to start");
-		
+
   quiet = quiet_arg;
-		
+
 	threads. reserve (threadsToStart);
-	
+
 	if (! quiet && verbose (1) && threadsToStart)
 	{
-    const OColor c (cerr, Color::green, false, true);  // Cf. Progress::report() 
+    const OColor c (cerr, Color::green, false, true);  // Cf. Progress::report()
     cerr << "# Threads started: " << threadsToStart + 1/*main thread*/ << endl;
   }
-}	
+}
 
 
 
 Threads::~Threads ()
-{ 
+{
   {
     Progress prog (threads. size () + 1, ! quiet);
     const string step ("consecutive threads finished");
     prog (step);  // Main thread
-    for (auto& t : threads) 
-    { 
+    for (auto& t : threads)
+    {
       t. join ();
       prog (step);
   	}
   }
-	  
+
 	threads. clear ();
 	threadsToStart = 0;
 	quiet = false;
@@ -1804,8 +1820,8 @@ Threads::~Threads ()
 
 // Xml::TextFile
 
-void Xml::TextFile::printRawText (const string &s) 
-{ 
+void Xml::TextFile::printRawText (const string &s)
+{
 	string res;  res. reserve (s. size ());
 	for (const char c : s)
 		switch (c)
@@ -1820,8 +1836,8 @@ void Xml::TextFile::printRawText (const string &s)
 
 
 
-void Xml::TextFile::tagStart (const string &tag) 
-{ 
+void Xml::TextFile::tagStart (const string &tag)
+{
 	ASSERT (! isText);
 
 	string tag_ (tag);
@@ -1829,14 +1845,14 @@ void Xml::TextFile::tagStart (const string &tag)
 	if (! isIdentifier (tag_, true))
     throw runtime_error (FUNC "Bad textual XML tag name: " + strQuote (tag));
 
-	printRaw ("<" + tag + ">"); 
+	printRaw ("<" + tag + ">");
 }
 
 
 
-void Xml::TextFile::tagEnd (const string &tag) 
-{ 
-	printRaw ("</" + tag + ">\n"); 
+void Xml::TextFile::tagEnd (const string &tag)
+{
+	printRaw ("</" + tag + ">\n");
 }
 
 
@@ -1863,10 +1879,10 @@ void Xml::BinFile::printRaw (const string &s)
 
 
 
-void Xml::BinFile::tagStart (const string &tag) 
-{ 
+void Xml::BinFile::tagStart (const string &tag)
+{
 	ASSERT (! isText);
-	
+
 	if (tag. empty ())
 		throw runtime_error (FUNC "Empty tag");
   QC_ASSERT (! contains (tag, '\0'));
@@ -1882,7 +1898,7 @@ void Xml::BinFile::tagStart (const string &tag)
 
 
 
-void Xml::BinFile::tagEnd (const string &/*tag*/) 
+void Xml::BinFile::tagEnd (const string &/*tag*/)
 {
 	if (! isText)
 		os << '\0' << '\0';  // Tags closing
@@ -1900,7 +1916,7 @@ Xml::Tag::Tag (Xml::File &f_arg,
 : f (f_arg)
 , name (name_arg)
 , active (active_arg)
-{ 
+{
 	if (name. empty ())
 		throw runtime_error (FUNC "Empty XML tag name");
   if (f. isText)
@@ -1912,7 +1928,7 @@ Xml::Tag::Tag (Xml::File &f_arg,
 
 
 Xml::Tag::~Tag ()
-{ 
+{
   if (active)
   	f. tagEnd (name);
   f. isText = false;
@@ -1922,34 +1938,19 @@ Xml::Tag::~Tag ()
 
 
 unique_ptr<Xml::File> cxml;
-  
+
 
 
 
 // Root
 
 void Root::saveFile (const string &fName) const
-{ 
+{
   if (fName. empty ())
 		return;
   OFStream f (fName);  // Declared after Root
   saveText (f);
 }
-
-
-
-
-#if 0
-void Root::trace (ostream& os,
-                  const string& title) const
-{ 
-  if (! verbose ())
-    return;
-  Offset::newLn (os);
-  os << title << ": ";
-  saveText (os);
-}
-#endif
 
 
 
@@ -1961,7 +1962,7 @@ void Named::qc () const
   if (! qc_on)
     return;
   Root::qc ();
-    
+
   if (! goodName (name))
     throw runtime_error (FUNC "Bad name: " + strQuote (name));
 }
@@ -1975,8 +1976,8 @@ StringVector::StringVector (const string &fName,
                             size_t reserve_size,
                             bool trimP)
 {
-	searchSorted = true;
-	
+	ascending = etrue;
+
 	reserve (reserve_size);
   try
   {
@@ -1987,15 +1988,15 @@ StringVector::StringVector (const string &fName,
       if (trimP)
         trim (f. line);
       *this << f. line;
-  	  if (f. line < prev)
-  	  	searchSorted = false;
+  	  if (lt (f. line, prev))
+  	  	ascending = enull;
       prev = std::move (f. line);
     }
   }
   catch (const exception &e)
   {
     throw runtime_error ("Reading file " + shellQuote (fName) + "\n" + e. what ());
-  }  
+  }
 }
 
 
@@ -2009,7 +2010,7 @@ StringVector::StringVector (const string &s,
 	  *this << std::move (findSplit (s1, sep));
 	if (! s. empty () && s. back () == sep)
 	  *this << noString;
-	  
+
 	if (trimP)
 	  for (string& member : *this)
 	    trim (member);
@@ -2019,12 +2020,12 @@ StringVector::StringVector (const string &s,
 
 
 string StringVector::toString (const string& sep) const
-{ 
+{
 //ASSERT (! sep. empty ());
-  
+
   string res;
   for (const string& s : *this)
-  { 
+  {
     if (! res. empty ())
       res += sep;
     res += s;
@@ -2061,7 +2062,7 @@ void StringVector::to_xml (Xml::File &f,
 	  const Xml::Tag xml_item (f, "item");
     f. print (s);
   }
-    
+
   clear ();
 }
 
@@ -2075,7 +2076,7 @@ void StringVector::to_xml (Xml::File &f,
 
 void DisjointCluster::merge (DisjointCluster &other)
 // Trying to keep rank's small
-{ 
+{
   if (this == & other)
     return;
   DisjointCluster* root1 =        getDisjointCluster ();
@@ -2086,14 +2087,17 @@ void DisjointCluster::merge (DisjointCluster &other)
 	{
 		root1->parentDC = root2;
 		if (root1->rankDC == root2->rankDC)
-			root2->rankDC ++;
+		{
+			root2->rankDC++;
+			QC_ASSERT (root2->rankDC);
+	  }
 	}
 }
 
 
 
 DisjointCluster* DisjointCluster::getDisjointCluster ()
-{ 
+{
   ASSERT (parentDC);
 	if (this == parentDC)
 	  return this;
@@ -2115,17 +2119,17 @@ Progress::Progress (size_t n_max_arg,
 : n_max (n_max_arg)
 , active (enabled () && displayPeriod_arg && (! n_max_arg || displayPeriod_arg <= n_max_arg))
 , displayPeriod (displayPeriod_arg)
-{ 
-	if (active) 
-	  beingUsed++; 
+{
+	if (active)
+	  beingUsed++;
 	if (active)
 	  report ();
 }
 
 
 
-Progress::~Progress () 
-{ 
+Progress::~Progress ()
+{
 	if (! active)
 		return;
 
@@ -2134,17 +2138,17 @@ Progress::~Progress ()
     cerr << endl;
   beingUsed--;
 }
-    
+
 
 
 bool Progress::operator() (const string& step_arg)
-{ 
+{
 	n++;
 	step = step_arg;
-	if (   active 
+	if (   active
 		  && n % displayPeriod == 0
 		 )
-	{ 
+	{
 		report ();
 	  return true;
 	}
@@ -2154,7 +2158,7 @@ bool Progress::operator() (const string& step_arg)
 
 
 void Progress::report () const
-{ 
+{
   if (! n)
     return;
   cerr << '\r';
@@ -2162,7 +2166,7 @@ void Progress::report () const
   cerr << "\033[2K";
   const OColor c (cerr, Color::green, false, true);  // PAR
 #endif
-  cerr << n; 
+  cerr << n;
 	if (n_max)
 		cerr << " / " << n_max;
 	if (! step. empty ())
@@ -2178,23 +2182,23 @@ void Progress::report () const
 // TextPos
 
 string TextPos::str () const
-{ 
+{
   if (lineNum == -1)
     return noString;
   return "line " + to_string (lineNum + 1) + ", " +
-	          (eol () 
-	             ? "end of line" 
+	          (eol ()
+	             ? "end of line"
 	             : last ()
 	                 ?	"last position"
 	                 : "pos. " + to_string (charNum + 1)
-	          ) + 
+	          ) +
 	          ": ";
 }
 
 
 
 void TextPos::inc (bool eol_arg)
-{ 
+{
  	if (eol ())
  		lineNum++;
   if (eol_arg)
@@ -2207,10 +2211,10 @@ void TextPos::inc (bool eol_arg)
 
 
 void TextPos::dec ()
-{ 
+{
 	if (! charNum)
 		lineNum--;
-	charNum--;  
+	charNum--;
 }
 
 
@@ -2221,23 +2225,23 @@ void TextPos::dec ()
 Input::Input (istream &is_arg,
 	            uint displayPeriod)
 : is (& is_arg)
-, prog (0, displayPeriod)  
-{ 
+, prog (0, displayPeriod)
+{
   QC_ASSERT (is);
   if (! is->good ())
     throw runtime_error (FUNC "Bad input stream");
 }
- 
+
 
 
 void Input::reset ()
-{ 
+{
   ASSERT (is);
   ASSERT (is->good ());
 
-  is->seekg (0); 
+  is->seekg (0);
   QC_ASSERT (is->good ());
-  
+
   prog. reset ();
 }
 
@@ -2247,36 +2251,31 @@ void Input::reset ()
 // LineInput
 
 bool LineInput::nextLine ()
-{ 
+{
   ASSERT (is);
 
-	if (eof)  
-	{ 
+	if (eof)
+	{
 		line. clear ();
 	  return false;
 	}
-	
-  try 
+
+  try
 	{
     getline (*is, line);  // faster than readLine(*is,line)
 
 		eof = is->eof ();
 		if (! eof)
 			lineNum++;
-        
+
   	const bool end = line. empty () && eof;
 
-    if (! commentStart. empty ())
-    {
-      const size_t pos = line. find (commentStart);
-      if (pos != string::npos)
-        line. erase (pos);
-    }
-  //trimTrailing (line); 
+    trimTailAt (line, commentStart);
+  //trimTrailing (line);
 
   	if (! end)
   		prog ();
-  		
+
   	return ! end;
   }
   catch (const exception &e)
@@ -2291,32 +2290,32 @@ bool LineInput::nextLine ()
 // CharInput
 
 char CharInput::get ()
-{ 
-  ASSERT (is);  
-  
-  const char c = (char) is->get ();    
-  
-	eof = is->eof ();	
+{
+  ASSERT (is);
+
+  const char c = (char) is->get ();
+
+	eof = is->eof ();
   QC_ASSERT (eof == (c == (char) EOF));
 	if (! eof)
 	  tp. inc (c == '\n');  // UNIX
-	ungot = false;	  
+	ungot = false;
 
   if (tp. eol ())
     prog ();
-	
+
 	return c;
 }
 
 
 
 void CharInput::unget ()
-{ 
+{
 	QC_ASSERT (! ungot);
-  QC_ASSERT (! eof);  
+  QC_ASSERT (! eof);
 
   ASSERT (is);
-  is->unget ();   
+  is->unget ();
   tp. dec ();
 
   ungot = true;
@@ -2344,7 +2343,8 @@ string CharInput::getLine ()
 
 void Token::readInput (CharInput &in,
                        bool dashInName_arg,
-                       bool consecutiveQuotesInText)
+                       bool consecutiveQuotesInText,
+                       bool negativeInteger)
 {
 	ASSERT (empty ());
 
@@ -2354,20 +2354,20 @@ void Token::readInput (CharInput &in,
 	do { c = in. get (); }
 	  while (! in. eof && isSpace (c));
 	if (in. eof)
-		return;  
-		
+		return;
+
 	tp = in. tp;
 
-	if (   c == '\'' 
-	    || c == '\"'
-	   )
+  if (   c == '\''
+      || c == '\"'
+     )
 	{
 		type = eText;
 		quote = c;
 		bool prevQuote = false;  // Valid if consecutiveQuotesInText
 		for (;;)
-		{ 
-			c = in. get (); 
+		{
+			c = in. get ();
 			if (in. eof && (! consecutiveQuotesInText || ! prevQuote))
 		    in. error ("Text is not finished: end of file", false);
 			if (in. tp. eol ())
@@ -2384,7 +2384,7 @@ void Token::readInput (CharInput &in,
   		      continue;
   		    }
   		  }
-  		  else 
+  		  else
   		    break;
   		}
 		  else
@@ -2396,10 +2396,10 @@ void Token::readInput (CharInput &in,
 			name += c;
 		}
 	}
-	else if (isDigit (c) || c == '-')
+	else if (isDigit (c) || (negativeInteger && c == '-'))
 	{
 	  bool minusPossible = true;
-		while (   ! in. eof 
+		while (   ! in. eof
 		       && (   isDigit (c)
 		           || c == '.'
 		           || toUpper (c) == 'E'
@@ -2408,16 +2408,16 @@ void Token::readInput (CharInput &in,
 		           || isHex (c)
 		          )
 		      )
-		{ 
+		{
 			name += c;
-			c = in. get (); 
+			c = in. get ();
 			minusPossible = (toUpper (c) == 'E');
 		}
 		if (! in. eof)
 			in. unget ();
 	  if (name == "-")
 	    type = eDelimiter;
-	  else 
+	  else
 	  {
 	    type = eText;
 	    toNumberDate ();
@@ -2431,9 +2431,9 @@ void Token::readInput (CharInput &in,
 		type = eName;
 		dashInName = dashInName_arg;
 		while (! in. eof && (isLetter (c) || (dashInName && c == '-')))
-		{ 
+		{
 			name += c;
-			c = in. get (); 
+			c = in. get ();
 		}
 		if (! in. eof)
 			in. unget ();
@@ -2442,10 +2442,10 @@ void Token::readInput (CharInput &in,
 	{
 	  type = eDelimiter;
 		name = c;
-	}	
+	}
 	else
 	  in. error ("Unknown token starting with ASCII " + to_string ((int) c), false);
-	  	    
+
 	ASSERT (! empty ());
   qc ();
 
@@ -2468,16 +2468,16 @@ void Token::qc () const
   //QC_ASSERT (! contains (name, quote));
     QC_IMPLY (type != eDouble, decimals == 0);
   	switch (type)
-  	{ 
+  	{
   		case eName:      if (! isIdentifier (name, dashInName))
   		                   throw runtime_error ("Not an identifier: " + strQuote (name));
   		                 break;
   	  case eText:      break;
-  		case eInteger:   QC_ASSERT (name [0] == '-' || name [0] == '+' || isDigit (name [0])); 
+  		case eInteger:   QC_ASSERT (name [0] == '-' || name [0] == '+' || isDigit (name [0]));
                        break;
-  		case eDouble:    QC_ASSERT (name [0] == '-' || name [0] == '+' || isDigit (name [0]) || name [0] == '.'); 
+  		case eDouble:    QC_ASSERT (name [0] == '-' || name [0] == '+' || isDigit (name [0]) || name [0] == '.');
   		                 break;
-  		case eDelimiter: QC_ASSERT (name. size () == 1); 
+  		case eDelimiter: QC_ASSERT (name. size () == 1);
   		                 QC_ASSERT (Common_sp::isDelimiter (name [0]));
   		                 break;
   		case eDateTime:  break;
@@ -2488,30 +2488,30 @@ void Token::qc () const
 
 
 
-void Token::saveText (ostream &os) const 
-{ 
+void Token::saveText (ostream &os) const
+{
   if (empty ())
     return;
-    
+
   switch (type)
-	{ 
-	  case eName:      
-	  case eDateTime:  os << name; 
+	{
+	  case eName:
+	  case eDateTime:  os << name;
 	                   break;
 		case eText:      if (quote)
 		                   os << quote;
 		                 os << name;
 		                 if (quote)
-		                   os << quote; 
+		                   os << quote;
 		                 break;
-		case eInteger:   os << n;             
+		case eInteger:   os << n;
 		                 break;
-		case eDouble:    { 
-		                   const ONumber on (os, decimals, scientific); 
-		                   os << d; 
-		                 } 
+		case eDouble:    {
+		                   const ONumber on (os, decimals, scientific);
+		                   os << d;
+		                 }
 		                 break;
-		case eDelimiter: os << name;          
+		case eDelimiter: os << name;
 		                 break;
  		default: throw logic_error ("Token: Unknown type");
 	}
@@ -2523,14 +2523,14 @@ bool Token::operator< (const Token &other) const
 {
   LESS_PART (*this, other, type);
   switch (type)
-  { 
+  {
     case eName:
     case eText:
     case eDateTime:
     case eDelimiter: LESS_PART (*this, other, name); break;
-    case eInteger:   LESS_PART (*this, other, n);    break; 
+    case eInteger:   LESS_PART (*this, other, n);    break;
     case eDouble:    LESS_PART (*this, other, d);    break;
-  }  
+  }
   return false;
 }
 
@@ -2543,11 +2543,11 @@ void Token::toNumberDate ()
 	if (   type != eName
 	    && type != eText
 	   )
-	  return;	 
+	  return;
 	if (contains (name, ' '))
 	  return;
-	
-	{  
+
+	{
   	static const regex date_time_re {R"(\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d\.\d\d\d)"};   // Example: 2018-08-13T16:12:54.487
   	smatch sm;
   	if (regex_match (name, sm, date_time_re))
@@ -2555,18 +2555,18 @@ void Token::toNumberDate ()
   	  type = eDateTime;
   	  return;
   	}
-  }	
-	  
+  }
+
   try
   {
     if (isLeft (name, "0x"))
 	  {
- 		  n = (long long) std::stoull (name. substr (2), nullptr, 16); 
+ 		  n = (long long) std::stoull (name. substr (2), nullptr, 16);
    		type = eInteger;
     }
-    else if (   contains (name, '.') 
-    	       || contains (name, 'e') 
-    	       || contains (name, 'E') 
+    else if (   contains (name, '.')
+    	       || contains (name, 'e')
+    	       || contains (name, 'E')
     	      )
 	  {
 		  d = str2<double> (name);
@@ -2576,7 +2576,7 @@ void Token::toNumberDate ()
       if (pos != string::npos)
       {
         pos++;
-        while (   pos < name. size () 
+        while (   pos < name. size ()
                && isDigit (name [pos])
               )
         {
@@ -2601,7 +2601,7 @@ void Token::toNumberDate ()
 // TokenInput
 
 Token TokenInput::get ()
-{ 
+{
   const Token last_ (last);
   last = Token ();
   if (! last_. empty ())
@@ -2609,10 +2609,10 @@ Token TokenInput::get ()
     tp = last_. tp;
     return last_;
   }
-    
-  for (;;)  
-  { 
-    Token t (ci, dashInName, consecutiveQuotesInText);
+
+  for (;;)
+  {
+    Token t (ci, dashInName, consecutiveQuotesInText, negativeInteger);
     if (t. empty ())
       break;
     tp = t. tp;
@@ -2620,14 +2620,14 @@ Token TokenInput::get ()
       return t;
     ci. getLine ();
   }
-  
+
   return Token ();
 }
 
 
 
 Token TokenInput::getXmlText ()
-{ 
+{
   QC_ASSERT (last. empty ());
 
 
@@ -2638,9 +2638,9 @@ Token TokenInput::getXmlText ()
     size_t htmlTags = 0;
     bool prevSlash = false;
   	for (;;)
-  	{ 
+  	{
       // break
-  	  char c = ci. get (); 
+  	  char c = ci. get ();
   		if (ci. eof)
   	    ci. error ("XML text is not finished: end of file\n" + t. name, false);
   	  if (c == '<')
@@ -2653,8 +2653,8 @@ Token TokenInput::getXmlText ()
   	      else
   	        break;
   	    }
-  	    else if (   nextChar != '?' 
-  	             && nextChar != '!' 
+  	    else if (   nextChar != '?'
+  	             && nextChar != '!'
   	            )
   	      htmlTags++;
   	  }
@@ -2672,7 +2672,7 @@ Token TokenInput::getXmlText ()
         {
           if (ci. get () == 'x')
           {
-            static const string err (" of an escaped hexadecimal of XML text"); 
+            static const string err (" of an escaped hexadecimal of XML text");
             n = 0;
             size_t i = 0;
             for (;;)
@@ -2715,9 +2715,9 @@ Token TokenInput::getXmlText ()
           else if (ampToken. isName ("gt"))
             n = '>';
           else if (ampToken. isName ("apos"))
-            n = '\''; 
+            n = '\'';
           else if (ampToken. isName ("quot"))
-            n = '\"'; 
+            n = '\"';
           else
             ci. error ("Unknown XML &-symbol: " + strQuote (ampToken. name), false);
         }
@@ -2736,13 +2736,13 @@ Token TokenInput::getXmlText ()
           t. name += "&#" + to_string (n) + ";";
       }
 
-  		prevSlash = (c == '/');		  
+  		prevSlash = (c == '/');
   	}
-  	
+
 
   	trim (t. name);
   	if (! t. name. empty ())
-      t. type = Token::eText;  
+      t. type = Token::eText;
     else
       { ASSERT (t. empty ()); }
   }
@@ -2750,7 +2750,7 @@ Token TokenInput::getXmlText ()
   {
     throw runtime_error ("Previous text:\n" + t. name + "\n" + e. what ());
   }
-	
+
 
   return t;
 }
@@ -2758,7 +2758,7 @@ Token TokenInput::getXmlText ()
 
 
 Token TokenInput::getXmlComment ()
-{ 
+{
   QC_ASSERT (last. empty ());
 
   // Embedded comments ??
@@ -2769,10 +2769,10 @@ Token TokenInput::getXmlComment ()
   Token t;
   t. tp = ci. tp;
   array<char,4> lastChars {{'-', '-', '\0', '\0'}};
-  size_t i = 2; 
+  size_t i = 2;
 	for (;;)
-	{ 
-	  char c = ci. get (); 
+	{
+	  char c = ci. get ();
 		if (ci. eof)
 	    ci. error ("XML comment is not finished: end of file", false);
 	  QC_ASSERT (c);
@@ -2787,87 +2787,87 @@ Token TokenInput::getXmlComment ()
         && lastChars [(i + 3) % 4] == '>'
        )
       break;
-      
+
     if (lastChars [i])
 		  t. name += lastChars [i];
 	}
-	
+
 	trim (t. name);
 	if (! t. name. empty ())
-    t. type = Token::eText;  
+    t. type = Token::eText;
   else
     { ASSERT (t. empty ()); }
-	
+
   return t;
 }
 
 
 
 Token TokenInput::getXmlProcessingInstruction ()
-{ 
+{
   QC_ASSERT (last. empty ());
-  
+
   // Embedded processing instructions ??
 
   Token t;
   t. tp = ci. tp;
 	for (;;)
-	{ 
-	  char c = ci. get (); 
+	{
+	  char c = ci. get ();
 		if (ci. eof)
 	    ci. error ("XML comment is not finished: end of file", false);
 	  QC_ASSERT (c);
 	  if (isSpace (c))
-	    c = ' ';	    
+	    c = ' ';
 	  if (c == '?')
 	    break;
     t. name += c;
 	}
 	get ('>');
-	
+
 	trim (t. name);
 	if (! t. name. empty ())
-    t. type = Token::eText;  
+    t. type = Token::eText;
   else
     { ASSERT (t. empty ()); }
-	
+
   return t;
 }
 
 
 
 Token TokenInput::getXmlMarkupDeclaration ()
-{ 
+{
   QC_ASSERT (last. empty ());
-  
+
   Token t;
   t. tp = ci. tp;
 	for (;;)
-	{ 
-	  char c = ci. get (); 
+	{
+	  char c = ci. get ();
 		if (ci. eof)
 	    ci. error ("XML comment is not finished: end of file", false);
 	  QC_ASSERT (c);
 	  if (isSpace (c))
-	    c = ' ';	    
+	    c = ' ';
 	  if (c == '>')
 	    break;
     t. name += c;
 	}
-	
+
 	trim (t. name);
 	if (! t. name. empty ())
-    t. type = Token::eText;  
+    t. type = Token::eText;
   else
     { ASSERT (t. empty ()); }
-	
+
   return t;
 }
 
 
 
-char TokenInput::getNextChar (bool unget) 
-{ 
+char TokenInput::getNextChar (bool unget)
+{
   QC_ASSERT (last. empty ());
 
 	char c = '\0';
@@ -2875,8 +2875,8 @@ char TokenInput::getNextChar (bool unget)
 	  while (! ci. eof && isSpace (c));
 
 	if (ci. eof)
-		return '\0';  
-		
+		return '\0';
+
   if (unget)
     ci. unget ();
   return c;
@@ -2913,7 +2913,7 @@ void BraceInput::skipComment ()
 // IFStream
 
 IFStream::IFStream (const string &pathName)
-{ 
+{
   switch (getFiletype (pathName, true))
   {
     case Filetype::none: throw runtime_error ("Cannot open " + shellQuote (pathName));
@@ -2935,10 +2935,10 @@ IFStream::IFStream (const string &pathName)
 void OFStream::open (const string &dirName,
 	                   const string &fileName,
 	                   const string &extension)
-{ 
+{
 	QC_ASSERT (! fileName. empty ());
 	QC_ASSERT (! is_open ());
-	
+
 #if 0
   if (! dirName. empty () && contains (fileName, '/'))
     throw runtime_error ("Slash in file name: " + strQuote (fileName));
@@ -2950,7 +2950,7 @@ void OFStream::open (const string &dirName,
 	pathName += fileName;
 	if (! extension. empty ())
 		pathName += "." + extension;
-	
+
   exceptions (std::ios::failbit | std::ios::badbit);  // In ifstream these flags collide with eofbit
 	try {	ofstream::open (pathName); }
     catch (const exception &e)
@@ -2968,22 +2968,22 @@ void OFStream::open (const string &dirName,
 // PairFile
 
 bool PairFile::next ()
-{ 
+{
   if (! f. nextLine ())
 	  return false;
-	  
+
   iss. reset (f. line);
   name2. clear ();
   iss >> name1 >> name2;
-  
+
   if (name2. empty ())
   	throw runtime_error (FUNC "No pair: " + strQuote (name1) + " - " + strQuote (name2));
   if (! sameAllowed && name1 == name2)
   	throw runtime_error (FUNC "Same name: " + name1);
-  	
+
   if (orderNames && name1 > name2)
   	swap (name1, name2);
-  	
+
   return true;
 }
 
@@ -2991,11 +2991,11 @@ bool PairFile::next ()
 
 
 // Csv
- 
+
 string Csv::getWord ()
-{ 
+{
   QC_ASSERT (goodPos ());
-  
+
   size_t start = pos;
   size_t stop = no_index;
   if (s [pos] == '\"')
@@ -3006,18 +3006,18 @@ string Csv::getWord ()
     ASSERT (s [pos] == '\"');
     stop = pos;
   }
-  
+
   findChar (',');
   if (stop == no_index)
     stop = pos;
   pos++;
-  
+
   return s. substr (start, stop - start);
 }
 
 
-  
-  
+
+
 StringVector csvLine2vec (const string &line)
 {
   StringVector words;  words. reserve (256);  // PAR
@@ -3039,17 +3039,17 @@ StringVector csvLine2vec (const string &line)
 
 Json::Json (JsonContainer* parent,
             const string& name)
-{ 
+{
   ASSERT (parent);
-  
+
   if (const JsonArray* jArray = parent->asJsonArray ())
   {
-    ASSERT (name. empty ());  
+    ASSERT (name. empty ());
     var_cast (jArray) -> data << this;
   }
   else if (const JsonMap* jMap = parent->asJsonMap ())
   {
-    ASSERT (! name. empty ());  
+    ASSERT (! name. empty ());
     if (contains (jMap->data, name))
       throw runtime_error (FUNC "Duplicate name in JSON map: " + strQuote (name));
     var_cast (jMap) -> data [name] = this;
@@ -3060,10 +3060,10 @@ Json::Json (JsonContainer* parent,
 
 
 string Json::toStr (const string& s)
-{ 
+{
   if (isNatural (s, false))
     return s;
-    
+
   // https://www.json.org/json-en.html
   string res ("\"");
   for (const char c : s)
@@ -3076,8 +3076,8 @@ string Json::toStr (const string& s)
       case '\t': res += "\\t"; break;
       default:   res += c;
     }
-  return res + "\""; 
-} 
+  return res + "\"";
+}
 
 
 
@@ -3104,9 +3104,9 @@ void Json::parse (CharInput& in,
           new JsonString (firstToken. name, parent, name);
       }
       break;
-    case Token::eText: new JsonString (firstToken. name, parent, name); break;
-    case Token::eInteger: new JsonInt (firstToken. n, parent, name); break;
-    case Token::eDouble: new JsonDouble (firstToken. d, firstToken. decimals, parent, name); break;
+    case Token::eText:    new JsonString (firstToken. name, parent, name); break;
+    case Token::eInteger: new JsonInt    (firstToken. n, parent, name); break;
+    case Token::eDouble:  new JsonDouble (firstToken. d, firstToken. decimals, parent, name); break;
     case Token::eDelimiter:
       switch (firstToken. name [0])
       {
@@ -3122,7 +3122,7 @@ void Json::parse (CharInput& in,
 
 
 string Json::getString () const
-{ 
+{
   const auto* this_ = this;
   if (! this_ || asJsonNull ())
     throw logic_error ("undefined");
@@ -3134,7 +3134,7 @@ string Json::getString () const
 
 
 long long Json::getInt () const
-{ 
+{
   const auto* this_ = this;
   if (! this_ || asJsonNull ())
     throw logic_error ("undefined");
@@ -3146,7 +3146,7 @@ long long Json::getInt () const
 
 
 double Json::getDouble () const
-{ 
+{
   const auto* this_ = this;
   if (! this_)
     throw logic_error ("undefined");
@@ -3160,7 +3160,7 @@ double Json::getDouble () const
 
 
 bool Json::getBoolean () const
-{ 
+{
   const auto* this_ = this;
   if (! this_ || asJsonNull ())
     throw logic_error ("undefined");
@@ -3172,7 +3172,7 @@ bool Json::getBoolean () const
 
 
 const Json* Json::at (const string& name_arg) const
-{ 
+{
   const auto* this_ = this;
   if (! this_)
     throw logic_error ("undefined");
@@ -3186,7 +3186,7 @@ const Json* Json::at (const string& name_arg) const
 
 
 const Json* Json::at (size_t index) const
-{ 
+{
   const auto* this_ = this;
   if (! this_)
     throw logic_error ("undefined");
@@ -3200,12 +3200,12 @@ const Json* Json::at (size_t index) const
       return j->data [index];
   }
   throw logic_error ("Not a JsonArray");
-}        
+}
 
 
 
 size_t Json::getSize () const
-{ 
+{
   const auto* this_ = this;
   if (! this_)
     throw logic_error ("undefined");
@@ -3214,7 +3214,7 @@ size_t Json::getSize () const
   if (const JsonArray* j = asJsonArray ())
     return j->data. size ();
   throw logic_error ("Not a JsonArray");
-}        
+}
 
 
 
@@ -3229,14 +3229,14 @@ JsonArray::JsonArray (CharInput& in,
   bool first = true;
   for (;;)
   {
-    Token token (in, false, false);
+    Token token (in, false, false, true);
     if (token. isDelimiter (']'))
       break;
     if (! first)
     {
       if (! token. isDelimiter (','))
         in. error ("\',\'");
-      token = Token (in, false, false);
+      token = Token (in, false, false, true);
     }
     parse (in, token, this, noString);
     first = false;
@@ -3246,7 +3246,7 @@ JsonArray::JsonArray (CharInput& in,
 
 
 void JsonArray::saveText (ostream& os) const
-{ 
+{
   os << "[";
   bool first = true;
   for (const Json* j : data)
@@ -3275,7 +3275,7 @@ JsonMap::JsonMap ()
 JsonMap::JsonMap (const string &fName)
 {
   CharInput in (fName);
-  const Token token (in, false, false);
+  const Token token (in, false, false, true);
   if (! token. isDelimiter ('{'))
     in. error ("Json file " + shellQuote (fName) + ": text should start with '{'", false);
   parse (in);
@@ -3286,28 +3286,28 @@ JsonMap::JsonMap (const string &fName)
 void JsonMap::parse (CharInput& in)
 {
   ASSERT (data. empty ());
-  
+
   bool first = true;
   for (;;)
   {
-    Token token (in, false, false);
+    Token token (in, false, false, true);
     if (token. isDelimiter ('}'))
       break;
     if (! first)
     {
       if (! token. isDelimiter (','))
         in. error ("\',\'");
-      token = Token (in, false, false);
+      token = Token (in, false, false, true);
     }
     if (   token. type != Token::eName
         && token. type != Token::eText
        )
       in. error ("name or text");
     string name (token. name);
-    const Token colon (in, false, false);
+    const Token colon (in, false, false, true);
     if (! colon. isDelimiter (':'))
       in. error ("\':\'");
-    token = Token (in, false, false);
+    token = Token (in, false, false, true);
     Json::parse (in, token, this, name);
     first = false;
   }
@@ -3316,7 +3316,7 @@ void JsonMap::parse (CharInput& in)
 
 
 JsonMap::~JsonMap ()
-{ 
+{
   for (auto& it : data)
     delete it. second;
 }
@@ -3324,7 +3324,7 @@ JsonMap::~JsonMap ()
 
 
 void JsonMap::saveText (ostream& os) const
-{ 
+{
   os << "{";
   bool first = true;
   for (const auto& it : data)
@@ -3364,10 +3364,10 @@ FileItemGenerator::FileItemGenerator (size_t progress_displayPeriod,
 : ItemGenerator (0, progress_displayPeriod)
 , fName (fName_arg)
 , tsv (tsv_arg)
-{ 
+{
   f. open (fName);
-  QC_ASSERT (f. good ()); 
-  
+  QC_ASSERT (f. good ());
+
   if (tsv)
   {
     string item;
@@ -3380,10 +3380,10 @@ FileItemGenerator::FileItemGenerator (size_t progress_displayPeriod,
 
 
 bool FileItemGenerator::next (string &item)
-{ 
+{
   if (f. eof ())
     return false;
-    
+
 	readLine (f, item);
   if (! tsv)
     trim (item);
@@ -3391,9 +3391,9 @@ bool FileItemGenerator::next (string &item)
     return false;
 
   prog (item);
-    
+
 	return true;
-}    
+}
 
 
 
@@ -3404,8 +3404,8 @@ bool FileItemGenerator::next (string &item)
 struct RawDirItemGenerator::Imp
 {
   DIR* dir {nullptr};
-  
-  
+
+
   explicit Imp (const string &dirName)
     : dir (opendir (dirName. c_str ()))
     {
@@ -3413,7 +3413,7 @@ struct RawDirItemGenerator::Imp
         throw runtime_error ("Cannot open directory " + strQuote (dirName));
     }
  ~Imp ()
-    {   
+    {
       closedir (dir);
     }
 };
@@ -3427,21 +3427,21 @@ RawDirItemGenerator::RawDirItemGenerator (size_t progress_displayPeriod,
 , dirName (dirName_arg)
 , imp (new Imp (dirName_arg))
 , large (large_arg)
-{ 
+{
   trimSuffix (dirName,  "/");
 }
 
 
 
 RawDirItemGenerator::~RawDirItemGenerator ()
-{ 
-  delete imp; 
+{
+  delete imp;
 }
 
 
 
 bool RawDirItemGenerator::next (string &item)
-{ 
+{
   if (! large)
     return next_ (item, true);
 
@@ -3459,17 +3459,17 @@ bool RawDirItemGenerator::next (string &item)
       return true;
     dig. reset (nullptr);
   }
-}    
+}
 
 
 
 bool RawDirItemGenerator::next_ (string &item,
                                  bool report)
-{ 
+{
   ASSERT (imp);
   for (;;)
   {
-    if (const dirent* f = readdir (imp->dir))    
+    if (const dirent* f = readdir (imp->dir))
       item = std::move (string (f->d_name));
     else
       return false;
@@ -3484,7 +3484,7 @@ bool RawDirItemGenerator::next_ (string &item,
     prog (item);
 
 	return true;
-}    
+}
 
 
 
@@ -3494,10 +3494,10 @@ StringVector RawDirItemGenerator::toVector ()
   string s;
   while (next (s))
     vec << std::move (s);
-      
+
   vec. sort ();
   QC_ASSERT (vec. isUniq ());
-    
+
   return vec;
 }
 #endif
@@ -3508,7 +3508,7 @@ StringVector RawDirItemGenerator::toVector ()
 // SoftwareVersion
 
 SoftwareVersion::SoftwareVersion (const string &fName)
-{ 
+{
   StringVector vec (fName, (size_t) 1, true);
   if (vec. size () != 1)
     throw runtime_error ("Cannot read software version. One line is expected in the file: " + shellQuote (fName));
@@ -3519,7 +3519,7 @@ SoftwareVersion::SoftwareVersion (const string &fName)
 
 SoftwareVersion::SoftwareVersion (istream &is,
                                   bool minorOnly)
-{ 
+{
   string s;
   is >> s;
   init (std::move (s), minorOnly);
@@ -3529,28 +3529,28 @@ SoftwareVersion::SoftwareVersion (istream &is,
 
 void SoftwareVersion::init (string &&s,
                             bool minorOnly)
-{ 
-  try 
-  { 
+{
+  try
+  {
     major = str2<uint> (findSplit (s, '.'));
     if (minorOnly)
       minor = str2<uint> (s);
     else
-    { 
+    {
       minor = str2<uint> (findSplit (s, '.'));
       patch = str2<uint> (s);
     }
-  } 
-  catch (...) 
-  { 
-    throw runtime_error ("Cannot read software version"); 
+  }
+  catch (...)
+  {
+    throw runtime_error ("Cannot read software version");
   }
 }
 
 
 
 bool SoftwareVersion::operator< (const SoftwareVersion &other) const
-{ 
+{
   LESS_PART (*this, other, major);
   LESS_PART (*this, other, minor);
   LESS_PART (*this, other, patch);
@@ -3563,7 +3563,7 @@ bool SoftwareVersion::operator< (const SoftwareVersion &other) const
 // DataVersion
 
 DataVersion::DataVersion (const string &fName)
-{ 
+{
   StringVector vec (fName, (size_t) 1, true);
   if (vec. size () != 1)
     throw runtime_error ("Cannot read data version. One line is expected in the file: " + shellQuote (fName));
@@ -3573,7 +3573,7 @@ DataVersion::DataVersion (const string &fName)
 
 
 DataVersion::DataVersion (istream &is)
-{ 
+{
   string s;
   is >> s;
   init (std::move (s));
@@ -3582,24 +3582,24 @@ DataVersion::DataVersion (istream &is)
 
 
 void DataVersion::init (string &&s)
-{ 
+{
   try
-  { 
+  {
     year  = str2<uint> (findSplit (s, '-'));
     month = str2<uint> (findSplit (s, '-'));
     day   = str2<uint> (findSplit (s, '.'));
     num   = str2<uint> (s);
-  } 
-  catch (...) 
-  { 
-    throw runtime_error ("Cannot read data version"); 
+  }
+  catch (...)
+  {
+    throw runtime_error ("Cannot read data version");
   }
 }
 
 
 
 bool DataVersion::operator< (const DataVersion &other) const
-{ 
+{
   LESS_PART (*this, other, year);
   LESS_PART (*this, other, month);
   LESS_PART (*this, other, day);
@@ -3619,7 +3619,7 @@ Application::Arg::Arg (const string &name_arg,
 {
   trim (name);
   ASSERT (! name. empty ());
-  ASSERT (! contains (name, ' '));  
+  ASSERT (! contains (name, ' '));
   ASSERT (! contains (name, '='));
   ASSERT (! isLeft (name, "-"));
   ASSERT (! description. empty ());
@@ -3633,7 +3633,7 @@ void Application::Arg::qc () const
 {
   if (! qc_on)
   	return;
-  	
+
   QC_ASSERT (! name. empty ());
   QC_ASSERT (! description. empty ());
 }
@@ -3645,7 +3645,7 @@ void Application::Key::qc () const
   if (! qc_on)
   	return;
   Arg::qc ();
-  
+
   QC_IMPLY (app. gnu, name. size () > 1);
   QC_IMPLY (acronym, app. gnu);
   QC_ASSERT (isUpper (var));
@@ -3666,7 +3666,7 @@ void Application::Key::saveText (ostream &os) const
 	}
 	else
 	{
-	  os << name; 
+	  os << name;
 	  if (! flag)
 	  {
 	    os << ' ';
@@ -3697,16 +3697,19 @@ string Application::Key::getShortHelp () const
 
 
 
-void Application::addKey (const string &name, 
+void Application::addKey (const string &name,
                           const string &argDescription,
                           const string &defaultValue,
                           char acronym,
                           const string &var)
 {
-  ASSERT (! name. empty ());
-  ASSERT (! contains (name2arg, name));
+  if (name. empty ())
+  	throw logic_error ("Empty key argument name");
+  if (contains (name2arg, name))
+  	throw logic_error ("Duplicate key argument name " + strQuote (name));
   if (acronym && contains (char2arg, acronym))
-  	throw logic_error ("Duplicate key " + strQuote (string (1, acronym)));
+  	throw logic_error ("Duplicate key argument acronym " + strQuote (string (1, acronym)));
+
   keyArgs << Key (*this, name, argDescription, defaultValue, acronym, var);
   name2arg [name] = & keyArgs. back ();
   if (acronym)
@@ -3719,10 +3722,13 @@ void Application::addFlag (const string &name,
                            const string &argDescription,
                            char acronym)
 {
-  ASSERT (! name. empty ());
-  ASSERT (! contains (name2arg, name));
+  if (name. empty ())
+  	throw logic_error ("Empty flag name");
+  if (contains (name2arg, name))
+  	throw logic_error ("Duplicate flag name " + strQuote (name));
   if (acronym && contains (char2arg, acronym))
-  	throw logic_error ("Duplicate flag " + strQuote (string (1, acronym)));
+  	throw logic_error ("Duplicate flag acronym " + strQuote (string (1, acronym)));
+
   keyArgs << Key (*this, name, argDescription, acronym);
   name2arg [name] = & keyArgs. back ();
   if (acronym)
@@ -3734,8 +3740,13 @@ void Application::addFlag (const string &name,
 void Application::addPositional (const string &name,
                                  const string &argDescription)
 {
-  ASSERT (! contains (name2arg, name));
-  IMPLY (gnu, isUpper (name));
+  if (name. empty ())
+  	throw logic_error ("Empty positional argument name");
+  if (contains (name2arg, name))
+  	throw logic_error ("Duplicate positional argument name " + strQuote (name));
+  if (gnu && ! isUpper (name))
+  	throw logic_error ("GNU positional argument name is not uppercased: " + strQuote (name));
+
   positionalArgs << Positional (name, argDescription);
   name2arg [name] = & positionalArgs. back ();
 }
@@ -3746,13 +3757,13 @@ Application::Key* Application::getKey (const string &keyName) const
 {
   if (! contains (name2arg, keyName))
     throw runtime_error ("Unknown key: " + strQuote (keyName) + "\n\n" + getInstruction (false));
-    
+
   Key* key = nullptr;
-  if (const Arg* arg = findPtr (name2arg, keyName))  	
+  if (const Arg* arg = findPtr (name2arg, keyName))
     key = var_cast (arg->asKey ());
   if (! key)
     throw runtime_error (strQuote (keyName) + " is not a key\n\n" + getInstruction (false));
-    
+
   return key;
 }
 
@@ -3776,17 +3787,17 @@ void Application::setPositional (List<Positional>::iterator &posIt,
 
 void Application::setRequiredGroup (const string &keyName,
                                     const string &requiredGroup)
-{ 
+{
   ASSERT (! requiredGroup. empty ());
-	getKey (keyName) -> requiredGroup = requiredGroup; 
+	getKey (keyName) -> requiredGroup = requiredGroup;
 }
 
 
 
 void Application::addDefaultArgs ()
-{ 
+{
   if (gnu)
-	{ 
+	{
 	  if (threadsUsed)
 	    addKey ("threads", "Max. number of threads", "1", '\0', "THREADS");
 	  addFlag ("debug", "Integrity checks");
@@ -3794,7 +3805,7 @@ void Application::addDefaultArgs ()
     addFlag ("quiet", "Suppress messages to STDERR", 'q');
   }
 	else
-	{ 
+	{
 	  addFlag ("qc", "Integrity checks (quality control)");
     addKey ("verbose", "Level of verbosity", "0");
     addFlag ("noprogress", "Turn off progress printout");
@@ -3816,14 +3827,14 @@ void Application::qc () const
 {
   if (! qc_on)
     return;
-  
+
   QC_ASSERT (! description. empty ());
   QC_ASSERT (! version. empty ());
   QC_IMPLY (! needsArg, positionalArgs. empty ());
-  
+
   for (const Positional& p : positionalArgs)
   	p. qc ();
-  	
+
   map<string,size_t> requiredGroups;
   string requiredGroup_prev;
   for (const Key& key : keyArgs)
@@ -3839,12 +3850,12 @@ void Application::qc () const
   for (const auto& it : requiredGroups)
   	QC_ASSERT (it. second > 1);
 }
-	
+
 
 
 string Application::getArg (const string &name) const
 {
-  if (contains (name2arg, name))  
+  if (contains (name2arg, name))
     return name2arg. at (name) -> value;
   throw logic_error ("Parameter " + strQuote (name) + " is not found");
 }
@@ -3864,7 +3875,7 @@ bool Application::getFlag (const string &name) const
 
 string Application::key2shortHelp (const string &name) const
 {
-  if (! contains (name2arg, name))  
+  if (! contains (name2arg, name))
     throw logic_error ("Parameter " + strQuote (name) + " is not found");
   const Arg* arg = name2arg. at (name);
   ASSERT (arg);
@@ -3875,10 +3886,10 @@ string Application::key2shortHelp (const string &name) const
 
 
 
-void Application::initEnvironment () 
+void Application::initEnvironment ()
 {
   ASSERT (! programArgs. empty ());
-  
+
   // execDir, programName
 	execDir = getProgramDirName ();
 	if (execDir. empty ())
@@ -3892,7 +3903,7 @@ void Application::initEnvironment ()
   }
 
   string execDir_ (execDir);
-  trimSuffix (execDir_, "/");				
+  trimSuffix (execDir_, "/");
   for (Key& key : keyArgs)
     if (! key. flag)
       replaceStr (key. defaultValue, "$BASE", execDir_);
@@ -3904,7 +3915,7 @@ string Application::getInstruction (bool screen) const
 {
   string instr (description);
 
-  instr += "\n\n" + colorize ("USAGE", screen) + ":   " + programName; 
+  instr += "\n\n" + colorize ("USAGE", screen) + ":   " + programName;
 
   for (const Positional& p : positionalArgs)
     instr += " " + p. str ();
@@ -3920,7 +3931,7 @@ string Application::getInstruction (bool screen) const
   	else
   		if (requiredGroup_prev. empty ())
   			instr += " (";
-  		else 
+  		else
   		{
  			  instr += ") ";
   			if (! key. requiredGroup. empty ())
@@ -3935,14 +3946,14 @@ string Application::getInstruction (bool screen) const
   }
 	if (! requiredGroup_prev. empty ())
 		instr += ")";
-  
+
   instr += "\n" + colorize ("HELP", screen) + ":    " + programName + " " + ifS (gnu, "-") + "-" + helpS;
   if (gnu)
     instr += " or " + programName + " -" + helpS [0];
   instr += "\n" + colorize ("VERSION", screen) + ": " + programName + " " + ifS (gnu, "-") + "-" + versionS;
   if (gnu)
     instr += " or " + programName + " -" + versionS [0];
-    
+
   return instr;
 }
 
@@ -3952,7 +3963,7 @@ string Application::getDocumentation (bool screen) const
 {
   if (documentationUrl. empty ())
     return noString;
-  return "\n\n" + colorize ("DOCUMENTATION", screen) + "\n    See " + colorizeUrl (documentationUrl, screen) + " for full documentation";    
+  return "\n\n" + colorize ("DOCUMENTATION", screen) + "\n    See " + colorizeUrl (documentationUrl, screen) + " for full documentation";
 }
 
 
@@ -3992,32 +4003,32 @@ string Application::getHelp (bool screen) const
 	    	instr += par + "Default: " + key. defaultValue;
 	  }
 	}
-	
+
   return instr;
 }
 
 
 
-int Application::run (int argc, 
-                      const char* argv []) 
+int Application::run (int argc,
+                      const char* argv [])
 {
   ASSERT (programArgs. empty ());
-  
+
 
   addDefaultArgs ();
-    
-  
+
+
 	try
-  { 
+  {
   	// programArgs
-    for (int i = 0; i < argc; i++)  
+    for (int i = 0; i < argc; i++)
     {
     	// gnu: -abc --> -a -b -c ??
     	string key (argv [i]);
     	string value;
     	bool valueP = false;
-    	if (   i 
-    		  && ! key. empty () 
+    	if (   i
+    		  && ! key. empty ()
     		  && key [0] == '-'
     		 )
     	{
@@ -4034,8 +4045,8 @@ int Application::run (int argc,
 	      programArgs. push_back (value);
     }
     ASSERT (! programArgs. empty ());
-	  
-      
+
+
 		initEnvironment ();
 
 
@@ -4076,7 +4087,7 @@ int Application::run (int argc,
           	}
           	else
           	{
-          		if (s1. size () != 1) 
+          		if (s1. size () != 1)
                 throw runtime_error ("Single character is expected: " + strQuote (s1) + "\n\n" + getInstruction (false));
             }
           else
@@ -4084,7 +4095,7 @@ int Application::run (int argc,
 
           if (name == helpS || (name. empty () && c == helpS [0] && gnu))
           {
-            if (programArgs. size () > 2) 
+            if (programArgs. size () > 2)
               throw runtime_error ("Single keyword " + strQuote (helpS) + " is expected\n\n" + getInstruction (false));
             else
             {
@@ -4095,7 +4106,7 @@ int Application::run (int argc,
           }
           if (name == versionS || (name. empty () && c == versionS [0] && gnu))
           {
-            if (programArgs. size () > 2) 
+            if (programArgs. size () > 2)
               throw runtime_error ("Single keyword " + strQuote (versionS) + " is expected\n\n" + getInstruction (false));
             else
             {
@@ -4103,7 +4114,7 @@ int Application::run (int argc,
               return 0;
             }
           }
-          
+
           // key
           if (name. empty ())
           {
@@ -4111,16 +4122,16 @@ int Application::run (int argc,
 	          key = var_cast (findPtr (char2arg, c));
 	        }
           else
-          	if (const Arg* arg = findPtr (name2arg, name))					    
+          	if (const Arg* arg = findPtr (name2arg, name))
 					    key = var_cast (arg->asKey ());
-					    
+
 					if (key)
           {
 	          if (keysRead. contains (key))
 	            throw runtime_error ("Parameter " + strQuote (key->name) + " is used more than once");
 	          else
 	            keysRead << key;
-	            
+
 	          if (key->flag)
 	          {
 	            key->value = "true";
@@ -4145,13 +4156,13 @@ int Application::run (int argc,
 	      cout << getInstruction (screen) << getDocumentation (screen) << endl;
 	      return 1;
 	    }
-	    
+
 
 	    if (posIt != positionalArgs. end ())
 	      throw runtime_error ("Too few positional parameters\n\n" + getInstruction (false));
 	  }
-    
-    
+
+
     for (Key& key : keyArgs)
       if (! keysRead. contains (& key))
         key. value = key. defaultValue;
@@ -4176,14 +4187,14 @@ int Application::run (int argc,
 	    	if (requiredGroup2given [it. first]. empty ())
 	    		throw runtime_error ("One of required parameters is missing: " + it. second. toString (", "));
 	  }
-  
-  
+
+
     {
       string logFName (getArg ("log"));
     	ASSERT (! logPtr);
       if (! logFName. empty ())
       {
-    		logPtr = new ofstream (logFName, ios_base::app);    		  
+    		logPtr = new ofstream (logFName, ios_base::app);
     		*logPtr << endl << getNow () << endl << "$ " << getCommandLine () << endl;
       }
     }
@@ -4198,16 +4209,16 @@ int Application::run (int argc,
     {
 	  	if (getFlag ("qc"))
 	  		qc_on = true;
-	
+
 	  	if (getFlag ("noprogress"))
 	  		Progress::disable ();
 	  	if (getFlag ("profile"))
 	  		Chronometer::enabled = true;
-	  			
+
 	  	seed_global = str2<ulong> (getArg ("seed"));
 	  	if (! seed_global)
 	  		throw runtime_error ("Seed cannot be 0");
-	  
+
 	  	jsonFName = getArg ("json");
 	  	ASSERT (! jRoot);
 	  	if (! jsonFName. empty ())
@@ -4215,36 +4226,36 @@ int Application::run (int argc,
 	  		new JsonMap ();
 	  	  ASSERT (jRoot);
 	  	}
-	  	
+
     #ifndef _MSC_VER
 	  	sigpipe = getFlag ("sigpipe");
     #endif
 	  }
-  
 
-    ASSERT (threads_max == 1);	
+
+    ASSERT (threads_max == 1);
     if (threadsUsed)
     {
     	threads_max = str2<size_t> (getArg ("threads"));
     	if (! threads_max)
-    		throw runtime_error ("Number of threads cannot be 0");	
+    		throw runtime_error ("Number of threads cannot be 0");
     	if (threads_max > 1 && Chronometer::enabled)
     		throw runtime_error ("Cannot profile with threads");
     }
 
 
-  	const Verbose vrb (gnu 
+  	const Verbose vrb (gnu
   	                     ? getFlag ("quiet")
   	                       ? -1
-  	                       : 0 
+  	                       : 0
   	                     : str2<int> (getArg ("verbose"))
   	                   );
-	  	
+
 		initVar ();
 		qc ();
   	body ();
 
-  
+
   	if (! jsonFName. empty ())
   	{
   	  ASSERT (jRoot);
@@ -4258,7 +4269,7 @@ int Application::run (int argc,
   catch (const std::overflow_error  &e)  { errorExitStr (string ("Overflow error: ")  + e. what ()); }
   catch (const std::underflow_error &e)  { errorExitStr (string ("Underflow error: ") + e. what ()); }
   catch (const std::system_error    &e)  { errorExitStr (string ("System error: ")    + e. what ()); }
-  catch (const std::runtime_error   &e)  
+  catch (const std::runtime_error   &e)
     {
       beep ();
       ostream* os = logPtr ? logPtr : & cerr;
@@ -4269,10 +4280,7 @@ int Application::run (int argc,
       *os << endl << e. what () << endl;
       exit (1);
     }
-	catch (const std::exception &e) 
-	{ 
-	  errorExitStr (ifS (errno, strerror (errno) + string ("\n")) + e. what ());
-  }
+	catch (const std::exception &e)        { errorExitStr (ifS (errno, strerror (errno) + string ("\n")) + e. what ()); }
 
 
   return 0;
@@ -4291,14 +4299,14 @@ ShellApplication::~ShellApplication ()
   if (startTime)
   {
     const time_t endTime = time (NULL);
-    const OColor oc (cerr, Chronometer_OnePass::color, false, ! stderr. quiet);  
+    const OColor oc (cerr, Chronometer_OnePass::color, false, ! stderr. quiet);
     stderr << programName << " took " << endTime - startTime << " seconds to complete\n";
   }
 }
 
 
 
-void ShellApplication::initEnvironment () 
+void ShellApplication::initEnvironment ()
 {
   ASSERT (tmp. empty ());
   Application::initEnvironment ();
@@ -4306,16 +4314,16 @@ void ShellApplication::initEnvironment ()
 
 
 
-void ShellApplication::initVar () 
+void ShellApplication::initVar ()
 {
-  ASSERT (tmp. empty ());  
+  ASSERT (tmp. empty ());
   if (useTmp)
     tmp = makeTempDir ();
-  
+
   stderr. quiet = getQuiet ();
 
   startTime = time (NULL);
-  stderr << "Running: " << colorize_raw (getCommandLine (), Color::yellow, false, ! isRedirected (cerr)) << '\n';  
+  stderr << "Running: " << colorize_raw (getCommandLine (), Color::yellow, false, ! isRedirected (cerr)) << '\n';
 
   // threads_max
   if (threadsUsed)
@@ -4332,7 +4340,7 @@ void ShellApplication::initVar ()
 
 
 
-string ShellApplication::getHelp (bool screen) const 
+string ShellApplication::getHelp (bool screen) const
 {
   string help (Application::getHelp (screen));
   if (useTmp)
@@ -4356,7 +4364,7 @@ void ShellApplication::findProg (const string &progName) const
 	ASSERT (! progName. empty ());
 	ASSERT (! contains (progName, '/'));
 	ASSERT (isDirName (execDir));
-	
+
 	string dir;
 	if (! find (prog2dir, progName, dir))
 	{
@@ -4364,11 +4372,11 @@ void ShellApplication::findProg (const string &progName) const
 		        ? execDir
 		        : which (progName);
 	  if (dir. empty ())
-	    throw runtime_error ("Binary " + shellQuote (progName) + " is not found.\nPlease make sure that " 
+	    throw runtime_error ("Binary " + shellQuote (progName) + " is not found.\nPlease make sure that "
 	                         + shellQuote (progName) + " is in the same directory as " + shellQuote (Common_sp::programName) + " or is in your $PATH.");;
 	  prog2dir [progName] = dir;
 	}
-	  
+
 	ASSERT (isDirName (dir));
 }
 
@@ -4396,7 +4404,7 @@ string ShellApplication::exec2str (const string &cmd,
   const StringVector vec (out, (size_t) 1, false);
   if (vec. size () != 1)
     throw runtime_error (cmd + "\nOne line is expected");
-  return vec [0];  
+  return vec [0];
 }
 
 
@@ -4408,12 +4416,12 @@ string ShellApplication::uncompress (const string &quotedFName,
   const string res (shellQuote (tmp + "/" + suffix));
   QC_ASSERT (quotedFName != res);
   const string s (unQuote (quotedFName));
-  if (isRight (s, ".gz"))  
+  if (isRight (s, ".gz"))
   {
     exec ("gunzip -c " + quotedFName + " > " + res);
     return res;
   }
-  return quotedFName;  
+  return quotedFName;
 }
 
 
@@ -4426,7 +4434,7 @@ string ShellApplication::getBlastThreadsParam (const string &blast,
   const size_t t = min (threads_max, threads_max_max);
   if (t <= 1)  // One thread is main
     return noString;
-  
+
 	bool num_threadsP = false;
 	bool mt_modeP = false;
 	{
@@ -4442,12 +4450,12 @@ string ShellApplication::getBlastThreadsParam (const string &blast,
         mt_modeP = true;
     }
   }
-  
+
   if (! num_threadsP)
     return noString;
-  
+
   string s ("  -num_threads " + to_string (t));
-  
+
   bool mt_mode_works = true;
 #ifdef __APPLE__
   {
@@ -4465,10 +4473,10 @@ string ShellApplication::getBlastThreadsParam (const string &blast,
         Istringstream iss;
         iss. reset (f. line. substr (prefix. size ()));
         const SoftwareVersion v (iss);
-      //PRINT (v);  
+      //PRINT (v);
         iss. reset ("2.13.0");  // PD-4560
         const SoftwareVersion threshold (iss);;
-      //PRINT (threshold);  
+      //PRINT (threshold);
         mt_mode_works = (threshold <= v);
       }
       break;
@@ -4476,9 +4484,9 @@ string ShellApplication::getBlastThreadsParam (const string &blast,
   }
 #endif
 
-  if (mt_modeP && mt_mode_works)  
+  if (mt_modeP && mt_mode_works)
     s += "  -mt_mode 1";
-    
+
   return s;
 }
 #endif   // _MSC_VER

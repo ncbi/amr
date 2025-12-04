@@ -13,7 +13,7 @@ set -x
 touch amrfinder_update.cpp
 make TEST_UPDATE=1
 ./amrfinder -U
-./test_amrfinder.sh
+./test_amrfinder.sh -n
 #touch amrfinder_update.cpp
 #make
 

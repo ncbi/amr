@@ -152,20 +152,7 @@ struct TextTable : Named
            << '\t' << (null ? "null" : "not null"); 
       }
       
-    void saveSql (ostream& os) const 
-      { os << name << ' ';
-        if (numeric)
-        { if (scientific)
-            os << "float";
-          else
-            os << "numeric(" << len_max << ',' << decimals << ")";
-        }
-        else
-          os << "varchar(" << len_max << ")";
-        if (! null)
-          os << " not null"; 
-        os << endl;
-      }
+    void saveSql (ostream& os) const;
   };
   Vector<Header> header;
     // Header::name's are unique
@@ -209,6 +196,14 @@ struct TextTable : Named
 private:
   void setHeader ();
 public:
+  static Vector<Header> str2header (const string &s,
+                                    char sep = ',')
+    { const StringVector vec (s, sep, true);
+      Vector<Header> header;  header. reserve (vec. size ());
+      for (const string& name : vec)
+        header << std::move (Header (name));
+      return header;
+    }
   void qc () const override;
   void saveText (ostream &os) const override;    
         
@@ -252,6 +247,11 @@ public:
     //          can be repeated
     //          ordered
   void sort (const StringVector &by);
+  void deredundify (const StringVector &equivCols,
+                    const CompareInt& equivBetter);
+    // Input: equivBetter(row1,row2) = 1 <=> row1 is better than row2
+    //          Requires: row1 and row2 are in the class of equivCols-equivalent rows
+    // Sorts by equivCols
   void group (const StringVector &by,
               const StringVector &sum,
               const StringVector &minV,

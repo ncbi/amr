@@ -71,15 +71,19 @@ struct BlastnAlignment final : Alignment
     : Alignment (line, false, false)
     , organism (organism_arg)
     {
+      // To match AmrMutation
+      strUpper (qseq);
+      strUpper (sseq);
+      
 	    replace (organism, '_', ' ');
       try
       {
-        // refName =      NC_022347.1@23S_ribosomal_RNA@23S@-159:1040292-1037381
+        // qseqid =      NC_022347.1@23S_ribosomal_RNA@23S@-159:1040292-1037381
         //           accesion_version@gene_name@gene_symbol@offset:start-stop
-	      ASSERT (! refName. empty ());
+	      ASSERT (! qseqid. empty ());
 	      // PD-3419
 	      {
-  	      string s (refName);
+  	      string s (qseqid);
   	      refAccessionFrag =       findSplit (s, '@');
   	      product          =       findSplit (s, '@');
   	      gene             =       findSplit (s, ':');
@@ -87,20 +91,19 @@ struct BlastnAlignment final : Alignment
   	      refAccessionFrag += ":" + s;
   	    }
 	      replace (product, '_', ' ');
-	      qc ();
-  	    if (const Vector<AmrMutation>* refMutations = findPtr (accession2mutations, refName))
+  	    if (const Vector<AmrMutation>* refMutations = findPtr (accession2mutations, qseqid))
   	      setSeqChanges (*refMutations, flankingLen);
 		  }
-		  catch (...)
+		  catch (const exception &e)
 		  {
-		  	cout << line << endl;
-		  	throw;
+		  	throw runtime_error (line + "\n" + e. what ());;
 		  }
     }
   void qc () const override
     { if (! qc_on)
         return;
       Alignment::qc ();
+      QC_ASSERT (! aProt);
       QC_ASSERT (! refAccessionFrag. empty ());
       QC_ASSERT (! product. empty ());
       QC_ASSERT (! gene. empty ());
@@ -108,8 +111,7 @@ struct BlastnAlignment final : Alignment
     }
   void report (TsvOut& td,
                bool mutationAll) const 
-    { //const string na ("NA");
-      for (const SeqChange& seqChange : seqChanges)
+    { for (const SeqChange& seqChange : seqChanges)
       {
         VectorPtr<AmrMutation> mutations (seqChange. mutations);
         if (mutations. empty ())
@@ -129,10 +131,10 @@ struct BlastnAlignment final : Alignment
     	    if (! input_name. empty ())
     	      td << input_name;;
           td << na  // PD-2534
-             << nvl (targetName, na)
-             << (empty () ? 0 : targetStart + 1)
-             << (empty () ? 0 : targetEnd)
-             << (empty () ? na : (targetStrand ? "+" : "-"))
+             << nvl (sseqid, na)
+             << (empty () ? 0 : sInt. start + 1)
+             << (empty () ? 0 : sInt. stop)
+             << (empty () ? string (na) : string (1, strand2char (sInt. strand)))
              << (mutation
                    ? seqChange. empty ()
                      ? mutation->wildtype ()
@@ -162,12 +164,12 @@ struct BlastnAlignment final : Alignment
                 << na;
            else
              td << "POINTN"  // PD-2088
-                << targetEnd - targetStart  // was: targetLen  // PD-3796
-                << refLen
-                << refCoverage () * 100  
-                << pIdentity () * 100  
-                << targetSeq. size ()
-                << refAccessionFrag  // refName
+                << sInt. len ()  // was: targetLen  // PD-3796
+                << qlen
+                << qRelCoverage () * 100  
+                << relIdentity () * 100  
+                << sseq. size ()
+                << refAccessionFrag  // qseqid
                 << product;  // pm.gene
           // HMM
           td << na
@@ -187,13 +189,13 @@ struct BlastnAlignment final : Alignment
     
 
   bool good () const
-    { return targetSeq. size () >= min (refLen, 2 * flankingLen + 1); }
+    { return sseq. size () >= min (qlen, 2 * flankingLen + 1); }
 #if 0
   bool operator< (const BlastnAlignment &other) const
-    { LESS_PART (*this, other, targetName);
-      LESS_PART (other, *this, pIdentity ());
-      LESS_PART (*this, other, targetStart);
-      LESS_PART (*this, other, refName);
+    { LESS_PART (*this, other, sseqid);
+      LESS_PART (other, *this, relIdentity ());
+      LESS_PART (*this, other, sstart);
+      LESS_PART (*this, other, qseqid);
       return false;
     }
 #endif
@@ -242,7 +244,7 @@ struct Batch
   	// Cf. BlastnAlignment::report()
     if (! input_name. empty ())
       td << "Name";
-    td << prot_colName   // targetName 
+    td << prot_colName   // sseqid 
        // Contig
        << contig_colName
        // target
@@ -261,7 +263,7 @@ struct Batch
        << method_colName
        << targetLen_colName
        //
-       << refLen_colName  // refLen
+       << refLen_colName  // qlen
        << refCov_colName  // queryCoverage
        << refIdent_colName
        << alignLen_colName  // length
@@ -294,7 +296,7 @@ struct ThisApplication final : Application
   ThisApplication ()
     : Application ("Find mutations at DNA level and report in the format of amr_report.cpp")
     {
-      addPositional ("blastn", string ("blastn output in the format: ") + Alignment::format + ". sseqid is the 1st column of <mutation_tab> table");  
+      addPositional ("blastn", string ("blastn output in the format: ") + Hsp::format [true] + ". qseqid is the 1st column of <mutation> table");
       addPositional ("mutation", "Mutations table");
       addPositional ("organism", "Organism name");
       addKey ("mutation_all", "File to report all mutations");
@@ -335,15 +337,8 @@ struct ThisApplication final : Application
   	  }
   	}
   	if (verbose ())
+  	{
   	  cout << "# Good Blasts: " << batch. blastAls. size () << endl;
-  	
-    
-    // Output
-    // Group by targetName and process each targetName separately for speed ??    
-  //Common_sp::sort (batch. blastAls);
-    if (verbose ())
-    {
-	    cout << "After process():" << endl;
 		  for (const BlastnAlignment* blastAl : batch. blastAls)
 		  {
 		    ASSERT (blastAl);
@@ -353,14 +348,16 @@ struct ThisApplication final : Application
 		}
 		
     
+    // Group by sseqid and process each sseqid separately for speed ??    
+  //Common_sp::sort (batch. blastAls);
     for (const BlastnAlignment* blastAl1 : batch. blastAls)
       for (const SeqChange& seqChange1 : blastAl1->seqChanges)
       {
         ASSERT (seqChange1. al == blastAl1);
       //ASSERT (seqChange1. mutation);
         for (const BlastnAlignment* blastAl2 : batch. blastAls)
-          if (   blastAl2->targetName   == blastAl1->targetName
-              && blastAl2->targetStrand == blastAl1->targetStrand
+          if (   blastAl2->sseqid  == blastAl1->sseqid
+              && blastAl2->sInt. strand == blastAl1->sInt. strand
               && blastAl2 != blastAl1
              )  
           //for (Iter<Vector<SeqChange>> iter (var_cast (blastAl2) -> seqChanges); iter. next (); )
@@ -376,7 +373,6 @@ struct ThisApplication final : Application
                 seqChange2. replacement = & seqChange1;
             }
       }
-		
 		
   #if 0
   	// [UNKNOWN]
@@ -398,6 +394,7 @@ struct ThisApplication final : Application
   #endif
 
 
+    // Output
     {
       TsvOut td (cout, 2, false);
       td. usePound = false;

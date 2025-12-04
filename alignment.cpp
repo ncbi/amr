@@ -70,7 +70,7 @@ AmrMutation::AmrMutation (size_t pos_real_arg,
   
   // reference, allele
 	parse (geneMutation_std, reference, allele, gene, pos_std, frameshift, frameshift_insertion);
-	if (allele == "STOP")
+	if (allele == terminatorWord)
 	  allele = "*";
 	else if (allele == "del")
 	  allele. clear ();
@@ -215,26 +215,46 @@ void SeqChange::qc () const
   if (empty ())
   {
     QC_ASSERT (! mutations. empty () /*mutation*/);
+    QC_ASSERT (disr. empty ());
     return;
   }
   
-  QC_ASSERT (len);
-  QC_ASSERT (! reference. empty ());  // For an insertion the preceding character is artifically added
-  QC_ASSERT (start_ref < stop_ref);
-  QC_ASSERT (stop_ref <= al->refEnd);
-  QC_ASSERT (reference. size () * al->al2ref_len <= stop_ref - start_ref);
-  QC_ASSERT (start_target <= al->targetEnd);
-  QC_ASSERT (! contains (reference, '-'));
-  QC_ASSERT (! contains (allele, '-'));
-  QC_ASSERT (reference != allele);
-  QC_ASSERT (isUpper (reference));
-  QC_ASSERT (isUpper (allele));
-  for (const AmrMutation* mutation : mutations)
+  disr. qc ();
+  if (disr. empty ())
   {
-    QC_ASSERT (mutation);
-    QC_ASSERT (between (mutation->pos_real, al->refStart, al->refEnd));
-    QC_IMPLY (mutation->frameshift != no_index, al->refProt);
-    QC_IMPLY (mutation->frameshift != no_index, ! al->targetProt);
+    QC_ASSERT (len);
+    QC_ASSERT (start_ref < stop_ref);
+    QC_ASSERT (start_target <= al->sInt. stop);
+    QC_ASSERT (! contains (reference, '-'));
+    QC_ASSERT (! contains (allele, '-'));
+    QC_ASSERT (isUpper (reference));
+    QC_ASSERT (isUpper (allele));
+    if (reference. empty ())  
+    {
+      ASSERT (isFrameshift ());
+      QC_ASSERT (allele. empty ());
+      QC_ASSERT (len == 1);
+      QC_ASSERT (stop_ref == start_ref + 1);
+      QC_ASSERT (! neighborhoodMismatch);
+      QC_ASSERT (mutations. empty ());
+    }
+    else
+    {
+      QC_ASSERT (stop_ref <= al->qInt. stop);
+      QC_ASSERT (reference. size () * al->a2q <= stop_ref - start_ref);
+      QC_ASSERT (reference != allele);
+    }
+    for (const AmrMutation* mutation : mutations)
+    {
+      QC_ASSERT (mutation);
+      QC_ASSERT (between (mutation->pos_real, al->qInt. start, al->qInt. stop));
+      QC_IMPLY (mutation->frameshift != no_index, al->qProt);
+      QC_IMPLY (mutation->frameshift != no_index, ! al->sProt);
+    }
+  }
+  else
+  {    
+    QC_ASSERT (mutations. empty ());
   }
 }
 
@@ -242,13 +262,16 @@ void SeqChange::qc () const
 
 string SeqChange::getMutationStr () const
 { 
+  ASSERT (al);
+  if (! disr. empty ())
+    return disr. genesymbol_raw ();
   const string allele_ (allele. empty () 
                           ? "DEL" 
                           : allele == "*"
-                              ? "STOP"
+                              ? terminatorWord
                               : allele
                        );
-  return reference + to_string ((int) start_ref + 1 /* - al->ref_offset*/) + allele_; 
+  return reference + to_string ((int) start_ref + 1) + allele_; 
 }
 
 
@@ -265,7 +288,7 @@ bool SeqChange::better (const SeqChange &other) const
 { 
   LESS_PART (other, *this, hasMutation ());
   LESS_PART (*this, other, neighborhoodMismatch);  
-  LESS_PART (other, *this, al->pIdentity ());  
+  LESS_PART (other, *this, al->relIdentity ());  
   return false;
 }
 
@@ -305,18 +328,19 @@ bool SeqChange::finishPos (size_t flankingLen)
 void SeqChange::setSeq ()
 { 
   ASSERT (al);
-  ASSERT (al->targetSeq. size () == al->refSeq. size ());
-  ASSERT (start + len <= al->targetSeq. size ());
+  ASSERT (al->sseq. size () == al->qseq. size ());
+  ASSERT (start <= al->sseq. size ());
+  ASSERT (len <= al->sseq. size () - start);
   
-  reference = al->refSeq.    substr (start, len);
-  allele    = al->targetSeq. substr (start, len);
+  reference = al->qseq. substr (start, len);
+  allele    = al->sseq. substr (start, len);
   
-  replaceStr (reference, "-", "");
-  replaceStr (allele,    "-", "");
+  replaceStr (reference, "-", noString);
+  replaceStr (allele,    "-", noString);
   
   QC_ASSERT (reference != allele);
-  ASSERT (isUpper (reference));
-  ASSERT (isUpper (allele));
+  strUpper (reference);
+  strUpper (allele);
 }
 
 
@@ -324,17 +348,17 @@ void SeqChange::setSeq ()
 void SeqChange::setStartStopRef ()
 {
   ASSERT (al);
-  ASSERT (start < al->refSeq. size ());
+  ASSERT (start < al->qseq. size ());
   
-  start_ref = al->refStart;
+  start_ref = al->qInt. start;
   FOR (size_t, i, start)
-    if (al->refSeq [i] != '-')
-      start_ref += al->al2ref_len;
+    if (al->qseq [i] != '-')
+      start_ref += al->a2q;
       
   stop_ref = start_ref;
   FOR_START (size_t, i, start, start + len)
-    if (al->refSeq [i] != '-')
-      stop_ref += al->al2ref_len;
+    if (al->qseq [i] != '-')
+      stop_ref += al->a2q;
 }
 
 
@@ -342,20 +366,20 @@ void SeqChange::setStartStopRef ()
 void SeqChange::setStartTarget ()
 {
   ASSERT (al);
-  ASSERT (start < al->targetSeq. size ());
+  ASSERT (start < al->sseq. size ());
   
-  start_target = al->targetStart;
-  if (al->targetStrand)
+  start_target = al->sInt. start;
+  if (al->sInt. strand == 1)
   {
     FOR (size_t, i, start)
-      if (al->targetSeq [i] != '-')
-        start_target += al->al2target_len;
+      if (al->sseq [i] != '-')
+        start_target += al->a2s;
   }
   else
   {
-    FOR_REV_END (size_t, i, start + len, al->targetSeq. size ())
-      if (al->targetSeq [i] != '-')
-        start_target += al->al2target_len;
+    FOR_REV_END (size_t, i, start + len, al->sseq. size ())
+      if (al->sseq [i] != '-')
+        start_target += al->a2s;
   }  
 }
 
@@ -364,7 +388,7 @@ void SeqChange::setStartTarget ()
 void SeqChange::setNeighborhoodMismatch (size_t flankingLen) 
 { 
   ASSERT (al);
-  ASSERT (start < al->targetSeq. size ())
+  ASSERT (start < al->sseq. size ())
   
 
   neighborhoodMismatch = 0.0;
@@ -385,7 +409,7 @@ void SeqChange::setNeighborhoodMismatch (size_t flankingLen)
     while (start - j <= flankingLen)
     { 
       span++;
-      if (al->targetSeq [j] != al->refSeq [j])
+      if (al->sseq [j] != al->qseq [j])
         mismatches++;
       if (j == 0)
         break;
@@ -393,7 +417,7 @@ void SeqChange::setNeighborhoodMismatch (size_t flankingLen)
     }
   }
   ASSERT (start >= j);
-  const size_t missed_left = min (min (al->targetTail (true), al->refStart), flankingLen + 1 - (start - j)); 
+  const size_t missed_left = min (min (al->sTail (true), al->qInt. start), flankingLen + 1 - (start - j)); 
   span       += missed_left;
   mismatches += missed_left; 
   if (verbose ())
@@ -401,14 +425,14 @@ void SeqChange::setNeighborhoodMismatch (size_t flankingLen)
 
   // Right flank
   const size_t stop = getStop ();
-  for (j = stop + 1; j < al->targetSeq. size () && j - stop <= flankingLen; j++)
+  for (j = stop + 1; j < al->sseq. size () && j - stop <= flankingLen; j++)
   { 
     span++;
-    if (al->targetSeq [j] != al->refSeq [j])
+    if (al->sseq [j] != al->qseq [j])
       mismatches++;
   }
   ASSERT (j >= stop);
-  const size_t missed_right = min (min (al->targetTail (false), al->refLen - al->refEnd), flankingLen + 1 - (j - stop));
+  const size_t missed_right = min (min (al->sTail (false), al->qlen - al->qInt. stop), flankingLen + 1 - (j - stop));
   span       += missed_right;
   mismatches += missed_right;     
   if (verbose ())
@@ -450,239 +474,6 @@ bool SeqChange::matchesMutation (const AmrMutation& mut) const
 
 // Alignment
 
-namespace
-{
-
-bool normalizeSeq (const string &seq1,
-                   string &seq2)
-// Return: seq2 is changed
-{
-  ASSERT (seq1. size () == seq2. size ());
-  
-  bool changed = false;
-  size_t start = no_index;
-  // -AAA --> AAA-
-  FFOR (size_t, i, seq1. size ())
-    if (start == no_index)
-    {
-      if (seq2 [i] == '-')
-        start = i;
-    }
-    else
-      if (seq2 [i] != '-')
-      {
-        if (   seq1 [i] == seq2 [i]
-            && seq2 [i] == seq1 [start]
-           )
-        {
-          swap (seq2 [i], seq2 [start]);
-          changed = true;
-        }
-        else
-          start = no_index;
-      }
-  ASSERT (seq1. size () == seq2. size ());
-  
-  return changed;
-}
-
-}
-
-
-
-void normalizeSeqs (string &seq1,
-                    string &seq2)
-{
-  for (;;)
-  {
-    const bool b1 = normalizeSeq (seq1, seq2);
-    const bool b2 = normalizeSeq (seq2, seq1);
-    if (   ! b1 
-        && ! b2
-       )
-      break;
-  }
-  ASSERT (seq1. size () == seq2. size ());
-  
-  while (   seq1. back () == '-'
-         && seq2. back () == '-'
-        )
-  {
-    seq1. erase (seq1. size () - 1, 1);
-    seq2. erase (seq2. size () - 1, 1);
-  }
-  ASSERT (seq1. size () == seq2. size ());
-}
-
-
-
-
-namespace 
-{
-
-char complementaryNucleotide (char wildNucleotide)
-{
-  char r = ' ';
-  switch (toLower (wildNucleotide))
-  {
-    case 'a': r = 't'; break;
-    case 'c': r = 'g'; break;
-    case 'g': r = 'c'; break;
-    case 't': r = 'a'; break;
-    case 'm': r = 'k'; break;
-    case 'r': r = 'y'; break;
-    case 'w': r = 'w'; break;
-    case 's': r = 's'; break;
-    case 'y': r = 'r'; break;
-    case 'k': r = 'm'; break;
-    case 'v': r = 'b'; break;
-    case 'h': r = 'd'; break;
-    case 'd': r = 'h'; break;
-    case 'b': r = 'v'; break;
-    case 'n': r = 'n'; break;
-    default: 
-    	throw runtime_error ("Bad wild nucleotide " + toString (wildNucleotide));
-  }
-  if (isupper (wildNucleotide))
-    r = toUpper (r);
-
-  return r;
-}
-
-
-
-void reverseDna (string &seq)
-{
-  const size_t len = seq. size ();
-  if (! len)
-  	return;
-
-  FFOR (size_t, i, len / 2)
-  {
-  	const size_t j = len - 1 - i;
-  	if (seq [i] != '-')
-  		seq [i] = complementaryNucleotide (seq [i]);
-  	if (seq [j] != '-')
-  		seq [j] = complementaryNucleotide (seq [j]);
-    swap (seq [i], seq [j]);
-  }
-
-  if (len % 2)
-  {
-  	const size_t i = len / 2;
-  	if (seq [i] != '-')
-  		seq [i] = complementaryNucleotide (seq [i]);
-  }
-}
-
-}
-
-
-
-Alignment::Alignment (const string &line,
-                      bool targetProt_arg,
-                      bool refProt_arg)
-: targetProt (targetProt_arg)
-, refProt (refProt_arg)
-, alProt (targetProt || refProt)
-, al2ref_len    (alProt && ! refProt    ? 3 : 1)
-, al2target_len (alProt && ! targetProt ? 3 : 1)
-{
-  try
-  {
-    istringstream iss (line);
-    iss >> targetName >> refName >> targetStart >> targetEnd >> targetLen >> refStart >> refEnd >> refLen >> targetSeq >> refSeq;
-    strUpper (targetSeq);
-    strUpper (refSeq);
-    
-    QC_ASSERT (! refSeq. empty ());	
-    QC_ASSERT (targetSeq. size () == refSeq. size ());    
-
-    if (! targetProt && ! refProt)
-    {
-      QC_ASSERT (refStart != refEnd);
-      const bool refStrand = refStart < refEnd;  
-      if (! refStrand)
-      {
-        swap (refStart, refEnd);
-      	reverseDna (targetSeq);
-      	reverseDna (refSeq);
-      	toggle (targetStrand);
-      }
-    }
-
-    if (! targetProt && refProt)
-    {
-	    QC_ASSERT (targetStart != targetEnd);
-	    targetStrand = targetStart < targetEnd;  
-	    if (! targetStrand)
-	      swap (targetStart, targetEnd);
-	  }
-    
-    QC_ASSERT (refStart >= 1);
-    QC_ASSERT (targetStart >= 1);
-    refStart--;
-    targetStart--;
-
-    if (refProt)
-    {
-      if (   refEnd == refLen 
-          && refSeq. back () == '*'
-         )
-      {
-        targetStopCodon = toEbool (targetSeq. back () == '*');
-        if (targetStopCodon == etrue)
-        {
-          nident--;        
-        //if (targetProt)
-          //targetLen -= al2target_len;
-        }
-        do
-        {
-          // Target
-          targetSeq. erase (targetSeq. size () - 1);
-          if (targetStrand)
-            targetEnd -= al2target_len;
-          else
-            targetStart += al2target_len;
-          // Reference
-          refSeq. erase (refSeq. size () - 1);
-          refEnd--;
-          QC_ASSERT (! refSeq. empty ());
-        }
-        while (targetSeq. back () != refSeq. back ());
-      //seqChanges ??
-      }
-      else if (   refEnd == refLen - 1 
-               && targetTail (false) >= al2target_len
-              )
-        targetStopCodon = efalse;
-      refLen--;
-    }
-
-    normalizeSeqs (targetSeq, refSeq);    
-    set_nident ();
-  }
-  catch (...)
-  {
-  	cout << line << endl;
-  	throw;
-  }
-}
-
-
-
-void Alignment::set_nident ()
-{
-  ASSERT (targetSeq. size () == refSeq. size ());
-  nident = 0;
-  FFOR (size_t, i, targetSeq. size ())
-    if (targetSeq [i] == refSeq [i])
-      nident++;
-}
-
-
-
 void Alignment::setSeqChanges (const Vector<AmrMutation> &refMutations,
                                size_t flankingLen/*,
                                bool allMutationsP*/)
@@ -693,7 +484,9 @@ void Alignment::setSeqChanges (const Vector<AmrMutation> &refMutations,
   
   if (! refMutation. empty ())
   {
-    if (refMutation. frameshift != no_index && ! (refProt && ! targetProt))
+    if (   refMutation. frameshift != no_index 
+        && ! blastx ()
+       )
       return;
     {
       const size_t index = refMutations. indexOf (refMutation);
@@ -703,9 +496,9 @@ void Alignment::setSeqChanges (const Vector<AmrMutation> &refMutations,
     const size_t start = refMutation2refSeq_pos ();
     if (start != no_index)
     {
-      SeqChange seqChange (this, true);
-      seqChange. start = start;
-      seqChange. len = refMutation. allele. size ();
+      SeqChange seqChange (this/*, true*/);
+      seqChange. start     = start;
+      seqChange. len       = refMutation. allele. size ();
       seqChange. reference = refMutation. reference;
       seqChange. allele    = refMutation. allele;
       if (seqChange. finishPos (flankingLen))
@@ -718,7 +511,7 @@ void Alignment::setSeqChanges (const Vector<AmrMutation> &refMutations,
   	if (verbose ())
   	{
   	  cout << endl;
-  	  cout << targetName << " vs. " << refName << ":" << endl;
+  	  cout << sseqid << " vs. " << qseqid << ":" << endl;
   	  cout << "Declarative mutation:" << endl;
   	  for (const SeqChange& seqChange : seqChanges)
   	    seqChange. saveText (cout);
@@ -728,23 +521,23 @@ void Alignment::setSeqChanges (const Vector<AmrMutation> &refMutations,
 
   
   {
-	  SeqChange seqChange (this, false);
+	  SeqChange seqChange (this/*, false*/);
 	  bool inSeqChange = false;
-		FFOR (size_t, i, refSeq. size () + 1)
+		FFOR (size_t, i, qseq. size () + 1)
 		  if (inSeqChange)
 		  {
-        if (targetSeq [i] == refSeq [i])
+        if (sseq [i] == qseq [i])
         {
-          if (seqChange. finish (refSeq, flankingLen))            
+          if (seqChange. finish (qseq, flankingLen))            
             seqChanges << std::move (seqChange);
-          seqChange = SeqChange (this, false);
+          seqChange = SeqChange (this/*, false*/);
           inSeqChange = false;
         }
         else
           seqChange. len++;
       }
       else
-        if (targetSeq [i] != refSeq [i])
+        if (sseq [i] != qseq [i])
         {
           seqChange. start = i;
           seqChange. len = 1;
@@ -752,13 +545,13 @@ void Alignment::setSeqChanges (const Vector<AmrMutation> &refMutations,
         }
   }
 #if 0
-  if (   targetProt 
-      && refProt
-      && targetEnd == targetLen
-      && refEnd < refLen
+  if (   sProt 
+      && qProt
+      && send == slen
+      && qend < qlen
      )
   {
-	  SeqChange seqChange (this, targetLen);
+	  SeqChange seqChange (this, slen);
     seqChanges << std::move (seqChange);
   }
 #endif
@@ -772,7 +565,7 @@ void Alignment::setSeqChanges (const Vector<AmrMutation> &refMutations,
 //Vector<SeqChange> seqChanges_add;
 	size_t j = 0;
 	
-  while (j < refMutations. size () && refMutations [j]. pos_real < refStart)
+  while (j < refMutations. size () && refMutations [j]. pos_real < qInt. start)
   {
   //if (allMutationsP)
   	//seqChanges_add << SeqChange (this, & refMutations [j]);
@@ -835,25 +628,27 @@ void Alignment::setSeqChanges (const Vector<AmrMutation> &refMutations,
 
   // WILDTYPE
   {
-    size_t refPos = refStart;
+    size_t refPos = qInt. start;
     size_t i = 0;
+    if (verbose ())
+      cout << "refMutations: " << refMutations. size () << endl;
     for (const AmrMutation& mut : refMutations)
     {
       while (refPos < mut. pos_real)
       {
-        ASSERT (refSeq [i] != '-');
+        ASSERT (qseq [i] != '-');
         i++;
-        while (refSeq [i] == '-')
+        while (qseq [i] == '-')
           i++;
-        if (! refSeq [i])
+        if (! qseq [i])
           break;
         refPos++;
       }
-      if (! refSeq [i])
+      if (! qseq [i])
         break;
       if (   refPos == mut. pos_real
-          && isLeft (string (& refSeq    [i]), mut. reference)
-          && isLeft (string (& targetSeq [i]), mut. reference)
+          && isLeft (string (& qseq [i]), mut. reference)
+          && isLeft (string (& sseq [i]), mut. reference)
          )
     	  seqChanges << SeqChange (this, & mut);
     }
@@ -863,7 +658,7 @@ void Alignment::setSeqChanges (const Vector<AmrMutation> &refMutations,
 	if (verbose ())
 	{
 	  cout << endl;
-	  cout << targetName << " vs. " << refName << ":" << endl;
+	  cout << sseqid << " vs. " << qseqid << ":" << endl;
 	  cout << "All found mutations:" << endl;
 	  for (const SeqChange& seqChange : seqChanges)
 	    seqChange. saveText (cout);
@@ -876,24 +671,24 @@ size_t Alignment::refMutation2refSeq_pos ()
 {
   ASSERT (! refMutation. empty ());
   
-  if (   refMutation. pos_real < refStart
-      || refMutation. pos_real + refMutation. allele. size () > refEnd
+  if (   refMutation. pos_real < qInt. start
+      || refMutation. pos_real + refMutation. allele. size () > qInt. stop
      )
     return no_index;
     
-  size_t pos = refStart;
+  size_t pos = qInt. start;
   size_t frameshift_i = no_index;
 	size_t i = 0;
-	while (i < refSeq. size ())
+	while (i < qseq. size ())
 	{
 	  ASSERT (pos <= refMutation. pos_real);
-	  if (refSeq [i] != '-')
+	  if (qseq [i] != '-')
 	  {
       if (pos == refMutation. pos_real)
       {
-        if (   refSeq.    substr (i, refMutation. allele. size ()) == refMutation. allele
-            && targetSeq. substr (i, refMutation. allele. size ()) == refMutation. allele
-            && (pos == 0 || (i > 0 && refSeq [i - 1] == targetSeq [i - 1]))
+        if (   qseq.    substr (i, refMutation. allele. size ()) == refMutation. allele
+            && sseq. substr (i, refMutation. allele. size ()) == refMutation. allele
+            && (pos == 0 || (i > 0 && qseq [i - 1] == sseq [i - 1]))
            )
         {
           if (refMutation. frameshift != no_index) 
@@ -905,8 +700,8 @@ size_t Alignment::refMutation2refSeq_pos ()
           }
           const size_t alignStop = i   + refMutation. allele. size ();
           const size_t refStop   = pos + refMutation. allele. size ();
-          ASSERT (alignStop <= refSeq. size ());
-          if (refStop == refLen || refSeq [alignStop] == targetSeq [alignStop])
+          ASSERT (alignStop <= qseq. size ());
+          if (refStop == qlen || qseq [alignStop] == sseq [alignStop])
             return i;
         }
         return no_index;
@@ -916,24 +711,24 @@ size_t Alignment::refMutation2refSeq_pos ()
     i++;
 	}
 
-	while (i < refSeq. size ())
+	while (i < qseq. size ())
 	{
 	  ASSERT (frameshift_i != no_index);
-	  if (refSeq [i] != '-')
+	  if (qseq [i] != '-')
 	  {
 	  #if 0
 	    PRINT (i);
 	    PRINT (pos);
 	    PRINT (refMutation. getStop ());
 	    PRINT (refMutation. frameshift);
-	    PRINT (refSeq    [i]);
-	    PRINT (targetSeq [i]);	    
+	    PRINT (qseq    [i]);
+	    PRINT (sseq [i]);	    
 	  #endif
 	    ASSERT (refMutation. getStop ());
 	    if (pos == refMutation. getStop () - 1 + refMutation. frameshift)
 	    {
-	      if (   refSeq    [i] == '*'
-	          && targetSeq [i] == '*'
+	      if (   qseq    [i] == '*'
+	          && sseq [i] == '*'
 	         )
 	        return frameshift_i;
 	      return no_index;
@@ -953,60 +748,14 @@ void Alignment::qc () const
   if (! qc_on)
     return;
     
-  if (empty ())
-  {
-    QC_ASSERT (targetName. empty ());    
-    QC_ASSERT (targetSeq. empty ());
-    QC_ASSERT (! targetStart);
-    QC_ASSERT (! targetEnd);
-    QC_ASSERT (! targetLen);
-    QC_ASSERT (refName. empty ());
-    QC_ASSERT (refSeq. empty ());
-    QC_ASSERT (! refStart);
-    QC_ASSERT (! refEnd);
-    QC_ASSERT (! refLen);  
-    QC_ASSERT (! nident);
-    return;
-  }
-  
-  QC_ASSERT (targetSeq. size () == refSeq. size ());  
-
-  QC_ASSERT (targetStart <= targetEnd);
-  QC_ASSERT (targetEnd <= targetLen);
-  QC_ASSERT ((targetEnd - targetStart) % al2target_len == 0);
-  QC_IMPLY (! targetSeq. empty (), (targetEnd - targetStart) / al2target_len <= targetSeq. size ());
-  QC_IMPLY (targetProt, targetStrand);
-  QC_IMPLY (targetStopCodon != enull, refProt);
-
-  QC_ASSERT (refStart <= refEnd);
-  QC_ASSERT (refEnd <= refLen);
-  QC_ASSERT ((refEnd - refStart) % al2ref_len == 0);
-  QC_IMPLY (! refSeq. empty (), (refEnd - refStart) / al2ref_len <= refSeq. size ());
-//QC_IMPLY (refProt, ! contains (refSeq, "*"));
-  
+  Hsp::qc ();
+    
   refMutation. qc ();
-
-  QC_ASSERT (alProt == targetProt || refProt);
-  
-  QC_ASSERT (nident <= (refEnd    - refStart) / al2ref_len);
-  QC_ASSERT (nident <= (targetEnd - targetStart) / al2target_len);
-  
   for (const SeqChange& seqChange : seqChanges)
   {
-    seqChange. qc ();
+    seqChange. qc (); 
     QC_ASSERT (seqChange. al == this);
   }
-}
-
-
-
-long Alignment::getGlobalTargetStart () const
-{ 
-  ASSERT (! targetProt);
-  ASSERT (refProt);
-  return targetStrand
-           ? (long) targetStart - 3 * (long) refStart
-           : (long) targetEnd   + 3 * (long) refStart; 
 }
 
 

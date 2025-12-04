@@ -131,6 +131,27 @@ void TextTable::Header::qc () const
 
 
 
+void TextTable::Header::saveSql (ostream& os) const 
+{ 
+  string name_ (name);
+  replace (name_, ' ' ,'_');
+  replaceStr (name_, "%", "Percent");
+  os << name_ << ' ';
+  if (numeric)
+  { 
+    if (scientific)
+      os << "float";
+    else
+      os << "numeric(" << max<size_t> (1, len_max) << ',' << decimals << ")";
+  }
+  else
+    os << "varchar(" << max<size_t> (1, len_max) << ")";
+  if (! null)
+    os << " not null"; 
+  os << '\n';
+}
+
+
 TextTable::TextTable (const string &tableFName,
                       const string &columnSynonymsFName,
                       bool headerP,
@@ -249,7 +270,7 @@ void TextTable::setHeader ()
       string field (row [i]);
       trim (field);
       Header& h = header [i];
-      if (field. empty ())
+      if (strNull (field))
       {
         h. null = true;
         continue;
@@ -257,8 +278,6 @@ void TextTable::setHeader ()
       maximize (h. len_max, field. size ());
       if (h. choices. size () <= Header::choices_max)
         h. choices << field;
-      if (strNull (field))
-        continue;
       if (! h. numeric)
         continue;
       {
@@ -523,15 +542,90 @@ void TextTable::sort (const StringVector &by)
                         { case -1: return true;
                           case  1: return false;
                         }
-                      // Tie resolution
-                      FFOR (size_t, i, a. size ())
+                      // Tie resolution 
+                      FFOR (ColNum, i, header. size ()) 
                         switch (this->compare (a, b, i))
                         { case -1: return true;
                           case  1: return false;
                         }
                       return false;
                     };
+                    
   Common_sp::sort (rows, lt);
+}
+
+
+
+void TextTable::deredundify (const StringVector &equivCols,
+                             const CompareInt& equivBetter)
+{
+  const Vector<ColNum> byIndex (columns2nums (equivCols));
+  
+  const auto lt = [&byIndex,this] (const StringVector &a, const StringVector &b) 
+                    { for (const ColNum i : byIndex) 
+                        switch (this->compare (a, b, i))
+                        { case -1: return true;
+                          case  1: return false;
+                        }
+                      return false;
+                    };
+                    
+  Common_sp::sort (rows, lt);
+    
+  Vector<bool> toDelete (rows. size (), false);
+  {
+    RowNum i = 0;
+    while (i < rows. size ())
+    {
+      const StringVector& row1 = rows [i];
+      FFOR_START (RowNum, j, i + 1, rows. size () + 1)  
+      {
+        if (j == rows. size ())
+        {
+          i = rows. size ();
+          break;
+        }
+        const StringVector& row2 = rows [j];
+        ASSERT (! lt (row2, row1));
+        if (lt (row1, row2))
+        {
+          i = j;
+          break;
+        }
+        ASSERT (i < j);
+        // i and j are in the same equivalence class
+        FOR_START (RowNum, k, i, j)
+          if (! toDelete [k])
+          {
+            bool stop = false;
+            FOR_START (RowNum, l, k + 1, j + 1)
+              if (! toDelete [l])
+              {
+                // Compare rows[k] and rows[l]
+                if (equivBetter (& rows [k], & rows [l]) == 1)
+                  toDelete [l] = true;
+                else if (equivBetter (& rows [l], & rows [k]) == 1)
+                {
+                  toDelete [k] = true;
+                  stop = true;
+                  break;
+                }
+              }
+            if (stop)
+              break;
+          }
+      }
+    }
+  }
+  
+  if (exists (toDelete))
+  {
+    Vector<StringVector> rows_new;  rows_new. reserve (rows. size ());
+    FFOR (RowNum, i, rows. size ())
+      if (! toDelete [i])
+        rows_new << std::move (rows [i]);    
+    rows = std::move (rows_new);
+  }
 }
 
 

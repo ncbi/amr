@@ -84,7 +84,7 @@ COMPILE.cpp= $(CXX) $(CPPFLAGS) $(SVNREV) $(DBDIR) $(TEST_UPDATE_DB) -c
 .PHONY: all clean install release stxtyper test
 
 BINARIES= amr_report amrfinder amrfinder_index amrfinder_update fasta_check \
-		  fasta_extract fasta2parts gff_check dna_mutation mutate
+		  fasta_extract fasta2parts gff_check dna_mutation mutate disruption2genesymbol
 
 all:	$(BINARIES) stxtyper
 
@@ -95,15 +95,15 @@ release: clean
 common.o:	common.hpp common.inc
 curl_easy.o: curl_easy.hpp common.hpp common.inc
 gff.o: gff.hpp common.hpp common.inc
-alignment.o:	alignment.hpp alignment.hpp common.inc
-seq.o: seq.hpp common.hpp common.inc
+alignment.o:	alignment.hpp seq.hpp common.hpp common.inc
+seq.o: seq.hpp graph.hpp common.hpp common.inc
 
-amr_report.o:	common.hpp common.inc gff.hpp alignment.hpp tsv.hpp columns.hpp version.txt
-amr_reportOBJS=amr_report.o common.o gff.o alignment.o
+amr_report.o:	common.hpp common.inc gff.hpp alignment.hpp tsv.hpp seq.hpp columns.hpp version.txt
+amr_reportOBJS=amr_report.o common.o gff.o alignment.o seq.o graph.o
 amr_report:	$(amr_reportOBJS)
 	$(CXX) $(LDFLAGS) -o $@ $(amr_reportOBJS)
 
-amrfinder.o:  common.hpp common.inc gff.hpp tsv.hpp columns.hpp version.txt
+amrfinder.o:  common.hpp common.inc gff.hpp seq.hpp tsv.hpp columns.hpp version.txt
 amrfinderOBJS=amrfinder.o common.o gff.o tsv.o
 amrfinder:	$(amrfinderOBJS)
 	$(CXX) $(LDFLAGS) -o $@ $(amrfinderOBJS) -pthread $(DBDIR)
@@ -142,15 +142,20 @@ gff_checkOBJS=gff_check.o common.o gff.o
 gff_check:	$(gff_checkOBJS)
 	$(CXX) $(LDFLAGS) -o $@ $(gff_checkOBJS)
 
-dna_mutation.o:	common.hpp common.inc alignment.hpp tsv.hpp columns.hpp version.txt
-dna_mutationOBJS=dna_mutation.o common.o alignment.o
+dna_mutation.o:	common.hpp common.inc alignment.hpp seq.hpp tsv.hpp columns.hpp version.txt
+dna_mutationOBJS=dna_mutation.o common.o alignment.o seq.o graph.o
 dna_mutation:	$(dna_mutationOBJS)
 	$(CXX) $(LDFLAGS) -o $@ $(dna_mutationOBJS)
 
 mutate.o:	common.hpp common.inc alignment.hpp seq.hpp version.txt
-mutateOBJS=mutate.o common.o alignment.o seq.o
+mutateOBJS=mutate.o common.o alignment.o seq.o graph.o
 mutate:	$(mutateOBJS)
 	$(CXX) -o $@ $(mutateOBJS)
+
+disruption2genesymbol.o:	common.hpp common.inc seq.hpp version.txt
+disruption2genesymbolOBJS=disruption2genesymbol.o common.o alignment.o seq.o graph.o
+disruption2genesymbol:	$(disruption2genesymbolOBJS)
+	$(CXX) -o $@ $(disruption2genesymbolOBJS)
 
 stxtyper:
 		$(MAKE) -C stx
