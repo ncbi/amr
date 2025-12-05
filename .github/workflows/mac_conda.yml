@@ -8,6 +8,7 @@ on:
 jobs:
   conda_macos_aarch64:
     runs-on: macos-latest
+    timeout-minutes: 30
     steps:
     - name: Install conda because built-in conda is borked
       run: |
@@ -57,6 +58,7 @@ jobs:
           bash ./test_amrfinder.sh -p 
   conda_macos_x86_64:
     runs-on: macos-13
+    timeout-minutes: 30
     steps:
     - name: Install conda because built-in conda is borked
       run: |

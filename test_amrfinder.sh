@@ -106,6 +106,9 @@ FAILURES=$(( $? + $FAILURES ))
 test_input_file "test_both" "-n test_dna.fa -g test_prot.gff -p test_prot.fa -O Escherichia"
 FAILURES=$(( $? + $FAILURES ))
 
+test_input_file "test_disrupt" "-n test_disrupt.fa -O Klebsiella_pneumoniae"
+FAILURES=$(( $? + $FAILURES ))
+
 # gzipped input
 # gzip -c test_prot.fa > test_prot.fa.gz 
 # gzip -c test_dna.fa > test_dna.fa.gz

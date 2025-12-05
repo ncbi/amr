@@ -9,6 +9,7 @@ on:
 jobs:
   conda_linux_x86_64:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
     - name: When was this run
       run: date
@@ -51,6 +52,7 @@ jobs:
           bash ./test_amrfinder.sh -p
   conda_linux_aarch64:
     runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
     steps:
     - uses: conda-incubator/setup-miniconda@v3
       with:

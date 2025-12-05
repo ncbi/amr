@@ -67,19 +67,13 @@ struct Curl
 
   Curl ()
     : eh (curl_easy_init ())
-    { 
-        if (! eh)
-            throw runtime_error ("Cannot initialize curl_easy");
-
-        // Check environment variable CURL_CA_BUNDLE for CA path
-        // PD-5495 / https://github.com/ncbi/amr/issues/170
-        const char *env_ca_bundle = getenv("CURL_CA_BUNDLE");
-        if (env_ca_bundle) {
-            // Override the libcurl system-wide default
-            curl_easy_setopt(eh, CURLOPT_CAINFO, env_ca_bundle);
-        }
+    { if (! eh)
+        throw runtime_error ("Cannot initialize curl_easy");        
+      // Override the libcurl system-wide default
+      // PD-5495 / https://github.com/ncbi/amr/issues/170
+      if (const char *env_ca_bundle = getenv ("CURL_CA_BUNDLE"))          
+        curl_easy_setopt (eh, CURLOPT_CAINFO, env_ca_bundle);  
     }
-
  ~Curl ()
    { curl_easy_cleanup (eh); }
 

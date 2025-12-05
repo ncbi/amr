@@ -38,8 +38,8 @@
 
 
 // PAR
+#undef TEST_UPDATE  
 #define HTTPS 1   // 0: FTP
-//#define TEST_UPDATE  
 
 
 
@@ -58,13 +58,15 @@ namespace
 {
 
 
+// URL
 #ifdef TEST_UPDATE
   #define URL "https://ftp.ncbi.nlm.nih.gov/pathogen/Technical/AMRFinder_technical/test_database/"
 #else
+  #define URL_SUF "://ftp.ncbi.nlm.nih.gov/pathogen/Antimicrobial_resistance/AMRFinderPlus/database/"  
   #if HTTPS
-    #define URL "https://ftp.ncbi.nlm.nih.gov/pathogen/Antimicrobial_resistance/AMRFinderPlus/database/"  
+    #define URL  "https" URL_SUF
   #else
-    #define URL "ftp://ftp.ncbi.nlm.nih.gov/pathogen/Antimicrobial_resistance/AMRFinderPlus/database/"  
+    #define URL  "ftp" URL_SUF
   #endif
 #endif
 
@@ -343,6 +345,7 @@ Requirement: the database directory contains subdirectories named by database ve
     fetchAMRFile (curl, urlDir, latestDir, "AMRProt.fa");
     fetchAMRFile (curl, urlDir, latestDir, "AMRProt-mutation.tsv");
     fetchAMRFile (curl, urlDir, latestDir, "AMRProt-suppress.tsv");
+    fetchAMRFile (curl, urlDir, latestDir, "AMRProt-susceptible.fa");
     fetchAMRFile (curl, urlDir, latestDir, "AMRProt-susceptible.tsv");
     fetchAMRFile (curl, urlDir, latestDir, "AMR_CDS.fa");
     fetchAMRFile (curl, urlDir, latestDir, "database_format_version.txt");  // PD-3051 
