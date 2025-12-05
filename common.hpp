@@ -206,7 +206,7 @@ template <typename T /*:number*/>
   inline bool between (T x, T low, T high)
     { return x >= low && x < high; }
 
-template <typename T/*:number*/> 
+template <typename T /*:number*/> 
   inline bool betweenEqual (T x, T low, T high)
     { return x >= low && x <= high; }
 
@@ -2536,6 +2536,19 @@ template <typename T>
             toDelete--;
           }
         }
+    Vector<T> subvec (size_t from,
+                      size_t count = no_index) const
+      { Vector<T> res;  
+        if (from >= P::size ())
+          return res;
+        size_t size = P::size () - from;
+        if (count != no_index)
+          minimize (size, count);
+        res. reserve (size);
+        for (size_t i = 0; i < size; i++)
+          res << (*this) [from + i];
+        return res;
+      }
 
     void sort ()
       { if (ascending == etrue)
@@ -2686,8 +2699,7 @@ template <typename T>
         }
     template <typename U /* : T */>
       void setMinus (const Vector<U> &other)
-        { filterIndex ([&] (size_t i) { return other. containsFast ((*this) [i]); }); }
-        
+        { filterIndex ([&] (size_t i) { return other. containsFast ((*this) [i]); }); }        
     size_t findDuplicate (bool checkSortedP = true) const
       { if (P::size () <= 1)
           return no_index;
@@ -3076,6 +3088,10 @@ template <typename T /* : Root */>
         }
     };
   };
+
+
+
+enum SetOperation {soIntersect, soUnion, soMinus};
 
 
 
