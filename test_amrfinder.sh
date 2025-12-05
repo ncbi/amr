@@ -49,13 +49,18 @@ then
     echo "-n option detected, skipping download of test data"
 else
     echo Downloading fresh test data...
-    curl -k -s -f \
-         -O https://raw.githubusercontent.com/ncbi/amr/master/test_dna.fa \
-         -O https://raw.githubusercontent.com/ncbi/amr/master/test_prot.fa \
-         -O https://raw.githubusercontent.com/ncbi/amr/master/test_prot.gff \
-         -O https://raw.githubusercontent.com/ncbi/amr/master/test_both.expected \
-         -O https://raw.githubusercontent.com/ncbi/amr/master/test_dna.expected \
-         -O https://raw.githubusercontent.com/ncbi/amr/master/test_prot.expected
+    BASE_URL=https://raw.githubusercontent.com/ncbi/amr/master
+    curl --silent -L \
+       -O ${BASE_URL}/test_dna.fa \
+       -O ${BASE_URL}/test_prot.fa \
+       -O ${BASE_URL}/test_prot.gff \
+       -O ${BASE_URL}/test_both.expected \
+       -O ${BASE_URL}/test_dna.expected \
+       -O ${BASE_URL}/test_dna_mut_all.expected \
+       -O ${BASE_URL}/test_prot.expected \
+       -O ${BASE_URL}/test_disrupt.fa \
+       -O ${BASE_URL}/test_disrupt.expected
+
 
     if [ $? != 0 ]
     then
