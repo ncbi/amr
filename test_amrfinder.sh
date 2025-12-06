@@ -46,11 +46,12 @@ fi
 
 if [ "$no_download" -gt 0 ]
 then
-    echo "-n option detected, skipping download of test data"
+    echo "-n option detected, skipping download of test data and using tests in"
+    echo "$PWD.  Note test data may not match the latest database release."
 else
     echo Downloading fresh test data...
     BASE_URL=https://raw.githubusercontent.com/ncbi/amr/master
-    curl --silent -L \
+    curl --silent --location \
        -O ${BASE_URL}/test_dna.fa \
        -O ${BASE_URL}/test_prot.fa \
        -O ${BASE_URL}/test_prot.gff \
@@ -61,12 +62,11 @@ else
        -O ${BASE_URL}/test_disrupt.fa \
        -O ${BASE_URL}/test_disrupt.expected
 
-
     if [ $? != 0 ]
     then
         echo "WARNING: Could not download new test data."
         echo "Will attempt to use test data in $PWD."
-        echo "Test data included with installation not match the latest database release."
+        echo "Test data included with installation may not match the latest database release."
     fi
 fi
 
