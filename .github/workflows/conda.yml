@@ -36,15 +36,7 @@ jobs:
     - name: download tests
       run: |
           BASE_URL=https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/master
-          curl --silent -L \
-             -O ${BASE_URL}/test_dna.fa \
-             -O ${BASE_URL}/test_prot.fa \
-             -O ${BASE_URL}/test_prot.gff \
-             -O ${BASE_URL}/test_both.expected \
-             -O ${BASE_URL}/test_dna.expected \
-             -O ${BASE_URL}/test_dna_mut_all.expected \
-             -O ${BASE_URL}/test_prot.expected \
-             -O ${BASE_URL}/test_amrfinder.sh
+          curl --silent -L -O ${BASE_URL}/test_amrfinder.sh
     - name: run tests
       run: |
           source /usr/share/miniconda/bin/activate
@@ -79,15 +71,7 @@ jobs:
     - name: download tests
       run: |
           BASE_URL=https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/master
-          curl --silent -L \
-             -O ${BASE_URL}/test_dna.fa \
-             -O ${BASE_URL}/test_prot.fa \
-             -O ${BASE_URL}/test_prot.gff \
-             -O ${BASE_URL}/test_both.expected \
-             -O ${BASE_URL}/test_dna.expected \
-             -O ${BASE_URL}/test_dna_mut_all.expected \
-             -O ${BASE_URL}/test_prot.expected \
-             -O ${BASE_URL}/test_amrfinder.sh
+          curl --silent -L -O ${BASE_URL}/test_amrfinder.sh
     - name: run tests
       shell: bash -el {0}
       run: bash ./test_amrfinder.sh -p
