@@ -33,6 +33,10 @@
 * Dependencies: NCBI BLAST, HMMer, libcurl, gunzip (optional)
 *
 * Release changes:
+*   4.2.12  05/08/2026 PD-5680  make blaADC-47 reported as "plus" by AMRFinderPlus
+*                      PD-5684  incorrect processing of declarative mutations in debug mode
+*                               simplification of replacing empty strings by "na" 
+*                               simplification of creation of the list of targets for -protein_output/-nucleotide_output
 *   4.2.11  03/04/2026 PD-5597  replace "DEL" by "del" in --mutation_all output for proteins
 *   4.2.10  02/27/2026 PD-3272  point mutations are ignored in protein hits with internal stop codons (except the stop codon point mutations)
 *   4.2.9   02/24/2026 PD-3547  method FRAMESHIFT
@@ -1477,6 +1481,7 @@ struct ThisApplication final : ShellApplication
       
       {
         TextTable amrTab (tmp + "/amr");
+        amrTab. null2str (na);
         if (! emptyArg (dna))
         {
    		    amrTab_disruptions (amrTab, db, dna_flat, gencode, qcS);
@@ -1510,6 +1515,7 @@ struct ThisApplication final : ShellApplication
       if (! mutation_all. empty ())
       {
         TextTable mutation_allTab (tmp + "/mutation_all");
+        mutation_allTab. null2str (na);
         if (! emptyArg (dna))
      		  amrTab_disruptions (mutation_allTab, db, dna_flat, gencode, qcS);
         mutation_allTab. sort (amrSortColumns);

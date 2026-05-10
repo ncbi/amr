@@ -232,6 +232,13 @@ public:
     { duplicateColumn (columnName_from, columnName_to);
       columnName_from = columnName_to;
     }
+  void null2str (const string &str)
+    { if (! str. empty ())
+        for (StringVector& row : rows)
+          for (string &s : row)
+            if (s. empty ())
+              s = str;
+    }
   ColNum findDate (Date::Format &fmt) const;
     // Date column is not empty and has the same format fmt in all rows
     // Return: no_index <=> not found

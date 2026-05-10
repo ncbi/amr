@@ -292,9 +292,10 @@ void TextTable::setHeader ()
       }
       if (h. numeric)
       {
+        bool numberP = false;
         bool hasPoint = false;
         streamsize decimals = 0;
-        if (getScientific (field, hasPoint, decimals))
+        if (getScientific (field, numberP, hasPoint, decimals))
           h. scientific = true;
         maximize<streamsize> (h. decimals, decimals);
       }
@@ -312,9 +313,10 @@ void TextTable::setHeader ()
         continue;
       if (! h. numeric)
         continue;
+      bool numberP = false;
       bool hasPoint = false;
       streamsize decimals = 0;
-      getScientific (field, hasPoint, decimals);
+      getScientific (field, numberP, hasPoint, decimals);
       maximize (h. len_max, field. size () + (size_t) (h. decimals - decimals) + (! hasPoint));
     }
 }

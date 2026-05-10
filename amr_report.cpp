@@ -369,6 +369,7 @@ struct BlastAlignment final : Alignment
     // FAM.class  
   string resistance;
   uchar reportable {0};
+  // For alleles
   string classS;
   string subclass;
 
@@ -764,10 +765,14 @@ struct BlastAlignment final : Alignment
 	  }
   bool alleleMatch () const
     { return refProtExactlyMatched (true) && allele (); }
+#if 0
   bool alleleReportable () const  // PD-3583
     { return alleleMatch () && reportable >= 2; }
+#endif
   uchar getReportable () const
-    { if (const Fam* f = getMatchFam ())
+    { if (alleleMatch ())
+        return reportable; 
+      if (const Fam* f = getMatchFam ())
         return f->reportable;
       return 0;
     }
@@ -817,18 +822,28 @@ public:
         add (s, fusion_infix, fusion->famId);
       return s;
     }
+#if 0
 private:
   bool isCore () const 
-    { return fusion2reportable () >= 2 || alleleReportable (); }
+    { if (alleleMatch ())
+        return reportable >= 2; 
+      return fusion2reportable () >= 2 /*|| alleleReportable ()*/; 
+    }
 public:
+#endif
   bool fusion2core () const
-    { ASSERT (! isMutationProt ());
+    { 
+    #if 1
+      return fusion2reportable () >= 2; 
+    #else      
+      ASSERT (! isMutationProt ());
       if (fusions. empty ())
         return isCore ();
       for (const BlastAlignment* fusion : fusions)
         if (fusion->isCore ())
           return true;
       return false;
+    #endif
     }
 private:
   string getType () const
@@ -871,6 +886,7 @@ public:
     { ASSERT (! isMutationProt ());
       if (fusions. empty ())
         return getClass ();
+      // needs database version >= 2026-05-09.1 ??
       StringVector vec;
       for (const BlastAlignment* fusion : fusions)
         vec << std::move (StringVector (fusion->getClass (), '/', true));
@@ -889,6 +905,7 @@ public:
     { ASSERT (! isMutationProt ());
       if (fusions. empty ())
         return getSubclass ();
+      // needs database version >= 2026-05-09.1 ??
       StringVector vec;
       for (const BlastAlignment* fusion : fusions)
         vec << std::move (StringVector (fusion->getSubclass (), '/', true));
@@ -1325,13 +1342,24 @@ bool HmmAlignment::better (const BlastAlignment& other) const
 
 
 
+// TargetReport
+
+struct TargetReport
+{
+  string target;
+  const BlastAlignment* al {nullptr};
+};
+
+
+
+
 // Batch
 
 struct Batch
 {
   // Reference input
   map<string/*hmm*/,const Fam*> hmm2fam;
-  uchar reportable_min {0};
+  const uchar reportable_min;
   StringVector suppress_prots;  // of accessions
   StringVector alien_prots;  // of accessions
 
@@ -2133,8 +2161,29 @@ public:
 		cout << endl;
 	}
 		
+
+  Vector<TargetReport> getTargetReports () const
+  {
+    Vector<TargetReport> vec;  vec. reserve (1000);  // PAR
+ 	  for (const auto& it : target2goodBlastAls)
+    	for (const BlastAlignment* blastAl : it. second)
+    	{
+    	  ASSERT (blastAl);
+     	  blastAl->qc ();
+   	  	if (   ! blastAl->seqChanges. empty ()
+   	  	    || (   blastAl->fusion2reportable () >= reportable_min
+     	          && ! suppress_prots. containsFast (blastAl->refAccession)
+     	          && ! blastAl->fusionRedundant
+     	         )
+     	     )
+     	    vec << TargetReport {it. first, blastAl};
+      }
+    return vec;
+  }
+
 	
 	void report (TsvOut &td,
+	             const Vector<TargetReport> &targetReports,
 	             bool mutationAll) const
 	// Input: target2goodBlastAls
 	{
@@ -2183,27 +2232,28 @@ public:
       td << hierarchyNode_colName; 
     td. newLn ();
 
- 	  for (const auto& it : target2goodBlastAls)
-    	for (const BlastAlignment* blastAl : it. second)
-    	{
-    	  ASSERT (blastAl);
-     	  blastAl->qc ();
-   	  	if (   ! blastAl->seqChanges. empty ()
-   	  	    || (   (   blastAl->fusion2reportable () >= reportable_min
-     	              || blastAl->alleleReportable ()
-     	             )
-     	          && ! suppress_prots. containsFast (blastAl->refAccession)
-     	          && ! blastAl->fusionRedundant
-     	         )
-     	     )
-       	  blastAl->report (td, it. first, mutationAll);
-      }
+  	for (const TargetReport& tr : targetReports)
+  	{
+  	  ASSERT (tr. al);
+   	  tr. al->report (td, tr. target, mutationAll);
+    }
 	}
 
 
-	void printTargetIds (ostream &os) const
+	void printTargetIds (ostream &os,
+	                     const Vector<TargetReport> &targetReports) const
 	{
 		QC_ASSERT (os. good ());
+	#if 1
+  	for (const TargetReport& tr : targetReports)
+  	{
+  	  ASSERT (tr. al);
+  	  if (   tr. al->sProt
+  	  	  && ! tr. al->isMutationProt ()
+  	  	 )
+        os << tr. al->sseqid << endl;
+    }
+	#else
  	  for (const auto& it : target2goodBlastAls)
     	for (const BlastAlignment* blastAl : it. second)
     	  if (   blastAl->sProt
@@ -2211,6 +2261,7 @@ public:
     	  	  && blastAl->fusion2reportable () >= reportable_min
     	  	 )
           os << blastAl->sseqid << endl;
+  #endif
 	}
 };
 
@@ -2649,22 +2700,23 @@ struct ThisApplication final : Application
 
 
     // Output
+    const Vector<TargetReport> targetReports (batch. getTargetReports ());
     {
       TsvOut td (cout, 2, false);
       td. usePound = false;
-      batch. report (td, false);
+      batch. report (td, targetReports, false);
     }
     if (! mutation_all_FName. empty ())
     {
       OFStream f (mutation_all_FName);
       TsvOut td (f, 2, false);
       td. usePound = false;
-      batch. report (td, true);
+      batch. report (td, targetReports, true);
     }
     if (! outFName. empty ())
     {
 	    OFStream ofs (outFName);
-      batch. printTargetIds (ofs);
+      batch. printTargetIds (ofs, targetReports);
     }
   }
 };

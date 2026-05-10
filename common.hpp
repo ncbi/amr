@@ -673,6 +673,7 @@ inline string unQuote (const string &s)
 bool strBlank (const string &s);
 
 bool getScientific (string numberS,
+                    bool &numberP,
                     bool &hasPoint,
                     streamsize &decimals);
 
@@ -991,7 +992,7 @@ string unHtml (const string &s);
 
 typedef size_t int_dist;  
 constexpr int_dist int_dist_inf {numeric_limits<int_dist>::max ()};  
-inline string int_dist2name (int_dist dist)
+inline string int_dist2str (int_dist dist)
   { if (dist == int_dist_inf)
       return "INF";
     return to_string (dist);
@@ -2143,7 +2144,7 @@ public:
     // A desrtructor should be virtual to be automatically invoked by a descendant class destructor
   virtual Root* copy () const
     { throwf ("Root::copy() is not implemented"); }
-    // Return: the same type    
+    // Return: !nullptr; type is descendant of this->type    
   virtual void qc () const
     {}
     // Input: qc_on
@@ -3781,6 +3782,7 @@ struct Unverbose
 
 
 struct Chronometer : Nocopy
+// For profiling
 // CPU (not astronomical) time
 // Requires: no thread is used
 {
@@ -3791,6 +3793,7 @@ struct Chronometer : Nocopy
 protected:
   clock_t startTime {noclock};
 public:
+  static constexpr Color::Type color {Color::red};  // PAR
 
 
   explicit Chronometer (const string &name_arg)
@@ -3918,6 +3921,20 @@ public:
 
 
 
+inline
+  void msgThrow (const string &msg,
+                 bool force)
+    { if (force)
+      { Stderr stderr;
+        const Common_sp::Warning warning (stderr);
+        stderr << msg;
+      }
+      else
+        throw runtime_error (msg);
+    }
+   
+
+
 struct Chronometer_OnePass_cerr : Chronometer_OnePass
 {
   explicit Chronometer_OnePass_cerr (const string &name_arg)
@@ -4032,8 +4049,8 @@ struct LineInput : Input
 		  throw runtime_error ("No " + strQuote (prefix));
 		  return false;  // dummy
 		}
-	string lineStr (bool add1 = true) const
-	  { return "line " + to_string (lineNum + add1); }
+	string lineStr () const
+	  { return "line " + to_string (lineNum); }
 };
 	
 

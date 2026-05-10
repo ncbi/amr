@@ -271,6 +271,7 @@ public:
            	      bool makeUpper) const;    
     // FASTA format
     // Length of lines = fastaLineLen
+  bool operator< (const Seq &other) const;
 
   size_t getIdSize () const
     { const size_t idSize = name. find (' ');

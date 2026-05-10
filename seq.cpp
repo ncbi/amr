@@ -165,37 +165,39 @@ void Seq::printCase (ostream &os,
 
 
 
+bool Seq::operator< (const Seq &other) const
+{
+  LESS_PART (*this, other, name);
+  return seq < other. seq;
+}
+
+
+
 size_t Seq::getTaxonStart (const string &s) 
 {
   size_t brackets = 0;
   FOR_REV (size_t, i, s. size ())
   {
-    if (s [i] == ']')
-      brackets++;
-    else if (s [i] == '[')
+    switch (s [i])
     {
-      if (brackets == 1)
-        return i;
-      else if (brackets == 0)
-    	  return string::npos;  // Non-balanced brackets: too many '['
-      else
+      case ']': 
+        brackets++; 
+        break;
+      case '[':
+        if (brackets == 1)
+          return i;
+        if (brackets == 0)
+      	  return string::npos;  // Non-balanced brackets: too many '['
         brackets--;
+        break;
+      default: 
+        break;
     }
-  //cout << s. substr (0, i + 1) << ' ' << i << ' ' << brackets << endl;  
     if (brackets == 0)
-    	return string::npos;  // No brackets
+      return string::npos;  // No brackets
   }
+
  	return string::npos;  // Non-balanced brackets: too many ']'
- 
-#if 0
-  if (s [s. size () - 1] != ']')
-  	return string::npos;
-  const size_t pos = s. rfind ('[');
-  if (pos == string::npos)
-  	return string::npos;
-  ASSERT (pos < s. size () - 1);
-  return pos;
-#endif
 }
 
 

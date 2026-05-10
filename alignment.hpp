@@ -78,14 +78,14 @@ struct AmrMutation final : Root
 	
   // Input: pos_arg: 1-based
 	AmrMutation (size_t pos_real_arg,
-  		 				 const string &geneMutation_std_arg,
-  		 				 const string &geneMutation_arg,
+  		 				 const string &geneMutation_std_arg,  
+  		 				 const string &geneMutation_arg,  // redundant ??
   			 			 const string &class_arg,    
   				 		 const string &subclass_arg, 
   					 	 const string &name_arg);    
 	AmrMutation (size_t pos_arg,
   		 				 const string &geneMutation_std_arg)
-    : AmrMutation (pos_arg, geneMutation_std_arg, geneMutation_std_arg, "X", "X", "X")
+    : AmrMutation (pos_arg, geneMutation_std_arg, geneMutation_std_arg, noString, noString, noString)  
     {}
 	AmrMutation () = default;
 private:

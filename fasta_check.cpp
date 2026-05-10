@@ -144,7 +144,7 @@ struct ThisApplication final : Application
         trimTrailing (f. line);
         if (f. line. empty ())
         	continue;
-      	const string errorS ("File " + fName + ", " + f. lineStr (false) + ": ");
+      	const string errorS ("File " + fName + ", " + f. lineStr () + ": ");
       	if (f. line [0] == '>')
       	{
       		size_t pos = 1;

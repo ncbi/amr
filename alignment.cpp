@@ -62,8 +62,6 @@ AmrMutation::AmrMutation (size_t pos_real_arg,
 { 
   QC_ASSERT (pos_real > 0);
 	pos_real--;
-	
-	QC_ASSERT (! name. empty ());
   QC_ASSERT (! contains (name, '\t'));
   replace (name, '_', ' ');
   QC_ASSERT (! contains (name, "  "));
@@ -458,7 +456,7 @@ bool SeqChange::matchesMutation (const AmrMutation& mut) const
   if (empty ())
     return false;
     
-  if (   mut. pos_real        < start_ref
+  if (   mut. pos_real   < start_ref
       || mut. getStop () > stop_ref
      )
     return false;
@@ -511,9 +509,13 @@ void Alignment::setSeqChanges (const Vector<AmrMutation> &refMutations,
       seqChange. allele    = refMutation. allele;
       if (seqChange. finishPos (flankingLen))
       {
-  		//ASSERT (seqChange. matchesMutation (refMutation))
-  		  seqChange. mutations << & refMutation;
-        seqChanges << std::move (seqChange);
+        seqChange. start_ref = refMutation. pos_real;
+        seqChange. stop_ref  = refMutation. getStop ();
+  		  if (seqChange. matchesMutation (refMutation))
+  		  {
+    		  seqChange. mutations << & refMutation;
+          seqChanges << std::move (seqChange);
+        }
       }
     }
   	if (verbose ())

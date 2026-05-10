@@ -227,16 +227,10 @@ namespace
 // alloc() may not work
 {
 	beep ();
-
+	
 	ostream* os = logPtr ? logPtr : & cerr;
 
 	// time ??
-#ifndef _MSC_VER
-	const string hostname (getEnv ("HOSTNAME"));
-	const string shell    (getEnv ("SHELL"));
-	const string pwd      (getEnv ("PWD"));
-	const string path     (getEnv ("PATH"));
-#endif
   if (contains (msg, error_caption))  // msg already is the result of errorExit()
     *os << endl << msg << endl;
   else
@@ -247,22 +241,32 @@ namespace
       *os << error_caption;
     }
     *os << endl
-        << msg << endl << endl
-      #ifndef _MSC_VER
-  	    << "HOSTNAME: " << nvl (hostname, "?") << endl
-  	    << "SHELL: "    << nvl (shell,    "?") << endl
-  	    << "PWD: "      << nvl (pwd,      "?") << endl
-  	    << "PATH: "     << nvl (path,     "?") << endl
-      #endif
-  	    << "Progam name:  " << programName << endl
+        << msg << endl << endl;
+  #ifndef _MSC_VER
+    #define GETENV(var)  { if (const char* s = getenv (var)) *os << var << ": " << s << endl; }
+    GETENV ("HOSTNAME");
+    GETENV ("SHELL");
+    GETENV ("PWD");
+    GETENV ("PATH");
+    #undef GETENV
+  #endif
+  	*os << "Progam name:  " << programName << endl
   	    << "Command line: " << getCommandLine () << endl;
   }
-  //system (("env >> " + logFName). c_str ());
+//system (("env >> " + logFName). c_str ());
 
   os->flush ();
 
   if (cxml)
-    cxml->print (string (error_caption) + ": " + msg);
+  {
+    const Xml::Tag tag (*cxml, "ERROR"); 
+    const StringVector lines (msg, '\n', false);
+    for (const string& line : lines)
+    {
+      const Xml::Tag lineTag (*cxml, "LINE");
+      cxml->print (line);
+    }
+  }
 
   if (segmFault)
     abort ();
@@ -399,9 +403,14 @@ void Chronometer::print (ostream &os) const
 {
   if (! on ())
     return;
-  os << "CHRON: " << name << ": ";
-  const ONumber onm (os, 2, false);
-  os << (double) time / CLOCKS_PER_SEC << " sec." << endl;
+    
+  {
+    const OColor oc (os, color, false, true);
+    os << "PROFILE: " << name << ": ";
+    const ONumber onm (os, 2, false);
+    os << (double) time / CLOCKS_PER_SEC << " sec.";
+  }
+  os << endl;
 }
 
 
@@ -720,15 +729,27 @@ bool strBlank (const string &s)
 
 
 bool getScientific (string numberS,
+                    bool &numberP,
                     bool &hasPoint,
                     streamsize &decimals)
 {
   strUpper (numberS);
-  const size_t ePos     = numberS. find ('E');
-  const size_t pointPos = numberS. find ('.');
-
-  hasPoint = (pointPos != string::npos);
+  
+  numberP = false;
+  hasPoint = false;
   decimals = 0;
+
+  if (numberS == "NAN")
+    return false;
+  if (isRight (numberS, "INF"))
+    return false;
+  
+  numberP = true;
+
+  const size_t ePos     = numberS. find ('E');
+  const size_t pointPos = numberS. find ('.');  
+  if (pointPos != string::npos)
+    hasPoint = true;
   if (ePos == string::npos)
   {
     if (hasPoint)
