@@ -792,6 +792,7 @@ struct BlastAlignment final : Alignment
       return    parts > 1
   	         && other. parts == 1
   	         && other. insideEq (*this)
+  	         && other. sInternalStop >= sInternalStop  // PD-5697
   	         && (   sInt. start + Cds::peptideSize_min * a2s <= other. sInt. start 
                  || sInt. stop                               >= other. sInt. stop + Cds::peptideSize_min * a2s
                 );

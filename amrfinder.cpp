@@ -33,7 +33,8 @@
 * Dependencies: NCBI BLAST, HMMer, libcurl, gunzip (optional)
 *
 * Release changes:
-*   4.2.12  05/08/2026 PD-5680  make blaADC-47 reported as "plus" by AMRFinderPlus
+*   4.2.13  05/22/2026 PD-5697  bifunctinal prortein with an internal stop codon is overridden by the two separate protein matches
+*   4.2.12  05/08/2026 PD-5680  make "plus" alleles (blaADC-47) to be reported as "plus"
 *                      PD-5684  incorrect processing of declarative mutations in debug mode
 *                               simplification of replacing empty strings by "na" 
 *                               simplification of creation of the list of targets for -protein_output/-nucleotide_output

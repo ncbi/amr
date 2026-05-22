@@ -3793,7 +3793,7 @@ struct Chronometer : Nocopy
 protected:
   clock_t startTime {noclock};
 public:
-  static constexpr Color::Type color {Color::red};  // PAR
+  static constexpr Color::Type color {Color::magenta};  // PAR
 
 
   explicit Chronometer (const string &name_arg)
