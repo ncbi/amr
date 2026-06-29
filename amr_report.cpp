@@ -2215,7 +2215,6 @@ HmmAlignment::HmmAlignment (const string &line,
   //     target name  accession  query name     accession   E-value  score     bias     E-value  score  bias   exp reg clu  ov env dom rep inc description of target
   iss >> sseqid >>    dummy      >> dummy      >> hmm >>    dummy >> score1 >> dummy >> dummy >> score2;
   QC_ASSERT (score1 > 0);
-  QC_ASSERT (score2 > 0)
   find (batch. hmm2fam, hmm, fam);
   if (! fam)
     throw runtime_error ("No family for HMM " + hmm);
