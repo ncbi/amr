@@ -49,22 +49,6 @@ namespace Common_sp
 
 // DiGraph::Node
 
-void DiGraph::Node::attach (DiGraph &graph_arg)
-{
-  ASSERT (! graph);
-#ifndef NDEBUG
-	for (const bool b : {false, true})
-	  ASSERT (arcs [b]. empty ());
-#endif
-  
-  graph = & graph_arg;
-  graph_arg. nodes << this;
-  graphIt = graph_arg. nodes. end (); 
-  graphIt--;
-}
-
- 
-
 DiGraph::Node::~Node ()
 {
 	for (const bool b : {false, true})
@@ -81,8 +65,11 @@ void DiGraph::Node::qc () const
     return;
   Root::qc ();
     
-  QC_IMPLY (graph, *graphIt == this);
-  if (! graph)
+  if (graph)
+  {
+    QC_ASSERT (*graphIt == this);
+  }
+  else
   	for (const bool b : {false, true})
   	  { QC_ASSERT (arcs [b]. empty ()); }
 }
@@ -115,8 +102,40 @@ void DiGraph::Node::saveText (ostream &os) const
 
  
 
-bool DiGraph::Node::isIncident (const DiGraph::Node* n,
-                                bool out) const
+void DiGraph::Node::attach (DiGraph &graph_arg,
+                            bool qc_arcs)
+{
+  ASSERT (! graph);
+
+  if (qc_on && qc_arcs)
+   	for (const bool b : {false, true})
+	    QC_ASSERT (arcs [b]. empty ());
+  
+  graph = & graph_arg;
+  graph_arg. nodes << this;
+  graphIt = graph_arg. nodes. end (); 
+  graphIt--;
+}
+
+ 
+
+void DiGraph::Node::detach (bool qc_arcs)
+{
+  ASSERT (graph);
+
+  if (qc_on && qc_arcs)
+  	for (const bool b : {false, true})
+  	  QC_ASSERT (arcs [b]. empty ());
+
+  var_cast (graph) -> nodes. erase (graphIt);  
+  graphIt = var_cast (graph) -> nodes. end (); 
+  graph = nullptr;
+}
+
+
+
+const DiGraph::Arc* DiGraph::Node::incident (const DiGraph::Node* n,
+                                             bool out) const
 {
 	ASSERT (n);
 	ASSERT (graph);
@@ -124,8 +143,8 @@ bool DiGraph::Node::isIncident (const DiGraph::Node* n,
 
   for (const Arc* arc : arcs [out])
     if (arc->node [out] == n)
-    	return true;
-  return false;
+    	return arc;
+  return nullptr;
 }
 
 
@@ -297,20 +316,6 @@ void DiGraph::Node::isolate ()
 
 
 
-void DiGraph::Node::detach ()
-{
-  ASSERT (graph);
-#ifndef NDEBUG
-	for (const bool b : {false, true})
-	  ASSERT (arcs [b]. empty ());
-#endif
-  var_cast (graph) -> nodes. erase (graphIt);  
-  graphIt = var_cast (graph) -> nodes. end (); 
-  graph = nullptr;
-}
-
-
-
 DiGraph::Node* DiGraph::Node::copyGraph (bool out,
                                          Node2Node &node2node) const
 {
@@ -364,6 +369,20 @@ DiGraph::Arc::~Arc ()
 }
 
  
+
+void DiGraph::Arc::qc () const
+{
+  if (! qc_on)
+    return;
+  Root::qc ();
+      
+  QC_ASSERT (node [false]);
+  QC_ASSERT (node [true]);
+  QC_ASSERT (node [false] -> graph);
+  QC_ASSERT (node [false] -> graph == node [true] -> graph);
+}
+
+
 
 void DiGraph::Arc::setNode (Node* newNode,
                             bool out)
@@ -577,7 +596,9 @@ void DiGraph::borrowArcs (const Node2Node &other2this,
     const VectorPtr<Node> otherNeighborhood (other->getNeighborhood (true));
     for (const Node* otherNeighbor : otherNeighborhood)
       if (const Node* to = findPtr (other2this, otherNeighbor))
-        if (parallelAllowed || ! from->isIncident (to, true))
+        if (   parallelAllowed 
+            || ! from->incident (to, true)
+           )
           new Arc ( var_cast (from)
                   , var_cast (to)
                   );

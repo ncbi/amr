@@ -76,7 +76,7 @@
       throwf (std::string ("\"" __FILE__ "\", line ") + to_string (__LINE__) + ", in " + (FUNC) + (msg));  \
     exit (1);                              \
   }
-#define ERROR            ERROR_MSG ("ERROR")
+#define ERROR            { cout << endl; ERROR_MSG ("ERROR"); }
 #define NOT_IMPLEMENTED  ERROR_MSG ("NOT IMPLEMENTED")
 #define NEVER_CALL       ERROR_MSG ("NEVER CALL")
 

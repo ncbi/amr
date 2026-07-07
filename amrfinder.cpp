@@ -33,7 +33,9 @@
 * Dependencies: NCBI BLAST, HMMer, libcurl, gunzip (optional)
 *
 * Release changes:
-*   4.2.13  05/22/2026 PD-5697  bifunctinal prortein with an internal stop codon is overridden by the two separate protein matches
+*   4.2.15  07/07/2026 PD-5721  hits with negative scores in hmmsearch are allowed 
+*   4.2.14  06/27/2026          more stringent QC of hmmsearch -domtblout output (https://github.com/ncbi/amr/issues/191)
+*   4.2.13  05/22/2026 PD-5697  bifunctional protein with an internal stop codon is overridden by the two separate protein matches
 *   4.2.12  05/08/2026 PD-5680  make "plus" alleles (blaADC-47) to be reported as "plus"
 *                      PD-5684  incorrect processing of declarative mutations in debug mode
 *                               simplification of replacing empty strings by "na" 

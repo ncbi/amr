@@ -48,6 +48,7 @@
 	  #include <sys/stat.h>
 	  #include <unistd.h>
 	  #include <dirent.h>
+	  #include <fcntl.h>
 	  #ifdef __APPLE__
 	    #include <sys/sysctl.h>
 	  #endif
@@ -3503,7 +3504,7 @@ struct RawDirItemGenerator::Imp
 
 
   explicit Imp (const string &dirName)
-    : dir (opendir (dirName. c_str ()))
+    : dir (fdopendir (open (dirName. c_str (), O_RDONLY | O_NONBLOCK | O_DIRECTORY)))  // was: opendir (dirName. c_str ())
     {
       if (! dir)
         throw runtime_error ("Cannot open directory " + strQuote (dirName));

@@ -2274,14 +2274,13 @@ public:
 HmmAlignment::HmmAlignment (const string &line,
                             const Batch &batch)
 {
-  static Istringstream iss;
-  iss. reset (line);
+  istringstream iss (line);
   string hmm, dummy;
   //                                                        --- full sequence ---  --- best 1 domain --
   //     target name  accession  query name     accession   E-value  score     bias     E-value  score  bias   exp reg clu  ov env dom rep inc description of target
   iss >> sseqid >>    dummy      >> dummy      >> hmm >>    dummy >> score1 >> dummy >> dummy >> score2;
-  QC_ASSERT (score1 > 0);
-  QC_ASSERT (score2 > 0)
+//QC_ASSERT (score1 > 0);
+  QC_ASSERT (! isNan (score2))
   find (batch. hmm2fam, hmm, fam);
   if (! fam)
     throw runtime_error ("No family for HMM " + hmm);
@@ -2295,9 +2294,8 @@ HmmAlignment::HmmAlignment (const string &line,
 HmmAlignment::Domain::Domain (const string &line,
                               Batch &batch)
 {
-  static Istringstream iss;
-  iss. reset (line);
-  string target_name, accession, query_name, query_accession;
+  istringstream iss (line);
+  string target_name, accession, query_name, query_accession, target_descr;
   size_t n, of, env_from, env_to;
   double eValue, full_score, full_bias, cValue, i_eValue, domain_bias, accuracy;
   iss >> target_name >> accession >> seqLen 
@@ -2307,7 +2305,10 @@ HmmAlignment::Domain::Domain (const string &line,
       >> hmmStart >> hmmStop 
       >> seqStart >> seqStop 
       >> env_from >> env_to
-      >> accuracy;
+      >> accuracy
+      >> target_descr;  // Last field documented in http://eddylab.org/software/hmmer/Userguide.pdf
+  if (target_descr. empty ())
+    throw runtime_error ("Incomplete hmmsearch -domtblout line:\n" + line);
   QC_ASSERT (accession == "-");
   QC_ASSERT (hmmStart);
   QC_ASSERT (seqStart);
@@ -2319,16 +2320,16 @@ HmmAlignment::Domain::Domain (const string &line,
   QC_ASSERT (seqStart < seqStop);
   QC_ASSERT (hmmStop <= hmmLen);
   QC_ASSERT (seqStop <= seqLen);
-  QC_ASSERT (full_score > 0);
+//QC_ASSERT (full_score > 0);
   QC_ASSERT (n >= 1);
   QC_ASSERT (n <= of);
-  QC_ASSERT (score > 0);
+//QC_ASSERT (score > 0);
 
   const Fam* fam = batch. hmm2fam [query_accession];
   if (! fam)
     return;
   const HmmAlignment::Pair p (target_name, fam->id);
-  const HmmAlignment::Domain domain_old (batch. domains [p]);
+  const HmmAlignment::Domain& domain_old = batch. domains [p];
   if (domain_old. score > score)
     return;
   batch. domains [p] = *this;
@@ -2572,20 +2573,22 @@ struct ThisApplication final : Application
   	  	  hmmAl->blastAl. reset (al);
   	  	  if (verbose ())
   	  	    cout << al->sseqid << " " << al->gene << endl;  
-  	  	  const HmmAlignment::Domain domain = batch. domains [HmmAlignment::Pair (al->sseqid, al->gene)];
-  	  	  if (! domain. hmmLen)  
-  	  	    continue;  // domain does not exist
- 	  	    if (! bestBlastAl)  // Stand-alone HMM hit
   	  	  {
-    	  	/*al->qlen        = domain. hmmLen;
-    	  	  al->qstart      = domain. hmmStart;
-    	  	  al->qend        = domain. hmmStop; */
-    	  	  al->slen        = domain. seqLen;
-    	  	  al->sInt. start = domain. seqStart;
-    	  	  al->sInt. stop  = domain. seqStop;
-    	  	//ASSERT (! al->refExactlyMatched ());
-    	  	//ASSERT (! al->partial ());
-      	  }
+    	  	  const HmmAlignment::Domain& domain = batch. domains [HmmAlignment::Pair (al->sseqid, al->gene)];
+    	  	  if (! domain. hmmLen)
+    	  	    continue;  // domain does not exist
+   	  	    if (! bestBlastAl)  // Stand-alone HMM hit
+    	  	  {
+      	  	/*al->qlen        = domain. hmmLen;
+      	  	  al->qstart      = domain. hmmStart;
+      	  	  al->qend        = domain. hmmStop; */
+      	  	  al->slen        = domain. seqLen;
+      	  	  al->sInt. start = domain. seqStart;
+      	  	  al->sInt. stop  = domain. seqStop;
+      	  	//ASSERT (! al->refExactlyMatched ());
+      	  	//ASSERT (! al->partial ());
+        	  }
+        	}
   	  	  al->qc ();
   	  	  batch. target2hmmAls [hmmAl->sseqid] << hmmAl. get ();  
   	      batch. hmmAls                        << hmmAl. release ();

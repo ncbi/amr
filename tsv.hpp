@@ -46,6 +46,17 @@ namespace Common_sp
 
 
 
+inline string str2field (const string &s)
+  { string s1 (s);
+    replace (s1, '\t', ' ');
+    replace (s1, '\n', ' ');
+    replace (s1, '\r', ' ');
+    trim (s1);
+    return s1;
+  }
+
+
+
 struct Date : Root
 {
   enum Format {fmt_Year, fmt_YMD, fmt_None};  // not complete list ??

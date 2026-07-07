@@ -120,17 +120,30 @@ struct DiGraph : Root
 
     Node* getDisjointCluster ()
       { return static_cast <Node*> (DisjointCluster::getDisjointCluster ()); }
-  	void attach (DiGraph &graph_arg);
+  	void attach (DiGraph &graph_arg,
+  	             bool qc_arcs = true);
       // Requires: !graph; no Arc's
       // Invokes: graph_arg.nodes.push_back(this)
       // Time: O(1)
+    void detach (bool qc_arcs = true);
+      // Opposite to attach()
+      // Output: graph = nullptr
+      // Requires: No Arc's
+      // Invokes: list::erase()
+    void moveTo (DiGraph &other)
+      { if (& other == graph)
+          return;
+        detach (false);
+        attach (other, false);
+      }        
 		virtual string getHumanName () const
 		  { return getName (); }
 		virtual string getLeafName () const
 		  { return getName (); }
-    bool isIncident (const Node* n,
-                     bool out) const;
-      // Return: n is among arcs[out]->node[out]
+    const DiGraph::Arc* incident (const Node* n,
+                                  bool out) const;
+      // Return: start = this, end = n (or the other way around)
+      //         may be nullptr
     bool isIncidentExcept (const Node* n,
                            bool out) const;
     size_t getDegree () const
@@ -175,10 +188,6 @@ struct DiGraph : Root
       // Time: O(n + m log n) for all nodes
     void isolate ();
       // Make degree = 0
-    void detach ();
-      // Output: graph = nullptr
-      // Requires: No Arc's
-      // Invokes: list::erase()
     Node* copyGraph (bool out,
                      Node2Node &node2node) const;
   };
@@ -222,6 +231,7 @@ struct DiGraph : Root
    ~Arc ();
       // Remove this from node->graph
       // Time: O(1)
+    void qc () const override;
 
 
     virtual void saveContent (ostream &/*os*/) const 
@@ -237,6 +247,10 @@ struct DiGraph : Root
       // Preserves the ordering of node[!out]->arcs[out]
     bool selfLoop () const
       { return node [false] == node [true]; }
+    bool attached () const
+      { return    node [false] -> graph
+               && node [true]  -> graph;
+      }
   };
 
 
