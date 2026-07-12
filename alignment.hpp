@@ -197,12 +197,11 @@ struct SeqChange final : Root
          << ' ' << start_target + 1 
          << ' ' << neighborhoodMismatch;
       if (! disr. empty ())
-        disr. saveText (os);
+        os << ' ' << disr;
       for (const AmrMutation* mutation : mutations)
       { os << ' ' ;
         mutation->saveText (os);
       }
-      os << endl; 
     }
   bool empty () const override
     { return ! len && disr. empty (); }
@@ -240,8 +239,6 @@ struct Alignment : Hsp
 {
   AmrMutation refMutation;
     // !empty() => qseq contains AmrMutation::allele
-//int ref_offset {0};
-
   Vector<SeqChange> seqChanges;
 
   

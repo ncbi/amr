@@ -1129,79 +1129,6 @@ public:
 
     
 
-#if 0
-struct Align final : Root
-// Needleman-Wunsch algorithm 
-{
-	// Output:
-	AlignScore score {0.0};
-	  // To be maximized
-	string transformations;
-	  // Of sequence 1
-	  // '-': insertion
-	  // '_': deletion
-	  // '|': match
-	  // ' ': substitution
-	size_t matches {0};
-	  // = identities
-	  // Not ambiguities
-	size_t substitutions {0};
-	size_t insertions {0};
-		// In seq1
-	size_t deletions {0};
-		// = insertions in seq2
-	
-	size_t start1 {0};
-	size_t start2 {0};
-  size_t stop1 {0};
-	size_t stop2 {0};
-	
-	AlignScore self_score1 {0.0};
-	AlignScore self_score2 {0.0};
-	
-	
-  // Default NCBI alignment parameters
-  // Input: match_len_min: valid if semiglobal, otherwise 0
-  // !semiglobal = global
-	Align (const Peptide &pep1,
-         const Peptide &pep2,
-         const SubstMat &substMat,
-         AlignScore gapOpenCost,
-         AlignScore gapCost,
-         size_t semiglobalMatchLen_min);
-    // Global alignment <=> !semiglobalMatchLen_min
-#if 0
-  ??
-	Align (const Dna &dna1,
-	       const Dna &dna2,
-	       bool semiglobal,
-	       size_t match_len_min);
-private:
-	void finish (const Seq &seq1,
-	             const Seq &seq2,
-	             bool semiglobal,
-	             size_t match_len_min);
-public:
-#endif
-  void qc () const override;
-	
-	
-	// Sizes of the input sequences
-  size_t size1 () const
-    { return transformations. size () - insertions; }
-  size_t size2 () const
-    { return transformations. size () - deletions; }
-  //
-	AlignScore getMinEditDistance () const;
-    // Return: >= 0
-  void printAlignment (const string &seq1,
-	                     const string &seq2,
-	                     size_t line_len) const;
-};
-#endif
-
-
-
 
 // Local alignments
 
@@ -1379,6 +1306,7 @@ struct Hsp : Root
 // End of a segment = position after the segment
 {
   bool merged {false};
+    // => blastx()
   
   // --> array<Data:Interval,2/*qs bool*/> data; ??
   bool qProt {false};  // query
@@ -1404,7 +1332,7 @@ struct Hsp : Root
 	string sseq;  
 	  // Uppercase
 	  // Same size()
-	  // disrs.empty() => match the sequence between qInt.start(sInt.start) and qInt.stop(sInt.stop)  
+	  // !merged => match the sequence between qInt.start(sInt.start) and qInt.stop(sInt.stop)  
 	
 	// Result of finishHsp()
   // Alignment units
@@ -1421,7 +1349,7 @@ private:
   // size() = length + 1
   // [0] = start, [length] = end
   // strand = 1 <=> [i] <= [i+1]
-  // Require: disrs.empty()
+  // Require: !merged
   Vector<size_t> pos2q_;
   Vector<size_t> pos2s_;
 public:
@@ -1435,7 +1363,7 @@ public:
   bool sInternalStop {false};
   	
   Vector<Disruption> disrs;
-    // !empty() <=> *this is in merge()
+    // !empty() => blastx()
     // type() != eNone,eSmooth
     // Ordered by qInt().start
 
@@ -1526,7 +1454,7 @@ public:
     { return sInt. len (); }
 
   // Return: alignment units
-  // Requires: disrs.empty()
+  // Requires: !merged
   size_t qLen () const;
   size_t sLen () const;
     
@@ -1541,7 +1469,7 @@ public:
   size_t pos2real_s (size_t pos,
                      bool forward) const;
                      
-  // Requires: disrs.empty()
+  // Requires: !merged
   // Input: pos: position in alignment
   // sInt.strand = -1 => s-position is the end of alignment segment 
   size_t pos2q (size_t pos,
@@ -1591,9 +1519,7 @@ public:
     { return sInt. rest (slen, upstream); }
   bool perfect () const
     { return    qComplete ()
-             && disrs. empty ()
-           //&& ! sInternalStop
-             ;
+             && disrs. empty ();
     }
   bool sInsideEq (const Hsp &other,
                  size_t slack) const
@@ -1623,6 +1549,20 @@ public:
   const Disruption* findDisruption (Disruption::Type type) const
     { for (const Disruption& disr : disrs)
         if (disr. type () == type)
+          return & disr;
+      return nullptr;
+    }
+  const Disruption* findStopDisruption () const
+    { for (const Disruption& disr : disrs)
+        if (disr. sStopCodon ())
+          return & disr;
+      return nullptr;
+    }
+  const Disruption* findStopFrameshiftDisruption () const
+    { for (const Disruption& disr : disrs)
+        if (   disr. sStopCodon ()
+            || disr. type () == Disruption::eFrameshift
+           )
           return & disr;
       return nullptr;
     }

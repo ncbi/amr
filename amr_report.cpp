@@ -65,7 +65,6 @@ bool equidistant = false;
 bool cdsExist = false;
 bool print_node = false;
 bool print_node_raw = false;
-//bool reportPseudo = false; 
 bool targetProt = true;
 string input_name;
 
@@ -276,7 +275,7 @@ public:
   bool better (const BlastAlignment &other) const;
 
 
-  typedef  pair<string/*sseqid*/,string/*FAM.id*/>  Pair;
+  typedef  pair<string/*sseqid (target protein)*/,string/*FAM.id*/>  Pair;
   
   
   struct Domain  
@@ -347,6 +346,14 @@ map <string/*accession*/, Susceptible>  accession2susceptible;
 
 struct BlastAlignment final : Alignment
 // BLASTP or BLASTX
+//   q: reference (protein)
+//     type:
+//       regular               inFam()
+//       declarative mutation: isMutationProt(), !refMutation.empty(), !seqChanges.empty() 
+//       mutation:             isMutationProt(), !seqChanges.empty() 
+//       weakly susceptible:   isSusceptibleProt()
+//       strongly susceptible: isStrongSusceptibleProt()
+//   s: target (protein or DNA)
 {
   // Target  
   bool partialDna {false};
@@ -398,19 +405,18 @@ struct BlastAlignment final : Alignment
     	{
         try
         {	
-		      // qseqid	    
-			    product                     =                     rfindSplit (qseqid, '|'); 
-			    classS                      =                     rfindSplit (qseqid, '|'); 
-			    subclass                    =                     rfindSplit (qseqid, '|'); 
-			    reportable                  = (uchar) str2<int>  (rfindSplit (qseqid, '|')); 
-			    resistance                  =                     rfindSplit (qseqid, '|'); 
-			    gene                        =                     rfindSplit (qseqid, '|');  // Reportable_vw.class
-			    famId                       =                     rfindSplit (qseqid, '|');  // Reportable_vw.fam
-			    parts                       = (size_t) str2<int> (rfindSplit (qseqid, '|'));
-			    part                        = (size_t) str2<int> (rfindSplit (qseqid, '|'));
-			    refAccession                =                                 qseqid;  // rfindSplit (qseqid, '|');
-			  //str2<long> (qseqid);  // gi: dummy
-  		    if (contains (refAccession, ':'))  
+          string s (qseqid);
+			    product                     =                     rfindSplit (s, '|'); 
+			    classS                      =                     rfindSplit (s, '|'); 
+			    subclass                    =                     rfindSplit (s, '|'); 
+			    reportable                  = (uchar) str2<int>  (rfindSplit (s, '|')); 
+			    resistance                  =                     rfindSplit (s, '|'); 
+			    gene                        =                     rfindSplit (s, '|');  // Reportable_vw.class
+			    famId                       =                     rfindSplit (s, '|');  // Reportable_vw.fam
+			    parts                       = (size_t) str2<int> (rfindSplit (s, '|'));
+			    part                        = (size_t) str2<int> (rfindSplit (s, '|'));
+			    refAccession                =                                 s;
+  		    if (contains (refAccession, ':'))   // Declarative mutation
   		    {
   		      QC_ASSERT (isMutationProt ());
   		      const string geneMutation =               rfindSplit (refAccession, ':');
@@ -426,7 +432,6 @@ struct BlastAlignment final : Alignment
 			  	throw runtime_error (string ("Bad AMRFinder database\n") + e. what () + "\n" + line);
 			  }
 		    QC_ASSERT (! refAccession. empty ());
-		  //qseqid = refAccession;		    	    
 		    replace (product,  '_', ' ');
 		    replace (classS,   '_', ' ');
 		    replace (subclass, '_', ' ');
@@ -525,7 +530,7 @@ struct BlastAlignment final : Alignment
 	  //QC_IMPLY (part > 1, ! fusions. empty () || fusionRedundant);
 	    QC_IMPLY (! fusions. empty (), parts >= 2);
 	    QC_IMPLY (isMutationProt (), ! isSusceptibleProt ());
-	    QC_IMPLY (susceptible, isSusceptibleProt ());
+	    QC_IMPLY (susceptible, isSusceptibleProt ());  // susceptible is set only for organism
 	    QC_IMPLY (isStrongSusceptibleProt (), isSusceptibleProt ());
 	    QC_IMPLY (isSusceptibleProt (), fusions. empty () && ! fusionRedundant);
 	    QC_IMPLY (isMutationProt (), fusions. empty () && ! fusionRedundant);
@@ -684,7 +689,7 @@ struct BlastAlignment final : Alignment
   	          else
   	            td << fusion2famIds ();
   	        }
-  	        IMPLY (isMutationProt () && isMutation /*! seqChange. empty () && mut && ! seqChange. replacement*/, hasMutation ());
+  	        IMPLY (isMutationProt () && isMutation, hasMutation ());
   	        td. newLn ();
   	      }
 	      }
@@ -765,10 +770,6 @@ struct BlastAlignment final : Alignment
 	  }
   bool alleleMatch () const
     { return refProtExactlyMatched (true) && allele (); }
-#if 0
-  bool alleleReportable () const  // PD-3583
-    { return alleleMatch () && reportable >= 2; }
-#endif
   uchar getReportable () const
     { if (alleleMatch ())
         return reportable; 
@@ -823,29 +824,8 @@ public:
         add (s, fusion_infix, fusion->famId);
       return s;
     }
-#if 0
-private:
-  bool isCore () const 
-    { if (alleleMatch ())
-        return reportable >= 2; 
-      return fusion2reportable () >= 2 /*|| alleleReportable ()*/; 
-    }
-public:
-#endif
   bool fusion2core () const
-    { 
-    #if 1
-      return fusion2reportable () >= 2; 
-    #else      
-      ASSERT (! isMutationProt ());
-      if (fusions. empty ())
-        return isCore ();
-      for (const BlastAlignment* fusion : fusions)
-        if (fusion->isCore ())
-          return true;
-      return false;
-    #endif
-    }
+    { return fusion2reportable () >= 2; }
 private:
   string getType () const
     { return susceptible ? "AMR" : checkPtr (getMatchFam ()) -> type; }
@@ -979,21 +959,6 @@ public:
              && ! cdss. empty ()
              && ! truncatedCds ();
 	  }
-#if 0
-	bool pseudo () const
-	  { return    sInternalStop
-	           || partialPseudo ();
-	  }
-#endif
-	StringVector getContigs () const
-	  { ASSERT (! cdss. empty ());
-	    StringVector contigs;  contigs. reserve (cdss. size ());
-	    for (const Locus& locus : cdss)
-	      contigs << locus. contig;
-	    contigs. sort ();
-	    contigs. uniq ();
-	    return contigs;
-	  }
   bool good () const
     { ASSERT (! fromHmm);
       if (refAccession. empty ())
@@ -1003,8 +968,6 @@ public:
     #if 0
       if (refAccession == "WP_104009840.1" && sseqid == "blaPDC-114_added")
       {
-      //PRINT (reportPseudo);
-      //PRINT (pseudo ());
         PRINT (isMutationProt ());
         PRINT (seqChanges. empty ());
         PRINT (isSusceptibleProt ());
@@ -1020,10 +983,6 @@ public:
         cout << endl;
         saveText (cout);        
       }
-    #endif
-    #if 0
-      if (! reportPseudo && pseudo ())
-        return false;
     #endif
       if (isMutationProt () && seqChanges. empty ())  // PD-4981
         return false;
@@ -1124,6 +1083,45 @@ private:
     // Must: transitive
     { if (this == & other)
         return true;
+    #if 0  
+      if (sseqid == "contig16" && qseqid == "WP_089631889.1")
+      {
+      //PRINT (other. insideEq (*this));
+      //PRINT (insideEq (other));
+      	PRINT (refAccession);
+      	PRINT (sProt);
+      	PRINT (inFam ());
+      //PRINT (fusion2geneSymbols ());
+      	PRINT (nident);
+      	PRINT (sInt. start);
+      	PRINT (sInt. stop);
+      	PRINT (qInt. start);
+      	PRINT (qInt. stop);
+      	PRINT (isMutationProt ());
+      	PRINT (isSusceptibleProt ());
+      	PRINT (hasMutation ());
+      	PRINT (refProtExactlyMatched (false)); 
+	      PRINT (refEffectiveLen ());
+        //
+        PRINT (other. sseqid);
+        PRINT (other. qseqid);
+      	PRINT (other. refAccession);
+      	PRINT (other. sProt);
+      	PRINT (other. inFam ());
+      //PRINT (other. fusion2geneSymbols ());
+      	PRINT (other. nident);
+      	PRINT (other. sInt. start);
+      	PRINT (other. sInt. stop);
+      	PRINT (other. qInt. start);
+      	PRINT (other. qInt. stop);
+      	PRINT (other. isMutationProt ());
+      	PRINT (other. isSusceptibleProt ());
+      	PRINT (other. hasMutation ());
+      	PRINT (other. refProtExactlyMatched (false)); 
+	      PRINT (other. refEffectiveLen ());
+	      cout << endl;
+      }
+    #endif
       // PD-4981
       if (isMutationProt () != other. isMutationProt ())  
         return false;
@@ -1136,39 +1134,6 @@ private:
       {
 	    	if (sseqid != other. sseqid)
 	        return false;
-	    #if 0
-	      if (sseqid == "WP_063839878.1.last91" && qseqid == "WP_063839878.1")
-	      {
-	        PRINT (other. insideEq (*this));
-        	PRINT (insideEq (other));
-        	PRINT (sProt);
-        	PRINT (inFam ());
-        	PRINT (other. inFam ());
-        	PRINT (fusion2geneSymbols ());
-        	PRINT (other. fusion2geneSymbols ());
-        	PRINT (refAccession);
-        	PRINT (other. refAccession);
-        	//
-        	PRINT (nident);
-        	PRINT (sInt. start);
-        	PRINT (sInt. stop);
-        	PRINT (qInt. start);
-        	PRINT (qInt. stop);
-        	PRINT (hasMutation ());
-        	PRINT (refProtExactlyMatched (false)); 
-  	      PRINT (refEffectiveLen ());
-	        //
-        	PRINT (other. nident);
-        	PRINT (other. sInt. start);
-        	PRINT (other. sInt. stop);
-        	PRINT (other. qInt. start);
-        	PRINT (other. qInt. stop);
-        	PRINT (other. hasMutation ());
-        	PRINT (other. refProtExactlyMatched (false)); 
-  	      PRINT (other. refEffectiveLen ());
-  	      cout << endl;
-	      }
-	    #endif
         // PD-807, PD-4277
         if (   ! other. insideEq (*this)
         	  && !        insideEq (other)
@@ -1207,6 +1172,8 @@ private:
 	    }
 	    else
 	    { 
+        if (isMutationProt ())  // Identical point mutations are deredundified in amrfinder.cpp: amrTab.deredundify(); PD-5393
+          return false;
         // PD-1902, PD-2139, PD-2313, PD-2320
 	    	if (sProt && ! matchesCds (other))
 	    	  return false;
@@ -1254,7 +1221,10 @@ public:
   bool better (const BlastAlignment &other) const
     { return    betterEq (other) 
     	       && (   ! other. betterEq (*this)
-    	           || (! isMutationProt () /*inFam () --PD-5014*/ && ! equidistant && refAccession < other. refAccession)  // Tie resolution: PD-1245
+  	             || (   ! isMutationProt ()  // PD-5014
+    	               && ! equidistant 
+    	               && refAccession < other. refAccession  // Tie resolution: PD-1245
+  	                )
     	          );
     }
   bool better (const HmmAlignment& other) const
@@ -1298,6 +1268,16 @@ public:
   	  insertAll (cdss, cdss_);
   	  qc ();
     }
+	StringVector getContigs () const
+	  { //ASSERT (! cdss. empty ());
+	    ASSERT (sProt);
+	    StringVector contigs;  contigs. reserve (cdss. size ());
+	    for (const Locus& locus : cdss)
+	      contigs << locus. contig;
+	    contigs. sort ();
+	    contigs. uniq ();
+	    return contigs;
+	  }
   static bool less (const BlastAlignment* a,
                     const BlastAlignment* b) 
     { ASSERT (a);
@@ -1371,13 +1351,13 @@ struct Batch
   map<HmmAlignment::Pair, HmmAlignment::Domain> domains;  // Best domain  
   
   // Output
-  //  targetProt => accession is protein 
-  // !targetProt => accession is DNA 
-  map<string/*accession*/,VectorPtr<BlastAlignment>> target2blastAls;
-  map<string/*accession*/,VectorPtr<BlastAlignment>> target2goodBlastAls;
-  //
-  map<string/*protein accession*/,VectorPtr<HmmAlignment>> target2hmmAls;
-  map<string/*protein accession*/,VectorPtr<HmmAlignment>> target2goodHmmAls;
+  // Alignments are grouped by target accessions
+  //  targetProt => target accession is protein 
+  // !targetProt => target accession is DNA 
+  map<string/*target accession*/,VectorPtr<BlastAlignment>> target2blastAls;
+  map<string/*target accession*/,VectorPtr<BlastAlignment>> target2goodBlastAls;
+  map<string/*target accession*/,VectorPtr<HmmAlignment>> target2hmmAls;
+  map<string/*target accession*/,VectorPtr<HmmAlignment>> target2goodHmmAls;
     
   
   Batch (const string &famFName,
@@ -1576,7 +1556,10 @@ struct Batch
     	  	  }
   	  	  }
   	  	  if (verbose ())
+  	  	  {
   	  	    PRINT (accession2susceptible. size ());
+  	  	    cout << endl;
+  	  	  }
   	  	}
 	    }
 	    alien_prots. sort ();
@@ -1618,6 +1601,17 @@ private:
       {
         ASSERT (blastAl);
       	ASSERT (blastAl->good ());
+      #if 0
+    	  for (const BlastAlignment* blastAl1 : it. second)
+    	    if (blastAl != blastAl1)
+    	    {
+    	      cout << *blastAl << endl;
+    	      cout << *blastAl1 << endl;
+    	      cout << blastAl ->betterEq (*blastAl1) << endl;
+    	      cout << blastAl1->betterEq (*blastAl) << endl;
+    	    }
+    	#endif
+      	//
     	  bool found = false;
     	  for (const BlastAlignment* goodBlastAl : vec)
     	    if (goodBlastAl->better (*blastAl))
@@ -1648,35 +1642,13 @@ private:
               && blastAlX->sInternalStop
               && blastAlP. better (*blastAlX)
              )
+          {
+          //ASSERT (blastAlP. qseqid == blastAlX->qseqid);
             blastAlP. sInternalStop = true;
+          }
   }
     
     
-#if 0
-  struct Frameshift 
-  {
-    string refName;
-    size_t targetPos {no_index};
-    size_t refPos {no_index};
-    long insertion {0};
-      // %3
-  };
-
-
-  static bool frameshiftSort (const BlastAlignment* al1,
-                              const BlastAlignment* al2)
-  {
-    ASSERT (al1);
-    ASSERT (al2);
-    LESS_PART (*al1, *al2, sseqid);
-    LESS_PART (*al1, *al2, qseqid);
-    LESS_PART (*al1, *al2, sInt. strand);
-    LESS_PART (*al1, *al2, sInt. start);
-    return false;
-  }
-#endif
-                         
-
   VectorPtr<BlastAlignment> processDisruptions (const VectorPtr<BlastAlignment> &origAls)
   // Return: new 
   {
@@ -1692,8 +1664,8 @@ private:
     {
       ASSERT (al);
       if (   al->blastx ()
-          && ! al->isMutationProt ()
-        //&& al->isStrongSusceptibleProt ()  
+        //&& ! al->isMutationProt ()  // PD-3272 (frame shifts)
+          && al->refMutation. empty ()
          )
       {
         origHsps << al;
@@ -1710,7 +1682,6 @@ private:
       als = origAls;
     else
     {
-    //PRINT (origHsps. size ());  
       Hsp::Merge merge (origHsps, nullptr/*sm*/, 20, true/*bacteria*/);  // PAR
       for (;;)
       { 
@@ -1720,13 +1691,13 @@ private:
         if (hsp. empty ()) 
           break; 
         ASSERT (origHsp);
-        auto al = new BlastAlignment (* static_cast <const BlastAlignment*> (origHsp));
+        auto al = new BlastAlignment (* static_cast <const BlastAlignment*> (origHsp));  // Borrow metadata and seqChanges
         ASSERT (al->refMutation. empty ());
-        ASSERT (al->seqChanges. empty ());
+      //ASSERT (al->seqChanges. empty ());  // PD-3272 (frame shifts)
+        ASSERT (al->seqChanges. size () == static_cast <const BlastAlignment*> (origHsp) -> seqChanges. size ());
         blastAls << al;
         * static_cast <Hsp*> (al) = std::move (hsp);
         al->qc ();
-      //PRINT (*al);  
         als << al;
       }
     }
@@ -1812,75 +1783,6 @@ public:
     }
  	  
  	  
- 	#if 0
-    // Declarative frameshifts for mutation proteins  // --> processed as susceptible 
-    for (auto& it : target2blastAls)
-    {
-      VectorPtr<BlastAlignment>& als = it. second;
-      ASSERT (! als. empty ());
-      als. sort (frameshiftSort);      
-      
-      Vector<Frameshift> frameshifts;
-      {
-        // Cf. tblastn2frameshift.cpp
-        constexpr size_t diff_max_aa = 30;  // PAR
-        const BlastAlignment* al_prev = nullptr;
-    	  for (const BlastAlignment* al : als)
-    	  {
-    	    ASSERT (al);
-    	  //ASSERT (al->sseqid == it. first);  // Locus::contig != al->sseqid
-    	    if (al->hasDeclarativeFrameshift ())
-    	      continue;
-    	    if (   al_prev
-    	        && al_prev->blastx ()
-    	        && al->blastx ()
-    	        && al_prev->sseqid       == al->sseqid
-    	        && al_prev->qseqid       == al->qseqid
-    	        && al_prev->sInt. strand == al->sInt. strand
-    	        && difference (al_prev->sInt. stop, al->sInt. start) <= 3 * diff_max_aa
-    	        && (   (al->sInt. strand ==  1 && difference (al_prev->qInt. stop,  al->qInt. start) <= diff_max_aa)
-      	          || (al->sInt. strand == -1 && difference (al_prev->qInt. start, al->qInt. stop)  <= diff_max_aa)
-      	         )
-      	     )
-          {
-            const long diff = al->sStartGlobal () - al_prev->sStartGlobal ();
-            if (diff % 3)  
-              frameshifts << Frameshift { al->qseqid
-                                        , al->sInt. strand == 1 ? al_prev->sInt. stop : (al->sInt. start - al->a2s)
-                                        , al->sInt. strand == 1 ? al_prev->qInt. stop : al->qInt. stop
-                                        , diff
-                                        };
-          }
-    	    al_prev = al;
-    	  }
-    	}
-
-  	  for (const BlastAlignment* al : als)
-  	    if (al->hasDeclarativeFrameshift ())
-    	  {
-    	    ASSERT (al->seqChanges. size () == 1);
-    	    const SeqChange& seqChange = al->seqChanges [0];
-    	    ASSERT (seqChange. hasFrameshift ());
-          const AmrMutation* mut = seqChange. mutations [0];
-          ASSERT (mut);
-          bool found = false;
-          for (const Frameshift& fs : frameshifts)
-            if (   al->qseqid                       == fs. refName
-                && seqChange. start_target          == fs. targetPos
-                && (size_t) mut->pos_std            == fs. refPos
-                && (long) mut->frameshift_insertion == fs. insertion
-               )
-            {
-              found = true;
-              break;
-            }
-          if (! found)
-            var_cast (al) -> seqChanges. clear ();
-    	  }
-    }
-  #endif
-
-
     for (auto& it : target2blastAls)
       for (Iter<VectorPtr<BlastAlignment>> iter (it. second); iter. next ();)
         if (alien_prots. containsFast ((*iter)->refAccession))
@@ -1935,8 +1837,7 @@ public:
       for (const BlastAlignment* blastAl1 : it. second)
         for (const SeqChange& seqChange1 : blastAl1->seqChanges)
         {
-          ASSERT (seqChange1. al == blastAl1);
-        //ASSERT (seqChange1. mutation);
+        //ASSERT (seqChange1. al == blastAl1);  // PD-3272 (frame shifts)
           for (const BlastAlignment* blastAl2 : it. second)
           {
             if (   blastAl2->sProt        == blastAl1->sProt
@@ -1944,17 +1845,13 @@ public:
                 && blastAl2->sInt. strand == blastAl1->sInt. strand
                 && blastAl2               != blastAl1
                )  
-            //for (Iter<Vector<SeqChange>> iter (var_cast (blastAl2) -> seqChanges); iter. next (); )
               for (SeqChange& seqChange2 : var_cast (blastAl2) -> seqChanges)
               {
-              //SeqChange& seqChange2 = *iter;
-              //ASSERT (seqChange2. mutation);
-                ASSERT (seqChange2. al == blastAl2);
+              //ASSERT (seqChange2. al == blastAl2);  // PD-3272 (frame shifts)
                 if (   seqChange1. start_target     == seqChange2. start_target 
                     && seqChange1. hasFrameshift () == seqChange2. hasFrameshift ()
                     && seqChange1. better (seqChange2)
                    )
-                //iter. erase ();
                   seqChange2. replacement = & seqChange1;
               }
           }
@@ -2237,6 +2134,14 @@ public:
   	{
   	  ASSERT (tr. al);
    	  tr. al->report (td, tr. target, mutationAll);
+   	#if 0
+   	  if (tr. al->qseqid == "WP_002911375.1")  // ??
+   	  {
+   	    cerr << * tr. al << endl;  
+   	    for (const SeqChange& seqChange : tr. al->seqChanges)
+   	      cerr << seqChange << endl;
+   	  }
+   	#endif
     }
 	}
 
@@ -2245,7 +2150,6 @@ public:
 	                     const Vector<TargetReport> &targetReports) const
 	{
 		QC_ASSERT (os. good ());
-	#if 1
   	for (const TargetReport& tr : targetReports)
   	{
   	  ASSERT (tr. al);
@@ -2254,15 +2158,6 @@ public:
   	  	 )
         os << tr. al->sseqid << endl;
     }
-	#else
- 	  for (const auto& it : target2goodBlastAls)
-    	for (const BlastAlignment* blastAl : it. second)
-    	  if (   blastAl->sProt
-    	  	  && ! blastAl->isMutationProt ()
-    	  	  && blastAl->fusion2reportable () >= reportable_min
-    	  	 )
-          os << blastAl->sseqid << endl;
-  #endif
 	}
 };
 
@@ -2381,7 +2276,6 @@ struct ThisApplication final : Application
       addKey ("out", "Identifiers of the reported input proteins");
       addFlag ("print_node", "Print FAM.id replaced by FAM.parent for non-exact allele matches"); 
       addFlag ("print_node_raw", "Print FAM.id"); 
-    //addFlag ("pseudo", string ("Indicate pseudo-genes as method ") + internalStop_Name + " or " + frameshift_Name);
       addFlag ("force_cds_report", "Report contig/start/stop/strand even if this information does not exist");
       addFlag ("non_reportable", "Report non-reportable families");
       addFlag ("core", "Report only core reportale families");
@@ -2426,7 +2320,6 @@ struct ThisApplication final : Application
     const string  outFName             = getArg ("out");
                   print_node           = getFlag ("print_node");
                   print_node_raw       = getFlag ("print_node_raw");
-                //reportPseudo         = getFlag ("pseudo");
     const bool    force_cds_report     = getFlag ("force_cds_report");
     const bool    non_reportable       = getFlag ("non_reportable");
     const bool    report_core_only     = getFlag ("core");

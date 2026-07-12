@@ -33,6 +33,8 @@
 * Dependencies: NCBI BLAST, HMMer, libcurl, gunzip (optional)
 *
 * Release changes:
+*   4.2.16  07/10/2026 PD-5393  subtype POINT overrides subtype POINT_DISRUPT (bug of combo case is fixed)
+*                      PD-3272  do not report point mutations that appear after a stop codon or a frame shift
 *   4.2.15  07/07/2026 PD-5721  hits with negative scores in hmmsearch are allowed 
 *   4.2.14  06/27/2026          more stringent QC of hmmsearch -domtblout output (https://github.com/ncbi/amr/issues/191)
 *   4.2.13  05/22/2026 PD-5697  bifunctional protein with an internal stop codon is overridden by the two separate protein matches
@@ -420,9 +422,10 @@ const string ambigS ("20");
 
 
 TextTable::ColNum subtype_col = no_index;
-TextTable::ColNum start_col = no_index;
-TextTable::ColNum stop_col = no_index;
-TextTable::ColNum strand_col = no_index;
+TextTable::ColNum start_col   = no_index;
+TextTable::ColNum stop_col    = no_index;
+TextTable::ColNum strand_col  = no_index;
+TextTable::ColNum method_col  = no_index;
 
 
 
@@ -433,18 +436,23 @@ int amrTab_equivBetter (const void* rowBetter,
   ASSERT (start_col   != no_index);
   ASSERT (stop_col    != no_index);
   ASSERT (strand_col  != no_index);
+  ASSERT (method_col  != no_index);
   ASSERT (rowBetter);
   ASSERT (rowWorse);
   ASSERT (rowBetter != rowWorse);
   const StringVector& rowBetter_ = * static_cast <const StringVector*> (rowBetter);
   const StringVector& rowWorse_  = * static_cast <const StringVector*> (rowWorse);
   ASSERT (rowBetter_ [strand_col] == rowWorse_ [strand_col]);
-  if (   rowBetter_ [subtype_col] == "POINT"
-      && rowWorse_  [subtype_col] == "POINT_DISRUPT"
-      && (   (rowBetter_ [strand_col] == "+" && rowBetter_ [start_col] == rowWorse_ [ start_col])
-          || (rowBetter_ [strand_col] == "-" && rowBetter_ [stop_col]  == rowWorse_ [ stop_col])
-         )
+  if (   (rowBetter_ [strand_col] == "+" && rowBetter_ [start_col] == rowWorse_ [start_col])
+      || (rowBetter_ [strand_col] == "-" && rowBetter_ [stop_col]  == rowWorse_ [stop_col])
      )
+    if (   (   rowBetter_ [subtype_col] == "POINT"
+            && rowWorse_  [subtype_col] == "POINT_DISRUPT"
+           )
+        || (   rowBetter_ [method_col] == "POINTP"
+            && rowWorse_  [method_col] == "POINTX"
+           )
+       )
     return 1;
   return 0;
 }
@@ -1033,7 +1041,7 @@ struct ThisApplication final : ShellApplication
  	  }
 
 
-    const string qcS (qc_on ? " -qc" : "");
+    const string qcS (ifS (qc_on, " -qc"));
 		
 								  
     prog2dir ["fasta_check"]           = execDir;
@@ -1430,21 +1438,21 @@ struct ThisApplication final : ShellApplication
 
     // tmp + "/amr", tmp + "/mutation_all"
 		stderr. section ("Making report");
-    const string printNode (print_node ? " -print_node" : "");
+    const string printNode (ifS (print_node, " -print_node"));
     const string nameS (" -name " + input_name);
     {
  			const Chronometer_OnePass_cerr cop ("amr_report");
-      const string mutation_allS (mutation_all. empty () ? "" : ("-mutation_all " + tmp + "/mutation_all"));      
-      const string coreS (add_plus ? "" : " -core");
-  		const string force_cds_report (! emptyArg (dna) && ! organism1. empty () ? "-force_cds_report" : "");  // Needed for dna_mutation
-      const string equidistantS (equidistant ? " -report_equidistant" : "");
+      const string mutation_allS (ifS (! mutation_all. empty (), "-mutation_all " + tmp + "/mutation_all"));
+      const string coreS (ifS (! add_plus, " -core"));
+  		const string force_cds_report (ifS (! emptyArg (dna) && ! organism1. empty (), "-force_cds_report"));  // Needed for dna_mutation
+      const string equidistantS (ifS (equidistant, " -report_equidistant"));
   		exec (fullProg ("amr_report") + " -fam " + shellQuote (db + "/fam.tsv") + "  " + amr_report_blastp + "  " + amr_report_blastx
       		  + "  -organism " + strQuote (organism1) 
       		  + "  -mutation "    + shellQuote (db + "/AMRProt-mutation.tsv") 
       		  + "  -susceptible " + shellQuote (db + "/AMRProt-susceptible.tsv") 
       		  + " " + mutation_allS + " "
-      		  + force_cds_report + coreS + equidistantS + printNode  // + " -pseudo"
-      		  + (ident == -1 ? noString : "  -ident_min "    + toString (ident)) 
+      		  + force_cds_report + coreS + equidistantS + printNode  
+      		  + ifS (ident != -1, "  -ident_min " + toString (ident)) 
       		  + "  -coverage_min " + toString (cov)
       		  + ifS (suppress_common, " -suppress_prot " + tmp + "/suppress_prot")  
       		  + nameS + qcS + " " + parm + " -log " + logFName + " > " + tmp + "/amr", logFName);
@@ -1452,7 +1460,7 @@ struct ThisApplication final : ShellApplication
 		if (blastn)
 		{
  			const Chronometer_OnePass_cerr cop ("dna_mutation");
-      const string mutation_allS (mutation_all. empty () ? "" : ("-mutation_all " + tmp + "/mutation_all.dna")); 
+      const string mutation_allS (ifS (! mutation_all. empty (), "-mutation_all " + tmp + "/mutation_all.dna")); 
 			exec (fullProg ("dna_mutation") + tmp + "/blastn " + shellQuote (db + "/AMR_DNA-" + organism1 + ".tsv") + " " + strQuote (organism1) + " " + mutation_allS 
 			      + nameS + printNode + qcS + " -log " + logFName + " > " + tmp + "/amr-snp", logFName);
 	    {
@@ -1494,8 +1502,9 @@ struct ThisApplication final : ShellApplication
           start_col   = amrTab. col2num (start_colName);  
           stop_col    = amrTab. col2num (stop_colName);  
           strand_col  = amrTab. col2num (strand_colName);  
+          method_col  = amrTab. col2num (method_colName);  
           //
-          amrTab. deredundify (amrSortColumns_main, amrTab_equivBetter);         
+          amrTab. deredundify (amrSortColumns_main, amrTab_equivBetter);  
         }
         amrTab. sort (amrSortColumns);
         amrTab. rows. uniq ();  // PD-4297    

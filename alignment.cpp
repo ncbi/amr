@@ -61,7 +61,7 @@ AmrMutation::AmrMutation (size_t pos_real_arg,
 , name (name_arg)
 { 
   QC_ASSERT (pos_real > 0);
-	pos_real--;
+  pos_real--;
   QC_ASSERT (! contains (name, '\t'));
   replace (name, '_', ' ');
   QC_ASSERT (! contains (name, "  "));
@@ -484,6 +484,7 @@ void Alignment::setSeqChanges (const Vector<AmrMutation> &refMutations,
                                size_t flankingLen/*,
                                bool allMutationsP*/)
 {
+  ASSERT (! merged);
   ASSERT (seqChanges. empty ());
   ASSERT (! refMutations. empty ());  	
   
@@ -554,17 +555,6 @@ void Alignment::setSeqChanges (const Vector<AmrMutation> &refMutations,
           inSeqChange = true;
         }
   }
-#if 0
-  if (   sProt 
-      && qProt
-      && send == slen
-      && qend < qlen
-     )
-  {
-	  SeqChange seqChange (this, slen);
-    seqChanges << std::move (seqChange);
-  }
-#endif
   if (verbose ())
   {
     PRINT (seqChanges. size ());
@@ -599,22 +589,15 @@ void Alignment::setSeqChanges (const Vector<AmrMutation> &refMutations,
 		    mut. saveText (cout);
 		    cout << endl;
 		  }
-	  #if 0
-		  if (mut. pos_real < seqChange. start_ref)
-	     if (allMutationsP)
-      	  seqChanges_add << SeqChange (this, & mut);  // "seqChanges <<" destroys seqChange
-    #endif
 		  if (mut. pos_real >= seqChange. stop_ref)
 		    break;
-		#if 0
-		  cout << mut << endl;
-		  PRINT (seqChange. matchesMutation (mut));  
-		#endif
 		  if (seqChange. matchesMutation (mut))
 		  {
-		    if (   ! sInternalStop  
-		        || mut. isTerm ()
-		       )  // PD-3272
+		    bool bad = false;
+		    if (const Disruption* disr = findStopDisruption ())
+		      if (mut. pos_real > disr->qInt (). start)
+		        bad = true;		    
+		    if (! bad)  // PD-3272
 		      seqChange. mutations << & mut;
 		  	if (verbose ())
 		  	{
@@ -768,7 +751,13 @@ void Alignment::qc () const
   for (const SeqChange& seqChange : seqChanges)
   {
     seqChange. qc (); 
-    QC_ASSERT (seqChange. al == this);
+  //QC_ASSERT (seqChange. al == this);  // PD-3272 (frame shifts)
+    QC_ASSERT (seqChange. al->qseqid == qseqid);
+    QC_ASSERT (seqChange. al->sseqid == sseqid);
+    QC_ASSERT (seqChange. al->qProt == qProt);
+    QC_ASSERT (seqChange. al->sProt == sProt);
+    QC_ASSERT (seqChange. al->qInt. strand == qInt. strand);
+    QC_ASSERT (seqChange. al->sInt. strand == sInt. strand);
   }
 }
 

@@ -3944,463 +3944,6 @@ void Mutation::replace (Dna &refDna) const
 
 
 
-#if 0
-// Align
-
-namespace 
-{
-  
-struct Cell
-{
-  enum Dir {dirLeft, dirUp, dirDiag};
-    // Direction to the previous Cell
-  typedef  array <AlignScore, 3/*Dir*/>  Score;
-  typedef  array <Dir,    3/*Dir*/>  Dir_best;
-    // Direction from the previous Cell to the previous previous Cell
-  Score scores;
-  Dir_best dirs;
-
-  
-  Cell () 
-    { constexpr AlignScore score_inf = numeric_limits<AlignScore>::infinity ();
-      scores [dirLeft] = - score_inf;
-      scores [dirUp]   = - score_inf;
-      scores [dirDiag] = - score_inf;
-    }
-};
-  
-}
-
-
-
-Align::Align (const Peptide &pep1,
-	            const Peptide &pep2,
-	            const SubstMat &substMat,
-	            AlignScore gapOpenCost,
-	            AlignScore gapCost,
-	            size_t semiglobalMatchLen_min)
-{
-  ASSERT (! pep1. sparse);
-  ASSERT (! pep2. sparse);
-  ASSERT (gapOpenCost >= 0.0);
-  ASSERT (gapCost >= 0.0);
-  
-  
-#if 0
-  // PAR
-	int gap_open   = 1;  
-	int gap_extent = 1;
-	if (blosum62)
-	{
-	  gap_open   = -11;  
-		gap_extent =  -2; 
-	}
-	else
-	{
-	  gap_open   = -8;  
-		gap_extent = -2;  
-	}
-  ASSERT (gap_open <= 0);
-  ASSERT (gap_extent < 0);
-
-	CNWAligner al (pep1. seq, pep2. seq, blosum62 ? & NCBISM_Blosum62 : & NCBISM_Pam30);
-  al. SetWg (gap_open);
-  al. SetWs (gap_extent);
-	al. SetEndSpaceFree (semiglobal, semiglobal, semiglobal, semiglobal);
-	score = al. Run ();
-  tr = al. GetTranscriptString ();  
-  
-	finish (pep1, pep2, semiglobal, match_len_min);
-#endif
-
-
-  const string seq1 ("-" + pep1. seq);
-  const string seq2 ("-" + pep2. seq);
-
-
-  Vector<Vector<Cell>> cells (seq1. size ());
-  for (Vector<Cell>& rowVec : cells)
-    rowVec = Vector<Cell> (seq2. size ());
-  FFOR (size_t, row_, seq1. size () + seq2. size () - 1)
-  {
-    size_t row = row_;
-    size_t col = 0;
-    if (row_ >= seq1. size ())
-    {
-      row = seq1. size () - 1;
-      col = row_ - row;
-    }
-    
-    cells [0] [0]. scores [Cell::dirDiag] = 0.0;
-    while (col < seq2. size ())
-    {
-      Cell::Score&    scores_cur  = cells [row] [col]. scores; 
-      Cell::Dir_best& dirs_cur    = cells [row] [col]. dirs; 
-      if (col)
-      {
-        AlignScore& score_cur = scores_cur [Cell::dirLeft];
-        Cell::Dir&  dir_cur   = dirs_cur   [Cell::dirLeft];
-        const Cell::Score& prev = cells [row] [col - 1]. scores;
-        if (semiglobalMatchLen_min && (! row || row == seq1. size () - 1))
-        {
-          score_cur = prev [Cell::dirLeft];
-          dir_cur = Cell::dirLeft;
-          if (maximize (score_cur, prev [Cell::dirUp]))
-            dir_cur = Cell::dirUp;
-          if (maximize (score_cur, prev [Cell::dirDiag]))
-            dir_cur = Cell::dirDiag;
-        }
-        else
-        {
-          score_cur = prev [Cell::dirUp];
-          dir_cur = Cell::dirUp;
-          if (maximize (score_cur, prev [Cell::dirDiag]))
-            dir_cur = Cell::dirDiag;
-          score_cur -= gapOpenCost;
-          if (maximize (score_cur, prev [Cell::dirLeft]))
-            dir_cur = Cell::dirLeft;
-          score_cur -= gapCost;
-        //score_cur= - gapCost + max (prev [Cell::dirLeft], max (prev [Cell::dirUp], prev [Cell::dirDiag]) - gapOpenCost);
-        }
-      }
-      if (row)
-      {
-        AlignScore&    score_cur = scores_cur [Cell::dirUp];
-        Cell::Dir& dir_cur   = dirs_cur   [Cell::dirUp];
-        const Cell::Score& prev = cells [row - 1] [col]. scores;
-        if (semiglobalMatchLen_min && (! col || col == seq2. size () - 1))
-        {
-          score_cur = prev [Cell::dirLeft];
-          dir_cur = Cell::dirLeft;
-          if (maximize (score_cur, prev [Cell::dirUp]))
-            dir_cur = Cell::dirUp;
-          if (maximize (score_cur, prev [Cell::dirDiag]))
-            dir_cur = Cell::dirDiag;
-        }
-        else
-        {
-          score_cur = prev [Cell::dirLeft];
-          dir_cur = Cell::dirLeft;
-          if (maximize (score_cur, prev [Cell::dirDiag]))
-            dir_cur = Cell::dirDiag;
-          score_cur -= gapOpenCost;
-          if (maximize (score_cur, prev [Cell::dirUp]))
-            dir_cur = Cell::dirUp;
-          score_cur -= gapCost;        
-        //score_cur = - gapCost + max (prev [Cell::dirUp], max (prev [Cell::dirLeft], prev [Cell::dirDiag]) - gapOpenCost);
-        }
-      }
-      if (row && col)
-      {
-        AlignScore&    score_cur = scores_cur [Cell::dirDiag];
-        Cell::Dir& dir_cur   = dirs_cur   [Cell::dirDiag];
-        const Cell::Score& prev = cells [row - 1] [col - 1]. scores;
-        score_cur = prev [Cell::dirLeft];
-        dir_cur = Cell::dirLeft;
-        if (maximize (score_cur, prev [Cell::dirUp]))
-          dir_cur = Cell::dirUp;
-        if (maximize (score_cur, prev [Cell::dirDiag]))
-          dir_cur = Cell::dirDiag;
-        score_cur += substMat. sim [size_t (seq1 [row])] [size_t (seq2 [col])];
-      #if 0
-        score_cur =   substMat. sim [size_t (seq1 [row])] [size_t (seq2 [col])] 
-                    + max (prev [Cell::dirUp], max (prev [Cell::dirLeft], prev [Cell::dirDiag]));
-      #endif
-      }
-      
-      if (! row)
-        break;
-      row--;
-      col++;
-    }
-  }
-  
-  
-  transformations. reserve (pep1. seq. size () + pep2. seq. size ());
-  {
-    size_t row = seq1. size () - 1;
-    size_t col = seq2. size () - 1;
-    Cell::Dir dir = Cell::dirUp;
-    {
-      const Cell::Score& scores_last = cells [row] [col]. scores;
-      score = scores_last [Cell::dirUp];
-      if (maximize (score, scores_last [Cell::dirLeft]))
-        dir = Cell::dirLeft;
-      if (maximize (score, scores_last [Cell::dirDiag]))
-        dir = Cell::dirDiag;
-    //score = max (score_last [Cell::dirUp], max (score_last [Cell::dirLeft], score_last [Cell::dirDiag]));
-    }
-    while (row || col)
-    {
-      char transformation = '\0';
-      const Cell::Dir dir_new = cells [row] [col]. dirs [dir];
-      switch (dir)
-      {
-        case Cell::dirUp:   transformation = '_'; 
-                            deletions++;
-                            ASSERT (row); 
-                            row--; 
-                            break;
-        case Cell::dirLeft: transformation = '-';  
-                            insertions++;
-                            ASSERT (col); 
-                            col--; 
-                            break;
-        case Cell::dirDiag: ASSERT (row); 
-                            ASSERT (col);
-                            {
-                              const char c1 = pep1. seq [row - 1];
-                              const char c2 = pep2. seq [col - 1];
-                              if (   c1 == c2
-                                  && ! isAmbigAa (c1)
-                                  && ! isAmbigAa (c2)
-                                 )
-                              {
-                                transformation = '|';
-                                matches++;
-                              }
-                              else
-                              {
-                                transformation = ' ';
-                                substitutions++;
-                              }
-                            }
-                            row--; 
-                            col--; 
-                            break;
-        default: ERROR;
-      }
-      ASSERT (transformation);
-      transformations += transformation;
-      dir = dir_new;
-    }
-  }
-  reverse (transformations);  
-#if 0
-  PRINT (seq1);
-  PRINT (seq2);
-  PRINT (transformations);
-  PRINT (pep2. seq. size ());
-  PRINT (size2 ());
-#endif
-  ASSERT (pep1. seq. size () == size1 ());
-  ASSERT (pep2. seq. size () == size2 ());
-  
-  
-  stop1 = size1 ();
-  stop2 = size2 ();
-  if (semiglobalMatchLen_min)
-  {
-  	for (const char* c = & transformations [0]; *c == '-'; c++)
-  	  start2++;
-  	for (const char* c = & transformations [0]; *c == '_'; c++)
-  	  start1++;
-  	for (const char* c = & transformations [transformations. size () - 1]; stop2 && *c == '-'; c--)
-  	  stop2--;
-  	for (const char* c = & transformations [transformations. size () - 1]; stop1 && *c == '_'; c--)
-  	  stop1--;
-  }
-
-		
-	self_score1 = pep1. getSelfSimilarity (substMat, start1, stop1);
-	self_score2 = pep2. getSelfSimilarity (substMat, start2, stop2);
-}
-
-
-
-#if 0
-Align::Align (const Dna &dna1,
-	            const Dna &dna2,
-	            bool semiglobal,
-	            size_t match_len_min)
-{
-  ASSERT (! dna1. sparse);
-  ASSERT (! dna2. sparse);
-  
-	CNWAligner al;
-
-#ifdef WU_BLASTN
-	constexpr int match_score    =  5;
-	constexpr int mismatch_score = -4;
-	constexpr int gap_open       =   0;
-	constexpr int gap_extent     = -10;
-#else	
-  // NCBI BLASTN
-	constexpr int match_score    =  2;
-	constexpr int mismatch_score = -3;
-	constexpr int gap_open       = -5;
-	constexpr int gap_extent     = -2;
-#endif
-  static_assert (match_score > 0, "match_score");
-  static_assert (mismatch_score < 0, "mismatch_score");
-  static_assert (gap_open <= 0, "gap_open");
-  static_assert (gap_extent < 0, "gap_extent");	
-  
-  al. SetWm (match_score);
-  al. SetWms (mismatch_score);
-  al. SetWg (gap_open);
-  al. SetWs (gap_extent);
-  al. SetScoreMatrix (nullptr);
-	
-	{
-		string seq1 (dna1. seq);
-		string seq2 (dna2. seq);	
-		strUpper (seq1);
-		strUpper (seq2);
-		al. SetSequences (seq1, seq2);
-	}
-
-	al. SetEndSpaceFree (semiglobal, semiglobal, semiglobal, semiglobal);
-	score = al. Run ();		
-  tr = al. GetTranscriptString();  	
-	finish (dna1, dna2, semiglobal, match_len_min);
-	
-	self_score1 = match_score * (int) (stop1 - start1) /*dna1. seq. size ()*/;
-	self_score2 = match_score * (int) (stop2 - start2) /*dna2. seq. size ()*/;
-	ASSERT (self_score1 >= 0);
-	ASSERT (self_score2 >= 0);
-}
-
-
-
-void Align::finish (const Seq &seq1,
-	                  const Seq &seq2,
-	                  bool semiglobal,
-	                  size_t match_len_min)
-{
-  ASSERT ((bool) match_len_min == semiglobal);
-
-  const string& s1 = seq1. seq;
-  const string& s2 = seq2. seq;
-
-  ASSERT (! s1. empty ());
-  ASSERT (! s2. empty ());
-  ASSERT (! tr. empty ());
-
-  matches       = strCountSet (tr, "M");
-  substitutions = strCountSet (tr, "R");
-  insertions    = strCountSet (tr, "I");
-  deletions     = strCountSet (tr, "D");
-  ASSERT (matches + substitutions + insertions + deletions == tr. size ());
-  // Global alignment
-  ASSERT (s1. size () == size1 ());
-  ASSERT (s2. size () == size2 ());
-  
-	stop1 = s1. size ();
-	stop2 = s2. size ();
-  if (semiglobal)
-  {
-  	for (const char* c = & tr [0]; *c == 'I'; c++)
-  	  start2++;
-  	for (const char* c = & tr [0]; *c == 'D'; c++)
-  	  start1++;
-  	for (const char* c = & tr [tr. size () - 1]; stop2 && *c == 'I'; c--)
-  	  stop2--;
-  	for (const char* c = & tr [tr. size () - 1]; stop1 && *c == 'D'; c--)
-  	  stop1--;
-  }
-	ASSERT (start1 <= stop1);
-	ASSERT (start2 <= stop2);
-}
-#endif
-
-
-
-void Align::qc () const
-{
-  if (! qc_on)
-    return;
-    
-  QC_ASSERT (transformations. size () == insertions + deletions + matches + substitutions);
-    
-	QC_ASSERT (start1 <= stop1);
-	QC_ASSERT (start2 <= stop2);
-  
-  QC_ASSERT (self_score1 >= 0.0);
-  QC_ASSERT (self_score2 >= 0.0);
-  QC_ASSERT (score <= self_score1);
-  QC_ASSERT (score <= self_score2);
-}
-
-
-
-AlignScore Align::getMinEditDistance () const
-{	
-  ASSERT (self_score1 >= 0.0);
-  ASSERT (self_score2 >= 0.0);
-  
-  const AlignScore dist = self_score1 + self_score2 - 2 * score;
-  ASSERT (dist >= 0.0);
-	return dist;
-}
-
-
-
-void Align::printAlignment (const string &seq1,
-	                          const string &seq2,
-	                          size_t line_len) const
-{
-  ASSERT (! contains (seq1, '-'));
-  ASSERT (! contains (seq2, '-'));
-  ASSERT (line_len);
-
-  string sparse1;    sparse1.   reserve (transformations. size ());
-  string sparse2;    sparse2.   reserve (transformations. size ());
-  string consensus;  consensus. reserve (transformations. size ());
-  size_t i1 = 0;
-  size_t i2 = 0;
-  for (const char c : transformations)
-  {
-  	char c1 = '-';
-  	char c2 = '-';
-  	char cons = ' ';
-  	switch (c)
-  	{
-  		case '|': cons = '|';      // Match
-  		          c1 = seq1 [i1];  
-  			        c2 = seq2 [i2];
-  			        break;
-  		case ' ': c1 = seq1 [i1];  // Replacement
-  			        c2 = seq2 [i2];
-  			        break;
-  		case '-': c2 = seq2 [i2];  // Insertion
-  			        break;
-  		case '_': c1 = seq1 [i1];  // Deletion
-  			        break;
-  		default : ERROR;
-  	}
-    sparse1 += c1; 
-  	sparse2 += c2; 
-  	consensus += cons;
-  	if (c1 != '-')
-  		i1++;
-  	if (c2 != '-')
-  		i2++;
-  }
-  ASSERT (i1 == seq1. size ());
-  ASSERT (i2 == seq2. size ());
-  ASSERT (sparse1. size () == transformations. size ());
-  ASSERT (sparse2. size () == transformations. size ());
-  
-  size_t qEnd = 0;
-  size_t sEnd = 0;
-  for (size_t i = 0; i < transformations. size (); i += line_len)
-  {
-    const string qStr (sparse1. substr (i, line_len));
-    const string sStr (sparse2. substr (i, line_len));
-    qEnd += (qStr. size () - strCountSet (qStr, "-"));
-    sEnd += (sStr. size () - strCountSet (sStr, "-"));
-    cout << qStr << ' ' << qEnd << endl;
-    cout << consensus. substr (i, line_len) << endl;
-    cout << sStr << ' ' << sEnd << endl;
-    cout << endl;
-  }
-}
-#endif
-
-
-
-
 // Interval
 
 void Interval::qc () const 
@@ -4784,44 +4327,83 @@ void Hsp::finishHsp (bool qStopCodon,
 
   pos2q_. clear ();
   pos2s_. clear ();
-
-  if (! disrs. empty ())
-    return;
-    
-  
-  pos2q_. reserve (length + 1);
+  if (! merged)
   {
-    size_t j = qInt. start;
-    FFOR (size_t, i, length + 1)
+    pos2q_. reserve (length + 1);
     {
-      ASSERT (j >= qInt. start);
-      ASSERT (j <= qInt. stop);
-      pos2q_ << j;
-      if (qseq [i] != '-')
-        j += a2q;
-    }
-  }
-  pos2q_. ascending = etrue;
-
-  pos2s_. reserve (length + 1);
-  {
-    ASSERT (sInt. stop);
-    size_t j = (sInt. strand == -1 ? sInt. stop : sInt. start);
-    FFOR (size_t, i, length + 1)
-    {
-      ASSERT (j >= sInt. start);
-      ASSERT (j <= sInt. stop);
-      pos2s_ << j;
-      if (sseq [i] != '-')
+      size_t j = qInt. start;
+      FFOR (size_t, i, length + 1)
       {
-        if (sInt. strand == -1)  // sInt.strand*a2s: needs int
-          j -= a2s;
-        else
-          j += a2s;
+        ASSERT (j >= qInt. start);
+        ASSERT (j <= qInt. stop);
+        pos2q_ << j;
+        if (qseq [i] != '-')
+          j += a2q;
       }
     }
+    pos2q_. ascending = etrue;
+    //
+    pos2s_. reserve (length + 1);
+    {
+      ASSERT (sInt. stop);
+      size_t j = (sInt. strand == -1 ? sInt. stop : sInt. start);
+      FFOR (size_t, i, length + 1)
+      {
+        ASSERT (j >= sInt. start);
+        ASSERT (j <= sInt. stop);
+        pos2s_ << j;
+        if (sseq [i] != '-')
+        {
+          if (sInt. strand == -1)  // sInt.strand*a2s: needs int
+            j -= a2s;
+          else
+            j += a2s;
+        }
+      }
+    }
+    pos2s_. ascending = (sInt. strand == -1 ? efalse : etrue);  
+
+    if (blastx ())
+      FFOR (size_t, i, sseq. size ())  
+        if (sseq [i] == '*')
+        {
+          size_t i_prev = pos2real_q (i, false);
+          size_t i_next = pos2real_q (i, true);
+        #ifndef NDEBUG
+          bool replacement = true;
+        #endif
+          if (i_prev == i_next)  // Replacement
+          {
+            ASSERT (i_prev == i);
+            ASSERT (qseq [i] != '-');
+            i_next++;
+          }
+          else  // Deletion
+          {
+            QC_ASSERT (i_prev < sseq. size ());
+            ASSERT (i_prev < i);
+            ASSERT (i < i_next);
+            ASSERT (qseq [i_prev] != '-');
+            ASSERT (qseq [i_next] != '-');
+            i_prev++;
+            ASSERT (qseq [i_prev] == '-');
+          #ifndef NDEBUG
+            replacement = false;  
+          #endif
+          }
+          Disruption disr (*this, *this, i_prev, i_next, false);      
+            /* Interval ( prev->pos2q/s (prev_start, true)
+                        , next->pos2q/s (next_stop,  true)
+            */
+          disr. qc (); 
+          IMPLY (replacement, disr. qInt (). len () == 1);
+          IMPLY (replacement, disr. sInt (). len () == 3);
+          IMPLY (  replacement, disr. type () == Disruption::eDeletion);
+          IMPLY (! replacement, disr. type () == Disruption::eInsertion);      
+          ASSERT (disr. sStopCodon ());        
+          disrs << std::move (disr);
+        }
   }
-  pos2s_. ascending = (sInt. strand == -1 ? efalse : etrue);  
 }
 
 
@@ -5006,7 +4588,7 @@ void Hsp::qc () const
   QC_ASSERT (qseq. size () == sseq. size ());		  
 	QC_ASSERT (! qseq. empty ()); 
 	QC_ASSERT ((bool) sInt. strand == ! sProt);	
-  if (disrs. empty ())
+  if (! merged)
   {
     QC_ASSERT (divisible (qInt. len (), a2q));	  
     QC_ASSERT (divisible (sInt. len (), a2s));	  
@@ -5028,15 +4610,17 @@ void Hsp::qc () const
   QC_ASSERT (nident + qgap <= length);
   QC_ASSERT (nident + sgap <= length);
   QC_ASSERT (length == qseq. size ());  
-  if (disrs. empty ())
+  if (merged)
   {
-    if (! merged)
-    {
-      QC_ASSERT (qseq. front () != '-');
-      QC_ASSERT (sseq. front () != '-');
-      QC_ASSERT (qseq. back  () != '-');
-      QC_ASSERT (sseq. back  () != '-');
-    }
+    QC_ASSERT (pos2q_. empty ());
+    QC_ASSERT (pos2s_. empty ());
+  }
+  else
+  {
+    QC_ASSERT (qseq. front () != '-');
+    QC_ASSERT (sseq. front () != '-');
+    QC_ASSERT (qseq. back  () != '-');
+    QC_ASSERT (sseq. back  () != '-');
     QC_ASSERT (nident <= qLen ());
     QC_ASSERT (nident <= sLen ());
     QC_ASSERT (qLen () <= length);	    
@@ -5058,44 +4642,29 @@ void Hsp::qc () const
       QC_IMPLY (pos2s_. ascending == efalse, pos2s_ [i] >= pos2s_ [i + 1]);
     }
   }
-  else
-  {
-    QC_ASSERT (merged);
-    QC_ASSERT (pos2q_. empty ());
-    QC_ASSERT (pos2s_. empty ());
-  //const Disruption* prev = nullptr;
-    for (const Disruption& disr : disrs)
-    {
-      disr. qc ();
-      QC_ASSERT (disr. type () != Disruption::eNone);
-      QC_ASSERT (disr. type () != Disruption::eSmooth);
-      QC_ASSERT (disr. prev->qseqid == qseqid);
-      QC_ASSERT (disr. next->qseqid == qseqid);
-      QC_ASSERT (disr. sInt (). strand == sInt. strand);
-      QC_IMPLY (disr. sStopCodon (), qInt. contains (disr. qInt ()));
-      QC_IMPLY (disr. sStopCodon (), sInt. contains (disr. sInt ()));
-      QC_ASSERT (blastx ());      
-    //QC_IMPLY (prev, ! (disr < *prev));
-    //prev = & disr;
-    }
-  }
 	QC_ASSERT ((bool) sframe  == (aProt && ! sProt));
 	QC_IMPLY (aProt && ! sProt, (sInt. strand == -1) == (sframe < 0));
 	QC_IMPLY (c_complete != enull, aProt);
   QC_IMPLY (aProt && ! sProt, isFrame (sframe));
-  
-  QC_IMPLY (sInternalStop, aProt);
-  if (merged)
+
+  for (const Disruption& disr : disrs)
   {
-    const Disruption* found = nullptr;
-    for (const Disruption& disr : disrs)
-      if (disr. sStopCodon ())
-      {
-        found = & disr;
-        break;
-      }
-    QC_ASSERT ((bool) found == sInternalStop);
+    disr. qc ();
+    QC_ASSERT (disr. type () != Disruption::eNone);
+    QC_ASSERT (disr. type () != Disruption::eSmooth);
+    QC_ASSERT (disr. prev->qseqid == qseqid);
+    QC_ASSERT (disr. next->qseqid == qseqid);
+    QC_ASSERT (disr. sInt (). strand == sInt. strand);
+    QC_IMPLY (disr. sStopCodon (), qInt. contains (disr. qInt ()));
+    QC_IMPLY (disr. sStopCodon (), sInt. contains (disr. sInt ()));
+    QC_ASSERT (blastx ());    
+    QC_IMPLY (! merged, disr. prev == this);  
+    QC_IMPLY (! merged, disr. next == this);  
+    QC_ASSERT (blastx ());
   }
+
+  QC_IMPLY (sInternalStop, aProt);
+  QC_IMPLY (blastx (), sInternalStop == (bool) findStopDisruption ());
 }
 
 
@@ -5106,7 +4675,7 @@ void Hsp::saveText (ostream &os) const
      << ' ' << "merged=" << (int) merged
      << ' ' << qseqid << '(' << qlen << ") " << qInt
      << ' ' << sseqid << '(' << slen << ") " << sInt;
-  if (disrs. empty ())
+  if (! merged)
     os << " qLen=" << qLen ()
        << " sLen=" << sLen ();
   os << " length=" << length
@@ -5140,7 +4709,7 @@ bool Hsp::less (const Hsp* a,
 
 size_t Hsp::qLen () const
 { 
-  ASSERT (disrs. empty ());
+  ASSERT (! merged);
   return qAbsCoverage () / a2q; 
 }
 
@@ -5148,7 +4717,7 @@ size_t Hsp::qLen () const
 
 size_t Hsp::sLen () const
 { 
-  ASSERT (disrs. empty ());
+  ASSERT (! merged);
   return sAbsCoverage () / a2s; 
 }
 
@@ -5189,7 +4758,7 @@ size_t Hsp::pos2real_s (size_t pos,
 size_t Hsp::pos2q (size_t pos,
                    bool forward) const
 { 
-  ASSERT (disrs. empty ());
+  ASSERT (! merged);
   return pos2q_ [pos2real_q (pos, forward)]; 
 }
 
@@ -5198,7 +4767,7 @@ size_t Hsp::pos2q (size_t pos,
 size_t Hsp::pos2s (size_t pos,
                    bool forward) const
 { 
-  ASSERT (disrs. empty ());
+  ASSERT (! merged);
   return pos2s_ [pos2real_s (pos, forward)]; 
 }
 
@@ -5207,7 +4776,7 @@ size_t Hsp::pos2s (size_t pos,
 size_t Hsp::q2pos (size_t qPos,
                    bool forward) const
 { 
-  ASSERT (disrs. empty ());
+  ASSERT (! merged);
   return pos2real_q (pos2q_. binSearch (qPos), forward); 
 }
 
@@ -5216,7 +4785,7 @@ size_t Hsp::q2pos (size_t qPos,
 size_t Hsp::s2pos (size_t sPos,
                    bool forward) const
 { 
-  ASSERT (disrs. empty ());
+  ASSERT (! merged);
   return pos2real_s (pos2s_. binSearch (sPos), forward); 
 }
 
@@ -5271,7 +4840,7 @@ struct Exon final : DiGraph::Node
   const Hsp& hsp;
     // qseqid: reference protein
     // sseqid: contig 
-    // disrs.empty()
+    // !merged
   // In hsp.{qseq,sseq}
   const size_t start {0};
   const size_t len {0};
@@ -5280,8 +4849,6 @@ struct Exon final : DiGraph::Node
 	
 	// Output
 	AlignScore score {0};
-  Vector<Disruption> disrs;
-    // type() != eNone,eSmooth
 private:
 	bool bestIntronSet {false};
 public:
@@ -5391,57 +4958,10 @@ Exon::Exon (DiGraph &graph_arg,
   ASSERT (len);
   ASSERT (! bestIntron);
   ASSERT (! hsp. merged);
-
     
   ASSERT (score == 0);
-  ASSERT (disrs. empty ());
   FFOR_START (size_t, i, start, getStop ())
-  {
     score += SubstMat::char2score (sm, hsp. qseq [i], hsp. sseq [i]);
-
-    if (hsp. sseq [i] == '*')
-    {
-      size_t i_prev = hsp. pos2real_q (i, false);
-      size_t i_next = hsp. pos2real_q (i, true);
-    #ifndef NDEBUG
-      bool replacement = true;
-    #endif
-      if (i_prev == i_next)  // Replacement
-      {
-        ASSERT (i_prev == i);
-        ASSERT (hsp. qseq [i] != '-');
-        i_next++;
-      }
-      else  // Deletion
-      {
-        QC_ASSERT (i_prev < getStop ());
-        ASSERT (i_prev < i);
-        ASSERT (i < i_next);
-        ASSERT (hsp. qseq [i_prev] != '-');
-        ASSERT (hsp. qseq [i_next] != '-');
-        i_prev++;
-        ASSERT (hsp. qseq [i_prev] == '-');
-      #ifndef NDEBUG
-        replacement = false;  
-      #endif
-      }
-
-      Disruption disr (hsp, hsp, i_prev, i_next, false);      
-        /* Interval ( prev->pos2q/s (prev_start, true)
-                    , next->pos2q/s (next_stop,  true)
-        */
-      disr. qc (); 
-      IMPLY (replacement, disr. qInt (). len () == 1);
-      IMPLY (replacement, disr. sInt (). len () == 3);
-      IMPLY (  replacement, disr. type () == Disruption::eDeletion);
-      IMPLY (! replacement, disr. type () == Disruption::eInsertion);      
-      ASSERT (qInt (). contains (disr. qInt ()));
-      ASSERT (sInt (). contains (disr. sInt ()));
-      ASSERT (disr. sStopCodon ());
-      
-      disrs << std::move (disr);
-    }
-  }
 }
 
 
@@ -5457,7 +4977,6 @@ void Exon::qc () const
   hsp. qc ();
   QC_ASSERT (! hsp. merged);
   QC_ASSERT (hsp. blastx ());
-  QC_ASSERT (hsp. disrs. empty ());
   QC_ASSERT (getStop () <= hsp. length);
   QC_IMPLY (sStart () != sStop (), (sStart () >= sStop ()) == (hsp. sInt. strand == -1));    
   QC_ASSERT (len);
@@ -5467,23 +4986,6 @@ void Exon::qc () const
   QC_ASSERT (hsp. sInt. contains (sInt ()));
   if (sm)
     sm->qc ();
-    
-  for (const Disruption& disr : disrs)
-  {
-    disr. qc ();
-    QC_ASSERT (disr. type () != Disruption::eNone);
-    QC_ASSERT (disr. type () != Disruption::eSmooth);
-    QC_ASSERT (disr. type () != Disruption::eFrameshift);
-    QC_ASSERT (disr. sameHsp ());
-    QC_ASSERT (disr. prev == & hsp);
-    QC_ASSERT (disr. sStopCodon ());
-    QC_ASSERT (qInt (). contains (disr. qInt ()));
-    QC_ASSERT (sInt (). contains (disr. sInt ()));
-  }    
-  QC_ASSERT ((! disrs. empty ()) == contains (hsp. sseq. substr (start, len), '*'));
-    
-//QC_ASSERT (score >= 0);
-//QC_ASSERT (totalScore >= 0);
 }
 
 
@@ -5497,7 +4999,6 @@ void Exon::saveText (ostream &os) const
      << ' ' << qInt () 
      << ' ' << sInt ()
      << " score:" << score 
-     << " #disrs:" << disrs. size ()
      << " totalScore:" << totalScore
      << "  ";
   hsp. saveText (os);
@@ -5599,17 +5100,16 @@ void Exon::setBestIntron (AlignScore intronScore)
 Hsp Exon::mergeTail (const Hsp* &firstOrigHsp) const
 {
   ASSERT (! hsp. merged);
-  ASSERT (hsp. disrs. empty ());
   
   Hsp hsp_new;
+  const Exon* next = nullptr;
   if (bestIntron)
   {
     ASSERT (bestIntron->node [false] == this);
-    const Exon* next = static_cast <Exon*> (bestIntron->node [true]);
+    next = static_cast <Exon*> (bestIntron->node [true]);
     ASSERT (next);    
     
     hsp_new = next->mergeTail (firstOrigHsp);  
-  //const Hsp hsp_new_orig = hsp_new;  
     hsp_new. qInt. start        = qStart ();
     hsp_new. sInt. realStart () = sStart ();
     
@@ -5622,21 +5122,23 @@ Hsp Exon::mergeTail (const Hsp* &firstOrigHsp) const
     ASSERT (hsp_new. qseq. size () == hsp_new. sseq. size ());
     ASSERT (hsp_new. qseq. size () <= hsp_new. length + hsp. length);    
 
-    const Vector<Disruption> disrs_new (std::move (hsp_new. disrs));
-    ASSERT (hsp_new. disrs. empty ());
-    for (Disruption disr : disrs_new)
     {
-      if (   disr. sameHsp ()
-          && disr. prev == & next->hsp  // disr.prev = disr.next
-         )
+      const Vector<Disruption> disrs_new (std::move (hsp_new. disrs));
+      ASSERT (hsp_new. disrs. empty ());
+      for (Disruption disr : disrs_new)
       {
-        maximize (disr. prev_start, bestIntron->next_stop);
-        minimize (disr. prev_start, disr. next_stop);
-        disr. qc ();
+        if (   disr. sameHsp ()
+            && disr. prev == & next->hsp  // disr.prev = disr.next
+           )
+        {
+          maximize (disr. prev_start, bestIntron->next_stop);
+          minimize (disr. prev_start, disr. next_stop);
+          disr. qc ();
+        }
+        if (disr. type () == Disruption::eSmooth)
+          continue;
+        hsp_new. disrs << std::move (disr);
       }
-      if (disr. type () == Disruption::eSmooth)
-        continue;
-      hsp_new. disrs << std::move (disr);
     }
   /*ASSERT (hsp_new. containsHsp (hsp_old));   
       Counter-example: 
@@ -5648,21 +5150,8 @@ Hsp Exon::mergeTail (const Hsp* &firstOrigHsp) const
                       PP  + T              PP  PPPSTT
         Sbjct  98761  PPLQAVT*AIP    98794 PPIRPPPSTT  98823
     */
-    for (Disruption disr : disrs)
-    {
-      ASSERT (disr. sameHsp ());
-      ASSERT (disr. prev == & hsp);  // disr.prev = disr.next
-      minimize (disr. next_stop, bestIntron->prev_start);
-      maximize (disr. next_stop, disr. prev_start);
-      disr. qc ();
-      if (disr. type () == Disruption::eSmooth)
-        continue;
-      hsp_new. disrs << disr;
-    }
     if (bestIntron->disr. type () != Disruption::eSmooth)
       hsp_new. disrs << bestIntron->disr;
-      
-    delete next;  
   }
   else
   {
@@ -5677,11 +5166,28 @@ Hsp Exon::mergeTail (const Hsp* &firstOrigHsp) const
            );
     hsp_new. qseq = hsp_new. qseq. substr (start, len);
     hsp_new. sseq = hsp_new. sseq. substr (start, len);
-    hsp_new. disrs = disrs;
+    hsp_new. disrs. clear ();
     hsp_new. merged = true;
   }      
   ASSERT (hsp_new. merged);
   
+  for (Disruption disr : hsp. disrs)
+  {
+    ASSERT (disr. sameHsp ());
+    ASSERT (disr. prev == & hsp);  // disr.prev = disr.next
+    if (bestIntron)
+      minimize (disr. next_stop, bestIntron->prev_start);
+    minimize (disr. next_stop, getStop ());
+    maximize (disr. prev_start, start);
+    maximize (disr. next_stop, disr. prev_start);
+    disr. qc ();
+    if (disr. type () == Disruption::eSmooth)
+      continue;
+    hsp_new. disrs << disr;
+  }
+      
+  delete next;  
+
   hsp_new. finishHsp (false, false);
   hsp_new. qc ();  
   
@@ -6116,7 +5622,7 @@ Hsp Hsp::Merge::get (const Hsp* &origHsp,
   
   origHsp = nullptr;
   score = - score_inf;
-  Hsp hsp;
+  const Hsp hsp;
   return hsp;
 }
 
