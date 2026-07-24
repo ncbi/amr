@@ -274,6 +274,26 @@ size_t Seq::getContiguousXs () const
 
 
 
+size_t Seq::getAmbiguousPrefixEnd () const
+{
+  FFOR (size_t, i, seq. size ())
+    if (! isAmbiguous (seq [i]))
+      return i;
+  return seq. size ();;
+}
+
+
+
+size_t Seq::getAmbiguousSuffixStart () const
+{
+  FOR_REV (size_t, i, seq. size ())
+    if (! isAmbiguous (seq [i]))
+      return i + 1;
+  return 0;
+}
+
+
+
 map<char,size_t> Seq::getCharCount () const
 { 
   map<char,size_t> m;
@@ -2129,53 +2149,6 @@ bool Dna::ContainsAmbiguity () const
       return true;
 
   return false;
-}
-
-
-
-size_t Dna::GetAmbiguousPrefixEnd () const
-{
-  size_t i = 0;
-  while (CharInSet (seq [i], DnaWildcards))
-    i++;
-
-
-  return i;
-}
-
-
-
-size_t Dna::GetAmbiguousSuffixStart () const
-{
-  int i = strlen (seq) - 1;
-  while (i >= 0 &&
-       	 CharInSet (seq [i], DnaWildcards))
-    i--;
-  i++;
-
-
-  return i;
-}
-
-
-
-bool Dna::DeleteAmbiguousPrefix ()
-{ 
-  const size_t AmbiguousPrefixEnd = GetAmbiguousPrefixEnd ();
-  DeleteStart (AmbiguousPrefixEnd); 
-  
-  return AmbiguousPrefixEnd > 0;
-}
-
-
-
-bool Dna::DeleteAmbiguousSuffix ()
-{ 
-  const size_t AmbiguousSuffixStart = GetAmbiguousSuffixStart ();
-  const bool Trimmed = (seq [AmbiguousSuffixStart] != '\0');
-  seq [AmbiguousSuffixStart] = '\0'; 
-  
-  return Trimmed;
 }
 
 

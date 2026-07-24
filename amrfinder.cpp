@@ -33,6 +33,7 @@
 * Dependencies: NCBI BLAST, HMMer, libcurl, gunzip (optional)
 *
 * Release changes:
+*   4.2.17  07/24/2026 PD-5745  deredundify --mutation_all output
 *   4.2.16  07/10/2026 PD-5393  subtype POINT overrides subtype POINT_DISRUPT (bug of combo case is fixed)
 *                      PD-3272  do not report point mutations that appear after a stop codon or a frame shift
 *   4.2.15  07/07/2026 PD-5721  hits with negative scores in hmmsearch are allowed 
@@ -420,42 +421,11 @@ constexpr double partial_coverage_min_def = 0.5;
 const string ambigS ("20");  
 
 
-
 TextTable::ColNum subtype_col = no_index;
 TextTable::ColNum start_col   = no_index;
 TextTable::ColNum stop_col    = no_index;
 TextTable::ColNum strand_col  = no_index;
 TextTable::ColNum method_col  = no_index;
-
-
-
-int amrTab_equivBetter (const void* rowBetter,
-                        const void* rowWorse) 
-{ 
-  ASSERT (subtype_col != no_index);
-  ASSERT (start_col   != no_index);
-  ASSERT (stop_col    != no_index);
-  ASSERT (strand_col  != no_index);
-  ASSERT (method_col  != no_index);
-  ASSERT (rowBetter);
-  ASSERT (rowWorse);
-  ASSERT (rowBetter != rowWorse);
-  const StringVector& rowBetter_ = * static_cast <const StringVector*> (rowBetter);
-  const StringVector& rowWorse_  = * static_cast <const StringVector*> (rowWorse);
-  ASSERT (rowBetter_ [strand_col] == rowWorse_ [strand_col]);
-  if (   (rowBetter_ [strand_col] == "+" && rowBetter_ [start_col] == rowWorse_ [start_col])
-      || (rowBetter_ [strand_col] == "-" && rowBetter_ [stop_col]  == rowWorse_ [stop_col])
-     )
-    if (   (   rowBetter_ [subtype_col] == "POINT"
-            && rowWorse_  [subtype_col] == "POINT_DISRUPT"
-           )
-        || (   rowBetter_ [method_col] == "POINTP"
-            && rowWorse_  [method_col] == "POINTX"
-           )
-       )
-    return 1;
-  return 0;
-}
 
 
 
@@ -671,6 +641,82 @@ struct ThisApplication final : ShellApplication
           }
         if (! found)
           throw runtime_error ("Disruption is not replaced by gene symbol:\n" + contig + " " + prot + " " + disrS);
+      }
+    }
+  }
+  
+  
+  
+  static int amrTab_equivBetter (const void* rowBetter,
+                                 const void* rowWorse) 
+  { 
+    ASSERT (subtype_col != no_index);
+    ASSERT (start_col   != no_index);
+    ASSERT (stop_col    != no_index);
+    ASSERT (strand_col  != no_index);
+    ASSERT (method_col  != no_index);
+    ASSERT (rowBetter);
+    ASSERT (rowWorse);
+    ASSERT (rowBetter != rowWorse);
+    const StringVector& rowBetter_ = * static_cast <const StringVector*> (rowBetter);
+    const StringVector& rowWorse_  = * static_cast <const StringVector*> (rowWorse);
+    ASSERT (rowBetter_ [strand_col] == rowWorse_ [strand_col]);
+    if (   (rowBetter_ [strand_col] == "+" && rowBetter_ [start_col] == rowWorse_ [start_col])
+        || (rowBetter_ [strand_col] == "-" && rowBetter_ [stop_col]  == rowWorse_ [stop_col])
+       )
+      if (   (   rowBetter_ [subtype_col] == "POINT"
+              && rowWorse_  [subtype_col] == "POINT_DISRUPT"
+             )
+          || (   rowBetter_ [method_col] == "POINTP"
+              && rowWorse_  [method_col] == "POINTX"
+             )
+         )
+      return 1;
+    return 0;
+  }
+  
+
+
+  void postprocessOutput (const string &db,
+                          const string &dna,
+                          const string &gff,
+                          const string &dna_flat,
+                          const uint gencode,
+                          const string &qcS,
+                          TextTable &tab) const
+  {
+    tab. null2str (na);
+    if (! emptyArg (dna))
+    {
+	    amrTab_disruptions (tab, db, dna_flat, gencode, qcS);
+	    //
+      const StringVector amrSortColumns_main {{contig_colName, strand_colName, genesymbol_colName}};
+      // Global for amrTab_equivBetter()
+      subtype_col = tab. col2num (subtype_colName);  
+      start_col   = tab. col2num (start_colName);  
+      stop_col    = tab. col2num (stop_colName);  
+      strand_col  = tab. col2num (strand_colName);  
+      method_col  = tab. col2num (method_colName);  
+      //
+      tab. deredundify (amrSortColumns_main, amrTab_equivBetter);  
+    }
+    {
+      StringVector amrSortColumns;
+      if (! (emptyArg (dna) && emptyArg (gff)))
+        amrSortColumns << contig_colName << start_colName << stop_colName << strand_colName;    
+      amrSortColumns << prot_colName << genesymbol_colName;  
+      tab. sort (amrSortColumns);
+    }
+    tab. rows. uniq ();  // PD-4297    
+    tab. qc ();
+    if (qc_on)
+    {
+      const TextTable::ColNum genesymbolCol = tab. col2num (genesymbol_colName);
+      const TextTable::ColNum elemNameCol   = tab. col2num (elemName_colName);
+      for (const StringVector& row : tab. rows)
+      {
+        QC_ASSERT (row [genesymbolCol] != na);
+        QC_ASSERT (row [elemNameCol]   != na);
       }
     }
   }
@@ -1485,40 +1531,16 @@ struct ThisApplication final : ShellApplication
     // AMR report: sort, uniq, disruption genesymbols
     // PD-2244, PD-3230
     {
+    #if 0
       StringVector amrSortColumns;
       if (! (emptyArg (dna) && emptyArg (gff)))
         amrSortColumns << contig_colName << start_colName << stop_colName << strand_colName;    
       amrSortColumns << prot_colName << genesymbol_colName;  
+    #endif
       
       {
         TextTable amrTab (tmp + "/amr");
-        amrTab. null2str (na);
-        if (! emptyArg (dna))
-        {
-   		    amrTab_disruptions (amrTab, db, dna_flat, gencode, qcS);
-          const StringVector amrSortColumns_main {{contig_colName, strand_colName, genesymbol_colName}};
-          // Global for amrTab_equivBetter()
-          subtype_col = amrTab. col2num (subtype_colName);  
-          start_col   = amrTab. col2num (start_colName);  
-          stop_col    = amrTab. col2num (stop_colName);  
-          strand_col  = amrTab. col2num (strand_colName);  
-          method_col  = amrTab. col2num (method_colName);  
-          //
-          amrTab. deredundify (amrSortColumns_main, amrTab_equivBetter);  
-        }
-        amrTab. sort (amrSortColumns);
-        amrTab. rows. uniq ();  // PD-4297    
-        amrTab. qc ();
-        if (qc_on)
-        {
-          const TextTable::ColNum genesymbolCol = amrTab. col2num (genesymbol_colName);
-          const TextTable::ColNum elemNameCol   = amrTab. col2num (elemName_colName);
-          for (const StringVector& row : amrTab. rows)
-          {
-            QC_ASSERT (row [genesymbolCol] != na);
-            QC_ASSERT (row [elemNameCol]   != na);
-          }
-        }
+        postprocessOutput (db, dna, gff, dna_flat, gencode, qcS, amrTab);
         Cout out (output);
    		  amrTab. saveText (*out);
       }
@@ -1527,12 +1549,15 @@ struct ThisApplication final : ShellApplication
       if (! mutation_all. empty ())
       {
         TextTable mutation_allTab (tmp + "/mutation_all");
+        postprocessOutput (db, dna, gff, dna_flat, gencode, qcS, mutation_allTab);
+      #if 0
         mutation_allTab. null2str (na);
         if (! emptyArg (dna))
      		  amrTab_disruptions (mutation_allTab, db, dna_flat, gencode, qcS);
         mutation_allTab. sort (amrSortColumns);
         mutation_allTab. rows. uniq ();
         mutation_allTab. qc ();
+      #endif
         mutation_allTab. saveFile (mutation_all);
         if (qc_on)
         {

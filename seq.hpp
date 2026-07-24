@@ -293,6 +293,17 @@ public:
     // Invokes: isAmbiguous()
   size_t getContiguousXs () const;
     // Return: max. length of contiguous ambiguous characters
+  size_t getAmbiguousPrefixEnd () const;
+    // Return: position after the ambuguous character
+  size_t getAmbiguousSuffixStart () const;
+  void trimAmbiguousPrefix ()
+    { seq. erase (0, getAmbiguousPrefixEnd ()); }
+  void trimAmbiguousSuffix ()
+    { seq. erase (getAmbiguousSuffixStart ()); }
+  void trimAmbiguous ()
+    { trimAmbiguousPrefix ();
+      trimAmbiguousSuffix ();
+    }
   virtual double getComplexityInt (size_t start,
                                    size_t end) const = 0;
     // Input: Subsequence form start to end
@@ -482,13 +493,6 @@ struct Dna : Seq
     //         Qual []; if Target [i] = '-' then TargetQual [i] = 0
 
   bool ContainsAmbiguity () const;
-  size_t GetAmbiguousPrefixEnd () const;
-    // = length of ambiguous nt prefix
-  size_t GetAmbiguousSuffixStart () const;
-  bool DeleteAmbiguousPrefix ();
-    // Return: True if non-empty prefix is deleted
-  bool DeleteAmbiguousSuffix ();
-    // Return: True if non-empty suffix is trimmed
 
   void TrimN (bool GapCoded);  
   size_t TrimBadStart (size_t        WindowLen,
@@ -641,28 +645,6 @@ struct FastaDna final : Dna
     : Dna (* unique_ptr<LineInput> (getLineInput (fName)), reserveLen, sparse_arg)
     {}
 };
-
-
-
-#if 0
-class DNA_COLLECTION: public _SEQ_COLLECTION
-// of Dna*
-{
-typedef _SEQ_COLLECTION inherited;
-
-public:
-  DNA_COLLECTION (): inherited () {}
-  DNA_COLLECTION (const char* FName,
-                  bool        GapCoded);
-
-
-  Dna* GetDna (size_t i) const
-    { return (Dna*) GetSeq (i); }
-
-  void SaveQual (const char* FName,
-                 uint        DefaultQualScore) const;
-};
-#endif
 
 
 
