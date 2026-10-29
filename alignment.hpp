@@ -45,31 +45,11 @@ namespace Alignment_sp
 
 
 
-static constexpr char pm_delimiter = '_';
-
-
-
-struct AmrMutation final : Root
+struct AmrMutation final : Mutation
 // Database
 {
-	size_t pos_real {0};  
-	  // In whole reference sequence
-	  // = start of reference
-	
-	string geneMutation_std;
-  // Function of geneMutation_std
-  // Upper-case
-  string reference;
-	string allele;
-	string gene;
-	int pos_std {0};  
-	size_t frameshift {no_index};
-	  // = position of '*' - pos_real
-	int frameshift_insertion {0};  // redundant ??
-
 	// To be reported
 	// !empty()
-	string geneMutation;
 	string classS;
 	string subclass;
 	string name;
@@ -77,61 +57,29 @@ struct AmrMutation final : Root
 	
 	
   // Input: pos_arg: 1-based
-	AmrMutation (size_t pos_real_arg,
+	AmrMutation (bool prot_arg,
+	             size_t pos_real_arg,
   		 				 const string &geneMutation_std_arg,  
-  		 				 const string &geneMutation_arg,  // redundant ??
+  		 				 const string &geneMutation_arg,  
   			 			 const string &class_arg,    
   				 		 const string &subclass_arg, 
-  					 	 const string &name_arg);    
-	AmrMutation (size_t pos_arg,
+  					 	 const string &name_arg)
+    : Mutation (prot_arg, pos_real_arg, geneMutation_std_arg, geneMutation_arg)
+    , classS (class_arg)
+    , subclass (subclass_arg)
+    , name (name_arg)
+    { replace (classS,   '_', ' ');
+      replace (subclass, '_', ' ');
+      replace (name,     '_', ' ');    
+      qc ();
+    }
+	AmrMutation (bool prot_arg,
+	             size_t pos_arg,
   		 				 const string &geneMutation_std_arg)
-    : AmrMutation (pos_arg, geneMutation_std_arg, geneMutation_std_arg, noString, noString, noString)  
+    : AmrMutation (prot_arg, pos_arg, geneMutation_std_arg, geneMutation_std_arg, noString, noString, noString)  
     {}
 	AmrMutation () = default;
-private:
-	static void parse (const string &geneMutation_std,
-	                   string &reference,
-	                   string &allele,
-                     string &gene,
-                     int &pos_std,
-                     size_t &frameshift,
-                     int &frameshift_insertion);
-public:
-  void qc () const override;
-  void saveText (ostream &os) const override
-    { if (empty ())
-        os << "empty";
-      else
-        os        << pos_real + 1 
-           << ' ' << geneMutation 
-           << ' ' << frameshift_insertion 
-           << ' ' << name; 
-    }
-  bool empty () const override
-    { return geneMutation_std. empty (); }
-
-
-  size_t getStop () const
-    { return pos_real + reference. size (); }
-  bool isTerm () const
-    { return allele == "*"; }
-  string wildtype () const
-    { return gene + "_" + reference + to_string (pos_std + 1) + reference; }
-  bool operator< (const AmrMutation &other) const;
-  bool operator== (const AmrMutation &other) const
-    { return geneMutation_std == other. geneMutation_std; }
-  void apply (string &seq) const
-    { if (pos_real >= seq. size ())
-        throw runtime_error ("AmrMutation position " + to_string (pos_real) + " is outside the sequence: " + seq);
-      if (frameshift != no_index)
-        throw runtime_error ("AmrMutation is a frameshift");
-      if (verbose ())
-        cerr         << seq. substr (0, pos_real) 
-             << endl << allele 
-             << endl << seq. substr (pos_real + reference. size ())
-             << endl;
-      seq = seq. substr (0, pos_real) + allele + seq. substr (pos_real + reference. size ());
-    }
+  void qc () const final;
 };
 
 

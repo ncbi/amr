@@ -142,4 +142,3 @@ namespace
 
 
 #define ASSIGN_PTR(x,y)  { ASSERT (! (x)); x = (y); }
-#define QC_ASSIGN(x,y)   { if (x) {ASSERT (x == (y))} else x = (y); }

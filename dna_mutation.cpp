@@ -224,7 +224,7 @@ struct Batch
     	  	iss >> accession >> pos >> geneMutation_std >> geneMutation_report >> classS >> subclass >> name;
     	  	QC_ASSERT (pos > 0);
     	  	QC_ASSERT (! name. empty ());
-   	  		accession2mutations [accession] << std::move (AmrMutation ((size_t) pos, geneMutation_std, geneMutation_report, classS, subclass, name));
+   	  		accession2mutations [accession] << std::move (AmrMutation (false, (size_t) pos, geneMutation_std, geneMutation_report, classS, subclass, name));
     	  }	    
     	}
   	  for (auto& it : accession2mutations)

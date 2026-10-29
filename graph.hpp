@@ -140,6 +140,10 @@ struct DiGraph : Root
 		  { return getName (); }
 		virtual string getLeafName () const
 		  { return getName (); }
+		bool isLeaf () const
+		  { return arcs [false]. empty (); }
+		bool isRoot () const
+		  { return arcs [true]. empty (); }
     const DiGraph::Arc* incident (const Node* n,
                                   bool out) const;
       // Return: start = this, end = n (or the other way around)
@@ -368,8 +372,6 @@ struct Tree : DiGraph
   public:
 	  const Tree& getTree () const
   	  { return * static_cast <const Tree*> (graph); }
-		bool isLeaf () const
-		  { return arcs [false]. empty (); }
 		virtual bool isLeafType () const
 		  { return isLeaf (); }
 		virtual bool isInteriorType () const

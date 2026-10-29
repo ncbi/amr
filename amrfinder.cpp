@@ -33,6 +33,7 @@
 * Dependencies: NCBI BLAST, HMMer, libcurl, gunzip (optional)
 *
 * Release changes:
+*   4.2.18  10/29/2026 PD-5843  classes and subclasses incorrectly contain underscores instead of spaces in the reports for point mutations
 *   4.2.17  07/24/2026 PD-5745  deredundify --mutation_all output
 *   4.2.16  07/10/2026 PD-5393  subtype POINT overrides subtype POINT_DISRUPT (bug of combo case is fixed)
 *                      PD-3272  do not report point mutations that appear after a stop codon or a frame shift
@@ -684,6 +685,9 @@ struct ThisApplication final : ShellApplication
                           const uint gencode,
                           const string &qcS,
                           TextTable &tab) const
+  // Column names are from amr_report.cpp
+  // sort, uniq, disruption genesymbols
+  // PD-2244, PD-3230
   {
     tab. null2str (na);
     if (! emptyArg (dna))
@@ -1277,7 +1281,7 @@ struct ThisApplication final : ShellApplication
     			    			
     			stderr. section ("Running blastp");
     			{
-      			const Chronometer_OnePass_cerr cop ("blastp");
+      			const Chronometer_Wallclock_OnePass_cerr cop ("blastp");
       			// " -task blastp-fast -word_size 6  -threshold 21 "  // PD-2303
       			exec (fullProg ("blastp") + " -query " + prot1 + " -db " + tmp + "/db/AMRProt.fa" 
       			      + Seq_sp::Hsp::blastp_fast + " -task blastp-fast"  
@@ -1286,7 +1290,7 @@ struct ThisApplication final : ShellApplication
     			  
     			stderr. section ("Running hmmsearch");
     			{
-       			const Chronometer_OnePass_cerr cop ("hmmsearch");
+       			const Chronometer_Wallclock_OnePass_cerr cop ("hmmsearch");
       			ASSERT (threads_max >= 1);
       			if (threads_max > 1 && nProt > threads_max / 2)  // PAR
       			{
@@ -1334,7 +1338,7 @@ struct ThisApplication final : ShellApplication
     			stderr. section ("Running " + blastx);
     			findProg (blastx);
           {
-       			const Chronometer_OnePass_cerr cop (blastx);
+       			const Chronometer_Wallclock_OnePass_cerr cop (blastx);
             const string tblastn_par (string (Seq_sp::Hsp::blastp_fast) + "  -task tblastn-fast  -window_size 15  -threshold 100  -db_gencode " + to_string (gencode));  // SB-3643, PD-4522
         		const string blastx_par  (string (Seq_sp::Hsp::blastp_fast) + "  -query_gencode " + to_string (gencode));
         		  // Was: -word_size 3
@@ -1384,7 +1388,7 @@ struct ThisApplication final : ShellApplication
             }
             if (found)
             {
-         			const Chronometer_OnePass_cerr cop (blastx + " (for susceptible)");
+         			const Chronometer_Wallclock_OnePass_cerr cop (blastx + " (for susceptible)");
               const string tblastn_par (string (Seq_sp::Hsp::blastp_slow) + "  -window_size 15  -threshold 100  -db_gencode " + to_string (gencode));  // SB-3643, PD-4522
         			findProg ("tblastn");
         			exec (fullProg ("tblastn") + "  -subject " + dna_flat + "  -query " + tmp + "/db/AMRProt-susceptible.fa"
@@ -1397,7 +1401,7 @@ struct ThisApplication final : ShellApplication
       		{
       			findProg ("blastn");
       			stderr. section ("Running blastn");
-       			const Chronometer_OnePass_cerr cop ("blastn");
+       			const Chronometer_Wallclock_OnePass_cerr cop ("blastn");
        	  #if 1
       			exec (fullProg ("blastn") + " -query " + dna_flat + " -db " + tmp + "/db/AMR_DNA-" + organism1 + ".fa  -evalue 1e-20  -dust no  -max_target_seqs 10000  " 
       			      + /*getBlastThreadsParam ("blastn", min (nDna, dnaLen_total / 2500000)) +*/ Seq_sp::Hsp::format_par (false) + " -out " + tmp + "/blastn > " + logFName + " 2> " + tmp + "/blastn-err", tmp + "/blastn-log");
@@ -1464,7 +1468,7 @@ struct ThisApplication final : ShellApplication
 	  if (stxTyper)
 	  {
   		stderr. section ("Running stxtyper");
- 			const Chronometer_OnePass_cerr cop ("stxtyper");
+ 			const Chronometer_Wallclock_OnePass_cerr cop ("stxtyper");
  			ASSERT (threads_max >= 1);
 			exec (  fullProg ("stxtyper") 
 			      + "  -n " + dna_flat 
@@ -1487,7 +1491,7 @@ struct ThisApplication final : ShellApplication
     const string printNode (ifS (print_node, " -print_node"));
     const string nameS (" -name " + input_name);
     {
- 			const Chronometer_OnePass_cerr cop ("amr_report");
+ 			const Chronometer_Wallclock_OnePass_cerr cop ("amr_report");
       const string mutation_allS (ifS (! mutation_all. empty (), "-mutation_all " + tmp + "/mutation_all"));
       const string coreS (ifS (! add_plus, " -core"));
   		const string force_cds_report (ifS (! emptyArg (dna) && ! organism1. empty (), "-force_cds_report"));  // Needed for dna_mutation
@@ -1505,7 +1509,7 @@ struct ThisApplication final : ShellApplication
   	}
 		if (blastn)
 		{
- 			const Chronometer_OnePass_cerr cop ("dna_mutation");
+ 			const Chronometer_Wallclock_OnePass_cerr cop ("dna_mutation");
       const string mutation_allS (ifS (! mutation_all. empty (), "-mutation_all " + tmp + "/mutation_all.dna")); 
 			exec (fullProg ("dna_mutation") + tmp + "/blastn " + shellQuote (db + "/AMR_DNA-" + organism1 + ".tsv") + " " + strQuote (organism1) + " " + mutation_allS 
 			      + nameS + printNode + qcS + " -log " + logFName + " > " + tmp + "/amr-snp", logFName);
@@ -1526,45 +1530,23 @@ struct ThisApplication final : ShellApplication
 	  }
 
 
-    // Column names are from amr_report.cpp
-
-    // AMR report: sort, uniq, disruption genesymbols
-    // PD-2244, PD-3230
+    // postprocessOutput()
     {
-    #if 0
-      StringVector amrSortColumns;
-      if (! (emptyArg (dna) && emptyArg (gff)))
-        amrSortColumns << contig_colName << start_colName << stop_colName << strand_colName;    
-      amrSortColumns << prot_colName << genesymbol_colName;  
-    #endif
-      
+      TextTable amrTab (tmp + "/amr");
+      postprocessOutput (db, dna, gff, dna_flat, gencode, qcS, amrTab);
+      Cout out (output);
+ 		  amrTab. saveText (*out);
+    }
+    if (! mutation_all. empty ())
+    {
+      TextTable mutation_allTab (tmp + "/mutation_all");
+      postprocessOutput (db, dna, gff, dna_flat, gencode, qcS, mutation_allTab);
+      mutation_allTab. saveFile (mutation_all);
+      if (qc_on)
       {
-        TextTable amrTab (tmp + "/amr");
-        postprocessOutput (db, dna, gff, dna_flat, gencode, qcS, amrTab);
-        Cout out (output);
-   		  amrTab. saveText (*out);
-      }
-
-      // Sorting mutation_all
-      if (! mutation_all. empty ())
-      {
-        TextTable mutation_allTab (tmp + "/mutation_all");
-        postprocessOutput (db, dna, gff, dna_flat, gencode, qcS, mutation_allTab);
-      #if 0
-        mutation_allTab. null2str (na);
-        if (! emptyArg (dna))
-     		  amrTab_disruptions (mutation_allTab, db, dna_flat, gencode, qcS);
-        mutation_allTab. sort (amrSortColumns);
-        mutation_allTab. rows. uniq ();
-        mutation_allTab. qc ();
-      #endif
-        mutation_allTab. saveFile (mutation_all);
-        if (qc_on)
-        {
-          const TextTable::ColNum i = mutation_allTab. col2num (subtype_colName);
-          for (const StringVector& row : mutation_allTab. rows)
-            QC_ASSERT (row [i] == "POINT");
-        }
+        const TextTable::ColNum i = mutation_allTab. col2num (subtype_colName);
+        for (const StringVector& row : mutation_allTab. rows)
+          QC_ASSERT (row [i] == "POINT");
       }
     }
 

@@ -419,10 +419,10 @@ struct BlastAlignment final : Alignment
   		    if (contains (refAccession, ':'))   // Declarative mutation
   		    {
   		      QC_ASSERT (isMutationProt ());
-  		      const string geneMutation =               rfindSplit (refAccession, ':');
-  		      const size_t pos          = str2<size_t> (rfindSplit (refAccession, ':'));
+  		      const string geneMutation_std =               rfindSplit (refAccession, ':');
+  		      const size_t pos              = str2<size_t> (rfindSplit (refAccession, ':'));
   		      ASSERT (refMutation. empty ());
-  		      refMutation = std::move (AmrMutation (pos, geneMutation));
+  		      refMutation = std::move (AmrMutation (true, pos, geneMutation_std));
   		      QC_ASSERT (! refMutation. empty ());
   		      refMutation. qc ();
   		    }
@@ -1374,7 +1374,7 @@ struct Batch
                           : 1
                      ) 
 	  {
-	  	const Chronometer_OnePass cop ("Batch", cerr, false, Chronometer::enabled);  
+	  	const Chronometer_Wallclock_OnePass cop ("Batch", cerr, false, Chronometer_CPU::enabled);  
   
 	    if (famFName. empty ())
 	    	throw runtime_error ("fam (protein family hierarchy) file is missing");
@@ -1505,9 +1505,9 @@ struct Batch
     	  	  	iss >> organism_ >> accession >> pos >> geneMutation_std >> geneMutation_report >> classS >> subclass >> name;
     	  	  	QC_ASSERT (pos > 0);
     	  	  	QC_ASSERT (! name. empty ());
-    	  	  	replace (organism_, '_', ' ');
+    	  	  	replace (organism_, '_', ' '); 
     	  	  	if (organism_ == organism)
-    	  	  		accession2mutations [accession]. emplace_back ((size_t) pos, geneMutation_std, geneMutation_report, classS, subclass, name);
+    	  	  		accession2mutations [accession]. emplace_back (true, (size_t) pos, geneMutation_std, geneMutation_report, classS, subclass, name);
     	  	  	else
     	  	  	  alien_prots << accession;
     	  	  }
@@ -1715,7 +1715,7 @@ public:
     ASSERT (target2goodBlastAls. empty ());
     ASSERT (target2goodHmmAls. empty ());
 
-		const Chronometer_OnePass cop ("process", cerr, false, Chronometer::enabled);  
+		const Chronometer_Wallclock_OnePass cop ("process", cerr, false, Chronometer_CPU::enabled);  
 
 		  		  
 		// Disruption's
@@ -2087,7 +2087,7 @@ public:
 	{
 	  ASSERT (td. empty ());
 	  	  
-		const Chronometer_OnePass cop ("report", cerr, false, Chronometer::enabled);  
+		const Chronometer_Wallclock_OnePass cop ("report", cerr, false, Chronometer_CPU::enabled);  
 
     // PD-283, PD-780
   	// Cf. BlastAlignment::report()
@@ -2373,7 +2373,7 @@ struct ThisApplication final : Application
                || ! gffFName. empty ();
     
     
-		const Chronometer_OnePass cop1 ("amr_report", cerr, false, Chronometer::enabled);  
+		const Chronometer_Wallclock_OnePass cop1 ("amr_report", cerr, false, Chronometer_CPU::enabled);  
   
 
     Batch batch (famFName, organism, mutation_tab, susceptible_tab, suppress_prot_FName, non_reportable, report_core_only);  
@@ -2388,7 +2388,7 @@ struct ThisApplication final : Application
         && ! blastpFName. empty ()
        )
     {
-  		const Chronometer_OnePass cop ("blastp", cerr, false, Chronometer::enabled);
+  		const Chronometer_Wallclock_OnePass cop ("blastp", cerr, false, Chronometer_CPU::enabled);
       LineInput f (blastpFName);  
   	  while (f. nextLine ())
   	  {
@@ -2415,7 +2415,7 @@ struct ThisApplication final : Application
       // batch.domains
       if (! hmmDom. empty ())
       {
-    		const Chronometer_OnePass cop ("hmmDom", cerr, false, Chronometer::enabled);  
+    		const Chronometer_Wallclock_OnePass cop ("hmmDom", cerr, false, Chronometer_CPU::enabled);  
       	batch. hmmExist = true;
         LineInput f (hmmDom);
     	  while (f. nextLine ())
@@ -2433,7 +2433,7 @@ struct ThisApplication final : Application
     	// HmmAlignment::good()
     	if (! hmmsearch. empty ())  
     	{
-    		const Chronometer_OnePass cop ("hmmsearch", cerr, false, Chronometer::enabled); 
+    		const Chronometer_Wallclock_OnePass cop ("hmmsearch", cerr, false, Chronometer_CPU::enabled); 
         LineInput f (hmmsearch);
     	  while (f. nextLine ())
     	  {
@@ -2496,7 +2496,7 @@ struct ThisApplication final : Application
         && ! blastxFName. empty ()
        )       
     {
-  		const Chronometer_OnePass cop ("blastx", cerr, false, Chronometer::enabled);  
+  		const Chronometer_Wallclock_OnePass cop ("blastx", cerr, false, Chronometer_CPU::enabled);  
       LineInput f (blastxFName);
   	  while (f. nextLine ())
   	  {
@@ -2519,7 +2519,7 @@ struct ThisApplication final : Application
     // For Batch::report()
     if (! gffFName. empty ())
     {
-      const Chronometer_OnePass cop ("gff", cerr, false, Chronometer::enabled);  
+      const Chronometer_Wallclock_OnePass cop ("gff", cerr, false, Chronometer_CPU::enabled);  
     	unique_ptr<const Annot> annot;
     	if (bedP)
     	{
@@ -2570,7 +2570,7 @@ struct ThisApplication final : Application
       
     if (! blastxFName. empty ())
     {
-  		const Chronometer_OnePass cop ("target2...", cerr, false, Chronometer::enabled);  
+  		const Chronometer_Wallclock_OnePass cop ("target2...", cerr, false, Chronometer_CPU::enabled);  
       targetProt = false;
       // batch.target2blastAls
       // Proteins in BLASTP which are not in GFF are ignored

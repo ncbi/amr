@@ -156,8 +156,6 @@ extern const char* extTermPeptideAlphabet;
 extern const char* extSparseTermPeptideAlphabet;
   // = extPeptideAlphabet + gap
 
-constexpr const char* terminatorWord {"Ter" /*"STOP"*/};  // PD-5423
-
 
 size_t alphabet2Pos (const char* alphabet,
                      char        c);
@@ -1027,6 +1025,7 @@ struct DnaAnnot final : Root
 
 
 
+#if 0
 struct Mutation final : Root
 {
   bool prot {false};
@@ -1108,8 +1107,136 @@ public:
   void replace (Dna &refDna) const;
     // Update: refDna
 };
+#endif
 
     
+
+struct Mutation : Root
+{
+  static constexpr char delimiter {'_'};
+  static constexpr const char* terminatorWord {"Ter" /*"STOP"*/};  // PD-5423
+  
+  bool prot {false};
+	size_t pos_real {0};  
+	  // In whole reference sequence
+	  // = start of reference
+	bool insertionHasRef {true};
+	
+	string geneMutation_std;
+  // Function of geneMutation_std
+  // Upper-case
+  string reference;
+	string allele;
+  bool ambig {false};
+    // Function of allele
+	string gene;
+	int pos_std {0};  
+	size_t frameshift {no_index};
+	  // = position of '*' - pos_real
+	int frameshift_insertion {0};  // redundant ??
+
+	string geneMutation;
+  	// To be reported
+  	// !empty()
+	
+	
+  Mutation (bool prot_arg,
+            string gene_arg,
+            size_t pos,
+            string reference_arg,
+            string allele_arg)
+    : prot (prot_arg)
+    , pos_real (pos)
+    , insertionHasRef (false)
+    , geneMutation_std (  gene_arg 
+                        + delimiter 
+                        + nvl (reference_arg, "ins") 
+                        + to_string (pos) 
+                        + (allele_arg == "*" ? terminatorWord : nvl (allele_arg, "del"))
+                       )
+    , reference (reference_arg)
+    , allele (allele_arg)    
+    , gene (gene_arg)
+    , pos_std ((int) pos)
+    , geneMutation (geneMutation_std)
+    { setAmbig (); }
+	Mutation (bool prot_arg,
+	 				  const string &geneMutation_std_arg,  
+	 				  const string &geneMutation_arg);    
+	  // Requires: pos_std >= 0
+	Mutation (bool prot_arg,
+	          size_t pos_real_arg,
+   				  const string &geneMutation_std_arg,
+   				  const string &geneMutation_arg);
+    // Input: pos_real_arg: 1-based
+	Mutation () = default;
+private:
+	static void parse (const string &geneMutation_std,
+	                   string &reference,
+	                   string &allele,
+                     string &gene,
+                     int &pos_std,
+                     size_t &frameshift,
+                     int &frameshift_insertion);
+  void setAmbig ();
+public:
+  void qc () const override;
+  void saveText (ostream &os) const override
+    { if (empty ())
+        os << "empty";
+      else
+        os        << pos_real + 1 
+           << ' ' << geneMutation 
+           << ' ' << frameshift_insertion; 
+    }
+  bool empty () const override
+    { return geneMutation_std. empty (); }
+  bool operator< (const Mutation &other) const;
+  bool operator== (const Mutation &other) const
+    { return    prot             == other. prot
+             && geneMutation_std == other. geneMutation_std; 
+    }
+
+
+  size_t getStop () const
+    { return pos_real + reference. size (); }
+  bool isTerm () const
+    { return allele == "*"; }
+    // Requires: prot
+  string wildtype () const
+    { return gene + delimiter + nvl (reference, "ins") + to_string (pos_std + 1) + reference; }
+  bool isDeletion () const
+    { return allele. empty (); }
+  bool isInsertion () const
+    { if (insertionHasRef)
+        return    reference. size () == 1
+               && isLeft (allele, reference);
+      return reference. empty ();
+    }
+  bool isFrameshift () const
+    { return difference (reference. size (), allele. size ()) % 3; }
+    // Requires: prot
+  void apply (string &seq) const;
+    // Update: seq
+  int getOffset () const
+    { return pos_std - (int) pos_real; }
+  int getInsertionSize ( ) const
+    { return (int) allele. size () - (int) reference. size (); }
+
+  struct Hash
+  { size_t operator() (const Mutation &mut) const
+      { static hash<string> strHash;
+        return   (size_t) mut. prot
+               ^ strHash (mut. gene) 
+               ^          mut. pos_real
+               ^ strHash (mut. reference) 
+               ^ strHash (mut. allele)
+               ^          mut. frameshift;
+      }
+  };  
+};
+
+
 
 
 // Local alignments

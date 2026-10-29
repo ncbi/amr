@@ -3750,6 +3750,7 @@ const Cds* DnaAnnot::run ()
 
 
 
+#if 0
 // Mutation
 
 Mutation::Mutation (bool prot_arg,
@@ -3808,11 +3809,6 @@ Mutation::Mutation (bool prot_arg,
       frameshift = true;
       allele. clear ();
     }
-  #if 0
-    for (const char c : allele)
-      if (isAmbigAa (c))
-        ambig = true;
-  #endif
   }
   else
   {
@@ -3820,11 +3816,6 @@ Mutation::Mutation (bool prot_arg,
       ref. clear ();
     if (allele == "DEL")
       allele. clear ();
-  #if 0
-    for (const char c : allele)
-      if (isAmbigNucl (c))
-        ambig = true;
-  #endif
   }
   
   setAmbig ();
@@ -3912,6 +3903,231 @@ void Mutation::replace (Dna &refDna) const
   ASSERT (stop () <= refDna. seq. size ());
   ASSERT (refDna. seq. substr (pos, ref. size ()) == ref);
   refDna. seq. replace (pos, ref. size (), allele);
+}
+#endif
+
+
+
+
+// Mutation
+
+Mutation::Mutation (bool prot_arg,
+      		 				  const string &geneMutation_std_arg,
+      		 				  const string &geneMutation_arg)
+: prot (prot_arg)
+, insertionHasRef (true)
+, geneMutation_std (geneMutation_std_arg)
+, geneMutation     (geneMutation_arg)
+{ 
+  // reference, allele
+	parse (geneMutation_std, reference, allele, gene, pos_std, frameshift, frameshift_insertion);
+	if (allele == terminatorWord)
+	  allele = "*";
+	else if (allele == "del")
+	  allele. clear ();
+	  
+//C_ASSERT (pos_std >= 0);
+	pos_real = (size_t) pos_std;  // May be wrong ??
+	  
+  setAmbig ();  
+}
+
+
+
+Mutation::Mutation (bool prot_arg,
+        	          size_t pos_real_arg,
+           				  const string &geneMutation_std_arg,
+           				  const string &geneMutation_arg)
+: Mutation (prot_arg, geneMutation_std_arg, geneMutation_arg)  
+{ 
+  pos_real = pos_real_arg;
+  QC_ASSERT (pos_real > 0);
+  pos_real--;
+}
+
+
+
+void Mutation::parse (const string &geneMutation_std,
+                      string &reference,
+                      string &allele,
+                      string &gene,
+                      int &pos_std,
+                      size_t &frameshift,
+                      int &frameshift_insertion)
+{ 
+  QC_ASSERT (! geneMutation_std. empty ());
+  QC_ASSERT (reference. empty ());
+  QC_ASSERT (allele. empty ());
+  QC_ASSERT (frameshift == no_index);
+  QC_ASSERT (! frameshift_insertion);
+  
+  
+  string pureMutation (geneMutation_std);
+
+  static const string fsInfix ("fsTer");  // ...fsTer<N>{ins|del}<M>
+  const size_t fsInfix_pos = geneMutation_std. find (fsInfix);
+  if (fsInfix_pos != no_index)
+  {
+    pureMutation. erase (fsInfix_pos);
+    string suffix = geneMutation_std. substr (fsInfix_pos + fsInfix. size ());  // <N>{ins|del}<M>
+    size_t indel_pos = suffix. find ("ins");
+    bool ins = true;  // {ins|del}
+    if (indel_pos == string::npos)
+    {
+      indel_pos = suffix. find ("del");
+      ins = false;
+    }
+    QC_ASSERT (indel_pos != string::npos);      
+    frameshift_insertion = str2<int> (suffix. substr (indel_pos + 3));  // <M>
+    if (! ins)
+      frameshift_insertion *= -1;
+    QC_ASSERT (frameshift_insertion % 3);
+    suffix. erase (indel_pos);  // <N>
+    frameshift = str2<size_t> (suffix);
+    QC_ASSERT (frameshift != no_index);
+  }
+
+  enum Type {inAllele, inPos, inRef};
+  Type type = inAllele;
+  string pos_stdS;
+  FOR_REV (size_t, i, pureMutation. size ())
+  {
+    const char c = pureMutation [i];
+    switch (type)
+    {
+      case inAllele:
+        if (isAlpha (c))
+          allele += c;
+        else
+        {
+          pos_stdS = string (1, c);
+          type = inPos;
+        }
+        break;
+      case inPos:
+        if (isAlpha (c))
+        {
+          type = inRef;
+          reference = string (1, c);
+        }
+        else
+          pos_stdS += c;
+        break;
+      case inRef:
+        if (isAlpha (c))
+          reference += c;
+        else
+        {
+          QC_ASSERT (c == '_');
+          QC_ASSERT (i);
+          Common_sp::reverse (allele);
+          Common_sp::reverse (reference);
+          Common_sp::reverse (pos_stdS);
+          gene = pureMutation. substr (0, i);
+          pos_std = stoi (pos_stdS) - 1;
+          return;
+        }
+        break;
+    }
+  }
+  NEVER_CALL;
+}
+
+
+
+void Mutation::setAmbig ()
+{
+  for (const char c : str2lower (allele, ! prot))
+    if (isAmbig (c, prot))
+    {
+      ambig = true;
+      return;
+    }
+}
+
+
+
+void Mutation::qc () const
+{
+  if (! qc_on)
+    return;
+    
+  if (empty ())
+    return;
+    
+  QC_ASSERT (pos_real != no_index);
+	QC_ASSERT (isUpper (reference));
+	QC_ASSERT (isUpper (allele));
+	QC_ASSERT (reference != allele);
+	QC_ASSERT (! contains (reference, '-'));
+	QC_ASSERT (! contains (allele,    '-'));
+	QC_IMPLY (allele == "*", prot);
+	QC_ASSERT (! gene. empty ());
+  QC_ASSERT (goodName (gene));
+	QC_IMPLY (insertionHasRef, ! reference. empty ());  
+	if (frameshift != no_index)
+	{
+	  QC_ASSERT (prot);
+	  QC_ASSERT (reference. size () == 1);
+	  QC_ASSERT (allele.    size () == 1);
+	  QC_ASSERT (pos_std >= 0);
+	}
+	QC_ASSERT ((frameshift == no_index) == (frameshift_insertion == 0));
+	QC_IMPLY (frameshift_insertion, frameshift_insertion % 3);
+	
+	QC_IMPLY (isInsertion (), ! isDeletion ());
+
+  if (prot)
+  {
+    for (const char c : reference)
+      if (c != *terminator && ! strchr (peptideAlphabet, c))
+        throw runtime_error ("Protein mutation cannot have ambiguities in the reference sequence");
+    for (const char c : allele)
+      QC_ASSERT (strchr (extTermPeptideAlphabet, c));
+  }
+  else
+  {
+    for (const char c : reference)
+      if (! strchr (dnaAlphabet, toLower (c)))
+        throw runtime_error ("DNA mutation cannot have ambiguities in the reference sequence");
+    for (const char c : allele)
+      QC_ASSERT (strchr (extDnaAlphabet, toLower (c)));
+  }
+
+  QC_ASSERT (! geneMutation. empty ());
+}
+
+
+
+bool Mutation::operator< (const Mutation &other) const
+{ 
+  LESS_PART (*this, other, prot);
+  LESS_PART (*this, other, gene);
+  LESS_PART (*this, other, pos_real);
+  LESS_PART (*this, other, geneMutation_std);
+  return false;
+}
+
+
+
+void Mutation::apply (string &seq) const
+{ 
+  if (pos_real >= seq. size ())
+    throw runtime_error ("Mutation position " + to_string (pos_real) + " is outside the sequence: " + seq);
+
+  if (frameshift != no_index)
+    throw runtime_error ("Mutation is a frameshift");
+    
+  if (seq. substr (pos_real, reference. size ()) != str2lower (reference, ! prot))
+    throw runtime_error ("Mutation reference sequence does not match sequence: " + str () + "\n" + seq);
+      
+  if (verbose (-1))
+    cerr         << seq. substr (0, pos_real) 
+         << endl << allele 
+         << endl << seq. substr (pos_real + reference. size ())
+         << endl;
+
+  seq = seq. substr (0, pos_real) + str2lower (allele, ! prot) + seq. substr (pos_real + reference. size ());
 }
 
 

@@ -47,159 +47,21 @@ namespace Alignment_sp
 
 // AmrMutation
 
-AmrMutation::AmrMutation (size_t pos_real_arg,
-            		 				  const string &geneMutation_std_arg,
-            		 				  const string &geneMutation_arg,
-                  				const string &class_arg,
-                  				const string &subclass_arg,
-                  				const string &name_arg)
-: pos_real (pos_real_arg)
-, geneMutation_std (geneMutation_std_arg)
-, geneMutation     (geneMutation_arg)
-, classS (class_arg)
-, subclass (subclass_arg)
-, name (name_arg)
-{ 
-  QC_ASSERT (pos_real > 0);
-  pos_real--;
-  QC_ASSERT (! contains (name, '\t'));
-  replace (name, '_', ' ');
-  QC_ASSERT (! contains (name, "  "));
-  
-  // reference, allele
-	parse (geneMutation_std, reference, allele, gene, pos_std, frameshift, frameshift_insertion);
-	if (allele == terminatorWord)
-	  allele = "*";
-	else if (allele == "del")
-	  allele. clear ();
-	  
-	qc ();
-}
-
-
-
-void AmrMutation::parse (const string &geneMutation_std,
-                         string &reference,
-                         string &allele,
-                         string &gene,
-                         int &pos_std,
-                         size_t &frameshift,
-                         int &frameshift_insertion)
-{ 
-  QC_ASSERT (! geneMutation_std. empty ());
-  QC_ASSERT (reference. empty ());
-  QC_ASSERT (allele. empty ());
-  QC_ASSERT (frameshift == no_index);
-  QC_ASSERT (! frameshift_insertion);
-  
-  
-  string pureMutation (geneMutation_std);
-
-  static const string fsInfix ("fsTer");  // ...fsTer<N>{ins|del}<M>
-  const size_t fsInfix_pos = geneMutation_std. find (fsInfix);
-  if (fsInfix_pos != no_index)
-  {
-    pureMutation. erase (fsInfix_pos);
-    string suffix = geneMutation_std. substr (fsInfix_pos + fsInfix. size ());  // <N>{ins|del}<M>
-    size_t indel_pos = suffix. find ("ins");
-    bool ins = true;  // {ins|del}
-    if (indel_pos == string::npos)
-    {
-      indel_pos = suffix. find ("del");
-      ins = false;
-    }
-    QC_ASSERT (indel_pos != string::npos);      
-    frameshift_insertion = str2<int> (suffix. substr (indel_pos + 3));  // <M>
-    if (! ins)
-      frameshift_insertion *= -1;
-    QC_ASSERT (frameshift_insertion % 3);
-    suffix. erase (indel_pos);  // <N>
-    frameshift = str2<size_t> (suffix);
-    QC_ASSERT (frameshift != no_index);
-  }
-
-  enum Type {inAllele, inPos, inRef};
-  Type type = inAllele;
-  string pos_stdS;
-  FOR_REV (size_t, i, pureMutation. size ())
-  {
-    const char c = pureMutation [i];
-    switch (type)
-    {
-      case inAllele:
-        if (isAlpha (c))
-          allele += c;
-        else
-        {
-          pos_stdS = string (1, c);
-          type = inPos;
-        }
-        break;
-      case inPos:
-        if (isAlpha (c))
-        {
-          type = inRef;
-          reference = string (1, c);
-        }
-        else
-          pos_stdS += c;
-        break;
-      case inRef:
-        if (isAlpha (c))
-          reference += c;
-        else
-        {
-          QC_ASSERT (c == '_');
-          QC_ASSERT (i);
-          Common_sp::reverse (allele);
-          Common_sp::reverse (reference);
-          Common_sp::reverse (pos_stdS);
-          gene = pureMutation. substr (0, i);
-          pos_std = stoi (pos_stdS) - 1;
-          return;
-        }
-        break;
-    }
-  }
-  NEVER_CALL;
-}
-
-
-
 void AmrMutation::qc () const
 {
   if (! qc_on)
     return;
     
-  if (empty ())
-    return;
+  Mutation::qc ();
+  QC_ASSERT (! ambig);
     
-  QC_ASSERT (! geneMutation. empty ());
-	QC_ASSERT (isUpper (reference));
-	QC_ASSERT (isUpper (allele));
-	QC_ASSERT (reference != allele);
-	QC_ASSERT (! contains (reference, '-'));
-	QC_ASSERT (! contains (allele,    '-'));
-	QC_ASSERT (! gene. empty ());
-	QC_ASSERT (! reference. empty ());  
-	if (frameshift != no_index)
-	{
-	  QC_ASSERT (reference. size () == 1);
-	  QC_ASSERT (allele.    size () == 1);
-	  QC_ASSERT (pos_std >= 0);
-	}
-	QC_ASSERT ((frameshift == no_index) == (frameshift_insertion == 0));
-	QC_IMPLY (frameshift_insertion, frameshift_insertion % 3);
-}
-
-
-
-bool AmrMutation::operator< (const AmrMutation &other) const
-{ 
-  LESS_PART (*this, other, gene);
-  LESS_PART (*this, other, pos_real);
-  LESS_PART (*this, other, geneMutation_std);
-  return false;
+  QC_ASSERT (! contains (classS, '\t'));
+  QC_ASSERT (! contains (classS, '_'));
+  QC_ASSERT (! contains (subclass, '\t'));
+  QC_ASSERT (! contains (subclass, '_'));
+  QC_ASSERT (! contains (name, '\t'));
+  QC_ASSERT (! contains (name, '_'));
+  QC_ASSERT (! contains (name, "  "));
 }
 
 
@@ -271,7 +133,7 @@ string SeqChange::getMutationStr () const
                           ? allele. empty () 
                             ? "del" 
                             : allele == "*"
-                                ? terminatorWord
+                                ? Mutation::terminatorWord
                                 : allele
                           : allele. empty () 
                             ? "DEL" 

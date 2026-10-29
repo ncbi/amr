@@ -372,35 +372,35 @@ void beep ()
 
 
 
-// Chronometer
+// Chronometer_CPU
 
-bool Chronometer::enabled = false;
+bool Chronometer_CPU::enabled = false;
 
 
 
-void Chronometer::start ()
+void Chronometer_CPU::start ()
 {
   if (! on ())
     return;
   if (started ())
-    throw runtime_error (FUNC "Chronometer \""  + name + "\" is not stopped");
+    throw runtime_error (FUNC "Chronometer_CPU \""  + name + "\" is not stopped");
   startTime = clock ();
 }
 
 
 
-void Chronometer::stop ()
+void Chronometer_CPU::stop ()
 {
   if (! on ())
     return;
   if (! started ())
-    throw runtime_error (FUNC "Chronometer \"" + name + "\" is not started");
+    throw runtime_error (FUNC "Chronometer_CPU \"" + name + "\" is not started");
   time += clock () - startTime;
   startTime = noclock;
 }
 
 
-void Chronometer::print (ostream &os) const
+void Chronometer_CPU::print (ostream &os) const
 {
   if (! on ())
     return;
@@ -417,12 +417,12 @@ void Chronometer::print (ostream &os) const
 
 
 
-// Chronometer_OnePass
+// Chronometer_Wallclock_OnePass
 
-Chronometer_OnePass::Chronometer_OnePass (const string &name_arg,
-                                          ostream &os_arg,
-                                          bool addNewLine_arg,
-                                          bool active_arg)
+Chronometer_Wallclock_OnePass::Chronometer_Wallclock_OnePass (const string &name_arg,
+                                                              ostream &os_arg,
+                                                              bool addNewLine_arg,
+                                                              bool active_arg)
 : name (name_arg)
 , os (os_arg)
 , addNewLine (addNewLine_arg)
@@ -432,7 +432,7 @@ Chronometer_OnePass::Chronometer_OnePass (const string &name_arg,
 
 
 
-Chronometer_OnePass::~Chronometer_OnePass ()
+Chronometer_Wallclock_OnePass::~Chronometer_Wallclock_OnePass ()
 {
   if (! active)
     return;
@@ -1271,6 +1271,19 @@ int_dist add1 (int_dist d)
 
 
 
+int_dist subtract1 (int_dist d)
+{
+  if (d == int_dist_inf)
+    return int_dist_inf;
+
+  QC_ASSERT (d);
+  return d - 1;
+}
+
+
+
+
+//
 
 List<string> str2list (const string &s,
                        char c)
@@ -4310,7 +4323,7 @@ int Application::run (int argc,
 	  	if (getFlag ("noprogress"))
 	  		Progress::disable ();
 	  	if (getFlag ("profile"))
-	  		Chronometer::enabled = true;
+	  		Chronometer_CPU::enabled = true;
 
 	  	seed_global = str2<ulong> (getArg ("seed"));
 	  	if (! seed_global)
@@ -4336,7 +4349,7 @@ int Application::run (int argc,
     	threads_max = str2<size_t> (getArg ("threads"));
     	if (! threads_max)
     		throw runtime_error ("Number of threads cannot be 0");
-    	if (threads_max > 1 && Chronometer::enabled)
+    	if (threads_max > 1 && Chronometer_CPU::enabled)
     		throw runtime_error ("Cannot profile with threads");
     }
 
@@ -4396,7 +4409,7 @@ ShellApplication::~ShellApplication ()
   if (startTime)
   {
     const time_t endTime = time (NULL);
-    const OColor oc (cerr, Chronometer_OnePass::color, false, ! stderr. quiet);
+    const OColor oc (cerr, Chronometer_Wallclock_OnePass::color, false, ! stderr. quiet);
     stderr << programName << " took " << endTime - startTime << " seconds to complete\n";
   }
 }

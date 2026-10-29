@@ -86,7 +86,7 @@ struct ThisApplication final : Application
         string mutation_report;
         iss >> seqId >> pos >> mutation_std >> mutation_report;
         QC_ASSERT (! mutation_report. empty ());
-        AmrMutation mut (pos, mutation_std, mutation_report, "X", "X", "X");
+        AmrMutation mut (aa, pos, mutation_std, mutation_report, "X", "X", "X");
         mut. qc ();
         id2mutation [seqId] << std::move (mut);
       }

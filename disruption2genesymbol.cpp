@@ -144,7 +144,7 @@ struct SymbolRaw final : Root
       if (allele_size > display_max)
         allele_ = "ins";
       if (alleleStop)
-        allele_ += terminatorWord;
+        allele_ += Mutation::terminatorWord;
       ASSERT (! contains (allele_, '*'));
       // Standard gene symbol        
       // 2      
@@ -159,12 +159,12 @@ struct SymbolRaw final : Root
           ASSERT (ref. size () == 1)
           ASSERT (! allele. empty ());
           if (alleleStop && allele_size == 0)            
-            os << terminatorWord;
+            os << Mutation ::terminatorWord;
           else
             os << allele [0];
           os << Disruption::typeNames [type];
           if (alleleStop)
-            os << terminatorWord << allele_size;
+            os << Mutation::terminatorWord << allele_size;
           break;
         case Disruption::eDeletion:  // Or replacement
           if (allele_. empty ())
@@ -237,7 +237,7 @@ struct ThisApplication final : Application
   
   ThisApplication ()
     : Application ("Convert Disruption::genesymbol_raw() to standard gene symbols according to https://hgvs-nomenclature.org/stable/recommendations/protein/frameshift/.\n\
-A stop codon is '" + string (terminatorWord) + "'.\n\
+A stop codon is '" + string (Mutation::terminatorWord) + "'.\n\
 Print: <tab row> where <genesymbol> is inserted before <Disruption::genesymbol_raw()>"
 )
 	  {
