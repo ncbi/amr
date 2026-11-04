@@ -33,6 +33,7 @@
 * Dependencies: NCBI BLAST, HMMer, libcurl, gunzip (optional)
 *
 * Release changes:
+*   4.2.19  11/04/2026 PD-5839  protein insertion <= 50 bp for non-disruption gernes (was: 5000)
 *   4.2.18  10/29/2026 PD-5843  classes and subclasses incorrectly contain underscores instead of spaces in the reports for point mutations
 *   4.2.17  07/24/2026 PD-5745  deredundify --mutation_all output
 *   4.2.16  07/10/2026 PD-5393  subtype POINT overrides subtype POINT_DISRUPT (bug of combo case is fixed)
@@ -51,7 +52,7 @@
 *   4.2.7   01/15/2026 PD-5549  bug when there is an HMM hit with no BLAST hit
 *   4.2.6   12/05/2025          to avoid code=18 error "transfer closed with NNN bytes remaining to read": curl_easy_setopt (eh, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_0) 
 *   4.2.5   12/05/2025 PD-5507  add AMRProt-susceptible.fa to amrfinder_update.cpp
-*   4.2.4   12/02/2025 PD-5495  If set use CURL_CA_BUNDLE environment variable for certificate authorities
+*   4.2.4   12/02/2025 PD-5495  if set use CURL_CA_BUNDLE environment variable for certificate authorities
 *   4.2.3   10/16/2025 PD-5469  QC_ASSERT error messages of amrfinder_update.cpp are made human readable
 *   4.2.2   09/25/2025 PD-5395  cirA_A169AERSPHNFPKATer becomes cirA_A169insTer10, ompK35_N...Y82del becomes ompK35_N82_Y310del
 *   4.2.1   09/24/2025 PD-5445  element symbols and element names are checked not to be "NA" in the report file

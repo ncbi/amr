@@ -5086,7 +5086,8 @@ public:
     { return (sStart () + sStop ()) / 2; }
 
   bool arcable (const Exon &next,
-                bool bacteria) const;
+                bool bacteria,
+                bool brokenGene) const;
     // Return: true => same sInt.strand
 private:
   void setBestIntron (AlignScore intronScore);
@@ -5209,7 +5210,8 @@ void Exon::saveText (ostream &os) const
 
 
 bool Exon::arcable (const Exon &next,
-                    bool bacteria) const   
+                    bool bacteria,
+                    bool brokenGene) const   
 {
   ASSERT (hsp. qseqid == next. hsp. qseqid);
   ASSERT (hsp. sseqid == next. hsp. sseqid);
@@ -5225,7 +5227,13 @@ bool Exon::arcable (const Exon &next,
     return false;
     
   // PAR
-  const size_t intron_max = bacteria ? 5000/*transposon length*/ : 30000;  // nt 
+  const size_t intron_max = bacteria 
+                              ? brokenGene
+                                ? 5000  // transposon length
+                                : 50 
+                              : 30000;  
+    // nt 
+  IMPLY (bacteria && ! brokenGene, intron_max <= Cds::peptideSize_min * 3);
   
   if (hsp. sInt. strand != next. hsp. sInt. strand)
     return false;
@@ -5722,7 +5730,8 @@ void hsp2exons (const Hsp& hsp,
 Hsp::Merge::Merge (const VectorPtr<Hsp> &origHsps_arg,
                    const SubstMat* sm,
                    AlignScore intronScore_arg,
-                   bool bacteria)
+                   bool bacteria,
+                   bool brokenGene)
 : origHsps (origHsps_arg)
 , intronScore (intronScore_arg)
 {
@@ -5747,7 +5756,7 @@ Hsp::Merge::Merge (const VectorPtr<Hsp> &origHsps_arg,
 	  {
       Exon* prev = static_cast <Exon*> (node2);
       ASSERT (prev);
-      if (prev->arcable (*next, bacteria))
+      if (prev->arcable (*next, bacteria, brokenGene))
         new Intron (var_cast (prev), var_cast (next));
     }
 	}

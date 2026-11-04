@@ -1682,7 +1682,7 @@ private:
       als = origAls;
     else
     {
-      Hsp::Merge merge (origHsps, nullptr/*sm*/, 20, true/*bacteria*/);  // PAR
+      Hsp::Merge merge (origHsps, nullptr/*sm*/, 20, true/*bacteria*/, strongSusceptibleProt);  // PAR
       for (;;)
       { 
         const Hsp* origHsp = nullptr;
